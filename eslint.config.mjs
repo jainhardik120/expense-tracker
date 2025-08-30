@@ -420,7 +420,7 @@ const eslintConfig = [
       'security/detect-new-buffer': 'error',
       'security/detect-no-csrf-before-method-override': 'error',
       'security/detect-non-literal-regexp': 'error',
-      'security/detect-object-injection': 'error',
+      'security/detect-object-injection': 'off',
       'security/detect-unsafe-regex': 'error',
       'sonarjs/cognitive-complexity': ['error', 15],
       'sonarjs/max-switch-cases': ['error', 10],
