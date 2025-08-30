@@ -229,6 +229,25 @@ const eslintConfig = [
         },
       ],
 
+      'max-lines': [
+        'error',
+        {
+          max: 300,
+          skipBlankLines: true,
+          skipComments: true,
+        },
+      ],
+
+      'max-lines-per-function': [
+        'error',
+        {
+          max: 80,
+          skipBlankLines: true,
+          skipComments: true,
+          IIFEs: true,
+        },
+      ],
+
       'max-params': [
         'error',
         {
@@ -422,6 +441,11 @@ const eslintConfig = [
       'sonarjs/prefer-immediate-return': 'error',
       'sonarjs/prefer-object-literal': 'error',
       'sonarjs/prefer-single-boolean-return': 'error',
+      'max-nested-callbacks': ['error', 3],
+      'max-statements': ['error', 30],
+      'max-statements-per-line': ['error', { max: 1 }],
+      'no-param-reassign': 'error',
+      'func-style': ['error', 'expression'],
     },
   },
   {
@@ -431,6 +455,9 @@ const eslintConfig = [
       'react/jsx-sort-props': 'off',
       complexity: 'off',
       '@typescript-eslint/naming-convention': 'off',
+      'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true }],
+      'max-statements': 'off',
+      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
     },
   },
   {
@@ -438,6 +465,14 @@ const eslintConfig = [
 
     rules: {
       '@typescript-eslint/naming-convention': 'off',
+    },
+  },
+  {
+    files: ['src/app/**/page.tsx'],
+
+    rules: {
+      'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true }],
+      'max-statements': ['warn', 40],
     },
   },
 ];

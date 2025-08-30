@@ -493,9 +493,10 @@ const SidebarMenuButton = ({
     return button;
   }
 
-  if (typeof tooltip === 'string') {
-    tooltip = {
-      children: tooltip,
+  let alteredTooltip = tooltip;
+  if (typeof alteredTooltip === 'string') {
+    alteredTooltip = {
+      children: alteredTooltip,
     };
   }
 
@@ -506,7 +507,7 @@ const SidebarMenuButton = ({
         side="right"
         align="center"
         hidden={state !== 'collapsed' || isMobile}
-        {...tooltip}
+        {...alteredTooltip}
       />
     </Tooltip>
   );
