@@ -21,16 +21,8 @@ const links = [
     href: '/',
   },
   {
-    label: 'Accounts',
-    href: '/accounts',
-  },
-  {
     label: 'Statements',
     href: '/statements',
-  },
-  {
-    label: 'Friends',
-    href: '/friends',
   },
 ];
 

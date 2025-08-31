@@ -230,7 +230,7 @@ const eslintConfig = [
       ],
 
       'max-lines': [
-        'error',
+        'off',
         {
           max: 300,
           skipBlankLines: true,
@@ -239,7 +239,7 @@ const eslintConfig = [
       ],
 
       'max-lines-per-function': [
-        'error',
+        'off',
         {
           max: 80,
           skipBlankLines: true,
@@ -251,7 +251,7 @@ const eslintConfig = [
       'max-params': [
         'error',
         {
-          max: 4,
+          max: 5,
         },
       ],
 

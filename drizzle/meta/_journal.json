@@ -36,6 +36,41 @@
       "when": 1756470469799,
       "tag": "0004_tricky_bug",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1756640727543,
+      "tag": "0005_red_whiplash",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1756641916438,
+      "tag": "0006_sour_brood",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1756645489997,
+      "tag": "0007_awesome_dexter_bennett",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1756713240200,
+      "tag": "0008_worried_frog_thor",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1756749476113,
+      "tag": "0009_pink_maestro",
+      "breakpoints": true
     }
   ]
 }
