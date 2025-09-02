@@ -23,12 +23,17 @@ export default function Page() {
     [statements, selfTransferStatements],
   );
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex justify-end gap-2">
-        <CreateSelfTransferStatementForm refresh={refetchSelfTransferStatements} />
-        <CreateStatementForm refresh={refetchStatements} />
-      </div>
-      <DataTable columns={columns} data={mergedData} />
-    </div>
+    <DataTable
+      CreateButton={
+        <div className="flex gap-4">
+          <CreateSelfTransferStatementForm refresh={refetchSelfTransferStatements} />
+          <CreateStatementForm refresh={refetchStatements} />
+        </div>
+      }
+      columns={columns}
+      data={mergedData}
+      filterOn="category"
+      name="Statements"
+    />
   );
 }

@@ -51,13 +51,21 @@ export default function Page() {
           <p>Friend Balance: {balanceSummary.friendTotalAmount.toFixed(2)}</p>
           <p>Total Balance: {balanceSummary.totalAmount.toFixed(2)}</p>
         </div>
-        <div className="flex flex-col gap-2">
-          <CreateFriendForm refresh={refetchFriendsData} />
-          <CreateAccountForm refresh={refetchAccountData} />
-        </div>
       </div>
-      <DataTable columns={accountColumns} data={accountsSummaryData} />
-      <DataTable columns={friendColumns} data={friendsSummaryData} />
+      <DataTable
+        CreateButton={<CreateAccountForm refresh={refetchAccountData} />}
+        columns={accountColumns}
+        data={accountsSummaryData}
+        filterOn="accountName"
+        name="Accounts"
+      />
+      <DataTable
+        CreateButton={<CreateFriendForm refresh={refetchFriendsData} />}
+        columns={friendColumns}
+        data={friendsSummaryData}
+        filterOn="name"
+        name="Friends"
+      />
     </div>
   );
 }
