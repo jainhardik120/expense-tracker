@@ -145,6 +145,17 @@ export const createStatementColumns = (
     cell: ({ row }) => <>{getToAccount(row.original) ?? '-'}</>,
   },
   {
+    accessorKey: 'expense',
+    header: 'Expense',
+    cell: ({ row }) => (
+      <>
+        {!isSelfTransfer(row.original) && row.original.statementKind === 'expense'
+          ? (parseFloat(row.original.amount) - row.original.splitAmount).toFixed(2)
+          : '-'}
+      </>
+    ),
+  },
+  {
     accessorKey: 'tags',
     header: 'Tags',
     cell: ({ row }) => (

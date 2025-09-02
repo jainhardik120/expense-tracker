@@ -15,21 +15,34 @@ import { createSelfTransferSchema, createSplitSchema, createStatementSchema } fr
 
 export const statementsRouter = createTRPCRouter({
   getStatements: protectedProcedure.query(async ({ ctx }) => {
+    const splitTotals = ctx.db.$with('split_totals').as(
+      ctx.db
+        .select({
+          statementId: splits.statementId,
+          total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
+        })
+        .from(splits)
+        .groupBy(splits.statementId),
+    );
     return (
       await ctx.db
+        .with(splitTotals)
         .select({
           statements,
           accountName: bankAccount.accountName,
           friendName: friendsProfiles.name,
+          totalSplit: sql<number>`COALESCE(${splitTotals.total}, 0)`.mapWith(Number),
         })
         .from(statements)
         .leftJoin(bankAccount, eq(bankAccount.id, statements.accountId))
         .leftJoin(friendsProfiles, eq(friendsProfiles.id, statements.friendId))
+        .leftJoin(splitTotals, eq(splitTotals.statementId, statements.id))
         .where(eq(statements.userId, ctx.session.user.id))
         .orderBy(desc(statements.createdAt))
     ).map((row) => {
       return {
         ...row.statements,
+        splitAmount: row.totalSplit,
         accountName: row.accountName,
         friendName: row.friendName,
       };
