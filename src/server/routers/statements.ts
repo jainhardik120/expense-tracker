@@ -18,6 +18,7 @@ import {
   type SelfTransferStatement,
   type Statement,
 } from '@/types';
+import { statementsZodSchema } from '@/types/statements';
 
 const getStatementAmountAndSplits = async (
   db: Database,
@@ -111,7 +112,7 @@ const getSelfTransferStatements = async (
 };
 
 export const statementsRouter = createTRPCRouter({
-  getStatements: protectedProcedure.query(async ({ ctx }) => {
+  getStatements: protectedProcedure.input(statementsZodSchema).query(async ({ ctx }) => {
     const statements = await getStatements(ctx.db, ctx.session.user.id);
     const selfTransferStatements = await getSelfTransferStatements(ctx.db, ctx.session.user.id);
     return [...statements, ...selfTransferStatements].sort(

@@ -60,7 +60,7 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
   fromAccount: string | null;
   toAccount: string | null;
 };
-
+export type AllStatements = Statement | SelfTransferStatement;
 export type AccountSummary = {
   account: Account;
   expenses: number;

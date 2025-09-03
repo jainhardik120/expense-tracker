@@ -12,6 +12,7 @@ import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
 import StatementSplits from './StatementSplits';
 
+const SELF_TRANSFER = 'Self Transfer';
 const isSelfTransfer = (
   statement: Statement | SelfTransferStatement,
 ): statement is SelfTransferStatement => {
@@ -102,46 +103,41 @@ export const createStatementColumns = (
   onRefreshStatements: () => void,
 ): ColumnDef<Statement | SelfTransferStatement>[] => [
   {
-    accessorKey: 'createdAt',
+    accessorFn: (row) => new Date(row.createdAt).toLocaleString(),
     header: 'Date',
-    cell: ({ row }) => {
-      const date = row.original.createdAt;
-      return new Date(date).toLocaleString();
-    },
   },
   {
     accessorKey: 'statementKind',
+    accessorFn: (row) =>
+      isSelfTransfer(row) ? SELF_TRANSFER : statementKindMap[row.statementKind],
     header: 'Statement Kind',
-    cell: ({ row }) => (
-      <>
-        {isSelfTransfer(row.original)
-          ? 'Self Transfer'
-          : statementKindMap[row.original.statementKind]}
-      </>
-    ),
-  },
-  {
-    accessorKey: 'amount',
-    header: 'Amount',
-    cell: ({ row }) => {
-      const { amount } = row.original;
-      return parseFloat(amount).toFixed(2);
+    meta: {
+      label: 'Statement Kind',
+      variant: 'multiSelect',
+      options: [...Object.entries(statementKindMap), ['Self Transfer', SELF_TRANSFER]].map(
+        ([_, value]) => ({
+          label: value,
+          value,
+        }),
+      ),
     },
+    enableColumnFilter: true,
   },
   {
-    accessorKey: 'category',
+    accessorFn: (row) => parseFloat(row.amount).toFixed(2),
+    header: 'Amount',
+  },
+  {
+    accessorFn: (row) => (isSelfTransfer(row) ? '-' : row.category),
     header: 'Category',
-    cell: ({ row }) => <>{isSelfTransfer(row.original) ? '-' : row.original.category}</>,
   },
   {
-    accessorKey: 'from',
+    accessorFn: (row) => getFromAccount(row) ?? '-',
     header: 'From',
-    cell: ({ row }) => <>{getFromAccount(row.original) ?? '-'}</>,
   },
   {
-    accessorKey: 'to',
+    accessorFn: (row) => getToAccount(row) ?? '-',
     header: 'To',
-    cell: ({ row }) => <>{getToAccount(row.original) ?? '-'}</>,
   },
   {
     accessorKey: 'expense',
