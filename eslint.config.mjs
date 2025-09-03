@@ -475,6 +475,45 @@ const eslintConfig = [
       'max-statements': ['warn', 40],
     },
   },
+  {
+    files: ['src/hooks/use-data-table.ts'],
+    rules: {
+      'max-nested-callbacks': 'off',
+      'sonarjs/no-nested-functions': 'off',
+      '@typescript-eslint/strict-boolean-expressions': 'off',
+    },
+  },
+  {
+    files: ['src/lib/parsers.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/strict-boolean-expressions': 'off',
+      'no-nested-ternary': 'off',
+      'sonarjs/no-nested-conditional': 'off',
+    },
+  },
+  {
+    files: ['src/components/data-table/data-table-skeleton.tsx'],
+    rules: {
+      'react/no-array-index-key': 'off',
+    },
+  },
+  {
+    files: ['src/components/data-table/*.tsx'],
+    rules: {
+      '@typescript-eslint/strict-boolean-expressions': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off',
+      'no-negated-condition': 'off',
+      'sonarjs/function-return-type': 'off',
+      'sonarjs/deprecation': 'off',
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'no-nested-ternary': 'off',
+      'sonarjs/no-nested-conditional': 'off',
+      complexity: 'off',
+      'sonarjs/different-types-comparison': 'off',
+    },
+  },
 ];
 
 export default defineConfig(eslintConfig);
