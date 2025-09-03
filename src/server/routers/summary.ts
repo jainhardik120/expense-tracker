@@ -1,4 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
+import { unionAll } from 'drizzle-orm/pg-core';
 
 import {
   bankAccount,
@@ -96,26 +97,29 @@ export const summaryRouter = createTRPCRouter({
         ),
       )
       .groupBy(statements.accountId);
-    const selfTransfers = (
-      await ctx.db.execute<{ accountId: string; amount: string }>(sql`
-      SELECT account_id AS "accountId", SUM(amount) AS amount
-      FROM (
-        SELECT "from_account_id" AS account_id, -amount AS amount
-        FROM ${selfTransferStatements}
-        WHERE user_id = ${ctx.session.user.id}
-        UNION ALL
-        SELECT "to_account_id" AS account_id, amount AS amount
-        FROM ${selfTransferStatements}
-        WHERE user_id = ${ctx.session.user.id}
-      ) movements
-      GROUP BY account_id
-    `)
-    ).rows.map((row) => {
-      return {
-        ...row,
-        amount: parseFloat(row.amount),
-      };
-    });
+    const unionQuery = unionAll(
+      ctx.db
+        .select({
+          accountId: selfTransferStatements.toAccountId,
+          amount: sql<number>`${selfTransferStatements.amount}`.mapWith(Number).as('amount'),
+        })
+        .from(selfTransferStatements)
+        .where(eq(selfTransferStatements.userId, ctx.session.user.id)),
+      ctx.db
+        .select({
+          accountId: selfTransferStatements.fromAccountId,
+          amount: sql<number>`-${selfTransferStatements.amount}`.mapWith(Number).as('amount'),
+        })
+        .from(selfTransferStatements)
+        .where(eq(selfTransferStatements.userId, ctx.session.user.id)),
+    ).as('union_query');
+    const selfTransfers = await ctx.db
+      .select({
+        accountId: unionQuery.accountId,
+        amount: sql<number>`COALESCE(SUM(${unionQuery.amount}), 0)`.mapWith(Number),
+      })
+      .from(unionQuery)
+      .groupBy(unionQuery.accountId);
     return getAccountSummary(
       accounts,
       expenses,

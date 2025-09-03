@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { type RouterOutput } from '@/server/routers';
+import {
+  type bankAccount,
+  type friendsProfiles,
+  type selfTransferStatements,
+  statementKindEnum,
+  type statements,
+} from '@/db/schema';
 
 export const statementKindMap = {
   expense: 'Expense',
@@ -23,7 +29,7 @@ export const createStatementSchema = z.object({
   tags: z.string().array(),
   accountId: z.string().optional(),
   friendId: z.string().optional(),
-  statementKind: z.enum(['expense', 'outside_transaction', 'friend_transaction']),
+  statementKind: z.enum(statementKindEnum.enumValues),
   createdAt: z.date(),
 });
 
@@ -43,25 +49,17 @@ export const createSelfTransferSchema = z.object({
   createdAt: z.date(),
 });
 
-export type Account = {
-  id: string;
-  userId: string;
-  startingBalance: string;
-  accountName: string;
-  createdAt: Date | null;
-  updatedAt: Date | null;
+export type Account = typeof bankAccount.$inferSelect;
+export type Friend = typeof friendsProfiles.$inferSelect;
+export type Statement = typeof statements.$inferSelect & {
+  splitAmount: number;
+  accountName: string | null;
+  friendName: string | null;
 };
-
-export type Friend = {
-  id: string;
-  userId: string;
-  name: string;
-  createdAt: Date | null;
-  updatedAt: Date | null;
+export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect & {
+  fromAccount: string | null;
+  toAccount: string | null;
 };
-
-export type Statement = RouterOutput['statements']['getStatements'][number];
-export type SelfTransferStatement = RouterOutput['statements']['getSelfTransferStatements'][number];
 
 export type AccountSummary = {
   account: Account;

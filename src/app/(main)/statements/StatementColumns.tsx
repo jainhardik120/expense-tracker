@@ -100,7 +100,6 @@ const SelfTransferStatementActions = ({
 
 export const createStatementColumns = (
   onRefreshStatements: () => void,
-  onRefreshSelfTransferStatements: () => void,
 ): ColumnDef<Statement | SelfTransferStatement>[] => [
   {
     accessorKey: 'createdAt',
@@ -135,12 +134,12 @@ export const createStatementColumns = (
     cell: ({ row }) => <>{isSelfTransfer(row.original) ? '-' : row.original.category}</>,
   },
   {
-    accessorKey: 'accountName',
+    accessorKey: 'from',
     header: 'From',
     cell: ({ row }) => <>{getFromAccount(row.original) ?? '-'}</>,
   },
   {
-    accessorKey: 'friendName',
+    accessorKey: 'to',
     header: 'To',
     cell: ({ row }) => <>{getToAccount(row.original) ?? '-'}</>,
   },
@@ -183,7 +182,7 @@ export const createStatementColumns = (
           {isSelfTransfer(row.original) ? (
             <SelfTransferStatementActions
               statement={row.original}
-              onRefresh={onRefreshSelfTransferStatements}
+              onRefresh={onRefreshStatements}
             />
           ) : (
             <StatementActions statement={row.original} onRefresh={onRefreshStatements} />
