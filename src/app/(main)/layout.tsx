@@ -3,6 +3,8 @@ import ThemeToggle from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
+import UserButton from './UserButton';
+
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <SidebarProvider>
@@ -13,7 +15,10 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
           <Separator className="mr-2 data-[orientation=vertical]:h-4" orientation="vertical" />
           <div className="flex w-full items-center justify-between gap-2">
             <h1 className="text-lg font-bold">Expense Tracker</h1>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <UserButton />
+            </div>
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
