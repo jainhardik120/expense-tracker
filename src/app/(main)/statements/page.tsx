@@ -1,28 +1,36 @@
-'use client';
+/* eslint-disable @typescript-eslint/require-await */
+import { Suspense } from 'react';
 
-import DataTable from '@/components/ui/data-table';
-import { api } from '@/server/react';
+import { type SearchParams } from 'nuqs';
+
+import { api } from '@/server/server';
+import { statementsSearchParamsCache } from '@/types/statements';
 
 import { CreateSelfTransferStatementForm } from './SelfTransferStatementForms';
-import { createStatementColumns } from './StatementColumns';
 import { CreateStatementForm } from './StatementForms';
+import StatementsTable from './StatementsTable';
 
-export default function Page() {
-  const { data: statements = [], refetch: refetchStatements } =
-    api.statements.getStatements.useQuery();
-  const columns = createStatementColumns(refetchStatements);
+export default async function Page(props: Readonly<{ searchParams: Promise<SearchParams> }>) {
+  const searchParams = await props.searchParams;
+  const search = statementsSearchParamsCache.parse(searchParams);
+  const promises = Promise.all([api.statements.getStatements(search)]);
   return (
-    <DataTable
-      CreateButton={
-        <div className="flex gap-4">
-          <CreateSelfTransferStatementForm refresh={refetchStatements} />
-          <CreateStatementForm refresh={refetchStatements} />
-        </div>
-      }
-      columns={columns}
-      data={statements}
-      filterOn="statementKind"
-      name="Statements"
-    />
+    <div className="space-y-2">
+      <div className="flex justify-end gap-2">
+        <CreateSelfTransferStatementForm
+          refresh={async () => {
+            'use server';
+          }}
+        />
+        <CreateStatementForm
+          refresh={async () => {
+            'use server';
+          }}
+        />
+      </div>
+      <Suspense fallback={<div>Loading...</div>}>
+        <StatementsTable promises={promises} />
+      </Suspense>
+    </div>
   );
 }
