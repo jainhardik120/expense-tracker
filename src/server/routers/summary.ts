@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import { unionAll } from 'drizzle-orm/pg-core';
 
 import {
@@ -8,125 +8,155 @@ import {
   splits,
   statements,
 } from '@/db/schema';
+import { type Database } from '@/lib/db';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import type { Account, AccountSummary, friendSummary } from '@/types';
+import type { AccountSummary, friendSummary } from '@/types';
 
-type AccountAggregationResult = {
-  accountId: string | null;
-  amount: number;
+const getSelfTransferAmount = (db: Database, userId: string, start?: Date, end?: Date) => {
+  const conditions = [eq(selfTransferStatements.userId, userId)];
+  if (start !== undefined) {
+    conditions.push(gte(selfTransferStatements.createdAt, start));
+  }
+  if (end !== undefined) {
+    conditions.push(lt(selfTransferStatements.createdAt, end));
+  }
+  const unionQuery = unionAll(
+    db
+      .select({
+        accountId: selfTransferStatements.toAccountId,
+        amount: sql<number>`${selfTransferStatements.amount}`.mapWith(Number).as('amount'),
+      })
+      .from(selfTransferStatements)
+      .where(and(...conditions)),
+    db
+      .select({
+        accountId: selfTransferStatements.fromAccountId,
+        amount: sql<number>`-${selfTransferStatements.amount}`.mapWith(Number).as('amount'),
+      })
+      .from(selfTransferStatements)
+      .where(and(...conditions)),
+  ).as('union_query');
+  return db
+    .select({
+      accountId: unionQuery.accountId,
+      amount: sql<number>`COALESCE(SUM(${unionQuery.amount}), 0)`.mapWith(Number),
+    })
+    .from(unionQuery)
+    .groupBy(unionQuery.accountId);
 };
 
-const getAccountSummary = (
-  accounts: Account[],
-  expenses: AccountAggregationResult[],
-  outsideTransactions: AccountAggregationResult[],
-  friendTransactions: AccountAggregationResult[],
-  selfTransfers: AccountAggregationResult[],
+const getTransfersSummary = async (
+  db: Database,
+  accounts: string[],
+  userId: string,
+  start?: Date,
+  end?: Date,
 ) => {
-  const accountSummary: AccountSummary[] = [];
-  for (const account of accounts) {
-    const accountExpenses = expenses.find((exp) => exp.accountId === account.id);
-    const accountOutsideTransactions = outsideTransactions.find(
-      (exp) => exp.accountId === account.id,
-    );
-    const friendTransaction = friendTransactions.find((exp) => exp.accountId === account.id);
-    const selfTransfer = selfTransfers.find((exp) => exp.accountId === account.id);
-    accountSummary.push({
-      account: account,
-      expenses: accountExpenses?.amount ?? 0,
-      selfTransfers: selfTransfer?.amount ?? 0,
-      outsideTransactions: accountOutsideTransactions?.amount ?? 0,
-      friendTransactions: friendTransaction?.amount ?? 0,
-      finalAmount: 0,
-    });
+  const conditions = [eq(statements.userId, userId)];
+  if (start !== undefined) {
+    conditions.push(gte(statements.createdAt, start));
   }
-  return accountSummary.map((summary) => {
-    const finalAmount =
-      parseFloat(summary.account.startingBalance) -
-      summary.expenses +
-      summary.selfTransfers +
-      summary.outsideTransactions +
-      summary.friendTransactions;
+  if (end !== undefined) {
+    conditions.push(lt(statements.createdAt, end));
+  }
+  const expenses = await db
+    .select({
+      accountId: statements.accountId,
+      amount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
+      kind: statements.statementKind,
+    })
+    .from(statements)
+    .where(and(...conditions))
+    .groupBy(statements.accountId, statements.statementKind);
+  const selfTransfers = await getSelfTransferAmount(db, userId);
+  return accounts.map((id) => {
+    const expense =
+      expenses.find((exp) => exp.accountId === id && exp.kind === 'expense')?.amount ?? 0;
+    const selfTransfer = selfTransfers.find((exp) => exp.accountId === id)?.amount ?? 0;
+    const outsideTransaction =
+      expenses.find((exp) => exp.accountId === id && exp.kind === 'outside_transaction')?.amount ??
+      0;
+    const friendTransaction =
+      expenses.find((exp) => exp.accountId === id && exp.kind === 'friend_transaction')?.amount ??
+      0;
     return {
-      ...summary,
-      finalAmount,
+      accountId: id,
+      expenses: expense,
+      selfTransfers: selfTransfer,
+      outsideTransactions: outsideTransaction,
+      friendTransactions: friendTransaction,
+      totalTransfers: selfTransfer + outsideTransaction + friendTransaction - expense,
+    };
+  });
+};
+
+const getAccountsSummaryBetweenDates = async (
+  db: Database,
+  userId: string,
+  start?: Date,
+  end?: Date,
+) => {
+  const accounts = await db
+    .select()
+    .from(bankAccount)
+    .where(eq(bankAccount.userId, userId))
+    .orderBy(bankAccount.accountName);
+  let initBalances: {
+    accountId: string;
+    startingBalance: number;
+  }[] = accounts.map((account) => {
+    return {
+      accountId: account.id,
+      startingBalance: parseFloat(account.startingBalance),
+    };
+  });
+  if (start !== undefined) {
+    const startingBalances = await getTransfersSummary(
+      db,
+      accounts.map((account) => account.id),
+      userId,
+      undefined,
+      start,
+    );
+    const newBalances = initBalances.map((account) => {
+      const transfers =
+        startingBalances.find((transfer) => transfer.accountId === account.accountId)
+          ?.totalTransfers ?? 0;
+      return {
+        ...account,
+        startingBalance: account.startingBalance + transfers,
+      };
+    });
+    initBalances = newBalances;
+  }
+  const getFinalBalances = await getTransfersSummary(
+    db,
+    accounts.map((account) => account.id),
+    userId,
+    start,
+    end,
+  );
+  return accounts.map<AccountSummary>((account) => {
+    const initBalance =
+      initBalances.find((init) => init.accountId === account.id)?.startingBalance ?? 0;
+    const accountSummary = getFinalBalances.find((summary) => summary.accountId === account.id) ?? {
+      expenses: 0,
+      selfTransfers: 0,
+      outsideTransactions: 0,
+      friendTransactions: 0,
+      totalTransfers: 0,
+    };
+    return {
+      account: account,
+      ...accountSummary,
+      finalAmount: initBalance + accountSummary.totalTransfers,
     };
   });
 };
 
 export const summaryRouter = createTRPCRouter({
   getAccountBalanceSummary: protectedProcedure.query(async ({ ctx }) => {
-    const accounts = await ctx.db
-      .select()
-      .from(bankAccount)
-      .where(eq(bankAccount.userId, ctx.session.user.id))
-      .orderBy(bankAccount.accountName);
-    const expenses = await ctx.db
-      .select({
-        accountId: statements.accountId,
-        amount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
-      })
-      .from(statements)
-      .where(
-        and(eq(statements.userId, ctx.session.user.id), eq(statements.statementKind, 'expense')),
-      )
-      .groupBy(statements.accountId);
-    const outsideTransactions = await ctx.db
-      .select({
-        accountId: statements.accountId,
-        amount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
-      })
-      .from(statements)
-      .where(
-        and(
-          eq(statements.userId, ctx.session.user.id),
-          eq(statements.statementKind, 'outside_transaction'),
-        ),
-      )
-      .groupBy(statements.accountId);
-    const friendTransactions = await ctx.db
-      .select({
-        accountId: statements.accountId,
-        amount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
-      })
-      .from(statements)
-      .where(
-        and(
-          eq(statements.userId, ctx.session.user.id),
-          eq(statements.statementKind, 'friend_transaction'),
-        ),
-      )
-      .groupBy(statements.accountId);
-    const unionQuery = unionAll(
-      ctx.db
-        .select({
-          accountId: selfTransferStatements.toAccountId,
-          amount: sql<number>`${selfTransferStatements.amount}`.mapWith(Number).as('amount'),
-        })
-        .from(selfTransferStatements)
-        .where(eq(selfTransferStatements.userId, ctx.session.user.id)),
-      ctx.db
-        .select({
-          accountId: selfTransferStatements.fromAccountId,
-          amount: sql<number>`-${selfTransferStatements.amount}`.mapWith(Number).as('amount'),
-        })
-        .from(selfTransferStatements)
-        .where(eq(selfTransferStatements.userId, ctx.session.user.id)),
-    ).as('union_query');
-    const selfTransfers = await ctx.db
-      .select({
-        accountId: unionQuery.accountId,
-        amount: sql<number>`COALESCE(SUM(${unionQuery.amount}), 0)`.mapWith(Number),
-      })
-      .from(unionQuery)
-      .groupBy(unionQuery.accountId);
-    return getAccountSummary(
-      accounts,
-      expenses,
-      outsideTransactions,
-      friendTransactions,
-      selfTransfers,
-    );
+    return getAccountsSummaryBetweenDates(ctx.db, ctx.session.user.id);
   }),
   getFriendsBalanceSummary: protectedProcedure.query(async ({ ctx }) => {
     const friends = await ctx.db
