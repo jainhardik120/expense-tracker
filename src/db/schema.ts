@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 import {
   pgTable,
   text,
@@ -8,6 +8,7 @@ import {
   pgEnum,
   uuid,
   check,
+  index,
 } from 'drizzle-orm/pg-core';
 
 // Auth Schema
@@ -72,6 +73,7 @@ export const statementKindEnum = pgEnum('statement_kinds', [
   'expense',
   'outside_transaction',
   'friend_transaction',
+  'self_transfer',
 ]);
 
 export const bankAccount = pgTable('bank_account', {
@@ -138,25 +140,30 @@ export const statements = pgTable(
       (${table.friendId} IS NULL)
     `,
     ),
+    index('statements_created_at_idx').on(desc(table.createdAt)),
   ],
 );
 
-export const selfTransferStatements = pgTable('self_transfer_statements', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  fromAccountId: uuid('from_account_id')
-    .notNull()
-    .references(() => bankAccount.id, { onDelete: 'no action' }),
-  toAccountId: uuid('to_account_id')
-    .notNull()
-    .references(() => bankAccount.id, { onDelete: 'no action' }),
-  amount: numeric('amount').notNull(),
-  createdAt: timestamp('created_at')
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
+export const selfTransferStatements = pgTable(
+  'self_transfer_statements',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    fromAccountId: uuid('from_account_id')
+      .notNull()
+      .references(() => bankAccount.id, { onDelete: 'no action' }),
+    toAccountId: uuid('to_account_id')
+      .notNull()
+      .references(() => bankAccount.id, { onDelete: 'no action' }),
+    amount: numeric('amount').notNull(),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [index('self_transfer_statements_created_at_idx').on(desc(table.createdAt))],
+);
 
 export const splits = pgTable('splits', {
   id: uuid('id').defaultRandom().primaryKey(),

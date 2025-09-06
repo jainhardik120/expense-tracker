@@ -2,21 +2,18 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { selfTransferStatements, splits, statements } from '@/db/schema';
-import {
-  getStatements,
-  getSelfTransferStatements,
-  getStatementAmountAndSplits,
-} from '@/server/helpers/statements';
+import { getMergedStatements, getStatementAmountAndSplits } from '@/server/helpers/statements';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createSelfTransferSchema, createSplitSchema, createStatementSchema } from '@/types';
+import {
+  createSelfTransferSchema,
+  createSplitSchema,
+  createStatementSchema,
+  statementParserSchema,
+} from '@/types';
 
 export const statementsRouter = createTRPCRouter({
-  getStatements: protectedProcedure.query(async ({ ctx }) => {
-    const statements = await getStatements(ctx.db, ctx.session.user.id);
-    const selfTransferStatements = await getSelfTransferStatements(ctx.db, ctx.session.user.id);
-    return [...statements, ...selfTransferStatements].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+  getStatements: protectedProcedure.input(statementParserSchema).query(async ({ ctx, input }) => {
+    return getMergedStatements(ctx.db, ctx.session.user.id, input);
   }),
   addStatement: protectedProcedure.input(createStatementSchema).mutation(({ ctx, input }) => {
     return ctx.db

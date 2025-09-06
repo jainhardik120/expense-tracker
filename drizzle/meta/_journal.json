@@ -78,6 +78,27 @@
       "when": 1757095813259,
       "tag": "0010_gray_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1757164832498,
+      "tag": "0011_fat_pride",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1757164889948,
+      "tag": "0012_last_dark_phoenix",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1757169378305,
+      "tag": "0013_giant_sleepwalker",
+      "breakpoints": true
     }
   ]
 }

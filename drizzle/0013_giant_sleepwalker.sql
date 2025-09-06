@@ -1,0 +1,1 @@
+ALTER TYPE "public"."statement_kinds" ADD VALUE 'self_transfer';

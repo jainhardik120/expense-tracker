@@ -475,13 +475,13 @@ export const processAggregatedData = ({
   friendsSummary: { friend: Friend; startingBalance: number }[];
   statementData: {
     accountId: string | null;
-    statementKind: 'expense' | 'outside_transaction' | 'friend_transaction';
+    statementKind: 'expense' | 'outside_transaction' | 'friend_transaction' | 'self_transfer';
     totalAmount: number;
     periodStart: Date;
   }[];
   friendsData: {
     friendId: string | null;
-    statementKind: 'expense' | 'outside_transaction' | 'friend_transaction';
+    statementKind: 'expense' | 'outside_transaction' | 'friend_transaction' | 'self_transfer';
     totalAmount: number;
     periodStart: Date;
   }[];

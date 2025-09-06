@@ -1,4 +1,4 @@
-import { parseAsStringEnum, parseAsTimestamp } from 'nuqs/server';
+import { parseAsInteger, parseAsStringEnum, parseAsTimestamp } from 'nuqs/server';
 import { z } from 'zod';
 
 import {
@@ -13,6 +13,7 @@ export const statementKindMap = {
   expense: 'Expense',
   outside_transaction: 'Outside Transaction',
   friend_transaction: 'Friend Transaction',
+  self_transfer: 'Self Transfer',
 };
 
 const amount = z.string().refine((val) => !Number.isNaN(parseInt(val, 10)), {
@@ -158,3 +159,17 @@ export const aggregationParser = {
   start: parseAsTimestamp.withDefault(new Date(Date.now() - MONTHS)),
   end: parseAsTimestamp.withDefault(new Date()),
 };
+
+export const statementParser = {
+  start: parseAsTimestamp.withDefault(new Date(Date.now() - MONTHS)),
+  end: parseAsTimestamp.withDefault(new Date()),
+  page: parseAsInteger.withDefault(1),
+  pageSize: parseAsInteger.withDefault(10),
+};
+
+export const statementParserSchema = z.object({
+  start: z.date().optional(),
+  end: z.date().optional(),
+  page: z.number().optional().default(1),
+  pageSize: z.number().optional().default(10),
+});

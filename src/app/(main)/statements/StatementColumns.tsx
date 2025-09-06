@@ -29,6 +29,8 @@ const getFromAccount = (statement: Statement | SelfTransferStatement): string | 
       return parseFloat(statement.amount) < 0 ? statement.accountName : statement.friendName;
     case 'outside_transaction':
       return parseFloat(statement.amount) < 0 ? statement.accountName : null;
+    case 'self_transfer':
+      return null;
     default:
       return null;
   }
@@ -45,6 +47,8 @@ const getToAccount = (statement: Statement | SelfTransferStatement): string | nu
       return parseFloat(statement.amount) < 0 ? statement.friendName : statement.accountName;
     case 'outside_transaction':
       return parseFloat(statement.amount) < 0 ? null : statement.accountName;
+    case 'self_transfer':
+      return null;
     default:
       return null;
   }
