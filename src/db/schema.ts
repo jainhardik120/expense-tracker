@@ -82,7 +82,6 @@ export const bankAccount = pgTable('bank_account', {
   startingBalance: numeric('starting_balance').notNull(),
   accountName: text('account_name').notNull(),
   createdAt: timestamp('created_at').$defaultFn(() => new Date()),
-  updatedAt: timestamp('updated_at').$defaultFn(() => new Date()),
 });
 
 export const friendsProfiles = pgTable('friends_profiles', {
@@ -92,7 +91,6 @@ export const friendsProfiles = pgTable('friends_profiles', {
     .references(() => user.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   createdAt: timestamp('created_at').$defaultFn(() => new Date()),
-  updatedAt: timestamp('updated_at').$defaultFn(() => new Date()),
 });
 
 export const statements = pgTable(
@@ -112,9 +110,6 @@ export const statements = pgTable(
       .default(sql`'{}'::text[]`),
     statementKind: statementKindEnum().notNull().default('expense'),
     createdAt: timestamp('created_at')
-      .notNull()
-      .$defaultFn(() => new Date()),
-    updatedAt: timestamp('updated_at')
       .notNull()
       .$defaultFn(() => new Date()),
   },
@@ -161,9 +156,6 @@ export const selfTransferStatements = pgTable('self_transfer_statements', {
   createdAt: timestamp('created_at')
     .notNull()
     .$defaultFn(() => new Date()),
-  updatedAt: timestamp('updated_at')
-    .notNull()
-    .$defaultFn(() => new Date()),
 });
 
 export const splits = pgTable('splits', {
@@ -181,9 +173,6 @@ export const splits = pgTable('splits', {
       onDelete: 'no action',
     }),
   createdAt: timestamp('created_at')
-    .notNull()
-    .$defaultFn(() => new Date()),
-  updatedAt: timestamp('updated_at')
     .notNull()
     .$defaultFn(() => new Date()),
 });

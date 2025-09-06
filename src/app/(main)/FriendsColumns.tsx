@@ -5,11 +5,11 @@ import { type ColumnDef } from '@tanstack/react-table';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
-import { type friendSummary } from '@/types';
+import { type FriendSummary } from '@/types';
 
 import { UpdateFriendForm } from './FriendsForms';
 
-export const createFriendsColumns = (onRefresh: () => void): ColumnDef<friendSummary>[] => [
+export const createFriendsColumns = (onRefresh: () => void): ColumnDef<FriendSummary>[] => [
   {
     accessorKey: 'name',
     header: 'Name',
@@ -33,7 +33,7 @@ export const createFriendsColumns = (onRefresh: () => void): ColumnDef<friendSum
   {
     accessorKey: 'currentBalance',
     header: 'Current Balance',
-    cell: ({ row }) => row.original.currentBalance.toFixed(2),
+    cell: ({ row }) => row.original.totalTransfers.toFixed(2),
   },
   {
     accessorKey: 'actions',

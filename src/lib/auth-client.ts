@@ -1,6 +1,6 @@
 import { createAuthClient } from 'better-auth/react';
 
-import { getBaseUrl } from './getBaseUrl';
+import { getBaseUrl } from '@/lib/getBaseUrl';
 
 export const authClient = createAuthClient({
   baseURL: getBaseUrl(),

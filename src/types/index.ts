@@ -49,6 +49,7 @@ export const createSelfTransferSchema = z.object({
   createdAt: z.date(),
 });
 
+export type StatementKind = (typeof statementKindEnum.enumValues)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
 export type Statement = typeof statements.$inferSelect & {
@@ -61,19 +62,72 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
   toAccount: string | null;
 };
 
-export type AccountSummary = {
-  account: Account;
+export type AccountTransferSummary = {
   expenses: number;
   selfTransfers: number;
   outsideTransactions: number;
   friendTransactions: number;
-  finalAmount: number;
+  totalTransfers: number;
 };
 
-export type friendSummary = {
-  friend: Friend;
-  currentBalance: number;
+export type AggregatedAccountTransferSummary = {
+  startingBalance: number;
+  finalBalance: number;
+} & AccountTransferSummary;
+
+export type AccountSummary = {
+  account: Account;
+} & AggregatedAccountTransferSummary;
+
+export const defaultAccountSummary: AggregatedAccountTransferSummary = {
+  startingBalance: 0,
+  expenses: 0,
+  selfTransfers: 0,
+  outsideTransactions: 0,
+  friendTransactions: 0,
+  totalTransfers: 0,
+  finalBalance: 0,
+};
+
+export type FriendTransferSummary = {
   paidByFriend: number;
   splits: number;
   friendTransactions: number;
+  totalTransfers: number;
 };
+
+export type AggregatedFriendTransferSummary = {
+  startingBalance: number;
+  finalBalance: number;
+} & FriendTransferSummary;
+
+export const defaultFriendSummary: AggregatedFriendTransferSummary = {
+  startingBalance: 0,
+  paidByFriend: 0,
+  splits: 0,
+  friendTransactions: 0,
+  totalTransfers: 0,
+  finalBalance: 0,
+};
+
+export type FriendSummary = {
+  friend: Friend;
+} & AggregatedFriendTransferSummary;
+
+export const DateTruncEnum = z.enum([
+  'microseconds',
+  'milliseconds',
+  'second',
+  'minute',
+  'hour',
+  'day',
+  'week',
+  'month',
+  'quarter',
+  'year',
+  'decade',
+  'century',
+  'millennium',
+]);
+
+export type DateTruncUnit = z.infer<typeof DateTruncEnum>;

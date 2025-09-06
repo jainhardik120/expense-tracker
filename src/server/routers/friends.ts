@@ -2,16 +2,13 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { friendsProfiles } from '@/db/schema';
+import { getFriends } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createFriendSchema } from '@/types';
 
 export const friendsRouter = createTRPCRouter({
   getFriends: protectedProcedure.query(({ ctx }) => {
-    return ctx.db
-      .select()
-      .from(friendsProfiles)
-      .where(eq(friendsProfiles.userId, ctx.session.user.id))
-      .orderBy(friendsProfiles.name);
+    return getFriends(ctx.db, ctx.session.user.id);
   }),
   createFriend: protectedProcedure.input(createFriendSchema).mutation(({ ctx, input }) => {
     return ctx.db

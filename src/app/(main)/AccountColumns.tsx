@@ -45,7 +45,7 @@ export const createAccountColumns = (onRefresh: () => void): ColumnDef<AccountSu
     {
       accessorKey: 'finalAmount',
       header: 'Current Balance',
-      cell: ({ row }) => row.original.finalAmount.toFixed(2),
+      cell: ({ row }) => row.original.totalTransfers.toFixed(2),
     },
     {
       accessorKey: 'actions',
