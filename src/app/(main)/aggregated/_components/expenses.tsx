@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { formatTruncatedDate } from '@/lib/date';
 import type { DateTruncUnit } from '@/types';
 
-export const Expenses = ({
+const Expenses = ({
   data,
   unit,
 }: {
@@ -39,3 +39,5 @@ export const Expenses = ({
     </CardContent>
   </Card>
 );
+
+export default Expenses;

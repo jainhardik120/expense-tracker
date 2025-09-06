@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ChevronDownIcon } from 'lucide-react';
 
@@ -8,11 +8,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 
 const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
   const [open, setOpen] = useState(false);
+  const [dateString, setDateString] = useState('');
+  useEffect(() => {
+    setDateString(props.date.toLocaleDateString());
+  }, [props.date]);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button className="w-32 justify-between font-normal" variant="outline">
-          {props.date.toLocaleDateString()}
+          {dateString}
           <ChevronDownIcon />
         </Button>
       </PopoverTrigger>

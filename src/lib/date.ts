@@ -7,10 +7,8 @@ const truncFormatMap: Record<DateTruncUnit, string> = {
   minute: 'yyyy-MM-dd HH:mm',
   hour: 'yyyy-MM-dd HH:00',
   day: 'yyyy-MM-dd',
-  // eslint-disable-next-line quotes
   week: "yyyy-'W'II",
   month: 'yyyy-MM',
-  // eslint-disable-next-line quotes
   quarter: "yyyy-'Q'q",
   year: 'yyyy',
 };
