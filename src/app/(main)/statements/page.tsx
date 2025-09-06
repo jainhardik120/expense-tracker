@@ -14,12 +14,7 @@ import { CreateStatementForm } from './StatementForms';
 export default function Page() {
   const [params] = useQueryStates(statementParser);
   const { data: statements = [], refetch: refetchStatements } =
-    api.statements.getStatements.useQuery({
-      start: params.start,
-      end: params.end,
-      page: params.page,
-      pageSize: params.pageSize,
-    });
+    api.statements.getStatements.useQuery(params);
   const columns = createStatementColumns(refetchStatements);
   return (
     <div className="flex flex-col gap-4">

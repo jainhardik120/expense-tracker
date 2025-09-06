@@ -1,4 +1,10 @@
-import { parseAsInteger, parseAsStringEnum, parseAsTimestamp } from 'nuqs/server';
+import {
+  parseAsArrayOf,
+  parseAsInteger,
+  parseAsString,
+  parseAsStringEnum,
+  parseAsTimestamp,
+} from 'nuqs/server';
 import { z } from 'zod';
 
 import {
@@ -165,6 +171,7 @@ export const statementParser = {
   end: parseAsTimestamp.withDefault(new Date()),
   page: parseAsInteger.withDefault(1),
   pageSize: parseAsInteger.withDefault(10),
+  accountId: parseAsArrayOf(parseAsString).withDefault([]),
 };
 
 export const statementParserSchema = z.object({
@@ -172,4 +179,5 @@ export const statementParserSchema = z.object({
   end: z.date().optional(),
   page: z.number().optional().default(1),
   pageSize: z.number().optional().default(10),
+  accountId: z.string().array().optional().default([]),
 });

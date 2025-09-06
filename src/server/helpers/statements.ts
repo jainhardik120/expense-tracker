@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { alias, unionAll } from 'drizzle-orm/pg-core';
 import { type z } from 'zod';
 
@@ -116,6 +116,15 @@ export const getMergedStatements = async (
   }
   if (input.end !== undefined) {
     conditions.push(sql`date(${union.createdAt}) <= ${input.end}`);
+  }
+  if (input.accountId.length > 0) {
+    conditions.push(
+      or(
+        inArray(union.accountId, input.accountId),
+        inArray(union.fromAccountId, input.accountId),
+        inArray(union.toAccountId, input.accountId),
+      ),
+    );
   }
   return (
     await db
