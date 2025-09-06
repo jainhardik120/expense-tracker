@@ -498,12 +498,14 @@ export const processAggregatedData = ({
 }) => {
   const uniquePeriodStarts = Array.from(
     new Set([
-      ...statementData.map((exp) => exp.periodStart),
-      ...friendsData.map((exp) => exp.periodStart),
-      ...splitsData.map((exp) => exp.periodStart),
-      ...selfTransferData.map((exp) => exp.periodStart),
+      ...statementData.map((exp) => exp.periodStart.getTime()),
+      ...friendsData.map((exp) => exp.periodStart.getTime()),
+      ...splitsData.map((exp) => exp.periodStart.getTime()),
+      ...selfTransferData.map((exp) => exp.periodStart.getTime()),
     ]),
-  ).toSorted((a, b) => a.getTime() - b.getTime());
+  )
+    .map((timestamp) => new Date(timestamp))
+    .toSorted((a, b) => a.getTime() - b.getTime());
   const lastPeriodBalances: Record<string, number> = {};
   for (const account of accountsSummary) {
     lastPeriodBalances[account.account.id] = account.startingBalance;
@@ -516,10 +518,12 @@ export const processAggregatedData = ({
       [];
     for (const account of accountsSummary) {
       const a = statementData.filter(
-        (exp) => exp.accountId === account.account.id && exp.periodStart === date,
+        (exp) =>
+          exp.accountId === account.account.id && exp.periodStart.getTime() === date.getTime(),
       );
       const b = selfTransferData.filter(
-        (exp) => exp.accountId === account.account.id && exp.periodStart === date,
+        (exp) =>
+          exp.accountId === account.account.id && exp.periodStart.getTime() === date.getTime(),
       );
       const summaryData = getFinalBalanceFromStatements(...a, ...b);
       const startingBalance = lastPeriodBalances[account.account.id];
@@ -535,10 +539,10 @@ export const processAggregatedData = ({
     const processedFriendSummary: (AggregatedFriendTransferSummary & { friendId: string })[] = [];
     for (const friend of friendsSummary) {
       const a = friendsData.filter(
-        (exp) => exp.friendId === friend.friend.id && exp.periodStart === date,
+        (exp) => exp.friendId === friend.friend.id && exp.periodStart.getTime() === date.getTime(),
       );
       const b = splitsData.filter(
-        (exp) => exp.friendId === friend.friend.id && exp.periodStart === date,
+        (exp) => exp.friendId === friend.friend.id && exp.periodStart.getTime() === date.getTime(),
       );
       const summaryData = getFinalBalancesFromFriendStatements(...a, ...b);
       const startingBalance = lastPeriodBalances[friend.friend.id];

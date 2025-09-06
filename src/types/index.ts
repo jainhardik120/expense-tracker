@@ -114,9 +114,26 @@ export type FriendSummary = {
   friend: Friend;
 } & AggregatedFriendTransferSummary;
 
-export const DateTruncEnum = z.enum([
-  'microseconds',
-  'milliseconds',
+export type ProcessedAggregationData = {
+  date: Date;
+  accountsSummary: ({
+    startingBalance: number;
+    finalBalance: number;
+  } & AccountTransferSummary & {
+      accountId: string;
+    })[];
+  friendsSummary: ({
+    startingBalance: number;
+    finalBalance: number;
+  } & FriendTransferSummary & {
+      friendId: string;
+    })[];
+  totalAccountsSummary: AggregatedAccountTransferSummary;
+  totalFriendsSummary: AggregatedFriendTransferSummary;
+  totalExpenses: number;
+};
+
+export const DateTruncValues = [
   'second',
   'minute',
   'hour',
@@ -125,9 +142,6 @@ export const DateTruncEnum = z.enum([
   'month',
   'quarter',
   'year',
-  'decade',
-  'century',
-  'millennium',
-]);
-
+];
+export const DateTruncEnum = z.enum(DateTruncValues);
 export type DateTruncUnit = z.infer<typeof DateTruncEnum>;

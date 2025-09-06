@@ -53,7 +53,7 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
-  CreateButton: ReactNode;
+  CreateButton?: ReactNode;
   name: string;
   filterOn: string;
   TableFooter?: ReactNode;
