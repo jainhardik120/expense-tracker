@@ -41,11 +41,10 @@ export const createAccountColumns = (onRefresh: () => void): ColumnDef<AccountSu
       header: 'Friend Transactions',
       cell: ({ row }) => row.original.friendTransactions.toFixed(2),
     },
-
     {
       accessorKey: 'finalAmount',
       header: 'Current Balance',
-      cell: ({ row }) => row.original.totalTransfers.toFixed(2),
+      cell: ({ row }) => row.original.finalBalance.toFixed(2),
     },
     {
       accessorKey: 'actions',

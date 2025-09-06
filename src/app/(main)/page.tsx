@@ -27,14 +27,14 @@ export default function Page() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2 rounded-md border p-2">
         <div className="grid grid-cols-2 gap-2">
-          <p>Accounts Balance: {data.aggregatedAccountsSummaryData.totalTransfers.toFixed(2)}</p>
-          <p>Friend Balance: {data.aggregatedFriendsSummaryData.totalTransfers.toFixed(2)}</p>
+          <p>Accounts Balance: {data.aggregatedAccountsSummaryData.finalBalance.toFixed(2)}</p>
+          <p>Friend Balance: {data.aggregatedFriendsSummaryData.finalBalance.toFixed(2)}</p>
           <p>My Expenses: {data.myExpensesTotal.toFixed(2)}</p>
           <p>
             My Balance:{' '}
             {(
-              data.aggregatedAccountsSummaryData.totalTransfers -
-              data.aggregatedFriendsSummaryData.totalTransfers
+              data.aggregatedAccountsSummaryData.finalBalance -
+              data.aggregatedFriendsSummaryData.finalBalance
             ).toFixed(2)}
           </p>
         </div>

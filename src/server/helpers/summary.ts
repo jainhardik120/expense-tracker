@@ -76,7 +76,7 @@ export const getFinalBalanceFromStatements = (
   const selfTransfers = statements
     .filter((statement) => statement.statementKind === undefined)
     .reduce((acc, cur) => {
-      return cur.totalAmount;
+      return acc + cur.totalAmount;
     }, 0);
   return {
     expenses,
