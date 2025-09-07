@@ -54,7 +54,7 @@ export const CreateSelfTransferStatementForm = ({ refresh }: { refresh?: () => v
   const formFields = useMemo(() => statementFormFields(accountsData), [accountsData]);
   return (
     <MutationModal
-      button={<Button variant="outline">Self Transfer</Button>}
+      button={<Button variant="outline">New Self Transfer</Button>}
       defaultValues={{
         toAccountId: '',
         fromAccountId: '',

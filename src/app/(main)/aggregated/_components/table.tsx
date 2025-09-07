@@ -1,12 +1,23 @@
 'use client';
 
-import DataTable from '@/components/ui/data-table';
+import { Suspense } from 'react';
+
+import {
+  DataTableContent,
+  DataTableFooter,
+  DataTableHeader,
+  DataTableProvider,
+  DataTableSearchBox,
+  DataTableColumnSelect,
+} from '@/components/ui/data-table';
 import { formatTruncatedDate } from '@/lib/date';
 import { type DateTruncUnit, type ProcessedAggregationData } from '@/types';
 
+import FilterPanel from './filter-panel';
+
 const Table = ({ data, unit }: { data: ProcessedAggregationData[]; unit: DateTruncUnit }) => {
   return (
-    <DataTable
+    <DataTableProvider
       columns={[
         {
           accessorKey: 'date',
@@ -54,9 +65,17 @@ const Table = ({ data, unit }: { data: ProcessedAggregationData[]; unit: DateTru
         },
       ]}
       data={data}
-      filterOn="date"
-      name="Table"
-    />
+    >
+      <DataTableHeader>
+        <DataTableColumnSelect />
+        <DataTableSearchBox name="Aggregated" searchOn="date" />
+        <Suspense>
+          <FilterPanel />
+        </Suspense>
+      </DataTableHeader>
+      <DataTableContent />
+      <DataTableFooter />
+    </DataTableProvider>
   );
 };
 

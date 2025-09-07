@@ -2,7 +2,14 @@
 
 import { useQueryStates } from 'nuqs';
 
-import DataTable from '@/components/ui/data-table';
+import {
+  DataTableContent,
+  DataTableFooter,
+  DataTableHeader,
+  DataTableProvider,
+  DataTableSearchBox,
+  DataTableColumnSelect,
+} from '@/components/ui/data-table';
 import { api } from '@/server/react';
 import { statementParser } from '@/types';
 
@@ -17,20 +24,16 @@ export default function Page() {
     api.statements.getStatements.useQuery(params);
   const columns = createStatementColumns(refetchStatements);
   return (
-    <div className="flex flex-col gap-4">
-      <FilterPanel />
-      <DataTable
-        CreateButton={
-          <div className="flex gap-4">
-            <CreateSelfTransferStatementForm refresh={refetchStatements} />
-            <CreateStatementForm refresh={refetchStatements} />
-          </div>
-        }
-        columns={columns}
-        data={statements}
-        filterOn="statementKind"
-        name="Statements"
-      />
-    </div>
+    <DataTableProvider columns={columns} data={statements}>
+      <DataTableHeader>
+        <DataTableColumnSelect />
+        <DataTableSearchBox name="Statements" searchOn="statementKind" />
+        <FilterPanel />
+        <CreateSelfTransferStatementForm refresh={refetchStatements} />
+        <CreateStatementForm refresh={refetchStatements} />
+      </DataTableHeader>
+      <DataTableContent />
+      <DataTableFooter />
+    </DataTableProvider>
   );
 }

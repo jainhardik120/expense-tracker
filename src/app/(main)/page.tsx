@@ -1,6 +1,13 @@
 'use client';
 
-import DataTable from '@/components/ui/data-table';
+import {
+  DataTableContent,
+  DataTableFooter,
+  DataTableHeader,
+  DataTableProvider,
+  DataTableSearchBox,
+  DataTableColumnSelect,
+} from '@/components/ui/data-table';
 import { api } from '@/server/react';
 import { defaultAccountSummary, defaultFriendSummary } from '@/types';
 
@@ -39,20 +46,25 @@ export default function Page() {
           </p>
         </div>
       </div>
-      <DataTable
-        CreateButton={<CreateAccountForm refresh={refetch} />}
-        columns={accountColumns}
-        data={data.accountsSummaryData}
-        filterOn="accountName"
-        name="Accounts"
-      />
-      <DataTable
-        CreateButton={<CreateFriendForm refresh={refetch} />}
-        columns={friendColumns}
-        data={data.friendsSummaryData}
-        filterOn="name"
-        name="Friends"
-      />
+      <DataTableProvider columns={accountColumns} data={data.accountsSummaryData}>
+        <DataTableHeader>
+          <DataTableColumnSelect />
+          <CreateAccountForm refresh={refetch} />
+          <DataTableSearchBox name="Accounts" searchOn="accountName" />
+        </DataTableHeader>
+        <DataTableContent />
+        <DataTableFooter />
+      </DataTableProvider>
+
+      <DataTableProvider columns={friendColumns} data={data.friendsSummaryData}>
+        <DataTableHeader>
+          <DataTableColumnSelect />
+          <CreateFriendForm refresh={refetch} />
+          <DataTableSearchBox name="Friends" searchOn="name" />
+        </DataTableHeader>
+        <DataTableContent />
+        <DataTableFooter />
+      </DataTableProvider>
     </div>
   );
 }
