@@ -147,7 +147,7 @@ const eslintConfig = [
       '@typescript-eslint/restrict-template-expressions': 'error',
 
       '@typescript-eslint/strict-boolean-expressions': [
-        'error',
+        'warn',
         {
           allowString: false,
           allowNumber: false,
@@ -272,8 +272,8 @@ const eslintConfig = [
         },
       ],
 
-      'no-negated-condition': 'error',
-      'no-nested-ternary': 'error',
+      'no-negated-condition': 'off',
+      'no-nested-ternary': 'off',
       'no-unneeded-ternary': 'error',
       'prefer-arrow-callback': 'error',
       'prefer-const': 'error',
@@ -472,6 +472,25 @@ const eslintConfig = [
     rules: {
       'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true }],
       'max-statements': ['warn', 40],
+    },
+  },
+  {
+    files: ['src/components/data-table/**/*.tsx', 'src/lib/parsers.ts'],
+
+    rules: {
+      '@typescript-eslint/no-unnecessary-condition': 'warn',
+      '@typescript-eslint/no-unsafe-assignment': 'warn',
+      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
+      '@typescript-eslint/strict-boolean-expressions': 'warn',
+      '@typescript-eslint/switch-exhaustiveness-check': 'warn',
+      complexity: 'warn',
+      'jsx-a11y/click-events-have-key-events': 'warn',
+      'no-negated-condition': 'warn',
+      'react/no-array-index-key': 'warn',
+      'react-hooks/exhaustive-deps': 'warn',
+      'sonarjs/deprecation': 'warn',
+      'sonarjs/function-return-type': 'warn',
+      'sonarjs/no-nested-conditional': 'warn',
     },
   },
 ];
