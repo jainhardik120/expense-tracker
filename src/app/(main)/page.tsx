@@ -4,10 +4,10 @@ import DataTable from '@/components/ui/data-table';
 import { api } from '@/server/react';
 import { defaultAccountSummary, defaultFriendSummary } from '@/types';
 
-import { createAccountColumns } from './AccountColumns';
-import { CreateAccountForm } from './AccountForms';
-import { createFriendsColumns } from './FriendsColumns';
-import { CreateFriendForm } from './FriendsForms';
+import { createAccountColumns } from './_components/AccountColumns';
+import { CreateAccountForm } from './_components/AccountForms';
+import { createFriendsColumns } from './_components/FriendsColumns';
+import { CreateFriendForm } from './_components/FriendsForms';
 
 export default function Page() {
   const {

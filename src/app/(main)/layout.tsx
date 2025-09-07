@@ -3,7 +3,7 @@ import ThemeToggle from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
-import UserButton from './UserButton';
+import UserButton from './_components/UserButton';
 
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

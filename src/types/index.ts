@@ -11,6 +11,7 @@ import {
   type bankAccount,
   type friendsProfiles,
   type selfTransferStatements,
+  type session,
   statementKindEnum,
   type statements,
 } from '@/db/schema';
@@ -60,6 +61,7 @@ export const createSelfTransferSchema = z.object({
 export type StatementKind = (typeof statementKindEnum.enumValues)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
+export type Session = typeof session.$inferSelect;
 export type Statement = typeof statements.$inferSelect & {
   splitAmount: number;
   accountName: string | null;
