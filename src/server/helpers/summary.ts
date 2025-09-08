@@ -45,7 +45,7 @@ export const buildQueryConditions = <T extends TableConfig>(
     conditions.push(sql`date(${table.createdAt}) >= ${start}`);
   }
   if (end !== undefined) {
-    conditions.push(sql`date(${table.createdAt}) <= ${end}`);
+    conditions.push(sql`date(${table.createdAt}) < ${end}`);
   }
   return conditions;
 };
