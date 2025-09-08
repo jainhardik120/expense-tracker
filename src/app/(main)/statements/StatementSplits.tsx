@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
-import DynamicForm from '@/components/dynamic-form';
+import DynamicForm from '@/components/dynamic-form/dynamic-form';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

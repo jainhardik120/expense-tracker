@@ -1,36 +1,30 @@
-'use client';
+import { createLoader, type SearchParams } from 'nuqs/server';
 
-import { useQueryStates } from 'nuqs';
-
-import DataTable from '@/components/ui/data-table';
-import { api } from '@/server/react';
+import { api } from '@/server/server';
 import { statementParser } from '@/types';
 
 import FilterPanel from './filter-panel';
 import { CreateSelfTransferStatementForm } from './SelfTransferStatementForms';
-import { createStatementColumns } from './StatementColumns';
 import { CreateStatementForm } from './StatementForms';
+import Table from './table';
 
-export default function Page() {
-  const [params] = useQueryStates(statementParser);
-  const { data: statements = [], refetch: refetchStatements } =
-    api.statements.getStatements.useQuery(params);
-  const columns = createStatementColumns(refetchStatements);
+const loader = createLoader(statementParser);
+
+export default async function Page({
+  searchParams,
+}: Readonly<{ searchParams: Promise<SearchParams> }>) {
+  const pageParams = await loader(searchParams);
+  const data = await api.statements.getStatements(pageParams);
+  const friends = await api.friends.getFriends();
+  const accounts = await api.accounts.getAccounts();
   return (
     <div className="flex flex-col gap-4">
-      <FilterPanel />
-      <DataTable
-        CreateButton={
-          <div className="flex gap-4">
-            <CreateSelfTransferStatementForm refresh={refetchStatements} />
-            <CreateStatementForm refresh={refetchStatements} />
-          </div>
-        }
-        columns={columns}
-        data={statements}
-        filterOn="statementKind"
-        name="Statements"
-      />
+      <div className="flex gap-4">
+        <FilterPanel />
+        <CreateSelfTransferStatementForm accountsData={accounts} />
+        <CreateStatementForm accountsData={accounts} friendsData={friends} />
+      </div>
+      <Table accountsData={accounts} data={data} friendsData={friends} />
     </div>
   );
 }

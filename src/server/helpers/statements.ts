@@ -107,7 +107,7 @@ export const getMergedStatements = async (
     .from(selfTransferStatements)
     .leftJoin(fromAccount, eq(fromAccount.id, selfTransferStatements.fromAccountId))
     .leftJoin(toAccount, eq(toAccount.id, selfTransferStatements.toAccountId));
-  const offset = (input.page - 1) * input.pageSize;
+  const offset = (input.page - 1) * input.perPage;
   const union = unionAll(baseStatements, baseSelfTransfers).as('union_query');
   const conditions = [];
   conditions.push(eq(union.userId, userId));
@@ -117,12 +117,13 @@ export const getMergedStatements = async (
   if (input.end !== undefined) {
     conditions.push(sql`date(${union.createdAt}) <= ${input.end}`);
   }
-  if (input.accountId.length > 0) {
+  if (input.account.length > 0) {
     conditions.push(
       or(
-        inArray(union.accountId, input.accountId),
-        inArray(union.fromAccountId, input.accountId),
-        inArray(union.toAccountId, input.accountId),
+        inArray(union.accountId, input.account),
+        inArray(union.fromAccountId, input.account),
+        inArray(union.toAccountId, input.account),
+        inArray(union.friendId, input.account),
       ),
     );
   }
@@ -132,7 +133,7 @@ export const getMergedStatements = async (
       .from(union)
       .where(and(...conditions))
       .orderBy(desc(union.createdAt))
-      .limit(input.pageSize)
+      .limit(input.perPage)
       .offset(offset)
   )
     .map<Statement | SelfTransferStatement | undefined>((row) => {
@@ -175,13 +176,23 @@ export const getRowsCount = async (
   userId: string,
   input: z.infer<typeof statementParserSchema>,
 ) => {
-  const statementConditions = buildQueryConditions(statements, userId, input.start, input.end);
-  const selfTransferStatementConditions = buildQueryConditions(
-    selfTransferStatements,
-    userId,
-    input.start,
-    input.end,
+  const statementConditions = [];
+  const selfTransferStatementConditions = [];
+  statementConditions.push(...buildQueryConditions(statements, userId, input.start, input.end));
+  selfTransferStatementConditions.push(
+    ...buildQueryConditions(selfTransferStatements, userId, input.start, input.end),
   );
+  if (input.account.length > 0) {
+    statementConditions.push(
+      or(inArray(statements.accountId, input.account), inArray(statements.friendId, input.account)),
+    );
+    selfTransferStatementConditions.push(
+      or(
+        inArray(selfTransferStatements.fromAccountId, input.account),
+        inArray(selfTransferStatements.toAccountId, input.account),
+      ),
+    );
+  }
   const statementCount = (
     await db
       .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })

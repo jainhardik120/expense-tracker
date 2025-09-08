@@ -1,13 +1,11 @@
 import { type ClipboardEvent, type KeyboardEvent, type ReactNode, useState } from 'react';
 
-import { X, ChevronDownIcon } from 'lucide-react';
+import { X } from 'lucide-react';
 import { type ControllerRenderProps, type Path, type FieldValues } from 'react-hook-form';
 
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
+import DateInput from '@/components/ui/date-input';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -129,34 +127,9 @@ const RenderedDateInput = <T extends FieldValues = FieldValues>(props: FieldProp
 
 const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
   const fieldDate = props.field.value as Date;
-  const [open, setOpen] = useState(false);
   return (
     <div className="flex gap-4">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button className="w-32 justify-between font-normal" variant="outline">
-            {fieldDate.toLocaleDateString()}
-            <ChevronDownIcon />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-auto overflow-hidden p-0">
-          <Calendar
-            captionLayout="dropdown"
-            mode="single"
-            selected={fieldDate}
-            onSelect={(changedDate) => {
-              if (changedDate !== undefined) {
-                const updatedDate = new Date(fieldDate);
-                updatedDate.setDate(changedDate.getDate());
-                updatedDate.setMonth(changedDate.getMonth());
-                updatedDate.setFullYear(changedDate.getFullYear());
-                props.field.onChange(updatedDate);
-              }
-              setOpen(false);
-            }}
-          />
-        </PopoverContent>
-      </Popover>
+      <DateInput date={fieldDate} onChange={props.field.onChange} />
       <Input
         className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
         step="1"

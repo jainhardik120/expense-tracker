@@ -1,3 +1,5 @@
+import { cookies } from 'next/headers';
+
 import { AppSidebar } from '@/components/app-sidebar';
 import ThemeToggle from '@/components/theme-toggle';
 import { Separator } from '@/components/ui/separator';
@@ -5,12 +7,15 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/s
 
 import UserButton from './_components/UserButton';
 
-export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const cookieStore = await cookies();
+  const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="bg-background sticky top-0 z-[40] flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator className="mr-2 data-[orientation=vertical]:h-4" orientation="vertical" />
           <div className="flex w-full items-center justify-between gap-2">

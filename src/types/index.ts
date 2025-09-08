@@ -172,14 +172,14 @@ export const statementParser = {
   start: parseAsTimestamp.withDefault(new Date(Date.now() - MONTHS)),
   end: parseAsTimestamp.withDefault(new Date()),
   page: parseAsInteger.withDefault(1),
-  pageSize: parseAsInteger.withDefault(10),
-  accountId: parseAsArrayOf(parseAsString).withDefault([]),
+  perPage: parseAsInteger.withDefault(10),
+  account: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
 export const statementParserSchema = z.object({
   start: z.date().optional(),
   end: z.date().optional(),
   page: z.number().optional().default(1),
-  pageSize: z.number().optional().default(10),
-  accountId: z.string().array().optional().default([]),
+  perPage: z.number().optional().default(10),
+  account: z.string().array().optional().default([]),
 });

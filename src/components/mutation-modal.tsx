@@ -6,8 +6,8 @@ import { type DefaultValues, type FieldValues } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
-import DynamicForm from '@/components/dynamic-form';
-import { type FormField } from '@/components/dynamic-form-fields';
+import DynamicForm from '@/components/dynamic-form/dynamic-form';
+import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import {
   Dialog,
   DialogContent,

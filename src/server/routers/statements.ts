@@ -2,7 +2,11 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { selfTransferStatements, splits, statements } from '@/db/schema';
-import { getMergedStatements, getStatementAmountAndSplits } from '@/server/helpers/statements';
+import {
+  getMergedStatements,
+  getRowsCount,
+  getStatementAmountAndSplits,
+} from '@/server/helpers/statements';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   createSelfTransferSchema,
@@ -13,7 +17,16 @@ import {
 
 export const statementsRouter = createTRPCRouter({
   getStatements: protectedProcedure.input(statementParserSchema).query(async ({ ctx, input }) => {
-    return getMergedStatements(ctx.db, ctx.session.user.id, input);
+    const statements = await getMergedStatements(ctx.db, ctx.session.user.id, input);
+    const rowsCount = await getRowsCount(ctx.db, ctx.session.user.id, input);
+    const pageCount = Math.ceil(
+      (rowsCount.statementCount + rowsCount.selfTransferStatementCount) / input.perPage,
+    );
+    return {
+      statements,
+      pageCount,
+      rowsCount,
+    };
   }),
   addStatement: protectedProcedure.input(createStatementSchema).mutation(({ ctx, input }) => {
     return ctx.db

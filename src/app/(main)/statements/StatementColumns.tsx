@@ -5,8 +5,15 @@ import { type ColumnDef } from '@tanstack/react-table';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useIsMounted } from '@/hooks/use-is-mounted';
 import { api } from '@/server/react';
-import { type SelfTransferStatement, statementKindMap, type Statement } from '@/types';
+import {
+  type SelfTransferStatement,
+  statementKindMap,
+  type Statement,
+  type Account,
+  type Friend,
+} from '@/types';
 
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
@@ -57,9 +64,13 @@ const getToAccount = (statement: Statement | SelfTransferStatement): string | nu
 const StatementActions = ({
   statement,
   onRefresh,
+  accountsData,
+  friendsData,
 }: {
   statement: Statement;
   onRefresh: () => void;
+  accountsData: Account[];
+  friendsData: Friend[];
 }) => {
   const mutation = api.statements.deleteStatement.useMutation();
   const { id } = statement;
@@ -70,27 +81,9 @@ const StatementActions = ({
       ) : (
         <span className="text-center">-</span>
       )}
-      <UpdateStatementForm initialData={statement} refresh={onRefresh} statementId={id} />
-      <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-        <Button variant="outline">Delete</Button>
-      </DeleteConfirmationDialog>
-    </div>
-  );
-};
-
-const SelfTransferStatementActions = ({
-  statement,
-  onRefresh,
-}: {
-  statement: SelfTransferStatement;
-  onRefresh: () => void;
-}) => {
-  const mutation = api.statements.deleteSelfTransferStatement.useMutation();
-  const { id } = statement;
-  return (
-    <div className="grid w-[480px] grid-cols-3 gap-2">
-      <span className="text-center">-</span>
-      <UpdateSelfTransferStatementForm
+      <UpdateStatementForm
+        accountsData={accountsData}
+        friendsData={friendsData}
         initialData={statement}
         refresh={onRefresh}
         statementId={id}
@@ -102,15 +95,49 @@ const SelfTransferStatementActions = ({
   );
 };
 
+const SelfTransferStatementActions = ({
+  statement,
+  onRefresh,
+  accountsData,
+}: {
+  statement: SelfTransferStatement;
+  onRefresh: () => void;
+  accountsData: Account[];
+}) => {
+  const mutation = api.statements.deleteSelfTransferStatement.useMutation();
+  const { id } = statement;
+  return (
+    <div className="grid w-[480px] grid-cols-3 gap-2">
+      <span className="text-center">-</span>
+      <UpdateSelfTransferStatementForm
+        accountsData={accountsData}
+        initialData={statement}
+        refresh={onRefresh}
+        statementId={id}
+      />
+      <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
+        <Button variant="outline">Delete</Button>
+      </DeleteConfirmationDialog>
+    </div>
+  );
+};
+
+const DateCell = ({ date }: { date: Date }) => {
+  const isMounted = useIsMounted();
+  return isMounted ? new Date(date).toLocaleString() : '-';
+};
+
 export const createStatementColumns = (
   onRefreshStatements: () => void,
+  accountsData: Account[],
+  friendsData: Friend[],
 ): ColumnDef<Statement | SelfTransferStatement>[] => [
   {
     accessorKey: 'createdAt',
     header: 'Date',
     cell: ({ row }) => {
       const date = row.original.createdAt;
-      return new Date(date).toLocaleString();
+      return <DateCell date={date} />;
     },
   },
   {
@@ -138,9 +165,19 @@ export const createStatementColumns = (
     cell: ({ row }) => <>{isSelfTransfer(row.original) ? '-' : row.original.category}</>,
   },
   {
+    id: 'account',
     accessorKey: 'from',
     header: 'From',
     cell: ({ row }) => <>{getFromAccount(row.original) ?? '-'}</>,
+    meta: {
+      label: 'Account',
+      variant: 'multiSelect',
+      options: [
+        ...accountsData.map((account) => ({ label: account.accountName, value: account.id })),
+        ...friendsData.map((friend) => ({ label: friend.name, value: friend.id })),
+      ],
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'to',
@@ -185,11 +222,17 @@ export const createStatementColumns = (
         <div className="flex w-full justify-end">
           {isSelfTransfer(row.original) ? (
             <SelfTransferStatementActions
+              accountsData={accountsData}
               statement={row.original}
               onRefresh={onRefreshStatements}
             />
           ) : (
-            <StatementActions statement={row.original} onRefresh={onRefreshStatements} />
+            <StatementActions
+              accountsData={accountsData}
+              friendsData={friendsData}
+              statement={row.original}
+              onRefresh={onRefreshStatements}
+            />
           )}
         </div>
       );

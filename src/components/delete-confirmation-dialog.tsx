@@ -47,7 +47,7 @@ const DeleteConfirmationDialog = <T, MutationResult>({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       {children === undefined ? null : <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>}
-      <AlertDialogContent className="bg-black">
+      <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>

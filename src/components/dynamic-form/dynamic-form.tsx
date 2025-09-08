@@ -12,7 +12,7 @@ import {
 } from 'react-hook-form';
 import { type z } from 'zod';
 
-import { type FormField, RenderFormInput } from '@/components/dynamic-form-fields';
+import { type FormField, RenderFormInput } from '@/components/dynamic-form/dynamic-form-fields';
 import { Button } from '@/components/ui/button';
 import {
   Form,

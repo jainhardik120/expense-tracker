@@ -2,9 +2,11 @@
 
 import { useMemo } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 import { type z } from 'zod';
 
-import { type FormField } from '@/components/dynamic-form-fields';
+import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
@@ -77,14 +79,19 @@ const statementFormFields = (
   ];
 };
 
-export const CreateStatementForm = ({ refresh }: { refresh?: () => void }) => {
-  const { data: accountsData = [] } = api.accounts.getAccounts.useQuery();
-  const { data: friendsData = [] } = api.friends.getFriends.useQuery();
+export const CreateStatementForm = ({
+  accountsData,
+  friendsData,
+}: {
+  accountsData: Account[];
+  friendsData: Friend[];
+}) => {
   const mutation = api.statements.addStatement.useMutation();
   const formFields = useMemo(
     () => statementFormFields(accountsData, friendsData),
     [accountsData, friendsData],
   );
+  const router = useRouter();
   return (
     <MutationModal
       button={<Button variant="outline">New Statement</Button>}
@@ -99,7 +106,9 @@ export const CreateStatementForm = ({ refresh }: { refresh?: () => void }) => {
       }}
       fields={formFields}
       mutation={mutation}
-      refresh={refresh}
+      refresh={() => {
+        router.refresh();
+      }}
       schema={createStatementSchema}
       successToast={(result) => `${result.length} statement(s) created`}
       titleText="Add Statement"
@@ -111,13 +120,15 @@ export const UpdateStatementForm = ({
   refresh,
   statementId,
   initialData,
+  accountsData,
+  friendsData,
 }: {
   refresh?: () => void;
   statementId: string;
   initialData: Statement;
+  accountsData: Account[];
+  friendsData: Friend[];
 }) => {
-  const { data: accountsData = [] } = api.accounts.getAccounts.useQuery();
-  const { data: friendsData = [] } = api.friends.getFriends.useQuery();
   const mutation = api.statements.updateStatement.useMutation();
   const formFields = useMemo(
     () => statementFormFields(accountsData, friendsData),

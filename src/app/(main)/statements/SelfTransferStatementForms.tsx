@@ -2,9 +2,11 @@
 
 import { useMemo } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 import { type z } from 'zod';
 
-import { type FormField } from '@/components/dynamic-form-fields';
+import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
@@ -48,10 +50,10 @@ const statementFormFields = (
   ];
 };
 
-export const CreateSelfTransferStatementForm = ({ refresh }: { refresh?: () => void }) => {
-  const { data: accountsData = [] } = api.accounts.getAccounts.useQuery();
+export const CreateSelfTransferStatementForm = ({ accountsData }: { accountsData: Account[] }) => {
   const mutation = api.statements.addSelfTransferStatement.useMutation();
   const formFields = useMemo(() => statementFormFields(accountsData), [accountsData]);
+  const router = useRouter();
   return (
     <MutationModal
       button={<Button variant="outline">Self Transfer</Button>}
@@ -63,7 +65,9 @@ export const CreateSelfTransferStatementForm = ({ refresh }: { refresh?: () => v
       }}
       fields={formFields}
       mutation={mutation}
-      refresh={refresh}
+      refresh={() => {
+        router.refresh();
+      }}
       schema={createSelfTransferSchema}
       successToast={(result) => `${result.length} statement(s) created`}
       titleText="Add Statement"
@@ -75,12 +79,13 @@ export const UpdateSelfTransferStatementForm = ({
   refresh,
   statementId,
   initialData,
+  accountsData,
 }: {
   refresh?: () => void;
   statementId: string;
   initialData: SelfTransferStatement;
+  accountsData: Account[];
 }) => {
-  const { data: accountsData = [] } = api.accounts.getAccounts.useQuery();
   const mutation = api.statements.updateSelfTransferStatement.useMutation();
   const formFields = useMemo(() => statementFormFields(accountsData), [accountsData]);
   return (

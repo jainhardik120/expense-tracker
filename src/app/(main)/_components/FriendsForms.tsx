@@ -1,6 +1,6 @@
 import { type z } from 'zod';
 
-import { type FormField } from '@/components/dynamic-form-fields';
+import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';

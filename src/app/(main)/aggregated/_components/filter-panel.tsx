@@ -2,7 +2,7 @@
 
 import { useQueryStates } from 'nuqs';
 
-import DateInput from '@/components/date-input';
+import DateInput from '@/components/ui/date-input';
 import {
   Select,
   SelectContent,
