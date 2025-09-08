@@ -5,6 +5,7 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Toaster } from 'sonner';
 
 import { ThemeProvider } from '@/components/theme-provider';
+import NextTopLoader from '@/components/top-loader';
 import { TRPCReactProvider } from '@/server/react';
 
 import type { Metadata } from 'next';
@@ -39,6 +40,7 @@ export default function RootLayout({
             disableTransitionOnChange
             enableSystem
           >
+            <NextTopLoader />
             <TRPCReactProvider>{children}</TRPCReactProvider>
             <Toaster />
           </ThemeProvider>
