@@ -127,6 +127,8 @@ const RenderedDateInput = <T extends FieldValues = FieldValues>(props: FieldProp
 
 const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
   const fieldDate = props.field.value as Date;
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const timeValue = `${pad(fieldDate.getHours())}:${pad(fieldDate.getMinutes())}:${pad(fieldDate.getSeconds())}`;
   return (
     <div className="flex gap-4">
       <DateInput date={fieldDate} onChange={props.field.onChange} />
@@ -134,12 +136,13 @@ const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: Field
         className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
         step="1"
         type="time"
-        value={fieldDate.toLocaleTimeString()}
+        value={timeValue}
         onChange={(e) => {
+          const [h, m, s] = e.target.value.split(':').map(Number);
           const time = new Date(fieldDate);
-          time.setHours(Number(e.target.value.split(':')[0]));
-          time.setMinutes(Number(e.target.value.split(':')[1]));
-          time.setSeconds(Number(e.target.value.split(':')[2]));
+          time.setHours(h);
+          time.setMinutes(m);
+          time.setSeconds(Number.isFinite(s) ? s : 0);
           props.field.onChange(time);
         }}
       />
