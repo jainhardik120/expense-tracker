@@ -4,6 +4,7 @@ import { treeifyError, ZodError } from 'zod';
 
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import logger from '@/lib/logger';
 
 const t = initTRPC.context<typeof createTRPCContext>().create({
   transformer: superjson,
@@ -20,9 +21,10 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   const start = Date.now();
   const result = await next();
   const end = Date.now();
-  // eslint-disable-next-line no-console
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
-
+  logger.info(`TRPC ${path} took ${end - start}ms to execute`, {
+    path,
+    durationMs: end - start,
+  });
   return result;
 });
 

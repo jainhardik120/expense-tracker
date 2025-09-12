@@ -2,6 +2,7 @@ import { type NextRequest } from 'next/server';
 
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 
+import logger from '@/lib/logger';
 import { appRouter } from '@/server/routers';
 import { createTRPCContext } from '@/server/trpc';
 
@@ -18,8 +19,7 @@ const handler = (req: NextRequest) =>
     router: appRouter,
     createContext: () => createContext(req),
     onError: ({ path, error }) => {
-      // eslint-disable-next-line no-console
-      console.error(`❌ tRPC failed on ${path ?? '<no-path>'}: ${error.message}`);
+      logger.error(`tRPC failed on ${path ?? '<no-path>'}: ${error.message}`);
     },
   });
 
