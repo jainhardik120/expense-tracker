@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { SquarePen } from 'lucide-react';
 import { type z } from 'zod';
 
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
@@ -56,7 +57,7 @@ export const CreateSelfTransferStatementForm = ({ accountsData }: { accountsData
   const router = useRouter();
   return (
     <MutationModal
-      button={<Button variant="outline">Self Transfer</Button>}
+      button={<Button variant="outline">New Self Transfer</Button>}
       defaultValues={{
         toAccountId: '',
         fromAccountId: '',
@@ -90,7 +91,11 @@ export const UpdateSelfTransferStatementForm = ({
   const formFields = useMemo(() => statementFormFields(accountsData), [accountsData]);
   return (
     <MutationModal
-      button={<Button variant="outline">Update Statement</Button>}
+      button={
+        <Button className="size-8" size="icon" variant="outline">
+          <SquarePen />
+        </Button>
+      }
       defaultValues={initialData}
       fields={formFields}
       mutation={{

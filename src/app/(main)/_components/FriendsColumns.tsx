@@ -1,6 +1,7 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
+import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,11 @@ export const createFriendsColumns = (onRefresh: () => void): ColumnDef<FriendSum
     accessorKey: 'name',
     header: 'Name',
     cell: ({ row }) => row.original.friend.name,
+  },
+  {
+    accessorKey: 'startingBalance',
+    header: 'Starting Balance',
+    cell: ({ row }) => row.original.startingBalance.toFixed(2),
   },
   {
     accessorKey: 'transactions',
@@ -33,7 +39,7 @@ export const createFriendsColumns = (onRefresh: () => void): ColumnDef<FriendSum
   {
     accessorKey: 'currentBalance',
     header: 'Current Balance',
-    cell: ({ row }) => row.original.totalTransfers.toFixed(2),
+    cell: ({ row }) => row.original.finalBalance.toFixed(2),
   },
   {
     accessorKey: 'actions',
@@ -42,7 +48,7 @@ export const createFriendsColumns = (onRefresh: () => void): ColumnDef<FriendSum
       const mutation = api.friends.deleteFriend.useMutation();
       return (
         <div className="flex w-full justify-end">
-          <div className="grid w-[320px] grid-cols-2 gap-2">
+          <div className="flex flex-row gap-2">
             <UpdateFriendForm
               friendId={row.original.friend.id}
               initialData={row.original.friend}
@@ -53,7 +59,9 @@ export const createFriendsColumns = (onRefresh: () => void): ColumnDef<FriendSum
               mutationInput={{ id: row.original.friend.id }}
               refresh={onRefresh}
             >
-              <Button variant="outline">Delete</Button>
+              <Button className="size-8" size="icon" variant="outline">
+                <Trash />
+              </Button>
             </DeleteConfirmationDialog>
           </div>
         </div>

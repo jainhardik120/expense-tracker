@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { SquarePen } from 'lucide-react';
 import { type z } from 'zod';
 
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
@@ -136,7 +137,11 @@ export const UpdateStatementForm = ({
   );
   return (
     <MutationModal
-      button={<Button variant="outline">Update Statement</Button>}
+      button={
+        <Button className="size-8" size="icon" variant="outline">
+          <SquarePen />
+        </Button>
+      }
       defaultValues={{
         ...initialData,
         accountId: initialData.accountId ?? undefined,

@@ -1,28 +1,20 @@
-'use client';
+import { createLoader, type SearchParams } from 'nuqs/server';
 
-import DataTable from '@/components/ui/data-table';
-import { api } from '@/server/react';
-import { defaultAccountSummary, defaultFriendSummary } from '@/types';
+import DateFilter from '@/components/date-filter';
+import { api } from '@/server/server';
+import { dateParser } from '@/types';
 
-import { createAccountColumns } from './_components/AccountColumns';
-import { CreateAccountForm } from './_components/AccountForms';
-import { createFriendsColumns } from './_components/FriendsColumns';
-import { CreateFriendForm } from './_components/FriendsForms';
+import Table from './_components/table';
 
-export default function Page() {
-  const {
-    data = {
-      accountsSummaryData: [],
-      friendsSummaryData: [],
-      myExpensesTotal: 0,
-      aggregatedAccountsSummaryData: defaultAccountSummary,
-      aggregatedFriendsSummaryData: defaultFriendSummary,
-    },
-    refetch,
-  } = api.summary.getSummary.useQuery({});
+const loader = createLoader(dateParser);
 
-  const accountColumns = createAccountColumns(refetch);
-  const friendColumns = createFriendsColumns(refetch);
+export default async function Page({
+  searchParams,
+}: Readonly<{ searchParams: Promise<SearchParams> }>) {
+  const params = await loader(searchParams);
+
+  const data = await api.summary.getSummary(params);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2 rounded-md border p-2">
@@ -39,20 +31,10 @@ export default function Page() {
           </p>
         </div>
       </div>
-      <DataTable
-        CreateButton={<CreateAccountForm refresh={refetch} />}
-        columns={accountColumns}
-        data={data.accountsSummaryData}
-        filterOn="accountName"
-        name="Accounts"
-      />
-      <DataTable
-        CreateButton={<CreateFriendForm refresh={refetch} />}
-        columns={friendColumns}
-        data={data.friendsSummaryData}
-        filterOn="name"
-        name="Friends"
-      />
+      <div className="flex gap-4">
+        <DateFilter />
+      </div>
+      <Table data={data} />
     </div>
   );
 }

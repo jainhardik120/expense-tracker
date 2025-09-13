@@ -55,7 +55,9 @@ const StatementSplits = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">View Splits</Button>
+        <Button className="h-8" variant="outline">
+          View Splits
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

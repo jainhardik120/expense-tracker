@@ -1,9 +1,9 @@
 import { createLoader, type SearchParams } from 'nuqs/server';
 
+import DateFilter from '@/components/date-filter';
 import { api } from '@/server/server';
 import { statementParser } from '@/types';
 
-import FilterPanel from './filter-panel';
 import { CreateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { CreateStatementForm } from './StatementForms';
 import Table from './table';
@@ -20,7 +20,7 @@ export default async function Page({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex gap-4">
-        <FilterPanel />
+        <DateFilter />
         <CreateSelfTransferStatementForm accountsData={accounts} />
         <CreateStatementForm accountsData={accounts} friendsData={friends} />
       </div>
