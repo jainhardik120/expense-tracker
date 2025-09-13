@@ -125,6 +125,7 @@ const generateStatementUnionOverviewQuery = (db: Database) => {
         id: statements.id,
         createdAt: statements.createdAt,
         userId: statements.userId,
+        friendId: statements.friendId,
         statementKind: statements.statementKind,
         type: sql<string>`'statement'`.as('type'),
       })
@@ -134,6 +135,7 @@ const generateStatementUnionOverviewQuery = (db: Database) => {
         id: selfTransferStatements.id,
         createdAt: selfTransferStatements.createdAt,
         userId: selfTransferStatements.userId,
+        friendId: sql<string | null>`NULL::uuid`.as('friend_id'),
         statementKind: sql<'self_transfer'>`'self_transfer'`.as('statement_kind'),
         type: sql<string>`'self_transfer'`.as('type'),
       })
@@ -202,7 +204,9 @@ export const getFriendSplitsLimited = async (
       .select({ statementId: splits.statementId })
       .from(splits)
       .where(eq(splits.friendId, account));
-    conditions.push(or(inArray(union.id, statementIdsWithSplits)));
+    conditions.push(
+      or(inArray(union.friendId, [account]), inArray(union.id, statementIdsWithSplits)),
+    );
   }
   const selectedStatements = db.$with('selected_statements').as(
     db
