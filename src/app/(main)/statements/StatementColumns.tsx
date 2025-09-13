@@ -131,6 +131,10 @@ export const createStatementColumns = (
   onRefreshStatements: () => void,
   accountsData: Account[],
   friendsData: Friend[],
+  startingBalance?: {
+    name: string;
+    amount: number;
+  },
 ): ColumnDef<Statement | SelfTransferStatement>[] => [
   {
     accessorKey: 'createdAt',
@@ -194,6 +198,11 @@ export const createStatementColumns = (
           : '-'}
       </>
     ),
+  },
+  {
+    id: 'finalBalance',
+    accessorFn: (row) => (row.finalBalance ?? 0).toFixed(2),
+    header: startingBalance?.name ?? '-',
   },
   {
     accessorKey: 'tags',

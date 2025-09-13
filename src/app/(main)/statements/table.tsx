@@ -28,6 +28,13 @@ const Table = ({
     },
     accountsData,
     friendsData,
+    data.summary !== null
+      ? {
+          name:
+            'friend' in data.summary ? data.summary.friend.name : data.summary.account.accountName,
+          amount: data.summary.finalBalance,
+        }
+      : undefined,
   );
   const { table } = useDataTable({
     data: data.statements,

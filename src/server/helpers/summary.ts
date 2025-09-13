@@ -267,7 +267,7 @@ export const friendTransfersSummary = async (
   });
 };
 
-const getAccountsAndStartingBalances = async (
+export const getAccountsAndStartingBalances = async (
   db: Database,
   userId: string,
   start?: Date,
@@ -319,7 +319,7 @@ export const getAccountsSummaryBetweenDates = async (
   });
 };
 
-const getFriendsAndStartingBalances = async (
+export const getFriendsAndStartingBalances = async (
   db: Database,
   userId: string,
   start?: Date,

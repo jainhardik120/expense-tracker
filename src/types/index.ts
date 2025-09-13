@@ -66,10 +66,12 @@ export type Statement = typeof statements.$inferSelect & {
   splitAmount: number;
   accountName: string | null;
   friendName: string | null;
+  finalBalance?: number;
 };
 export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect & {
   fromAccount: string | null;
   toAccount: string | null;
+  finalBalance?: number;
 };
 
 export type AccountTransferSummary = {
@@ -182,4 +184,12 @@ export const statementParserSchema = z.object({
   page: z.number().optional().default(1),
   perPage: z.number().optional().default(10),
   account: z.string().array().optional().default([]),
+});
+
+export const accountFriendStatementsParserSchema = z.object({
+  start: z.date().optional(),
+  end: z.date().optional(),
+  page: z.number().optional().default(1),
+  perPage: z.number().optional().default(10),
+  account: z.string(),
 });

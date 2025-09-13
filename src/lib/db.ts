@@ -1,61 +1,62 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
-import PG from 'pg';
+import { Pool } from 'pg';
 
 import { env } from '@/lib/env';
 import logger from '@/lib/logger';
 
-export const db = drizzle({
-  connection: env.DATABASE_URL,
+// Create a connection pool with proper configuration
+const pool = new Pool({
+  connectionString: env.DATABASE_URL,
+  max: 20, // Maximum number of connections in the pool
+  idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+  connectionTimeoutMillis: 2000, // Return an error if connection takes longer than 2 seconds
 });
-export type Database = typeof db;
 
-interface QueryWithDetails {
-  text?: string;
-  values?: unknown[];
-}
+let connectionCount = 0;
 
-const originalSubmit = PG.Query.prototype.submit;
-
-PG.Query.prototype.submit = function (...args) {
-  const startTime = performance.now();
-  const query = this as QueryWithDetails;
-  const queryText = typeof query.text === 'string' ? query.text : 'No query text';
-  const queryValues = Array.isArray(query.values) ? query.values : [];
-
-  const _queryProps = Object.getOwnPropertyNames(this).filter(
-    (prop) =>
-      prop !== 'domain' &&
-      prop !== '_events' &&
-      prop !== '_eventsCount' &&
-      prop !== '_maxListeners',
-  );
-
-  this.once('end', () => {
-    const duration = performance.now() - startTime;
-
-    if (queryText !== 'No query text' || queryValues.length > 0) {
-      logger.info(`Query completed`, {
-        durationMs: duration.toFixed(2),
-        query: queryText,
-        params: queryValues,
-      });
-    } else {
-      logger.warn(`Query completed`, {
-        durationMs: duration.toFixed(2),
-        message: 'Query completed without text/params details',
-        availableProps: _queryProps,
-      });
-    }
+pool.on('connect', () => {
+  connectionCount++;
+  logger.info('Database pool connection created', {
+    totalConnections: connectionCount,
+    idleCount: pool.idleCount,
+    totalCount: pool.totalCount,
   });
-  this.once('error', (err: Error) => {
-    const duration = performance.now() - startTime;
-    logger.error(`Query error`, {
-      durationMs: duration.toFixed(2),
-      query: queryText,
-      params: queryValues,
-      error: err.message,
-      stack: err.stack,
-    });
+});
+
+pool.on('remove', () => {
+  connectionCount--;
+  logger.info('Database pool connection removed', {
+    totalConnections: connectionCount,
+    idleCount: pool.idleCount,
+    totalCount: pool.totalCount,
   });
-  originalSubmit.apply(this, args);
+});
+
+// Handle pool errors
+pool.on('error', (err) => {
+  logger.error('Unexpected error on idle client', { error: err.message, stack: err.stack });
+});
+
+// Graceful shutdown
+const gracefulShutdown = async () => {
+  logger.info('Shutting down database pool...');
+  await pool.end();
+  logger.info('Database pool closed');
 };
+
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+
+export const db = drizzle({
+  client: pool,
+  logger: {
+    logQuery: (query, params) => {
+      logger.info(`Query Executed`, {
+        query: query,
+        params: params,
+      });
+    },
+  },
+});
+
+export type Database = typeof db;
