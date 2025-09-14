@@ -3,7 +3,6 @@ import type { ExtendedColumnFilter, FilterOperator, FilterVariant } from '@/type
 
 import type { Column } from '@tanstack/react-table';
 
-// eslint-disable-next-line complexity
 export const getCommonPinningStyles = <TData>({
   column,
   withBorder = false,

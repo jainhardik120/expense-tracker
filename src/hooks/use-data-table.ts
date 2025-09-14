@@ -65,7 +65,6 @@ interface UseDataTableProps<TData>
   startTransition?: React.TransitionStartFunction;
 }
 
-// eslint-disable-next-line complexity
 export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
   const {
     columns,

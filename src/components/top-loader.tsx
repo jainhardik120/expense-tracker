@@ -73,7 +73,6 @@ const NextTopLoader = ({ showForHashAnchor = true }: { showForHashAnchor?: boole
       return foundElement as HTMLAnchorElement;
     };
 
-    // eslint-disable-next-line complexity
     const handleClick = (event: MouseEvent): void => {
       try {
         const target = event.target as HTMLElement;

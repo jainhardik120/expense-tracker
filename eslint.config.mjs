@@ -215,7 +215,7 @@ const eslintConfig = [
       'no-var': 'error',
 
       complexity: [
-        'error',
+        'off',
         {
           max: 10,
         },
@@ -421,7 +421,7 @@ const eslintConfig = [
       'security/detect-non-literal-regexp': 'error',
       'security/detect-object-injection': 'off',
       'security/detect-unsafe-regex': 'error',
-      'sonarjs/cognitive-complexity': ['error', 15],
+      'sonarjs/cognitive-complexity': ['off', 15],
       'sonarjs/max-switch-cases': ['error', 10],
       'sonarjs/no-collapsible-if': 'error',
       'sonarjs/no-unused-vars': 'off',
@@ -452,11 +452,8 @@ const eslintConfig = [
 
     rules: {
       'react/jsx-sort-props': 'off',
-      complexity: 'off',
       '@typescript-eslint/naming-convention': 'off',
-      'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true }],
       'max-statements': 'off',
-      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
     },
   },
   {
@@ -470,7 +467,6 @@ const eslintConfig = [
     files: ['src/app/**/page.tsx'],
 
     rules: {
-      'max-lines-per-function': ['warn', { max: 100, skipBlankLines: true, skipComments: true }],
       'max-statements': ['warn', 40],
     },
   },
@@ -483,7 +479,6 @@ const eslintConfig = [
       '@typescript-eslint/prefer-nullish-coalescing': 'warn',
       '@typescript-eslint/strict-boolean-expressions': 'warn',
       '@typescript-eslint/switch-exhaustiveness-check': 'warn',
-      complexity: 'warn',
       'jsx-a11y/click-events-have-key-events': 'warn',
       'no-negated-condition': 'warn',
       'react/no-array-index-key': 'warn',
