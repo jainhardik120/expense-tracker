@@ -130,14 +130,8 @@ const Table = ({
             let updatedTimestamp: Date;
             if (prevIndex < 0) {
               updatedTimestamp = new Date(data.statements[nextIndex].createdAt.getTime() + MINUTES);
-            } else if (nextIndex >= data.statements.length) {
-              updatedTimestamp = new Date(data.statements[prevIndex].createdAt.getTime() - MINUTES);
             } else {
-              updatedTimestamp = new Date(
-                (data.statements[prevIndex].createdAt.getTime() +
-                  data.statements[nextIndex].createdAt.getTime()) /
-                  2,
-              );
+              updatedTimestamp = new Date(data.statements[prevIndex].createdAt.getTime() - MINUTES);
             }
             if (isSelfTransfer(droppedItem.item)) {
               await updateSelfTransferStatement.mutateAsync({
