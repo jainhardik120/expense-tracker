@@ -17,9 +17,12 @@ import {
   type Statement,
   type Account,
   type Friend,
+  MINUTES,
 } from '@/types';
 
+import { CreateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { createStatementColumns } from './StatementColumns';
+import { CreateStatementForm } from './StatementForms';
 
 type StatementData = RouterOutput['statements']['getStatements'];
 
@@ -125,9 +128,15 @@ const Table = ({
                 : droppedItem.newIndex;
             let updatedTimestamp: Date;
             if (prevIndex < 0) {
-              updatedTimestamp = new Date(data.statements[nextIndex].createdAt.getTime() + 1);
+              updatedTimestamp = new Date(data.statements[nextIndex].createdAt.getTime() + MINUTES);
+            } else if (nextIndex >= data.statements.length) {
+              updatedTimestamp = new Date(data.statements[prevIndex].createdAt.getTime() - MINUTES);
             } else {
-              updatedTimestamp = new Date(data.statements[prevIndex].createdAt.getTime() - 1);
+              updatedTimestamp = new Date(
+                (data.statements[prevIndex].createdAt.getTime() +
+                  data.statements[nextIndex].createdAt.getTime()) /
+                  2,
+              );
             }
             if (isSelfTransfer(droppedItem.item)) {
               await updateSelfTransferStatement.mutateAsync({
@@ -154,7 +163,10 @@ const Table = ({
         });
       }}
     >
-      <DataTableToolbar table={table} />
+      <DataTableToolbar table={table}>
+        <CreateSelfTransferStatementForm accountsData={accountsData} />
+        <CreateStatementForm accountsData={accountsData} friendsData={friendsData} />
+      </DataTableToolbar>
     </DataTable>
   );
 };

@@ -1,11 +1,8 @@
 import { createLoader, type SearchParams } from 'nuqs/server';
 
-import DateFilter from '@/components/date-filter';
 import { api } from '@/server/server';
 import { statementParser } from '@/types';
 
-import { CreateSelfTransferStatementForm } from './SelfTransferStatementForms';
-import { CreateStatementForm } from './StatementForms';
 import Table from './table';
 
 const loader = createLoader(statementParser);
@@ -14,17 +11,12 @@ export default async function Page({
   searchParams,
 }: Readonly<{ searchParams: Promise<SearchParams> }>) {
   const pageParams = await loader(searchParams);
-  const data = await api.statements.getStatements(pageParams);
+  const data = await api.statements.getStatements({
+    ...pageParams,
+    start: pageParams.date[0],
+    end: pageParams.date[1],
+  });
   const friends = await api.friends.getFriends();
   const accounts = await api.accounts.getAccounts();
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex w-full flex-col gap-4 sm:flex-row">
-        <DateFilter />
-        <CreateSelfTransferStatementForm accountsData={accounts} />
-        <CreateStatementForm accountsData={accounts} friendsData={friends} />
-      </div>
-      <Table accountsData={accounts} data={data} friendsData={friends} />
-    </div>
-  );
+  return <Table accountsData={accounts} data={data} friendsData={friends} />;
 }

@@ -163,6 +163,12 @@ export const createStatementColumns = (
       const date = row.original.createdAt;
       return <DateCell date={date} />;
     },
+    id: 'date',
+    meta: {
+      label: 'Date',
+      variant: 'dateRange',
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'statementKind',

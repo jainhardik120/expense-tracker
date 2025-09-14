@@ -190,8 +190,8 @@ export const aggregationParser = {
 };
 
 export const statementParser = {
-  ...dateParser,
   ...pageParser,
+  date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
   account: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 

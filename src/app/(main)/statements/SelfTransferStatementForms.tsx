@@ -57,7 +57,11 @@ export const CreateSelfTransferStatementForm = ({ accountsData }: { accountsData
   const router = useRouter();
   return (
     <MutationModal
-      button={<Button variant="outline">New Self Transfer</Button>}
+      button={
+        <Button className="h-8" variant="outline">
+          New Self Transfer
+        </Button>
+      }
       defaultValues={{
         toAccountId: '',
         fromAccountId: '',

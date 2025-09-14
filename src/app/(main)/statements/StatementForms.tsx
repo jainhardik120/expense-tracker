@@ -95,7 +95,11 @@ export const CreateStatementForm = ({
   const router = useRouter();
   return (
     <MutationModal
-      button={<Button variant="outline">New Statement</Button>}
+      button={
+        <Button className="h-8" variant="outline">
+          New Statement
+        </Button>
+      }
       defaultValues={{
         amount: '',
         category: '',

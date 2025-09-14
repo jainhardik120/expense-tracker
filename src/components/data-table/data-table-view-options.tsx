@@ -37,7 +37,6 @@ export const DataTableViewOptions = <TData,>({ table }: DataTableViewOptionsProp
         <Button
           aria-label="Toggle columns"
           className="ml-auto hidden h-8 lg:flex"
-          role="combobox"
           size="sm"
           variant="outline"
         >
