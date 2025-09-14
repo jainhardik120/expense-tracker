@@ -142,7 +142,7 @@ export const UpdateStatementForm = ({
   return (
     <MutationModal
       button={
-        <Button className="size-8" size="icon" variant="outline">
+        <Button className="size-8" size="icon" variant="ghost">
           <SquarePen />
         </Button>
       }

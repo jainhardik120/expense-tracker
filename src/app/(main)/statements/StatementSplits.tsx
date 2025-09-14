@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { SquareSlash } from 'lucide-react';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
@@ -55,8 +56,8 @@ const StatementSplits = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="h-8" variant="outline">
-          View Splits
+        <Button className="size-8" size="icon" variant="ghost">
+          <SquareSlash />
         </Button>
       </DialogTrigger>
       <DialogContent>

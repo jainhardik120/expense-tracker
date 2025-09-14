@@ -84,7 +84,7 @@ const StatementActions = ({
         statementId={id}
       />
       <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-        <Button className="size-8" size="icon" variant="outline">
+        <Button className="size-8" size="icon" variant="ghost">
           <Trash />
         </Button>
       </DeleteConfirmationDialog>
@@ -112,7 +112,7 @@ const SelfTransferStatementActions = ({
         statementId={id}
       />
       <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-        <Button className="size-8" size="icon" variant="outline">
+        <Button className="size-8" size="icon" variant="ghost">
           <Trash />
         </Button>
       </DeleteConfirmationDialog>

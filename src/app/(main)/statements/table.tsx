@@ -89,6 +89,7 @@ const Table = ({
   const updateSelfTransferStatement = api.statements.updateSelfTransferStatement.useMutation();
   return (
     <DataTable
+      getItemValue={(item) => item.id}
       table={table}
       onValueChange={(items) => {
         startTransition(async () => {

@@ -19,6 +19,7 @@ type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
   table: TanstackTable<TData>;
   actionBar?: React.ReactNode;
   onValueChange: (items: Row<TData>[]) => void;
+  getItemValue: (item: TData) => string;
 };
 
 export const DataTable = <TData extends object>({
@@ -27,6 +28,7 @@ export const DataTable = <TData extends object>({
   children,
   className,
   onValueChange,
+  getItemValue,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -37,7 +39,11 @@ export const DataTable = <TData extends object>({
     <div className={cn('flex w-full flex-col gap-2.5 overflow-auto', className)} {...props}>
       {children}
       <div className="overflow-hidden rounded-md border">
-        <Sortable getItemValue={(item) => item.id} value={rows} onValueChange={onValueChange}>
+        <Sortable
+          getItemValue={(item) => getItemValue(item.original)}
+          value={rows}
+          onValueChange={onValueChange}
+        >
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -62,11 +68,16 @@ export const DataTable = <TData extends object>({
               <TableBody>
                 {hasRows ? (
                   rows.map((row) => (
-                    <SortableItem key={row.id} asChild value={row.id}>
+                    <SortableItem
+                      key={getItemValue(row.original)}
+                      asChild
+                      value={getItemValue(row.original)}
+                    >
                       <TableRow data-state={row.getIsSelected() && 'selected'}>
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
+                            className="p-1"
                             style={{
                               ...getCommonPinningStyles({ column: cell.column }),
                             }}
