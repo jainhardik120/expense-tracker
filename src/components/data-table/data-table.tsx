@@ -18,12 +18,7 @@ import { cn } from '@/lib/utils';
 type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
   table: TanstackTable<TData>;
   actionBar?: React.ReactNode;
-  onItemDropped?: (item: {
-    itemId: string;
-    prevIndex: number;
-    newIndex: number;
-    item: TData;
-  }) => void;
+  onValueChange: (items: Row<TData>[]) => void;
 };
 
 export const DataTable = <TData extends object>({
@@ -31,7 +26,7 @@ export const DataTable = <TData extends object>({
   actionBar,
   children,
   className,
-  onItemDropped,
+  onValueChange,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -42,41 +37,7 @@ export const DataTable = <TData extends object>({
     <div className={cn('flex w-full flex-col gap-2.5 overflow-auto', className)} {...props}>
       {children}
       <div className="overflow-hidden rounded-md border">
-        <Sortable
-          getItemValue={(item) => item.id}
-          value={rows}
-          onValueChange={(items: Row<TData>[]) => {
-            const originalIds = rows.map((row) => row.id);
-            const newIds = items.map((row) => row.id);
-            let maxDistance = 0;
-            let draggedItemInfo: {
-              itemId: string;
-              prevIndex: number;
-              newIndex: number;
-              item: TData;
-            } | null = null;
-            for (let i = 0; i < newIds.length; i++) {
-              const itemId = newIds[i];
-              const prevIndex = originalIds.indexOf(itemId);
-              const newIndex = i;
-              if (prevIndex !== newIndex) {
-                const distance = Math.abs(prevIndex - newIndex);
-                if (distance > maxDistance) {
-                  maxDistance = distance;
-                  draggedItemInfo = {
-                    itemId,
-                    prevIndex,
-                    newIndex,
-                    item: items[newIndex]?.original,
-                  };
-                }
-              }
-            }
-            if (draggedItemInfo !== null) {
-              onItemDropped?.(draggedItemInfo);
-            }
-          }}
-        >
+        <Sortable getItemValue={(item) => item.id} value={rows} onValueChange={onValueChange}>
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
