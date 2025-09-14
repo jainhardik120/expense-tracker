@@ -1,11 +1,12 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { Trash } from 'lucide-react';
+import { GripVertical, Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { SortableItemHandle } from '@/components/ui/sortable';
 import { useIsMounted } from '@/hooks/use-is-mounted';
 import { api } from '@/server/react';
 import {
@@ -14,17 +15,12 @@ import {
   type Statement,
   type Account,
   type Friend,
+  isSelfTransfer,
 } from '@/types';
 
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
 import StatementSplits from './StatementSplits';
-
-const isSelfTransfer = (
-  statement: Statement | SelfTransferStatement,
-): statement is SelfTransferStatement => {
-  return 'fromAccountId' in statement;
-};
 
 const getFromAccount = (statement: Statement | SelfTransferStatement): string | null => {
   if (isSelfTransfer(statement)) {
@@ -147,6 +143,19 @@ export const createStatementColumns = (
     amount: number;
   },
 ): ColumnDef<Statement | SelfTransferStatement>[] => [
+  {
+    id: 'drag-handle',
+    header: '',
+    cell: () => {
+      return (
+        <SortableItemHandle asChild>
+          <Button className="size-8" size="icon" variant="ghost">
+            <GripVertical className="h-4 w-4" />
+          </Button>
+        </SortableItemHandle>
+      );
+    },
+  },
   {
     accessorKey: 'createdAt',
     header: 'Date',

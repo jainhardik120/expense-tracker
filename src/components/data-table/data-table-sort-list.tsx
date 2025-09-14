@@ -1,5 +1,3 @@
-/* eslint-disable */
-
 'use client';
 
 import * as React from 'react';
@@ -274,6 +272,7 @@ const DataTableSortItem = ({
 
   return (
     <SortableItem asChild value={sort.id}>
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <li
         className="flex items-center gap-2"
         id={sortItemId}

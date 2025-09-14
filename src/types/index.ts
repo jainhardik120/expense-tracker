@@ -159,7 +159,7 @@ export const DateTruncEnum = z.enum(DateTruncValues);
 export type DateTruncUnit = z.infer<typeof DateTruncEnum>;
 
 const SECONDS = 1000;
-const MINUTES = 60 * SECONDS;
+export const MINUTES = 60 * SECONDS;
 const HOURS = 60 * MINUTES;
 const DAYS = 24 * HOURS;
 const MONTHS = 30 * DAYS;
@@ -206,3 +206,9 @@ export const accountFriendStatementsParserSchema = z.object({
   ...pageSchema,
   account: z.string(),
 });
+
+export const isSelfTransfer = (
+  statement: Statement | SelfTransferStatement,
+): statement is SelfTransferStatement => {
+  return 'fromAccountId' in statement;
+};
