@@ -9,11 +9,11 @@ import {
   processAggregatedData,
 } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { DateTruncEnum } from '@/types';
+import { dateSchema, DateTruncEnum } from '@/types';
 
 export const summaryRouter = createTRPCRouter({
   getSummary: protectedProcedure
-    .input(z.object({ start: z.date().optional(), end: z.date().optional() }))
+    .input(z.object({ ...dateSchema }))
     .query(async ({ ctx, input }) => {
       const accountsSummaryData = await getAccountsSummaryBetweenDates(
         ctx.db,
@@ -45,8 +45,7 @@ export const summaryRouter = createTRPCRouter({
     .input(
       z.object({
         aggregateBy: DateTruncEnum,
-        start: z.date().optional(),
-        end: z.date().optional(),
+        ...dateSchema,
       }),
     )
     .query(async ({ ctx, input }) => {

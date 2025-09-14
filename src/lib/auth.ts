@@ -14,9 +14,19 @@ export const auth = betterAuth({
       verification,
     },
   }),
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 5 * 60,
+    },
+  },
   emailAndPassword: {
     enabled: true,
     sendResetPassword: async () => {},
   },
-  trustedOrigins: ['http://localhost:3000', 'https://local-dev.hardikja.in'],
+  trustedOrigins: [
+    'https://local-dev.hardikja.in',
+    'https://local-dev-mac.hardikja.in',
+    'http://localhost:3000',
+  ],
 });

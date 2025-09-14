@@ -1,3 +1,4 @@
+import { SquarePen } from 'lucide-react';
 import { type z } from 'zod';
 
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
@@ -45,7 +46,11 @@ export const UpdateFriendForm = ({
   const mutation = api.friends.updateFriend.useMutation();
   return (
     <MutationModal
-      button={<Button variant="outline">Update Friend</Button>}
+      button={
+        <Button className="size-8" size="icon" variant="outline">
+          <SquarePen />
+        </Button>
+      }
       defaultValues={initialData}
       fields={fields}
       mutation={{

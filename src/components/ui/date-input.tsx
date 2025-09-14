@@ -10,7 +10,13 @@ const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
   const [open, setOpen] = useState(false);
   const [dateString, setDateString] = useState('');
   useEffect(() => {
-    setDateString(props.date.toLocaleDateString());
+    setDateString(
+      props.date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    );
   }, [props.date]);
 
   return (
@@ -36,6 +42,7 @@ const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
             }
             setOpen(false);
           }}
+          defaultMonth={props.date}
         />
       </PopoverContent>
     </Popover>

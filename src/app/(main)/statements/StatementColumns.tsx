@@ -1,6 +1,7 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
+import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -75,11 +76,9 @@ const StatementActions = ({
   const mutation = api.statements.deleteStatement.useMutation();
   const { id } = statement;
   return (
-    <div className="grid w-[480px] grid-cols-3 gap-2">
-      {statement.statementKind === 'expense' ? (
+    <div className="flex flex-row gap-2">
+      {statement.statementKind === 'expense' && (
         <StatementSplits statementData={statement} statementId={id} />
-      ) : (
-        <span className="text-center">-</span>
       )}
       <UpdateStatementForm
         accountsData={accountsData}
@@ -89,7 +88,9 @@ const StatementActions = ({
         statementId={id}
       />
       <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-        <Button variant="outline">Delete</Button>
+        <Button className="size-8" size="icon" variant="outline">
+          <Trash />
+        </Button>
       </DeleteConfirmationDialog>
     </div>
   );
@@ -107,8 +108,7 @@ const SelfTransferStatementActions = ({
   const mutation = api.statements.deleteSelfTransferStatement.useMutation();
   const { id } = statement;
   return (
-    <div className="grid w-[480px] grid-cols-3 gap-2">
-      <span className="text-center">-</span>
+    <div className="flex flex-row gap-2">
       <UpdateSelfTransferStatementForm
         accountsData={accountsData}
         initialData={statement}
@@ -116,7 +116,9 @@ const SelfTransferStatementActions = ({
         statementId={id}
       />
       <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-        <Button variant="outline">Delete</Button>
+        <Button className="size-8" size="icon" variant="outline">
+          <Trash />
+        </Button>
       </DeleteConfirmationDialog>
     </div>
   );
@@ -124,7 +126,16 @@ const SelfTransferStatementActions = ({
 
 const DateCell = ({ date }: { date: Date }) => {
   const isMounted = useIsMounted();
-  return isMounted ? new Date(date).toLocaleString() : '-';
+
+  return isMounted
+    ? new Date(date).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '-';
 };
 
 export const createStatementColumns = (

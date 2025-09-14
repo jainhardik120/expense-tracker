@@ -1,6 +1,7 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
+import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ export const createAccountColumns = (onRefresh: () => void): ColumnDef<AccountSu
     {
       accessorKey: 'startingBalance',
       header: 'Starting Balance',
-      cell: ({ row }) => parseFloat(row.original.account.startingBalance).toFixed(2),
+      cell: ({ row }) => row.original.startingBalance.toFixed(2),
     },
     {
       accessorKey: 'expenses',
@@ -53,7 +54,7 @@ export const createAccountColumns = (onRefresh: () => void): ColumnDef<AccountSu
         const mutation = api.accounts.deleteAccount.useMutation();
         return (
           <div className="flex w-full justify-end">
-            <div className="grid w-[320px] grid-cols-2 gap-2">
+            <div className="flex flex-row gap-2">
               <UpdateAccountForm
                 accountId={row.original.account.id}
                 initialData={row.original.account}
@@ -64,7 +65,9 @@ export const createAccountColumns = (onRefresh: () => void): ColumnDef<AccountSu
                 mutationInput={{ id: row.original.account.id }}
                 refresh={onRefresh}
               >
-                <Button variant="outline">Delete</Button>
+                <Button className="size-8" size="icon" variant="outline">
+                  <Trash />
+                </Button>
               </DeleteConfirmationDialog>
             </div>
           </div>

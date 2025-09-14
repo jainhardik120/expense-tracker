@@ -164,32 +164,45 @@ const HOURS = 60 * MINUTES;
 const DAYS = 24 * HOURS;
 const MONTHS = 30 * DAYS;
 
-export const aggregationParser = {
-  period: parseAsStringEnum(DateTruncValues).withDefault('week'),
+export const dateParser = {
   start: parseAsTimestamp.withDefault(new Date(Date.now() - MONTHS)),
   end: parseAsTimestamp.withDefault(new Date()),
 };
 
-export const statementParser = {
-  start: parseAsTimestamp.withDefault(new Date(Date.now() - MONTHS)),
-  end: parseAsTimestamp.withDefault(new Date()),
+const pageParser = {
   page: parseAsInteger.withDefault(1),
   perPage: parseAsInteger.withDefault(10),
+};
+
+export const dateSchema = {
+  start: z.date().optional(),
+  end: z.date().optional(),
+};
+
+const pageSchema = {
+  page: z.number().optional().default(1),
+  perPage: z.number().optional().default(10),
+};
+
+export const aggregationParser = {
+  period: parseAsStringEnum(DateTruncValues).withDefault('week'),
+  ...dateParser,
+};
+
+export const statementParser = {
+  ...dateParser,
+  ...pageParser,
   account: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
 export const statementParserSchema = z.object({
-  start: z.date().optional(),
-  end: z.date().optional(),
-  page: z.number().optional().default(1),
-  perPage: z.number().optional().default(10),
+  ...dateSchema,
+  ...pageSchema,
   account: z.string().array().optional().default([]),
 });
 
 export const accountFriendStatementsParserSchema = z.object({
-  start: z.date().optional(),
-  end: z.date().optional(),
-  page: z.number().optional().default(1),
-  perPage: z.number().optional().default(10),
+  ...dateSchema,
+  ...pageSchema,
   account: z.string(),
 });
