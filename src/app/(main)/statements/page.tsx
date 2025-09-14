@@ -19,7 +19,7 @@ export default async function Page({
   const accounts = await api.accounts.getAccounts();
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-4 flex-col sm:flex-row w-full">
+      <div className="flex w-full flex-col gap-4 sm:flex-row">
         <DateFilter />
         <CreateSelfTransferStatementForm accountsData={accounts} />
         <CreateStatementForm accountsData={accounts} friendsData={friends} />

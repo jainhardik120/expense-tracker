@@ -1,15 +1,19 @@
+import { headers } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 
-import { getSessionCookie } from 'better-auth/cookies';
+import { auth } from '@/lib/auth';
 
-export const middleware = (request: NextRequest) => {
-  const sessionCookie = getSessionCookie(request);
-  if (sessionCookie === null || sessionCookie.length === 0) {
+export const middleware = async (request: NextRequest) => {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (session === null) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
   return NextResponse.next();
 };
 
 export const config = {
+  runtime: 'nodejs',
   matcher: ['/((?!login|register|api/trpc|_next|api/auth).*)'],
 };
