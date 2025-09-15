@@ -131,7 +131,16 @@ const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: Field
   const timeValue = `${pad(fieldDate.getHours())}:${pad(fieldDate.getMinutes())}:${pad(fieldDate.getSeconds())}`;
   return (
     <div className="flex gap-4">
-      <DateInput date={fieldDate} onChange={props.field.onChange} />
+      <DateInput
+        date={fieldDate}
+        onChange={(date) => {
+          const updatedDate = new Date(fieldDate);
+          updatedDate.setDate(date.getDate());
+          updatedDate.setMonth(date.getMonth());
+          updatedDate.setFullYear(date.getFullYear());
+          props.field.onChange(updatedDate);
+        }}
+      />
       <Input
         className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
         step="1"
