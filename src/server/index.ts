@@ -3,12 +3,13 @@ import { loggerLink, httpBatchStreamLink } from '@trpc/client';
 import { SuperJSON } from 'superjson';
 
 import { getBaseUrl } from '@/lib/getBaseUrl';
+import { SECONDS } from '@/types';
 
 export const createQueryClient = (): QueryClient =>
   new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 30 * 1000,
+        staleTime: 30 * SECONDS,
       },
       dehydrate: {
         serializeData: SuperJSON.serialize,

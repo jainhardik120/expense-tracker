@@ -158,10 +158,10 @@ export const DateTruncValues = [
 export const DateTruncEnum = z.enum(DateTruncValues);
 export type DateTruncUnit = z.infer<typeof DateTruncEnum>;
 
-const SECONDS = 1000;
+export const SECONDS = 1000;
 export const MINUTES = 60 * SECONDS;
 const HOURS = 60 * MINUTES;
-const DAYS = 24 * HOURS;
+export const DAYS = 24 * HOURS;
 const MONTHS = 30 * DAYS;
 
 export const dateParser = {

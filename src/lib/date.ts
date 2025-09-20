@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 
-import { type DateTruncUnit } from '@/types';
+import { DAYS, type DateTruncUnit } from '@/types';
 
 const truncFormatMap: Record<DateTruncUnit, string> = {
   second: 'yyyy-MM-dd HH:mm:ss',
@@ -17,4 +17,11 @@ export const formatTruncatedDate = (date: Date | string, trunc: DateTruncUnit) =
   const d = typeof date === 'string' ? new Date(date) : date;
   const formatStr = truncFormatMap[trunc];
   return format(d, formatStr);
+};
+
+export const convertEndDate = (date: Date) => {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setTime(d.getTime() + DAYS);
+  return d;
 };

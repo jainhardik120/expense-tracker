@@ -1,127 +1,38 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { selfTransferStatements, splits, statements } from '@/db/schema';
 import {
   getMergedStatements,
   getRowsCount,
-  getStartingBalancesPaginated,
   getStatementAmountAndSplits,
-} from '@/server/helpers/statements';
+  mergeRawStatementsWithSummary,
+} from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   createSelfTransferSchema,
   createSplitSchema,
   createStatementSchema,
-  type SelfTransferStatement,
-  type Statement,
   statementParserSchema,
 } from '@/types';
 
-const getChangeForAccount = (accountId: string, statement: Statement | SelfTransferStatement) => {
-  if ('accountId' in statement && statement.accountId === accountId) {
-    let change = 0;
-    if (statement.statementKind === 'expense') {
-      change = -1 * parseFloat(statement.amount);
-    }
-    if (
-      statement.statementKind === 'friend_transaction' ||
-      statement.statementKind === 'outside_transaction'
-    ) {
-      change = parseFloat(statement.amount);
-    }
-    return change;
-  }
-  if ('fromAccountId' in statement && 'toAccountId' in statement) {
-    if (statement.fromAccountId === accountId) {
-      return -1 * parseFloat(statement.amount);
-    }
-    if (statement.toAccountId === accountId) {
-      return parseFloat(statement.amount);
-    }
-  }
-  return 0;
-};
-
-const getChangeForFriend = (
-  friendId: string,
-  statement: Statement | SelfTransferStatement,
-  splitTotals: { statementId: string; total: number }[],
-) => {
-  const splitAmount =
-    -1 * (splitTotals.find((split) => split.statementId === statement.id)?.total ?? 0);
-  if (
-    'friendId' in statement &&
-    statement.friendId === friendId &&
-    (statement.statementKind === 'expense' || statement.statementKind === 'friend_transaction')
-  ) {
-    return splitAmount + parseFloat(statement.amount);
-  }
-  return splitAmount;
-};
-
 export const statementsRouter = createTRPCRouter({
   getStatements: protectedProcedure.input(statementParserSchema).query(async ({ ctx, input }) => {
+    let statements = await getMergedStatements(ctx.db, ctx.session.user.id, input);
     let summary = null;
-    let startingBalance = 0;
-    let splitTotal: {
-      statementId: string;
-      total: number;
-    }[] = [];
-    const rawStatements = await getMergedStatements(ctx.db, ctx.session.user.id, input);
     if (input.account.length === 1) {
       const accountId = input.account[0];
-      summary = await getStartingBalancesPaginated(ctx.db, ctx.session.user.id, {
-        ...input,
-        account: accountId,
-      });
-      startingBalance = summary.finalBalance;
-      if ('friend' in summary) {
-        splitTotal = await ctx.db
-          .select({
-            total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number),
-            statementId: splits.statementId,
-          })
-          .from(splits)
-          .where(
-            and(
-              eq(splits.friendId, accountId),
-              inArray(
-                splits.statementId,
-                rawStatements.map((s) => s.id),
-              ),
-            ),
-          )
-          .groupBy(splits.statementId);
-      }
+      const { summary: accountSummary, statements: accountStatements } =
+        await mergeRawStatementsWithSummary(
+          ctx.db,
+          ctx.session.user.id,
+          accountId,
+          statements,
+          input,
+        );
+      summary = accountSummary;
+      statements = accountStatements;
     }
-    const statements = rawStatements
-      .toReversed()
-      .map((statement) => {
-        if (summary === null) {
-          return statement;
-        }
-        if ('account' in summary && input.account[0] === summary.account.id) {
-          const accountId = input.account[0];
-          const change = getChangeForAccount(accountId, statement);
-          startingBalance += change;
-          return {
-            ...statement,
-            finalBalance: startingBalance,
-          };
-        }
-        if ('friend' in summary && input.account[0] === summary.friend.id) {
-          const friendId = input.account[0];
-          const change = getChangeForFriend(friendId, statement, splitTotal);
-          startingBalance += change;
-          return {
-            ...statement,
-            finalBalance: startingBalance,
-          };
-        }
-        return statement;
-      })
-      .reverse();
     const rowsCount = await getRowsCount(ctx.db, ctx.session.user.id, input);
     const pageCount = Math.ceil(
       (rowsCount.statementCount + rowsCount.selfTransferStatementCount) / input.perPage,
