@@ -195,6 +195,10 @@ export const statementParser = {
   account: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
+export const summaryParser = {
+  date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
+};
+
 export const statementParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
@@ -211,4 +215,10 @@ export const isSelfTransfer = (
   statement: Statement | SelfTransferStatement,
 ): statement is SelfTransferStatement => {
   return 'fromAccountId' in statement;
+};
+
+export const isFriendSummary = (
+  summary: FriendSummary | AccountSummary,
+): summary is FriendSummary => {
+  return 'friend' in summary;
 };

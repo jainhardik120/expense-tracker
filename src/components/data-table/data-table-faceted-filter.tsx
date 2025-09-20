@@ -38,15 +38,18 @@ export const DataTableFacetedFilter = <TData, TValue>({
   const [open, setOpen] = React.useState(false);
 
   const columnFilterValue = column?.getFilterValue();
-  const selectedValues = new Set(Array.isArray(columnFilterValue) ? columnFilterValue : []);
+  const selectedValues = React.useMemo(
+    () => new Set(Array.isArray(columnFilterValue) ? columnFilterValue : []),
+    [columnFilterValue],
+  );
 
   const onItemSelect = React.useCallback(
     (option: Option, isSelected: boolean) => {
-      if (!column) {
+      if (column === undefined) {
         return;
       }
 
-      if (multiple) {
+      if (multiple === true) {
         const newSelectedValues = new Set(selectedValues);
         if (isSelected) {
           newSelectedValues.delete(option.value);
@@ -54,7 +57,7 @@ export const DataTableFacetedFilter = <TData, TValue>({
           newSelectedValues.add(option.value);
         }
         const filterValues = Array.from(newSelectedValues);
-        column.setFilterValue(filterValues.length ? filterValues : undefined);
+        column.setFilterValue(filterValues.length > 0 ? filterValues : undefined);
       } else {
         column.setFilterValue(isSelected ? undefined : [option.value]);
         setOpen(false);
@@ -75,7 +78,7 @@ export const DataTableFacetedFilter = <TData, TValue>({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button className="border-dashed" size="sm" variant="outline">
-          {selectedValues?.size > 0 ? (
+          {selectedValues.size > 0 ? (
             <div
               aria-label={`Clear ${title} filter`}
               className="focus-visible:ring-ring rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-1 focus-visible:outline-none"
@@ -89,7 +92,7 @@ export const DataTableFacetedFilter = <TData, TValue>({
             <PlusCircle />
           )}
           {title}
-          {selectedValues?.size > 0 && (
+          {selectedValues.size > 0 && (
             <>
               <Separator
                 className="mx-0.5 data-[orientation=vertical]:h-4"
@@ -145,11 +148,11 @@ export const DataTableFacetedFilter = <TData, TValue>({
                     >
                       <Check />
                     </div>
-                    {option.icon ? <option.icon /> : null}
+                    {option.icon !== undefined && <option.icon />}
                     <span className="truncate">{option.label}</span>
-                    {option.count ? (
+                    {option.count !== undefined && (
                       <span className="ml-auto font-mono text-xs">{option.count}</span>
-                    ) : null}
+                    )}
                   </CommandItem>
                 );
               })}

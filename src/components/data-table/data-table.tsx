@@ -18,8 +18,9 @@ import { cn } from '@/lib/utils';
 type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
   table: TanstackTable<TData>;
   actionBar?: React.ReactNode;
-  onValueChange: (items: Row<TData>[]) => void;
+  onValueChange?: (items: Row<TData>[]) => void;
   getItemValue: (item: TData) => string;
+  enablePagination?: boolean;
 };
 
 export const DataTable = <TData extends object>({
@@ -29,6 +30,7 @@ export const DataTable = <TData extends object>({
   className,
   onValueChange,
   getItemValue,
+  enablePagination = true,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -104,7 +106,7 @@ export const DataTable = <TData extends object>({
         </Sortable>
       </div>
       <div className="flex flex-col gap-2.5">
-        <DataTablePagination table={table} />
+        {enablePagination === true && <DataTablePagination table={table} />}
         {actionBar !== undefined && hasSelectedRows ? actionBar : null}
       </div>
     </div>

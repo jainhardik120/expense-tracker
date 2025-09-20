@@ -114,7 +114,7 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
 
   const pagination: PaginationState = React.useMemo(() => {
     return {
-      pageIndex: page - 1, // zero-based index -> one-based index
+      pageIndex: page - 1,
       pageSize: perPage,
     };
   }, [page, perPage]);

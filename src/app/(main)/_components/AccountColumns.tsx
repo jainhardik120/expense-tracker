@@ -6,71 +6,116 @@ import { Trash } from 'lucide-react';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
-import { type AccountSummary } from '@/types';
+import { type FriendSummary, type AccountSummary, isFriendSummary } from '@/types';
 
 import { UpdateAccountForm } from './AccountForms';
+import { UpdateFriendForm } from './FriendsForms';
 
-export const createAccountColumns = (onRefresh: () => void): ColumnDef<AccountSummary>[] => {
+const AccountActions = ({ row, onRefresh }: { row: AccountSummary; onRefresh: () => void }) => {
+  const mutation = api.accounts.deleteAccount.useMutation();
+  return (
+    <div className="flex w-full justify-end">
+      <div className="flex flex-row gap-2">
+        <UpdateAccountForm
+          accountId={row.account.id}
+          initialData={row.account}
+          refresh={onRefresh}
+        />
+        <DeleteConfirmationDialog
+          mutation={mutation}
+          mutationInput={{ id: row.account.id }}
+          refresh={onRefresh}
+        >
+          <Button className="size-8" size="icon" variant="outline">
+            <Trash />
+          </Button>
+        </DeleteConfirmationDialog>
+      </div>
+    </div>
+  );
+};
+
+const FriendActions = ({ row, onRefresh }: { row: FriendSummary; onRefresh: () => void }) => {
+  const mutation = api.friends.deleteFriend.useMutation();
+  return (
+    <div className="flex w-full justify-end">
+      <div className="flex flex-row gap-2">
+        <UpdateFriendForm friendId={row.friend.id} initialData={row.friend} refresh={onRefresh} />
+        <DeleteConfirmationDialog
+          mutation={mutation}
+          mutationInput={{ id: row.friend.id }}
+          refresh={onRefresh}
+        >
+          <Button className="size-8" size="icon" variant="outline">
+            <Trash />
+          </Button>
+        </DeleteConfirmationDialog>
+      </div>
+    </div>
+  );
+};
+
+export const createAccountColumns = (
+  onRefresh: () => void,
+): ColumnDef<AccountSummary | FriendSummary>[] => {
   return [
     {
-      accessorKey: 'accountName',
+      id: 'name',
       header: 'Account Name',
-      cell: ({ row }) => row.original.account.accountName,
+      accessorFn: (row) => (isFriendSummary(row) ? row.friend.name : row.account.accountName),
     },
     {
-      accessorKey: 'startingBalance',
+      id: 'startingBalance',
       header: 'Starting Balance',
-      cell: ({ row }) => row.original.startingBalance.toFixed(2),
+      accessorFn: (row) => row.startingBalance.toFixed(2),
     },
     {
-      accessorKey: 'expenses',
+      id: 'expenses',
       header: 'Expenses',
-      cell: ({ row }) => row.original.expenses.toFixed(2),
+      accessorFn: (row) => (isFriendSummary(row) ? row.splits : row.expenses).toFixed(2),
     },
     {
-      accessorKey: 'selfTransfers',
+      id: 'selfTransfers',
       header: 'Self Transfers',
-      cell: ({ row }) => row.original.selfTransfers.toFixed(2),
+      accessorFn: (row) => (isFriendSummary(row) ? '-' : row.selfTransfers.toFixed(2)),
     },
     {
       accessorKey: 'outsideTransactions',
-      header: 'Outside Transactions',
-      cell: ({ row }) => row.original.outsideTransactions.toFixed(2),
+      header: 'Other Transactions',
+      accessorFn: (row) =>
+        isFriendSummary(row)
+          ? row.friendTransactions.toFixed(2)
+          : row.outsideTransactions.toFixed(2),
     },
     {
       accessorKey: 'friendTransactions',
       header: 'Friend Transactions',
-      cell: ({ row }) => row.original.friendTransactions.toFixed(2),
+      accessorFn: (row) =>
+        isFriendSummary(row) ? row.paidByFriend.toFixed(2) : row.friendTransactions.toFixed(2),
     },
     {
-      accessorKey: 'finalAmount',
+      accessorKey: 'date',
       header: 'Current Balance',
       cell: ({ row }) => row.original.finalBalance.toFixed(2),
+      id: 'date',
+      meta: {
+        label: 'Date',
+        variant: 'dateRange',
+      },
+      enableColumnFilter: true,
     },
     {
       accessorKey: 'actions',
       header: '',
       cell: ({ row }) => {
-        const mutation = api.accounts.deleteAccount.useMutation();
         return (
-          <div className="flex w-full justify-end">
-            <div className="flex flex-row gap-2">
-              <UpdateAccountForm
-                accountId={row.original.account.id}
-                initialData={row.original.account}
-                refresh={onRefresh}
-              />
-              <DeleteConfirmationDialog
-                mutation={mutation}
-                mutationInput={{ id: row.original.account.id }}
-                refresh={onRefresh}
-              >
-                <Button className="size-8" size="icon" variant="outline">
-                  <Trash />
-                </Button>
-              </DeleteConfirmationDialog>
-            </div>
-          </div>
+          <>
+            {isFriendSummary(row.original) ? (
+              <FriendActions row={row.original} onRefresh={onRefresh} />
+            ) : (
+              <AccountActions row={row.original} onRefresh={onRefresh} />
+            )}
+          </>
         );
       },
     },
