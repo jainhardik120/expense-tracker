@@ -40,6 +40,7 @@ import {
   type SelfTransferStatement,
   type Statement,
   type statementParserSchema,
+  isSelfTransfer,
 } from '@/types';
 
 type AggregationArguments = {
@@ -1094,4 +1095,40 @@ export const mergeRawStatementsWithSummary = async (
       })
       .reverse(),
   };
+};
+
+export const getFromAccount = (statement: Statement | SelfTransferStatement): string | null => {
+  if (isSelfTransfer(statement)) {
+    return statement.fromAccount;
+  }
+  switch (statement.statementKind) {
+    case 'expense':
+      return statement.accountName ?? statement.friendName;
+    case 'friend_transaction':
+      return parseFloat(statement.amount) < 0 ? statement.accountName : statement.friendName;
+    case 'outside_transaction':
+      return parseFloat(statement.amount) < 0 ? statement.accountName : null;
+    case 'self_transfer':
+      return null;
+    default:
+      return null;
+  }
+};
+
+export const getToAccount = (statement: Statement | SelfTransferStatement): string | null => {
+  if (isSelfTransfer(statement)) {
+    return statement.toAccount;
+  }
+  switch (statement.statementKind) {
+    case 'expense':
+      return null;
+    case 'friend_transaction':
+      return parseFloat(statement.amount) < 0 ? statement.friendName : statement.accountName;
+    case 'outside_transaction':
+      return parseFloat(statement.amount) < 0 ? null : statement.accountName;
+    case 'self_transfer':
+      return null;
+    default:
+      return null;
+  }
 };

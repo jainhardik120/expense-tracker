@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SortableItemHandle } from '@/components/ui/sortable';
 import { useIsMounted } from '@/hooks/use-is-mounted';
+import { getFromAccount, getToAccount } from '@/server/helpers/summary';
 import { api } from '@/server/react';
 import {
   type SelfTransferStatement,
@@ -21,42 +22,6 @@ import {
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
 import StatementSplits from './StatementSplits';
-
-const getFromAccount = (statement: Statement | SelfTransferStatement): string | null => {
-  if (isSelfTransfer(statement)) {
-    return statement.fromAccount;
-  }
-  switch (statement.statementKind) {
-    case 'expense':
-      return statement.accountName ?? statement.friendName;
-    case 'friend_transaction':
-      return parseFloat(statement.amount) < 0 ? statement.accountName : statement.friendName;
-    case 'outside_transaction':
-      return parseFloat(statement.amount) < 0 ? statement.accountName : null;
-    case 'self_transfer':
-      return null;
-    default:
-      return null;
-  }
-};
-
-const getToAccount = (statement: Statement | SelfTransferStatement): string | null => {
-  if (isSelfTransfer(statement)) {
-    return statement.toAccount;
-  }
-  switch (statement.statementKind) {
-    case 'expense':
-      return null;
-    case 'friend_transaction':
-      return parseFloat(statement.amount) < 0 ? statement.friendName : statement.accountName;
-    case 'outside_transaction':
-      return parseFloat(statement.amount) < 0 ? null : statement.accountName;
-    case 'self_transfer':
-      return null;
-    default:
-      return null;
-  }
-};
 
 const StatementActions = ({
   statement,
@@ -122,7 +87,6 @@ const SelfTransferStatementActions = ({
 
 const DateCell = ({ date }: { date: Date }) => {
   const isMounted = useIsMounted();
-
   return isMounted
     ? new Date(date).toLocaleString('en-US', {
         year: 'numeric',

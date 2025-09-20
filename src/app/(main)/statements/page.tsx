@@ -3,7 +3,7 @@ import { createLoader, type SearchParams } from 'nuqs/server';
 import { api } from '@/server/server';
 import { statementParser } from '@/types';
 
-import Table from './table';
+import Table from './_components/table';
 
 const loader = createLoader(statementParser);
 
