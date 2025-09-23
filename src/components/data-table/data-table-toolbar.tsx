@@ -74,7 +74,7 @@ const DataTableToolbarFilter = <TData,>({ column }: DataTableToolbarFilterProps<
   const columnMeta = column.columnDef.meta;
 
   const onFilterRender = React.useCallback(() => {
-    if (!columnMeta?.variant) {
+    if (columnMeta?.variant === undefined) {
       return null;
     }
 
@@ -84,7 +84,7 @@ const DataTableToolbarFilter = <TData,>({ column }: DataTableToolbarFilterProps<
           <Input
             className="h-8 w-40 lg:w-56"
             placeholder={columnMeta.placeholder ?? columnMeta.label}
-            value={(column.getFilterValue() as string) ?? ''}
+            value={(column.getFilterValue() as string | undefined | null) ?? ''}
             onChange={(event) => {
               column.setFilterValue(event.target.value);
             }}
@@ -95,20 +95,20 @@ const DataTableToolbarFilter = <TData,>({ column }: DataTableToolbarFilterProps<
         return (
           <div className="relative">
             <Input
-              className={cn('h-8 w-[120px]', columnMeta.unit && 'pr-8')}
+              className={cn('h-8 w-[120px]', columnMeta.unit !== undefined && 'pr-8')}
               inputMode="numeric"
               placeholder={columnMeta.placeholder ?? columnMeta.label}
               type="number"
-              value={(column.getFilterValue() as string) ?? ''}
+              value={(column.getFilterValue() as string | undefined | null) ?? ''}
               onChange={(event) => {
                 column.setFilterValue(event.target.value);
               }}
             />
-            {columnMeta.unit ? (
+            {columnMeta.unit !== undefined && (
               <span className="bg-accent text-muted-foreground absolute top-0 right-0 bottom-0 flex items-center rounded-r-md px-2 text-sm">
                 {columnMeta.unit}
               </span>
-            ) : null}
+            )}
           </div>
         );
 

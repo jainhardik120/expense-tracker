@@ -54,7 +54,6 @@ const CalendarWeekNumber = ({ children, ...props }: WeekNumberProps) => {
   );
 };
 
-// eslint-disable-next-line max-lines-per-function
 const Calendar = ({
   className,
   classNames,

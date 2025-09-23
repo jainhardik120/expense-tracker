@@ -61,7 +61,6 @@ interface DataTableProps<TData, TValue> {
 
 const LOCAL_STORAGE_KEY = 'paginationSize';
 
-// eslint-disable-next-line max-lines-per-function
 const DataTable = <TData, TValue>({
   columns,
   data,

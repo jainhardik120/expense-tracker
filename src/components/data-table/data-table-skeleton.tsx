@@ -1,3 +1,4 @@
+/* eslint-disable react/no-array-index-key */
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
