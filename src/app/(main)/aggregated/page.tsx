@@ -26,12 +26,13 @@ export default async function Page({
         <FilterPanel />
       </Suspense>
       <Table data={data.processedAggregations} unit={params.period} />
-      <div className="grid grid-cols-3">
+      <div className="grid grid-cols-1 md:grid-cols-2">
         <Expenses
           data={data.processedAggregations.map((agg) => ({
             date: agg.date,
             expenses: agg.totalExpenses,
           }))}
+          range={params}
           unit={params.period}
         />
       </div>

@@ -295,7 +295,7 @@ export const getAccountsAndStartingBalances = async (
   let initBalances = accounts.map((account) => {
     return {
       account,
-      startingBalance: parseFloat(account.startingBalance),
+      startingBalance: Number.parseFloat(account.startingBalance),
     };
   });
   if (start !== undefined) {
@@ -614,7 +614,7 @@ export const getStatementAmountAndSplits = async (
   const totalAllocatedResult = await query.then((res) => res[0]);
   return {
     kind: statement.kind,
-    statementAmount: parseFloat(statement.amount),
+    statementAmount: Number.parseFloat(statement.amount),
     totalAllocated: totalAllocatedResult.sum,
   };
 };
@@ -850,22 +850,22 @@ export const getChangeForAccount = (
   if ('accountId' in statement && statement.accountId === accountId) {
     let change = 0;
     if (statement.statementKind === 'expense') {
-      change = -1 * parseFloat(statement.amount);
+      change = -1 * Number.parseFloat(statement.amount);
     }
     if (
       statement.statementKind === 'friend_transaction' ||
       statement.statementKind === 'outside_transaction'
     ) {
-      change = parseFloat(statement.amount);
+      change = Number.parseFloat(statement.amount);
     }
     return change;
   }
   if ('fromAccountId' in statement && 'toAccountId' in statement) {
     if (statement.fromAccountId === accountId) {
-      return -1 * parseFloat(statement.amount);
+      return -1 * Number.parseFloat(statement.amount);
     }
     if (statement.toAccountId === accountId) {
-      return parseFloat(statement.amount);
+      return Number.parseFloat(statement.amount);
     }
   }
   return 0;
@@ -883,7 +883,7 @@ export const getChangeForFriend = (
     statement.friendId === friendId &&
     (statement.statementKind === 'expense' || statement.statementKind === 'friend_transaction')
   ) {
-    return splitAmount + parseFloat(statement.amount);
+    return splitAmount + Number.parseFloat(statement.amount);
   }
   return splitAmount;
 };
@@ -1105,9 +1105,9 @@ export const getFromAccount = (statement: Statement | SelfTransferStatement): st
     case 'expense':
       return statement.accountName ?? statement.friendName;
     case 'friend_transaction':
-      return parseFloat(statement.amount) < 0 ? statement.accountName : statement.friendName;
+      return Number.parseFloat(statement.amount) < 0 ? statement.accountName : statement.friendName;
     case 'outside_transaction':
-      return parseFloat(statement.amount) < 0 ? statement.accountName : null;
+      return Number.parseFloat(statement.amount) < 0 ? statement.accountName : null;
     case 'self_transfer':
       return null;
     default:
@@ -1123,9 +1123,9 @@ export const getToAccount = (statement: Statement | SelfTransferStatement): stri
     case 'expense':
       return null;
     case 'friend_transaction':
-      return parseFloat(statement.amount) < 0 ? statement.friendName : statement.accountName;
+      return Number.parseFloat(statement.amount) < 0 ? statement.friendName : statement.accountName;
     case 'outside_transaction':
-      return parseFloat(statement.amount) < 0 ? null : statement.accountName;
+      return Number.parseFloat(statement.amount) < 0 ? null : statement.accountName;
     case 'self_transfer':
       return null;
     default:

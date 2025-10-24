@@ -162,11 +162,17 @@ export const SECONDS = 1000;
 export const MINUTES = 60 * SECONDS;
 const HOURS = 60 * MINUTES;
 export const DAYS = 24 * HOURS;
-const MONTHS = 30 * DAYS;
 
 export const dateParser = {
-  start: parseAsTimestamp.withDefault(new Date(Date.now() - MONTHS)),
+  start: parseAsTimestamp.withDefault(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1, 0, 0, 0, 0),
+  ),
   end: parseAsTimestamp.withDefault(new Date()),
+};
+
+export type DateRange = {
+  start: Date;
+  end: Date;
 };
 
 const pageParser = {
@@ -185,7 +191,7 @@ const pageSchema = {
 };
 
 export const aggregationParser = {
-  period: parseAsStringEnum(DateTruncValues).withDefault('week'),
+  period: parseAsStringEnum(DateTruncValues).withDefault('day'),
   ...dateParser,
 };
 

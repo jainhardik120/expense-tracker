@@ -3,19 +3,23 @@
 import LineChart from '@/components/line-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatTruncatedDate } from '@/lib/date';
-import type { DateTruncUnit } from '@/types';
+import type { DateRange, DateTruncUnit } from '@/types';
 
 const Expenses = ({
   data,
   unit,
+  range,
 }: {
   data: { date: Date; expenses: number }[];
   unit: DateTruncUnit;
+  range: DateRange;
 }) => (
   <Card>
     <CardHeader>
       <CardTitle>Expenses</CardTitle>
-      <CardDescription>January - June 2024</CardDescription>
+      <CardDescription>
+        From: {formatTruncatedDate(range.start, unit)} To: {formatTruncatedDate(range.end, unit)}
+      </CardDescription>
     </CardHeader>
     <CardContent>
       <LineChart

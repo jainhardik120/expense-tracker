@@ -36,7 +36,7 @@ const LineChart = ({ data }: { data: ChartData }) => {
       >
         <CartesianGrid vertical={false} />
         <XAxis axisLine={false} dataKey={data.primaryAxis.key} tickLine={false} tickMargin={8} />
-        <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={false} />
+        <ChartTooltip content={<ChartTooltipContent />} />
         {Object.keys(data.secondaryAxes).map((key) => (
           <Line
             key={key}
