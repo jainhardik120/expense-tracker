@@ -5,7 +5,7 @@ import { createLoader, type SearchParams } from 'nuqs/server';
 import { api } from '@/server/server';
 import { aggregationParser } from '@/types';
 
-import Expenses from './_components/expenses';
+import { CategoryExpensesPieChart, ExpensesLineChart } from './_components/charts';
 import FilterPanel from './_components/filter-panel';
 import Table from './_components/table';
 
@@ -25,15 +25,26 @@ export default async function Page({
       <Suspense>
         <FilterPanel />
       </Suspense>
-      <Table data={data.processedAggregations} unit={params.period} />
-      <div className="grid grid-cols-1 md:grid-cols-2">
-        <Expenses
-          data={data.processedAggregations.map((agg) => ({
-            date: agg.date,
+      <Table data={data.periodAggregations} unit={params.period} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <ExpensesLineChart
+          allCategories={Object.entries(data.categoryWiseTotals)
+            .filter(([_, amount]) => amount > 0)
+            .map(([category]) => category)}
+          data={data.periodAggregations.map((agg) => ({
+            ...agg,
             expenses: agg.totalExpenses,
           }))}
           range={params}
           unit={params.period}
+        />
+        <CategoryExpensesPieChart
+          data={Object.entries(data.categoryWiseTotals)
+            .filter(([_, amount]) => amount > 0)
+            .map(([category, amount]) => ({
+              category,
+              amount,
+            }))}
         />
       </div>
     </div>

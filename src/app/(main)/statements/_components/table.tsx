@@ -41,10 +41,14 @@ const Table = ({
   data,
   accountsData,
   friendsData,
+  categories,
+  tags,
 }: {
   data: StatementData;
   accountsData: Account[];
   friendsData: Friend[];
+  categories: string[];
+  tags: string[];
 }) => {
   const [optimisticData, updateOptimisticData] = useOptimistic<
     (Statement | SelfTransferStatement)[],
@@ -70,13 +74,15 @@ const Table = ({
     },
     accountsData,
     friendsData,
-    data.summary !== null
-      ? {
+    categories,
+    tags,
+    data.summary === null
+      ? undefined
+      : {
           name:
             'friend' in data.summary ? data.summary.friend.name : data.summary.account.accountName,
           amount: data.summary.finalBalance,
-        }
-      : undefined,
+        },
   );
   const { table } = useDataTable({
     data: optimisticData,

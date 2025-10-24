@@ -15,7 +15,7 @@ export default async function Layout({ children }: Readonly<{ children: React.Re
     <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar />
       <SidebarInset>
-        <header className="bg-background sticky top-0 z-[40] flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="bg-background sticky top-0 z-[9] flex h-16 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator className="mr-2 data-[orientation=vertical]:h-4" orientation="vertical" />
           <div className="flex w-full items-center justify-between gap-2">

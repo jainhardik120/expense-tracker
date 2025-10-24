@@ -18,5 +18,15 @@ export default async function Page({
   });
   const friends = await api.friends.getFriends();
   const accounts = await api.accounts.getAccounts();
-  return <Table accountsData={accounts} data={data} friendsData={friends} />;
+  const categories = await api.statements.getCategories();
+  const tags = await api.statements.getTags();
+  return (
+    <Table
+      accountsData={accounts}
+      categories={categories}
+      data={data}
+      friendsData={friends}
+      tags={tags}
+    />
+  );
 }

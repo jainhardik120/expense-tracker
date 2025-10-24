@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { selfTransferStatements, splits, statements } from '@/db/schema';
@@ -17,10 +17,26 @@ import {
 } from '@/types';
 
 export const statementsRouter = createTRPCRouter({
+  getCategories: protectedProcedure.query(async ({ ctx }) => {
+    return (
+      await ctx.db
+        .selectDistinct({ category: statements.category })
+        .from(statements)
+        .where(eq(statements.userId, ctx.session.user.id))
+    ).map((c) => c.category);
+  }),
+  getTags: protectedProcedure.query(async ({ ctx }) => {
+    const result = await ctx.db
+      .selectDistinct({ tag: sql<string>`unnest(${statements.tags})`.as('tag') })
+      .from(statements)
+      .where(eq(statements.userId, ctx.session.user.id))
+      .orderBy(sql<string>`tag`);
+    return result.map((r) => r.tag);
+  }),
   getStatements: protectedProcedure.input(statementParserSchema).query(async ({ ctx, input }) => {
     let statements = await getMergedStatements(ctx.db, ctx.session.user.id, input);
     let summary = null;
-    if (input.account.length === 1) {
+    if (input.account.length === 1 && input.category.length === 0) {
       const accountId = input.account[0];
       const { summary: accountSummary, statements: accountStatements } =
         await mergeRawStatementsWithSummary(
@@ -154,7 +170,7 @@ export const statementsRouter = createTRPCRouter({
       if (kind !== 'expense') {
         throw new Error('Cannot add split. Statement is not an expense.');
       }
-      const newSplitAmount = parseFloat(input.createSplitSchema.amount);
+      const newSplitAmount = Number.parseFloat(input.createSplitSchema.amount);
       if (totalAllocated + newSplitAmount > statementAmount) {
         throw new Error(
           `Cannot add split. Total allocated amount (${totalAllocated + newSplitAmount}) would exceed statement amount (${statementAmount}).`,
@@ -195,14 +211,14 @@ export const statementsRouter = createTRPCRouter({
       if (currentSplit.length === 0) {
         throw new Error('Split not found');
       }
-      const currentSplitAmount = parseFloat(currentSplit[0].amount);
+      const currentSplitAmount = Number.parseFloat(currentSplit[0].amount);
       const { statementId } = currentSplit[0];
       const { statementAmount, totalAllocated } = await getStatementAmountAndSplits(
         ctx.db,
         statementId,
         input.splitId,
       );
-      if (totalAllocated + parseFloat(input.createSplitSchema.amount) > statementAmount) {
+      if (totalAllocated + Number.parseFloat(input.createSplitSchema.amount) > statementAmount) {
         throw new Error(
           `Cannot update split. Total allocated amount (${totalAllocated + currentSplitAmount}) would exceed statement amount (${statementAmount}).`,
         );

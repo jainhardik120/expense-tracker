@@ -60,7 +60,7 @@ export const summaryRouter = createTRPCRouter({
       return {
         accountsSummary: rawData.accountsSummary,
         friendsSummary: rawData.friendsSummary,
-        processedAggregations,
+        ...processedAggregations,
       };
     }),
 });

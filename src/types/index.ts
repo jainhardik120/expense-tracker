@@ -199,6 +199,8 @@ export const statementParser = {
   ...pageParser,
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
   account: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  category: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  tags: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
 export const summaryParser = {
@@ -209,6 +211,8 @@ export const statementParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
   account: z.string().array().optional().default([]),
+  category: z.string().array().optional().default([]),
+  tags: z.string().array().optional().default([]),
 });
 
 export const accountFriendStatementsParserSchema = z.object({

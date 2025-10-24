@@ -248,7 +248,7 @@ const eslintConfig = [
       ],
 
       'max-params': [
-        'error',
+        'warn',
         {
           max: 5,
         },

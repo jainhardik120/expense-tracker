@@ -440,8 +440,9 @@ export const getRawDataForAggregation = async (
     ...params,
     selectColumns: {
       periodStart: statementAggregation,
+      category: sql<string>`${statements.category}`,
     },
-    aggregationBy: [statementAggregation],
+    aggregationBy: [statementAggregation, sql<string>`${statements.category}`],
   };
   const selfTransferParams = {
     ...params,
@@ -454,6 +455,7 @@ export const getRawDataForAggregation = async (
     ReturnType<typeof aggregatedStatementsSummary>
   >[number] & {
     periodStart: Date;
+    category: string;
   })[];
   const selfTransferData = (await aggregatedSelfTransfersData(selfTransferParams)) as (Awaited<
     ReturnType<typeof aggregatedSelfTransfersData>
@@ -464,11 +466,13 @@ export const getRawDataForAggregation = async (
     ReturnType<typeof aggregatedFriendsData>
   >[number] & {
     periodStart: Date;
+    category: string;
   })[];
   const splitsData = (await aggregatedSplitsData(statementParams)) as (Awaited<
     ReturnType<typeof aggregatedSplitsData>
   >[number] & {
     periodStart: Date;
+    category: string;
   })[];
   const startingBalances = await getAccountsAndStartingBalances(db, userId, start);
   const startingFriendsBalances = await getFriendsAndStartingBalances(db, userId, start);
@@ -489,32 +493,7 @@ export const processAggregatedData = ({
   friendsData,
   splitsData,
   selfTransferData,
-}: {
-  accountsSummary: { account: Account; startingBalance: number }[];
-  friendsSummary: { friend: Friend; startingBalance: number }[];
-  statementData: {
-    accountId: string | null;
-    statementKind: 'expense' | 'outside_transaction' | 'friend_transaction' | 'self_transfer';
-    totalAmount: number;
-    periodStart: Date;
-  }[];
-  friendsData: {
-    friendId: string | null;
-    statementKind: 'expense' | 'outside_transaction' | 'friend_transaction' | 'self_transfer';
-    totalAmount: number;
-    periodStart: Date;
-  }[];
-  splitsData: {
-    friendId: string;
-    totalAmount: number;
-    periodStart: Date;
-  }[];
-  selfTransferData: {
-    accountId: string;
-    totalAmount: number;
-    periodStart: Date;
-  }[];
-}) => {
+}: Awaited<ReturnType<typeof getRawDataForAggregation>>) => {
   const uniquePeriodStarts = Array.from(
     new Set([
       ...statementData.map((exp) => exp.periodStart.getTime()),
@@ -525,6 +504,13 @@ export const processAggregatedData = ({
   )
     .map((timestamp) => new Date(timestamp))
     .toSorted((a, b) => a.getTime() - b.getTime());
+  const uniqueCategories = Array.from(
+    new Set([
+      ...statementData.map((exp) => exp.category),
+      ...friendsData.map((exp) => exp.category),
+      ...splitsData.map((exp) => exp.category),
+    ]),
+  );
   const lastPeriodBalances: Record<string, number> = {};
   for (const account of accountsSummary) {
     lastPeriodBalances[account.account.id] = account.startingBalance;
@@ -532,7 +518,7 @@ export const processAggregatedData = ({
   for (const friend of friendsSummary) {
     lastPeriodBalances[friend.friend.id] = friend.startingBalance;
   }
-  return uniquePeriodStarts.map((date) => {
+  const periodAggregations = uniquePeriodStarts.map((date) => {
     const processedAccountSummary: (AggregatedAccountTransferSummary & { accountId: string })[] =
       [];
     for (const account of accountsSummary) {
@@ -576,6 +562,26 @@ export const processAggregatedData = ({
     }
     const totalAccountsSummary = addAccountsSummary(processedAccountSummary);
     const totalFriendsSummary = addFriendsSummary(processedFriendSummary);
+    const categoryWiseSummary: Record<string, number> = {};
+    for (const category of uniqueCategories) {
+      const filteredStatements = statementData.filter(
+        (exp) => exp.category === category && exp.periodStart.getTime() === date.getTime(),
+      );
+      const statementsSummary = getFinalBalanceFromStatements(...filteredStatements);
+      const friendsStatements = friendsData.filter(
+        (exp) => exp.category === category && exp.periodStart.getTime() === date.getTime(),
+      );
+      const splitsStatements = splitsData.filter(
+        (exp) => exp.category === category && exp.periodStart.getTime() === date.getTime(),
+      );
+      const friendsSummary = getFinalBalancesFromFriendStatements(
+        ...friendsStatements,
+        ...splitsStatements,
+      );
+      const expense =
+        statementsSummary.expenses + friendsSummary.paidByFriend - friendsSummary.splits;
+      categoryWiseSummary[category] = expense;
+    }
     return {
       date,
       accountsSummary: processedAccountSummary,
@@ -586,8 +592,21 @@ export const processAggregatedData = ({
         totalAccountsSummary.expenses +
         totalFriendsSummary.paidByFriend -
         totalFriendsSummary.splits,
+      categoryWiseSummary,
     };
   });
+  const categoryWiseTotals = periodAggregations.reduce<Record<string, number>>((acc, cur) => {
+    for (const category in cur.categoryWiseSummary) {
+      acc[category] = (acc[category] ?? 0) + cur.categoryWiseSummary[category];
+    }
+    return acc;
+  }, {});
+  return {
+    periodAggregations,
+    categoryWiseTotals,
+    uniqueCategories,
+    uniquePeriodStarts,
+  };
 };
 
 export const getStatementAmountAndSplits = async (
@@ -619,7 +638,7 @@ export const getStatementAmountAndSplits = async (
   };
 };
 
-const generateStatementUnionDetailedQuery = (db: Database) => {
+const generateStatementUnionDetailedQuery = (db: Database, unnestTags?: boolean) => {
   const fromAccount = alias(bankAccount, 'from_account');
   const toAccount = alias(bankAccount, 'to_account');
   const splitTotals = db.$with('split_totals').as(
@@ -631,32 +650,39 @@ const generateStatementUnionDetailedQuery = (db: Database) => {
       .from(splits)
       .groupBy(splits.statementId),
   );
+  let statementQuery = db
+    .with(splitTotals)
+    .select({
+      id: statements.id,
+      createdAt: statements.createdAt,
+      amount: statements.amount,
+      accountName: bankAccount.accountName,
+      friendName: friendsProfiles.name,
+      userId: statements.userId,
+      splitAmount: splitTotals.total,
+      accountId: statements.accountId,
+      friendId: statements.friendId,
+      category: statements.category,
+      tags: statements.tags,
+      statementKind: statements.statementKind,
+      type: sql<string>`'statement'`.as('type'),
+      fromAccount: sql<string | null>`NULL`.as('from_account'),
+      toAccount: sql<string | null>`NULL`.as('to_account'),
+      fromAccountId: sql<string | null>`NULL::uuid`.as('from_account_id'),
+      toAccountId: sql<string | null>`NULL::uuid`.as('to_account_id'),
+      tag: sql<string | null>`tag`.as('tag'),
+    })
+    .from(statements)
+    .leftJoin(bankAccount, eq(bankAccount.id, statements.accountId))
+    .leftJoin(friendsProfiles, eq(friendsProfiles.id, statements.friendId))
+    .leftJoin(splitTotals, eq(splitTotals.statementId, statements.id));
+  if (unnestTags === true) {
+    statementQuery = statementQuery.crossJoin(sql`unnest(${statements.tags}) as tag`);
+  } else {
+    statementQuery = statementQuery.crossJoin(sql`(SELECT NULL::text AS tag)`);
+  }
   return unionAll(
-    db
-      .with(splitTotals)
-      .select({
-        id: statements.id,
-        createdAt: statements.createdAt,
-        amount: statements.amount,
-        accountName: bankAccount.accountName,
-        friendName: friendsProfiles.name,
-        userId: statements.userId,
-        splitAmount: splitTotals.total,
-        accountId: statements.accountId,
-        friendId: statements.friendId,
-        category: statements.category,
-        tags: statements.tags,
-        statementKind: statements.statementKind,
-        type: sql<string>`'statement'`.as('type'),
-        fromAccount: sql<string | null>`NULL`.as('from_account'),
-        toAccount: sql<string | null>`NULL`.as('to_account'),
-        fromAccountId: sql<string | null>`NULL::uuid`.as('from_account_id'),
-        toAccountId: sql<string | null>`NULL::uuid`.as('to_account_id'),
-      })
-      .from(statements)
-      .leftJoin(bankAccount, eq(bankAccount.id, statements.accountId))
-      .leftJoin(friendsProfiles, eq(friendsProfiles.id, statements.friendId))
-      .leftJoin(splitTotals, eq(splitTotals.statementId, statements.id)),
+    statementQuery,
     db
       .select({
         id: selfTransferStatements.id,
@@ -676,6 +702,7 @@ const generateStatementUnionDetailedQuery = (db: Database) => {
         toAccount: toAccount.accountName,
         fromAccountId: selfTransferStatements.fromAccountId,
         toAccountId: selfTransferStatements.toAccountId,
+        tag: sql<string | null>`NULL`.as('tag'),
       })
       .from(selfTransferStatements)
       .leftJoin(fromAccount, eq(fromAccount.id, selfTransferStatements.fromAccountId))
@@ -712,10 +739,12 @@ export const getMergedStatementsDetailedRaw = (
   db: Database,
   userId: string,
   account: string[],
+  category: string[],
+  tags: string[],
   start?: Date,
   end?: Date,
 ) => {
-  const union = generateStatementUnionDetailedQuery(db);
+  const union = generateStatementUnionDetailedQuery(db, tags.length > 0);
   const conditions = [];
   conditions.push(eq(union.userId, userId));
   if (start !== undefined) {
@@ -739,6 +768,12 @@ export const getMergedStatementsDetailedRaw = (
       ),
     );
   }
+  if (category.length > 0) {
+    conditions.push(inArray(union.category, category));
+  }
+  if (tags.length > 0) {
+    conditions.push(inArray(union.tag, tags));
+  }
   return db
     .select()
     .from(union)
@@ -756,6 +791,8 @@ export const getMergedStatements = async (
     db,
     userId,
     input.account,
+    input.category,
+    input.tags,
     input.start,
     input.end,
   );
@@ -825,18 +862,36 @@ export const getRowsCount = async (
       ),
     );
   }
-  const statementCount = (
-    await db
-      .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
-      .from(statements)
-      .where(and(...statementConditions))
-  )[0].count;
-  const selfTransferStatementCount = (
-    await db
-      .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
-      .from(selfTransferStatements)
-      .where(and(...selfTransferStatementConditions))
-  )[0].count;
+  if (input.category.length > 0) {
+    statementConditions.push(inArray(statements.category, input.category));
+  }
+  let statementCount = 0;
+  if (input.tags.length > 0) {
+    statementConditions.push(inArray(sql`tag`, input.tags));
+    statementCount = (
+      await db
+        .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
+        .from(statements)
+        .crossJoin(sql`unnest(${statements.tags}) as tag`)
+        .where(and(...statementConditions))
+    )[0].count;
+  } else {
+    statementCount = (
+      await db
+        .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
+        .from(statements)
+        .where(and(...statementConditions))
+    )[0].count;
+  }
+  let selfTransferStatementCount = 0;
+  if (input.category.length === 0 && input.tags.length === 0) {
+    selfTransferStatementCount = (
+      await db
+        .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
+        .from(selfTransferStatements)
+        .where(and(...selfTransferStatementConditions))
+    )[0].count;
+  }
   return {
     statementCount,
     selfTransferStatementCount,
@@ -955,6 +1010,8 @@ export const getStartingBalancesPaginated = async (
     db,
     userId,
     [input.account],
+    [],
+    [],
     input.start,
     input.end,
   );

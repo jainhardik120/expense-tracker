@@ -102,6 +102,8 @@ export const createStatementColumns = (
   onRefreshStatements: () => void,
   accountsData: Account[],
   friendsData: Friend[],
+  categories: string[],
+  tags: string[],
   startingBalance?: {
     name: string;
     amount: number;
@@ -150,13 +152,20 @@ export const createStatementColumns = (
     header: 'Amount',
     cell: ({ row }) => {
       const { amount } = row.original;
-      return parseFloat(amount).toFixed(2);
+      return Number.parseFloat(amount).toFixed(2);
     },
   },
   {
+    id: 'category',
     accessorKey: 'category',
     header: 'Category',
     cell: ({ row }) => <>{isSelfTransfer(row.original) ? '-' : row.original.category}</>,
+    meta: {
+      label: 'Category',
+      variant: 'multiSelect',
+      options: categories.map((category) => ({ label: category, value: category })),
+    },
+    enableColumnFilter: true,
   },
   {
     id: 'account',
@@ -195,6 +204,7 @@ export const createStatementColumns = (
     header: startingBalance?.name ?? '-',
   },
   {
+    id: 'tags',
     accessorKey: 'tags',
     header: 'Tags',
     cell: ({ row }) => (
@@ -212,6 +222,12 @@ export const createStatementColumns = (
         )}
       </>
     ),
+    meta: {
+      label: 'Tags',
+      variant: 'multiSelect',
+      options: tags.map((tag) => ({ label: tag, value: tag })),
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'actions',
