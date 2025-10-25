@@ -1,17 +1,19 @@
 'use client';
 
+import { useTimezone } from '@/components/time-zone-setter';
 import DataTable from '@/components/ui/data-table';
 import { formatTruncatedDate } from '@/lib/date';
 import { type DateTruncUnit, type ProcessedAggregationData } from '@/types';
 
 const Table = ({ data, unit }: { data: ProcessedAggregationData[]; unit: DateTruncUnit }) => {
+  const timezone = useTimezone();
   return (
     <DataTable
       columns={[
         {
           accessorKey: 'date',
           header: 'Date',
-          cell: ({ row }) => formatTruncatedDate(row.original.date, unit),
+          cell: ({ row }) => formatTruncatedDate(row.original.date, unit, timezone),
         },
         {
           accessorKey: 'totalAccountsSummary.startingBalance',

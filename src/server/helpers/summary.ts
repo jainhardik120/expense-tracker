@@ -1,3 +1,4 @@
+import { fromZonedTime } from 'date-fns-tz';
 import {
   and,
   eq,
@@ -419,6 +420,7 @@ export const getRawDataForAggregation = async (
   db: Database,
   userId: string,
   aggregateBy: DateTruncUnit,
+  timezone: string,
   start?: Date,
   end?: Date,
 ) => {
@@ -428,14 +430,20 @@ export const getRawDataForAggregation = async (
     start: start,
     end: end,
   };
-  const statementAggregation =
-    sql<Date>`date_trunc('${sql.raw(aggregateBy)}', ${statements.createdAt})`.mapWith(
-      (value: string | Date) => (value instanceof Date ? value : new Date(`${value}Z`)),
-    );
-  const selfTransferAggregation =
-    sql<Date>`date_trunc('${sql.raw(aggregateBy)}', union_query.created_at)`.mapWith(
-      (value: string | Date) => (value instanceof Date ? value : new Date(`${value}Z`)),
-    );
+  const dateTruncWithTz = (column: string) =>
+    sql<Date>`
+    date_trunc(
+      '${sql.raw(aggregateBy)}',
+      (${sql.raw(column)} AT TIME ZONE 'UTC') AT TIME ZONE '${sql.raw(timezone)}'
+    )
+  `.mapWith((value: string | Date) => {
+      if (value instanceof Date) {
+        return value;
+      }
+      return fromZonedTime(new Date(`${value}`), timezone);
+    });
+  const statementAggregation = dateTruncWithTz('statements.created_at');
+  const selfTransferAggregation = dateTruncWithTz('union_query.created_at');
   const statementParams = {
     ...params,
     selectColumns: {

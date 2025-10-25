@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import LineChart from '@/components/line-chart';
 import PieChart from '@/components/pie-chart';
+import { useTimezone } from '@/components/time-zone-setter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -30,6 +31,7 @@ export const ExpensesLineChart = ({
   range: DateRange;
   allCategories: string[];
 }) => {
+  const timezone = useTimezone();
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
     () => new Set(allCategories),
   );
@@ -67,7 +69,7 @@ export const ExpensesLineChart = ({
   const chartData = useMemo(() => {
     return data.map((d) => {
       const filteredData: Record<string, string | number> = {
-        date: formatTruncatedDate(d.date, unit),
+        date: formatTruncatedDate(d.date, unit, timezone),
       };
 
       let total = 0;
@@ -83,7 +85,7 @@ export const ExpensesLineChart = ({
 
       return filteredData;
     });
-  }, [data, selectedCategories, unit]);
+  }, [data, selectedCategories, unit, timezone]);
 
   const finalDataLabels = useMemo(() => {
     if (selectedCategories.size === 0) {
@@ -112,7 +114,8 @@ export const ExpensesLineChart = ({
       <CardHeader>
         <CardTitle>Expenses</CardTitle>
         <CardDescription>
-          From: {formatTruncatedDate(range.start, unit)} To: {formatTruncatedDate(range.end, unit)}
+          From: {formatTruncatedDate(range.start, unit, timezone)} To:{' '}
+          {formatTruncatedDate(range.end, unit, timezone)}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -179,7 +182,7 @@ export const CategoryExpensesPieChart = ({
             dataKey: 'amount',
             data: data,
           }}
-          innerRadius={60}
+          innerRadius={0}
           onClick={(data) => {
             router.push(
               `/statements?category=${data.category}&date=${range.start.getTime()},${range.end.getTime()}`,

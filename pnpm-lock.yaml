@@ -119,6 +119,9 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      date-fns-tz:
+        specifier: ^3.2.0
+        version: 3.2.0(date-fns@4.1.0)
       dotenv:
         specifier: ^17.2.1
         version: 17.2.1
@@ -131,6 +134,9 @@ importers:
       next:
         specifier: 15.5.2
         version: 15.5.2(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      next-client-cookies:
+        specifier: ^2.1.0
+        version: 2.1.0(next@15.5.2(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1)
       next-themes:
         specifier: ^0.4.6
         version: 0.4.6(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -2324,6 +2330,11 @@ packages:
   date-fns-jalali@4.1.0-0:
     resolution: {integrity: sha512-hTIP/z+t+qKwBDcmmsnmjWTduxCg+5KfdqWQvb2X/8C9+knYY6epN/pfxdDuyVlSVeFz0sM5eEfwIUQ70U4ckg==}
 
+  date-fns-tz@3.2.0:
+    resolution: {integrity: sha512-sg8HqoTEulcbbbVXeg84u5UnlsQa8GS5QXMqjjYIhS4abEVVKIUwe0/l/UhrZdKaL/W5eWZNlbTeEIiOXTcsBQ==}
+    peerDependencies:
+      date-fns: ^3.0.0 || ^4.0.0
+
   date-fns@4.1.0:
     resolution: {integrity: sha512-Ukq0owbQXxa/U3EGtsdVBkR1w7KOQ5gIBqdH2hkvknzZPYvBxb/aa6E8L7tmjFtkwZBu3UXBbjIgPo/Ez4xaNg==}
 
@@ -3071,6 +3082,10 @@ packages:
   jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
+  js-cookie@3.0.5:
+    resolution: {integrity: sha512-cEiJEAEoIbWfCZYKWhVwFuvPX1gETRYPw6LlaTKoxD3s2AkXzkCjnp6h0V77ozyqj0jakteJ4YqDJT830+lVGw==}
+    engines: {node: '>=14'}
+
   js-stringify@1.0.2:
     resolution: {integrity: sha512-rtS5ATOo2Q5k1G+DADISilDA6lv79zIiwFd6CcjuIxGKLFm5C+RLImRscVap9k55i+MOZwgliw+NejvkLuGD5g==}
 
@@ -3293,6 +3308,12 @@ packages:
 
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
+
+  next-client-cookies@2.1.0:
+    resolution: {integrity: sha512-kC4xPjPi4H+n2qhMNfArG++FTg0fPe7eykJ2o15hbVudHMvMpXMmZYvnqHaCnisTZuRl1DqZPlwwercO1r5jDA==}
+    peerDependencies:
+      next: '>= 15.0.0'
+      react: '>= 16.8.0'
 
   next-themes@0.4.6:
     resolution: {integrity: sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==}
@@ -6075,6 +6096,10 @@ snapshots:
 
   date-fns-jalali@4.1.0-0: {}
 
+  date-fns-tz@3.2.0(date-fns@4.1.0):
+    dependencies:
+      date-fns: 4.1.0
+
   date-fns@4.1.0: {}
 
   debug@3.2.7:
@@ -6970,6 +6995,8 @@ snapshots:
 
   jose@5.10.0: {}
 
+  js-cookie@3.0.5: {}
+
   js-stringify@1.0.2: {}
 
   js-tokens@4.0.0: {}
@@ -7165,6 +7192,12 @@ snapshots:
   napi-postinstall@0.3.3: {}
 
   natural-compare@1.4.0: {}
+
+  next-client-cookies@2.1.0(next@15.5.2(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(react@19.1.1):
+    dependencies:
+      js-cookie: 3.0.5
+      next: 15.5.2(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      react: 19.1.1
 
   next-themes@0.4.6(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:

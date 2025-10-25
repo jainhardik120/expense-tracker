@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { getTimezone } from '@/lib/date';
 import {
   addAccountsSummary,
   addFriendsSummary,
@@ -49,10 +50,12 @@ export const summaryRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      const tz = await getTimezone();
       const rawData = await getRawDataForAggregation(
         ctx.db,
         ctx.session.user.id,
         input.aggregateBy,
+        tz,
         input.start,
         input.end,
       );

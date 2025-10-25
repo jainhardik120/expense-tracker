@@ -164,10 +164,8 @@ const HOURS = 60 * MINUTES;
 export const DAYS = 24 * HOURS;
 
 export const dateParser = {
-  start: parseAsTimestamp.withDefault(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1, 0, 0, 0, 0),
-  ),
-  end: parseAsTimestamp.withDefault(new Date()),
+  start: parseAsTimestamp,
+  end: parseAsTimestamp,
 };
 
 export type DateRange = {
@@ -232,3 +230,6 @@ export const isFriendSummary = (
 ): summary is FriendSummary => {
   return 'friend' in summary;
 };
+
+export const TIMEZONE_COOKIE = 'timezone';
+export const TIME_OFFSET_COOKIE = 'time-offset';

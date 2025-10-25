@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 
 import { createLoader, type SearchParams } from 'nuqs/server';
 
+import { getDefaultDateRange, getTimezone } from '@/lib/date';
 import { api } from '@/server/server';
 import { aggregationParser } from '@/types';
 
@@ -16,12 +17,17 @@ export default async function Page({
   searchParams,
 }: Readonly<{ searchParams: Promise<SearchParams> }>) {
   const params = await loader(searchParams);
+  const timezone = await getTimezone();
+  const { start: defaultStart, end: defaultEnd } = getDefaultDateRange(timezone);
+  const dateParams = {
+    start: params.start ?? defaultStart,
+    end: params.end ?? defaultEnd,
+  };
   const aggregationData = await api.summary.getAggregatedData({
     aggregateBy: params.period,
-    start: params.start,
-    end: params.end,
+    ...dateParams,
   });
-  const summaryData = await api.summary.getSummary({ start: params.start, end: params.end });
+  const summaryData = await api.summary.getSummary(dateParams);
   return (
     <div className="flex flex-col gap-4">
       <Suspense>
@@ -36,7 +42,7 @@ export default async function Page({
             ...agg,
             expenses: agg.totalExpenses,
           }))}
-          range={params}
+          range={dateParams}
           unit={params.period}
         />
         <CategoryExpensesPieChart
@@ -46,7 +52,7 @@ export default async function Page({
               category,
               amount,
             }))}
-          range={params}
+          range={dateParams}
         />
         <SummaryCard data={summaryData} />
       </div>
