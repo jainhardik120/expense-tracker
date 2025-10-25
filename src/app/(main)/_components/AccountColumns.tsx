@@ -97,12 +97,6 @@ export const createAccountColumns = (
       accessorKey: 'date',
       header: 'Current Balance',
       cell: ({ row }) => row.original.finalBalance.toFixed(2),
-      id: 'date',
-      meta: {
-        label: 'Date',
-        variant: 'dateRange',
-      },
-      enableColumnFilter: true,
     },
     {
       accessorKey: 'actions',

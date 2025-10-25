@@ -50,9 +50,16 @@ const addColorsToChartData = <N extends string, D extends string>(data: ChartDat
 const PieChart = <N extends string, D extends string>({
   data,
   innerRadius = 60,
+  onClick,
 }: {
   data: ChartData<N, D>;
   innerRadius?: number;
+  onClick?: (
+    data: {
+      [K in N | D]: K extends N ? string : number | string;
+    },
+    index: number,
+  ) => void;
 }) => {
   const { config, data: chartData } = useMemo(() => addColorsToChartData(data), [data]);
 
@@ -65,6 +72,7 @@ const PieChart = <N extends string, D extends string>({
           dataKey={data.dataKey}
           innerRadius={innerRadius}
           nameKey={data.nameKey}
+          onClick={onClick}
         />
       </RechartsPieChart>
     </ChartContainer>

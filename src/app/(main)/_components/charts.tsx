@@ -2,13 +2,22 @@
 
 import { useMemo, useState } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 import LineChart from '@/components/line-chart';
 import PieChart from '@/components/pie-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { formatTruncatedDate } from '@/lib/date';
-import type { DateRange, DateTruncUnit } from '@/types';
+import type {
+  AccountSummary,
+  AggregatedAccountTransferSummary,
+  AggregatedFriendTransferSummary,
+  DateRange,
+  DateTruncUnit,
+  FriendSummary,
+} from '@/types';
 
 export const ExpensesLineChart = ({
   data,
@@ -152,22 +161,64 @@ export const ExpensesLineChart = ({
 
 export const CategoryExpensesPieChart = ({
   data,
+  range,
 }: {
   data: { category: string; amount: number }[];
+  range: DateRange;
+}) => {
+  const router = useRouter();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Expenses by Category</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <PieChart
+          data={{
+            nameKey: 'category',
+            dataKey: 'amount',
+            data: data,
+          }}
+          innerRadius={60}
+          onClick={(data) => {
+            router.push(
+              `/statements?category=${data.category}&date=${range.start.getTime()},${range.end.getTime()}`,
+            );
+          }}
+        />
+      </CardContent>
+    </Card>
+  );
+};
+
+export const SummaryCard = ({
+  data: summaryData,
+}: {
+  data: {
+    accountsSummaryData: AccountSummary[];
+    friendsSummaryData: FriendSummary[];
+    myExpensesTotal: number;
+    aggregatedAccountsSummaryData: AggregatedAccountTransferSummary;
+    aggregatedFriendsSummaryData: AggregatedFriendTransferSummary;
+  };
 }) => (
   <Card>
     <CardHeader>
-      <CardTitle>Expenses by Category</CardTitle>
+      <CardTitle>Summary</CardTitle>
     </CardHeader>
     <CardContent>
-      <PieChart
-        data={{
-          nameKey: 'category',
-          dataKey: 'amount',
-          data: data,
-        }}
-        innerRadius={60}
-      />
+      <div className="grid grid-cols-2 gap-2">
+        <p>Accounts Balance: {summaryData.aggregatedAccountsSummaryData.finalBalance.toFixed(2)}</p>
+        <p>Friend Balance: {summaryData.aggregatedFriendsSummaryData.finalBalance.toFixed(2)}</p>
+        <p>My Expenses: {summaryData.myExpensesTotal.toFixed(2)}</p>
+        <p>
+          My Balance:{' '}
+          {(
+            summaryData.aggregatedAccountsSummaryData.finalBalance -
+            summaryData.aggregatedFriendsSummaryData.finalBalance
+          ).toFixed(2)}
+        </p>
+      </div>
     </CardContent>
   </Card>
 );

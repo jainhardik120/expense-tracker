@@ -24,10 +24,6 @@ const links = [
     label: 'Statements',
     href: '/statements',
   },
-  {
-    label: 'Aggregations',
-    href: '/aggregated',
-  },
 ];
 
 export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) => (
