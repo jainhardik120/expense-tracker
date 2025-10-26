@@ -3,6 +3,7 @@
 import { useQueryStates } from 'nuqs';
 
 import DateFilter from '@/components/date-filter';
+import MonthSelector from '@/components/month-selector';
 import {
   Select,
   SelectContent,
@@ -33,6 +34,7 @@ const FilterPanel = () => {
         </Select>
       </div>
       <DateFilter />
+      <MonthSelector />
     </div>
   );
 };

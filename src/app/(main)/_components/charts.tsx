@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import LineChart from '@/components/line-chart';
+import OverlayBar from '@/components/overlay-bar';
 import PieChart from '@/components/pie-chart';
 import { useTimezone } from '@/components/time-zone-setter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,12 +13,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { formatTruncatedDate } from '@/lib/date';
 import type {
-  AccountSummary,
   AggregatedAccountTransferSummary,
   AggregatedFriendTransferSummary,
   DateRange,
   DateTruncUnit,
-  FriendSummary,
 } from '@/types';
 
 export const ExpensesLineChart = ({
@@ -194,34 +193,114 @@ export const CategoryExpensesPieChart = ({
   );
 };
 
-export const SummaryCard = ({
-  data: summaryData,
-}: {
-  data: {
-    accountsSummaryData: AccountSummary[];
-    friendsSummaryData: FriendSummary[];
-    myExpensesTotal: number;
-    aggregatedAccountsSummaryData: AggregatedAccountTransferSummary;
-    aggregatedFriendsSummaryData: AggregatedFriendTransferSummary;
-  };
-}) => (
-  <Card className="col-span-1 md:col-span-2 xl:col-span-1">
-    <CardHeader>
-      <CardTitle>Summary</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="grid grid-cols-2 gap-2">
-        <p>Accounts Balance: {summaryData.aggregatedAccountsSummaryData.finalBalance.toFixed(2)}</p>
-        <p>Friend Balance: {summaryData.aggregatedFriendsSummaryData.finalBalance.toFixed(2)}</p>
-        <p>My Expenses: {summaryData.myExpensesTotal.toFixed(2)}</p>
-        <p>
-          My Balance:{' '}
-          {(
-            summaryData.aggregatedAccountsSummaryData.finalBalance -
-            summaryData.aggregatedFriendsSummaryData.finalBalance
-          ).toFixed(2)}
-        </p>
-      </div>
-    </CardContent>
-  </Card>
-);
+type SummaryData = {
+  myExpensesTotal: number;
+  aggregatedAccountsSummaryData: AggregatedAccountTransferSummary;
+  aggregatedFriendsSummaryData: AggregatedFriendTransferSummary;
+};
+
+const constructOverlayBarData = (data: SummaryData) => {
+  const a =
+    data.aggregatedAccountsSummaryData.startingBalance -
+    data.aggregatedFriendsSummaryData.startingBalance;
+  const b = data.aggregatedAccountsSummaryData.startingBalance;
+  const c = b + data.aggregatedAccountsSummaryData.outsideTransactions;
+  const d =
+    c +
+    (data.aggregatedAccountsSummaryData.friendTransactions -
+      data.aggregatedFriendsSummaryData.splits +
+      data.aggregatedFriendsSummaryData.paidByFriend);
+  const e = d - data.myExpensesTotal;
+  const f = e - data.aggregatedFriendsSummaryData.finalBalance;
+  const g =
+    f -
+    (data.aggregatedAccountsSummaryData.finalBalance -
+      data.aggregatedFriendsSummaryData.finalBalance);
+  return [
+    {
+      name: 'My Starting Balance',
+      start: Math.min(0, a),
+      end: Math.max(0, a),
+      upDirection: a > 0,
+      color: 'var(--chart-5)',
+      label: 'My Starting Balance',
+    },
+    {
+      name: 'Friend Starting Balance',
+      start: Math.min(b, a),
+      end: Math.max(b, a),
+      upDirection: b > a,
+      color: 'var(--chart-1)',
+      label: 'Friend Starting Balance',
+    },
+    {
+      name: 'Outside Transactions',
+      start: Math.min(b, c),
+      end: Math.max(b, c),
+      upDirection: c > b,
+      color: 'var(--chart-2)',
+      label: 'Outside Transactions',
+    },
+    {
+      name: 'Friend Transactions',
+      start: Math.min(c, d),
+      end: Math.max(c, d),
+      upDirection: d > c,
+      color: 'var(--chart-3)',
+      label: 'Friend Transactions',
+    },
+    {
+      name: 'Expenses',
+      start: Math.min(e, d),
+      end: Math.max(e, d),
+      upDirection: e > d,
+      color: 'var(--chart-4)',
+      label: 'Expenses',
+    },
+    {
+      name: 'Friend Balance',
+      start: Math.min(e, f),
+      end: Math.max(e, f),
+      upDirection: data.aggregatedFriendsSummaryData.finalBalance > 0,
+      color: 'var(--chart-5)',
+      label: 'Friend Balance',
+    },
+    {
+      name: 'My Balance',
+      start: Math.min(f, g),
+      end: Math.max(f, g),
+      upDirection:
+        data.aggregatedAccountsSummaryData.finalBalance -
+          data.aggregatedFriendsSummaryData.finalBalance >
+        0,
+      color: 'var(--chart-1)',
+      label: 'My Balance',
+    },
+  ];
+};
+
+export const SummaryCard = ({ data }: { data: SummaryData }) => {
+  const overlayBarData = useMemo(() => constructOverlayBarData(data), [data]);
+  return (
+    <Card className="col-span-1 md:col-span-2 xl:col-span-1">
+      <CardHeader>
+        <CardTitle>Summary</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <OverlayBar data={overlayBarData} />
+        <div className="grid grid-cols-2 gap-2">
+          <p>Accounts Balance: {data.aggregatedAccountsSummaryData.finalBalance.toFixed(2)}</p>
+          <p>Friend Balance: {data.aggregatedFriendsSummaryData.finalBalance.toFixed(2)}</p>
+          <p>My Expenses: {data.myExpensesTotal.toFixed(2)}</p>
+          <p>
+            My Balance:{' '}
+            {(
+              data.aggregatedAccountsSummaryData.finalBalance -
+              data.aggregatedFriendsSummaryData.finalBalance
+            ).toFixed(2)}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
