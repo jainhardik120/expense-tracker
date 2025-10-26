@@ -1,7 +1,10 @@
 import { cookies } from 'next/headers';
 
+import { CookiesProvider } from 'next-client-cookies/server';
+
 import { AppSidebar } from '@/components/app-sidebar';
 import ThemeToggle from '@/components/theme-toggle';
+import TimeZoneSetter from '@/components/time-zone-setter';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
@@ -12,22 +15,25 @@ export default async function Layout({ children }: Readonly<{ children: React.Re
   const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="bg-background sticky top-0 z-[9] flex h-16 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator className="mr-2 data-[orientation=vertical]:h-4" orientation="vertical" />
-          <div className="flex w-full items-center justify-between gap-2">
-            <h1 className="text-lg font-bold">Expense Tracker</h1>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <UserButton />
+    <CookiesProvider>
+      <SidebarProvider defaultOpen={defaultOpen}>
+        <AppSidebar />
+        <SidebarInset>
+          <header className="bg-background sticky top-0 z-[9] flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator className="mr-2 data-[orientation=vertical]:h-4" orientation="vertical" />
+            <div className="flex w-full items-center justify-between gap-2">
+              <h1 className="text-lg font-bold">Expense Tracker</h1>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <UserButton />
+              </div>
             </div>
-          </div>
-        </header>
-        <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
-      </SidebarInset>
-    </SidebarProvider>
+          </header>
+          <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
+      <TimeZoneSetter />
+    </CookiesProvider>
   );
 }

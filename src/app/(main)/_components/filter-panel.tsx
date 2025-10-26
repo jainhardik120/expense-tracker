@@ -16,7 +16,7 @@ const FilterPanel = () => {
   const [params, setParams] = useQueryStates(aggregationParser, { shallow: false });
 
   return (
-    <div className="flex flex-row items-center gap-4">
+    <div className="flex flex-row flex-wrap items-center gap-2">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium">Period:</span>
         <Select value={params.period} onValueChange={(value) => setParams({ period: value })}>

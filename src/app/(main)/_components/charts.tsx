@@ -205,7 +205,7 @@ export const SummaryCard = ({
     aggregatedFriendsSummaryData: AggregatedFriendTransferSummary;
   };
 }) => (
-  <Card>
+  <Card className="col-span-1 md:col-span-2 xl:col-span-1">
     <CardHeader>
       <CardTitle>Summary</CardTitle>
     </CardHeader>

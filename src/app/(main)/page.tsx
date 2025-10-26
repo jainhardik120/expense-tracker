@@ -1,7 +1,6 @@
-import { Suspense } from 'react';
-
 import { createLoader, type SearchParams } from 'nuqs/server';
 
+import { AsyncComponent } from '@/components/async-component';
 import { getDefaultDateRange, getTimezone } from '@/lib/date';
 import { api } from '@/server/server';
 import { aggregationParser } from '@/types';
@@ -23,41 +22,58 @@ export default async function Page({
     start: params.start ?? defaultStart,
     end: params.end ?? defaultEnd,
   };
-  const aggregationData = await api.summary.getAggregatedData({
+  const aggregationPromise = api.summary.getAggregatedData({
     aggregateBy: params.period,
     ...dateParams,
   });
-  const summaryData = await api.summary.getSummary(dateParams);
+  const summaryPromise = api.summary.getSummary(dateParams);
   return (
     <div className="flex flex-col gap-4">
-      <Suspense>
-        <FilterPanel />
-      </Suspense>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <ExpensesLineChart
-          allCategories={Object.entries(aggregationData.categoryWiseTotals)
-            .filter(([_, amount]) => amount > 0)
-            .map(([category]) => category)}
-          data={aggregationData.periodAggregations.map((agg) => ({
-            ...agg,
-            expenses: agg.totalExpenses,
-          }))}
-          range={dateParams}
-          unit={params.period}
-        />
-        <CategoryExpensesPieChart
-          data={Object.entries(aggregationData.categoryWiseTotals)
-            .filter(([_, amount]) => amount > 0)
-            .map(([category, amount]) => ({
-              category,
-              amount,
-            }))}
-          range={dateParams}
-        />
-        <SummaryCard data={summaryData} />
+      <FilterPanel />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <AsyncComponent promise={aggregationPromise}>
+          {(aggregationData) => (
+            <ExpensesLineChart
+              allCategories={Object.entries(aggregationData.categoryWiseTotals)
+                .filter(([, amount]) => amount > 0)
+                .map(([category]) => category)}
+              data={aggregationData.periodAggregations.map((agg) => ({
+                ...agg,
+                expenses: agg.totalExpenses,
+              }))}
+              range={dateParams}
+              unit={params.period}
+            />
+          )}
+        </AsyncComponent>
+        <AsyncComponent promise={aggregationPromise}>
+          {(aggregationData) => (
+            <CategoryExpensesPieChart
+              data={Object.entries(aggregationData.categoryWiseTotals)
+                .filter(([, amount]) => amount > 0)
+                .map(([category, amount]) => ({
+                  category,
+                  amount,
+                }))}
+              range={dateParams}
+            />
+          )}
+        </AsyncComponent>
+        <AsyncComponent
+          loadingFallbackClassName="col-span-1 md:col-span-2 xl:col-span-1"
+          promise={summaryPromise}
+        >
+          {(summaryData) => <SummaryCard data={summaryData} />}
+        </AsyncComponent>
       </div>
-      <SummaryTable data={summaryData} />
-      <AggregationTable data={aggregationData.periodAggregations} unit={params.period} />
+      <AsyncComponent loadingFallbackClassName="h-[400]" promise={summaryPromise}>
+        {(summaryData) => <SummaryTable data={summaryData} />}
+      </AsyncComponent>
+      <AsyncComponent loadingFallbackClassName="h-[400]" promise={aggregationPromise}>
+        {(aggregationData) => (
+          <AggregationTable data={aggregationData.periodAggregations} unit={params.period} />
+        )}
+      </AsyncComponent>
     </div>
   );
 }
