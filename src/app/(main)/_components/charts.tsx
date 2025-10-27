@@ -4,11 +4,13 @@ import { useMemo, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts';
+
 import LineChart from '@/components/line-chart';
-import OverlayBar from '@/components/overlay-bar';
 import PieChart from '@/components/pie-chart';
 import { useTimezone } from '@/components/time-zone-setter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartContainer } from '@/components/ui/chart';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { formatTruncatedDate } from '@/lib/date';
@@ -174,7 +176,7 @@ export const CategoryExpensesPieChart = ({
       <CardHeader>
         <CardTitle>Expenses by Category</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex h-full flex-col">
         <PieChart
           data={{
             nameKey: 'category',
@@ -200,106 +202,127 @@ type SummaryData = {
 };
 
 const constructOverlayBarData = (data: SummaryData) => {
-  const a =
-    data.aggregatedAccountsSummaryData.startingBalance -
-    data.aggregatedFriendsSummaryData.startingBalance;
-  const b = data.aggregatedAccountsSummaryData.startingBalance;
-  const c = b + data.aggregatedAccountsSummaryData.outsideTransactions;
-  const d =
-    c +
-    (data.aggregatedAccountsSummaryData.friendTransactions -
-      data.aggregatedFriendsSummaryData.splits +
-      data.aggregatedFriendsSummaryData.paidByFriend);
-  const e = d - data.myExpensesTotal;
-  const f = e - data.aggregatedFriendsSummaryData.finalBalance;
-  const g =
-    f -
-    (data.aggregatedAccountsSummaryData.finalBalance -
-      data.aggregatedFriendsSummaryData.finalBalance);
-  return [
+  const CHART_COLORS_COUNT = 5;
+
+  const rawData = [
     {
-      name: 'My Starting Balance',
-      start: Math.min(0, a),
-      end: Math.max(0, a),
-      upDirection: a > 0,
-      color: 'var(--chart-5)',
       label: 'My Starting Balance',
+      change:
+        data.aggregatedAccountsSummaryData.startingBalance -
+        data.aggregatedFriendsSummaryData.startingBalance,
+      name: 'my-starting-balance',
     },
     {
-      name: 'Friend Starting Balance',
-      start: Math.min(b, a),
-      end: Math.max(b, a),
-      upDirection: b > a,
-      color: 'var(--chart-1)',
       label: 'Friend Starting Balance',
+      change: data.aggregatedFriendsSummaryData.startingBalance,
+      name: 'friend-starting-balance',
     },
     {
-      name: 'Outside Transactions',
-      start: Math.min(b, c),
-      end: Math.max(b, c),
-      upDirection: c > b,
-      color: 'var(--chart-2)',
       label: 'Outside Transactions',
+      change: data.aggregatedAccountsSummaryData.outsideTransactions,
+      name: 'outside-transactions',
     },
     {
-      name: 'Friend Transactions',
-      start: Math.min(c, d),
-      end: Math.max(c, d),
-      upDirection: d > c,
-      color: 'var(--chart-3)',
       label: 'Friend Transactions',
+      change:
+        data.aggregatedAccountsSummaryData.friendTransactions -
+        data.aggregatedFriendsSummaryData.splits +
+        data.aggregatedFriendsSummaryData.paidByFriend,
+      name: 'friend-transactions',
     },
     {
-      name: 'Expenses',
-      start: Math.min(e, d),
-      end: Math.max(e, d),
-      upDirection: e > d,
-      color: 'var(--chart-4)',
       label: 'Expenses',
+      change: -1 * data.myExpensesTotal,
+      name: 'expenses',
     },
     {
-      name: 'Friend Balance',
-      start: Math.min(e, f),
-      end: Math.max(e, f),
-      upDirection: data.aggregatedFriendsSummaryData.finalBalance > 0,
-      color: 'var(--chart-5)',
       label: 'Friend Balance',
+      change: data.aggregatedFriendsSummaryData.finalBalance,
+      changeDirection: true,
+      name: 'friend-balance',
     },
     {
-      name: 'My Balance',
-      start: Math.min(f, g),
-      end: Math.max(f, g),
-      upDirection:
-        data.aggregatedAccountsSummaryData.finalBalance -
-          data.aggregatedFriendsSummaryData.finalBalance >
-        0,
-      color: 'var(--chart-1)',
       label: 'My Balance',
+      change:
+        data.aggregatedAccountsSummaryData.finalBalance -
+        data.aggregatedFriendsSummaryData.finalBalance,
+      changeDirection: true,
+      name: 'my-balance',
     },
   ];
+
+  let start = 0;
+  return rawData.map((d, index) => {
+    const colorIndex = (index % CHART_COLORS_COUNT) + 1;
+
+    const a = start;
+    if (d.changeDirection === true) {
+      start -= d.change;
+    } else {
+      start += d.change;
+    }
+    const b = start;
+    return {
+      label: d.label,
+      name: d.name,
+      value: d.change.toFixed(2),
+      color: `var(--chart-${colorIndex})`,
+      range: [Math.min(a, b), Math.max(a, b)],
+    };
+  });
 };
 
 export const SummaryCard = ({ data }: { data: SummaryData }) => {
   const overlayBarData = useMemo(() => constructOverlayBarData(data), [data]);
+  const chartConfig = useMemo(() => {
+    return Object.fromEntries(
+      overlayBarData.map((d) => [d.name, { label: d.label, color: d.color }]),
+    );
+  }, [overlayBarData]);
+  const chartData = useMemo(() => {
+    return overlayBarData.map((d) => {
+      return { name: d.name, range: d.range, fill: `var(--color-${d.name})`, value: d.value };
+    });
+  }, [overlayBarData]);
   return (
     <Card className="col-span-1 md:col-span-2 xl:col-span-1">
       <CardHeader>
         <CardTitle>Summary</CardTitle>
       </CardHeader>
-      <CardContent>
-        <OverlayBar data={overlayBarData} />
-        <div className="grid grid-cols-2 gap-2">
-          <p>Accounts Balance: {data.aggregatedAccountsSummaryData.finalBalance.toFixed(2)}</p>
-          <p>Friend Balance: {data.aggregatedFriendsSummaryData.finalBalance.toFixed(2)}</p>
-          <p>My Expenses: {data.myExpensesTotal.toFixed(2)}</p>
-          <p>
-            My Balance:{' '}
-            {(
-              data.aggregatedAccountsSummaryData.finalBalance -
-              data.aggregatedFriendsSummaryData.finalBalance
-            ).toFixed(2)}
-          </p>
-        </div>
+      <CardContent className="flex h-full flex-col">
+        <ChartContainer className="mt-auto h-full" config={chartConfig}>
+          <BarChart
+            accessibilityLayer
+            barCategoryGap={2}
+            data={chartData}
+            layout="vertical"
+            margin={{
+              left: 10,
+              right: 100,
+            }}
+          >
+            <XAxis dataKey="range" hide type="number" />
+            <CartesianGrid horizontal={false} />
+            <YAxis
+              axisLine={false}
+              dataKey="name"
+              tickFormatter={(value) => chartConfig[value as keyof typeof chartConfig].label}
+              tickLine={false}
+              tickMargin={10}
+              type="category"
+              width={120}
+            />
+            <Bar dataKey="range" layout="vertical" radius={4}>
+              <LabelList
+                className="fill-foreground"
+                dataKey="value"
+                fontSize={12}
+                offset={2}
+                position="right"
+              />
+            </Bar>
+          </BarChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   );
