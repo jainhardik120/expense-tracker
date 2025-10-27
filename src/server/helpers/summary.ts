@@ -1197,3 +1197,21 @@ export const getToAccount = (statement: Statement | SelfTransferStatement): stri
       return null;
   }
 };
+
+export const friendBelongToUser = async (friendId: string, userId: string, db: Database) => {
+  const friend = await db
+    .select()
+    .from(friendsProfiles)
+    .where(and(eq(friendsProfiles.id, friendId), eq(friendsProfiles.userId, userId)))
+    .limit(1);
+  return friend.length > 0;
+};
+
+export const accountBelongToUser = async (accountId: string, userId: string, db: Database) => {
+  const account = await db
+    .select()
+    .from(bankAccount)
+    .where(and(eq(bankAccount.id, accountId), eq(bankAccount.userId, userId)))
+    .limit(1);
+  return account.length > 0;
+};

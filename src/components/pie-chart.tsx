@@ -7,6 +7,8 @@ import { Pie, PieChart as RechartsPieChart } from 'recharts';
 import {
   type ChartConfig,
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
@@ -64,15 +66,20 @@ const PieChart = <N extends string, D extends string>({
   const { config, data: chartData } = useMemo(() => addColorsToChartData(data), [data]);
 
   return (
-    <ChartContainer config={config}>
+    <ChartContainer className="aspect-auto h-full min-h-[400]" config={config}>
       <RechartsPieChart>
         <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={false} />
         <Pie
           data={chartData}
           dataKey={data.dataKey}
           innerRadius={innerRadius}
+          label
           nameKey={data.nameKey}
           onClick={onClick}
+        />
+        <ChartLegend
+          className="mt-auto flex-wrap gap-2 *:basis-1/4 *:justify-center"
+          content={<ChartLegendContent nameKey={data.nameKey} />}
         />
       </RechartsPieChart>
     </ChartContainer>

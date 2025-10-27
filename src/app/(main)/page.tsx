@@ -53,7 +53,7 @@ export default async function Page({
                 .filter(([, amount]) => amount > 0)
                 .map(([category, amount]) => ({
                   category,
-                  amount,
+                  amount: parseFloat(amount.toFixed(2)),
                 }))}
               range={dateParams}
             />

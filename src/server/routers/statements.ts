@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { selfTransferStatements, splits, statements } from '@/db/schema';
 import {
+  accountBelongToUser,
+  friendBelongToUser,
   getMergedStatements,
   getRowsCount,
   getStatementAmountAndSplits,
@@ -15,6 +17,9 @@ import {
   createStatementSchema,
   statementParserSchema,
 } from '@/types';
+
+const ACCOUNT_NOT_FOUND_ERROR = 'Account not found';
+const FRIEND_NOT_FOUND_ERROR = 'Friend not found';
 
 export const statementsRouter = createTRPCRouter({
   getCategories: protectedProcedure.query(async ({ ctx }) => {
@@ -60,7 +65,21 @@ export const statementsRouter = createTRPCRouter({
       rowsCount,
     };
   }),
-  addStatement: protectedProcedure.input(createStatementSchema).mutation(({ ctx, input }) => {
+  addStatement: protectedProcedure.input(createStatementSchema).mutation(async ({ ctx, input }) => {
+    if (
+      input.accountId !== undefined &&
+      input.accountId !== '' &&
+      !(await accountBelongToUser(input.accountId, ctx.session.user.id, ctx.db))
+    ) {
+      throw new Error(ACCOUNT_NOT_FOUND_ERROR);
+    }
+    if (
+      input.friendId !== undefined &&
+      input.friendId !== '' &&
+      !(await friendBelongToUser(input.friendId, ctx.session.user.id, ctx.db))
+    ) {
+      throw new Error(FRIEND_NOT_FOUND_ERROR);
+    }
     return ctx.db
       .insert(statements)
       .values({
@@ -78,7 +97,29 @@ export const statementsRouter = createTRPCRouter({
         createStatementSchema,
       }),
     )
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
+      if (
+        input.createStatementSchema.accountId !== undefined &&
+        input.createStatementSchema.accountId !== '' &&
+        !(await accountBelongToUser(
+          input.createStatementSchema.accountId,
+          ctx.session.user.id,
+          ctx.db,
+        ))
+      ) {
+        throw new Error(ACCOUNT_NOT_FOUND_ERROR);
+      }
+      if (
+        input.createStatementSchema.friendId !== undefined &&
+        input.createStatementSchema.friendId !== '' &&
+        !(await friendBelongToUser(
+          input.createStatementSchema.friendId,
+          ctx.session.user.id,
+          ctx.db,
+        ))
+      ) {
+        throw new Error(FRIEND_NOT_FOUND_ERROR);
+      }
       return ctx.db
         .update(statements)
         .set({
@@ -106,7 +147,13 @@ export const statementsRouter = createTRPCRouter({
     }),
   addSelfTransferStatement: protectedProcedure
     .input(createSelfTransferSchema)
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
+      if (
+        !(await accountBelongToUser(input.fromAccountId, ctx.session.user.id, ctx.db)) ||
+        !(await accountBelongToUser(input.toAccountId, ctx.session.user.id, ctx.db))
+      ) {
+        throw new Error(ACCOUNT_NOT_FOUND_ERROR);
+      }
       return ctx.db
         .insert(selfTransferStatements)
         .values({
@@ -122,7 +169,21 @@ export const statementsRouter = createTRPCRouter({
         createSelfTransferSchema,
       }),
     )
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
+      if (
+        !(await accountBelongToUser(
+          input.createSelfTransferSchema.fromAccountId,
+          ctx.session.user.id,
+          ctx.db,
+        )) ||
+        !(await accountBelongToUser(
+          input.createSelfTransferSchema.toAccountId,
+          ctx.session.user.id,
+          ctx.db,
+        ))
+      ) {
+        throw new Error(ACCOUNT_NOT_FOUND_ERROR);
+      }
       return ctx.db
         .update(selfTransferStatements)
         .set(input.createSelfTransferSchema)
@@ -162,6 +223,11 @@ export const statementsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (
+        !(await friendBelongToUser(input.createSplitSchema.friendId, ctx.session.user.id, ctx.db))
+      ) {
+        throw new Error(FRIEND_NOT_FOUND_ERROR);
+      }
       const { statementAmount, totalAllocated, kind } = await getStatementAmountAndSplits(
         ctx.db,
         input.statementId,
@@ -210,6 +276,11 @@ export const statementsRouter = createTRPCRouter({
         .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.session.user.id)));
       if (currentSplit.length === 0) {
         throw new Error('Split not found');
+      }
+      if (
+        !(await friendBelongToUser(input.createSplitSchema.friendId, ctx.session.user.id, ctx.db))
+      ) {
+        throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
       const currentSplitAmount = Number.parseFloat(currentSplit[0].amount);
       const { statementId } = currentSplit[0];
