@@ -20,6 +20,7 @@ import {
   MINUTES,
 } from '@/types';
 
+import { BulkImportDialog } from './bulk-import-dialog';
 import { CreateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { createStatementColumns } from './StatementColumns';
 import { CreateStatementForm } from './StatementForms';
@@ -165,6 +166,11 @@ const Table = ({
       }}
     >
       <DataTableToolbar table={table}>
+        <BulkImportDialog
+          onImportSuccess={() => {
+            router.refresh();
+          }}
+        />
         <CreateSelfTransferStatementForm accountsData={accountsData} />
         <CreateStatementForm accountsData={accountsData} friendsData={friendsData} />
       </DataTableToolbar>

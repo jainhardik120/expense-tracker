@@ -137,7 +137,7 @@ export const statements = pgTable(
       'outside_transaction_check',
       sql`
       (${table.statementKind} != 'outside_transaction') OR 
-      (${table.friendId} IS NULL)
+      (${table.accountId} IS NOT NULL AND ${table.friendId} IS NULL)
     `,
     ),
     index('statements_created_at_idx').on(desc(table.createdAt)),
