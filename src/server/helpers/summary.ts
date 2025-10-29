@@ -459,31 +459,39 @@ export const getRawDataForAggregation = async (
     },
     aggregationBy: [selfTransferAggregation],
   };
-  const statementData = (await aggregatedStatementsSummary(statementParams)) as (Awaited<
-    ReturnType<typeof aggregatedStatementsSummary>
-  >[number] & {
-    periodStart: Date;
-    category: string;
-  })[];
-  const selfTransferData = (await aggregatedSelfTransfersData(selfTransferParams)) as (Awaited<
-    ReturnType<typeof aggregatedSelfTransfersData>
-  >[number] & {
-    periodStart: Date;
-  })[];
-  const friendsData = (await aggregatedFriendsData(statementParams)) as (Awaited<
-    ReturnType<typeof aggregatedFriendsData>
-  >[number] & {
-    periodStart: Date;
-    category: string;
-  })[];
-  const splitsData = (await aggregatedSplitsData(statementParams)) as (Awaited<
-    ReturnType<typeof aggregatedSplitsData>
-  >[number] & {
-    periodStart: Date;
-    category: string;
-  })[];
-  const startingBalances = await getAccountsAndStartingBalances(db, userId, start);
-  const startingFriendsBalances = await getFriendsAndStartingBalances(db, userId, start);
+  const [
+    statementData,
+    selfTransferData,
+    friendsData,
+    splitsData,
+    startingBalances,
+    startingFriendsBalances,
+  ] = (await Promise.all([
+    aggregatedStatementsSummary(statementParams),
+    aggregatedSelfTransfersData(selfTransferParams),
+    aggregatedFriendsData(statementParams),
+    aggregatedSplitsData(statementParams),
+    getAccountsAndStartingBalances(db, userId, start),
+    getFriendsAndStartingBalances(db, userId, start),
+  ])) as [
+    (Awaited<ReturnType<typeof aggregatedStatementsSummary>>[number] & {
+      periodStart: Date;
+      category: string;
+    })[],
+    (Awaited<ReturnType<typeof aggregatedSelfTransfersData>>[number] & {
+      periodStart: Date;
+    })[],
+    (Awaited<ReturnType<typeof aggregatedFriendsData>>[number] & {
+      periodStart: Date;
+      category: string;
+    })[],
+    (Awaited<ReturnType<typeof aggregatedSplitsData>>[number] & {
+      periodStart: Date;
+      category: string;
+    })[],
+    Awaited<ReturnType<typeof getAccountsAndStartingBalances>>,
+    Awaited<ReturnType<typeof getFriendsAndStartingBalances>>,
+  ];
   return {
     accountsSummary: startingBalances,
     friendsSummary: startingFriendsBalances,
