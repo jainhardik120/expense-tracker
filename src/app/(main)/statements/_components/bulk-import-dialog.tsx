@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import Papa from 'papaparse';
+import { parse } from 'papaparse';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -36,7 +36,7 @@ type CsvRow = {
   tag?: string;
 };
 
-const DEFAULT_DATE_FORMAT = 'yyyy-MM-dd';
+const DEFAULT_DATE_FORMAT = 'dd/MM/yyyy';
 const MAX_ERROR_DISPLAY = 10;
 
 const dateFormats = [
@@ -92,8 +92,8 @@ export const BulkImportDialog = ({ onImportSuccess }: { onImportSuccess: () => v
       toast.error('Please provide CSV data');
       return;
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    Papa.parse<Record<string, string>>(csvData, {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    parse<Partial<Record<string, string>>>(csvData, {
       header: true,
       skipEmptyLines: true,
       complete: (results: Papa.ParseResult<Partial<Record<string, string>>>) => {
@@ -133,9 +133,6 @@ export const BulkImportDialog = ({ onImportSuccess }: { onImportSuccess: () => v
 
         setParsedRows(rows);
         setStep('validate');
-      },
-      error: (parseError: Error) => {
-        toast.error(`CSV parsing error: ${parseError.message}`);
       },
     });
   };
@@ -205,7 +202,7 @@ export const BulkImportDialog = ({ onImportSuccess }: { onImportSuccess: () => v
         </DialogHeader>
 
         {step === 'input' && (
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-x-auto">
             <div className="space-y-2">
               <Label>Date Format</Label>
               <Select value={dateFormat} onValueChange={setDateFormat}>
