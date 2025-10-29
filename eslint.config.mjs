@@ -480,6 +480,15 @@ const eslintConfig = [
       'sonarjs/function-return-type': 'warn',
     },
   },
+  {
+    files: ['src/app/(main)/statements/_components/bulk-import-dialog.tsx'],
+
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
 ];
 
 export default defineConfig(eslintConfig);

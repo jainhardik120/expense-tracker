@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { parse } from 'papaparse';
+import * as Papa from 'papaparse';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -92,13 +92,14 @@ export const BulkImportDialog = ({ onImportSuccess }: { onImportSuccess: () => v
       toast.error('Please provide CSV data');
       return;
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    parse<Partial<Record<string, string>>>(csvData, {
+
+    type CsvRecord = Partial<Record<string, string>>;
+
+    Papa.parse<CsvRecord>(csvData, {
       header: true,
       skipEmptyLines: true,
-      complete: (results: Papa.ParseResult<Partial<Record<string, string>>>) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-        const rows: CsvRow[] = results.data.map((row: Partial<Record<string, string>>) => {
+      complete: (results) => {
+        const rows: CsvRow[] = results.data.map((row) => {
           const statementKind: CsvRow['statementKind'] =
             row.statementKind === undefined
               ? 'expense'
