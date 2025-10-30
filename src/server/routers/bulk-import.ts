@@ -1,8 +1,10 @@
 import { parse } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { bankAccount, friendsProfiles, statements } from '@/db/schema';
+import { getTimezone } from '@/lib/date';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
 const csvRowSchema = z.object({
@@ -35,7 +37,8 @@ const validateCsvRow = (row: CsvRow, dateFormat: string): RowValidation => {
     tags: [] as string[],
   };
 
-  if (Number.isNaN(Number.parseFloat(row.amount))) {
+  const amount = row.amount.replaceAll(',', '');
+  if (Number.isNaN(Number.parseFloat(amount))) {
     rowErrors.push('Invalid amount format');
   }
 
@@ -92,22 +95,24 @@ const processImportRow = (
   { row, accountId, friendId }: ImportRow,
   userId: string,
   dateFormat: string,
+  timezone: string,
 ): { errors: string[]; statement?: typeof statements.$inferInsert } => {
   const rowErrors: string[] = [];
   let parsedDate: Date;
 
   try {
-    parsedDate = parse(row.date, dateFormat, new Date());
-    if (Number.isNaN(parsedDate.getTime())) {
+    const localDate = parse(row.date, dateFormat, new Date());
+    if (Number.isNaN(localDate.getTime())) {
       rowErrors.push(`Invalid date: ${row.date}`);
       return { errors: rowErrors };
     }
+    parsedDate = fromZonedTime(localDate, timezone);
   } catch {
     rowErrors.push(`Cannot parse date: ${row.date}`);
     return { errors: rowErrors };
   }
 
-  const { amount } = row;
+  const amount = row.amount.replaceAll(',', '');
   if (Number.isNaN(Number.parseFloat(amount))) {
     rowErrors.push(`Invalid amount: ${amount}`);
   }
@@ -139,7 +144,7 @@ const processImportRow = (
       userId,
       accountId,
       friendId,
-      amount,
+      amount: parseFloat(amount).toString(),
       category: row.category,
       tags: row.tag !== undefined && row.tag.length > 0 ? [row.tag] : [],
       statementKind: row.statementKind,
@@ -183,6 +188,7 @@ export const bulkImportRouter = createTRPCRouter({
 
   importStatements: protectedProcedure.input(bulkImportSchema).mutation(async ({ ctx, input }) => {
     const userId = ctx.session.user.id;
+    const timezone = await getTimezone();
 
     const userAccounts = await ctx.db
       .select()
@@ -231,6 +237,7 @@ export const bulkImportRouter = createTRPCRouter({
         { row, rowNumber: i + 1, accountId, friendId },
         userId,
         input.dateFormat,
+        timezone,
       );
 
       if (result.errors.length > 0) {
