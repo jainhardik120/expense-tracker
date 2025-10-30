@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { type ControllerRenderProps, type Path, type FieldValues } from 'react-hook-form';
 
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import DateInput from '@/components/ui/date-input';
 import { Input } from '@/components/ui/input';
 import {
@@ -21,7 +22,7 @@ type SelectOption = { label: string; value: string };
 
 export type FormField<T extends FieldValues = FieldValues> = {
   name: Path<T>;
-  label: string;
+  label: string | ReactNode;
   type: keyof typeof RenderedFormFields;
   placeholder?: string;
   description?: string;
@@ -151,7 +152,7 @@ const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: Field
           const time = new Date(fieldDate);
           time.setHours(h);
           time.setMinutes(m);
-          time.setSeconds(Number.isFinite(s) ? s : 0);
+          time.setSeconds(s);
           props.field.onChange(time);
         }}
       />
@@ -212,11 +213,10 @@ const RenderedColorInput = <T extends FieldValues = FieldValues>(props: FieldPro
 );
 
 const RenderedCheckboxInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
-  <Input
+  <Checkbox
     checked={props.field.value as boolean}
-    type="checkbox"
-    onChange={(e) => {
-      props.field.onChange(e.target.checked);
+    onCheckedChange={(checked) => {
+      props.field.onChange(checked);
     }}
   />
 );
@@ -265,10 +265,7 @@ export const RenderFormInput = <T extends FieldValues = FieldValues>({
   formField: FormField<T>;
 }) => {
   const RenderedInput = RenderedFormFields[type];
-  return (
-    // eslint-disable-next-line react/jsx-no-useless-fragment
-    <>
-      <RenderedInput field={field} formField={formField} />
-    </>
-  );
+  return <RenderedInput field={field} formField={formField} />;
 };
+
+export const RenderLabelAfter: Partial<keyof typeof RenderedFormFields> = 'checkbox';

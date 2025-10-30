@@ -8,12 +8,12 @@ export const middleware = async (request: NextRequest) => {
     headers: await headers(),
   });
   if (session === null) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
   return NextResponse.next();
 };
 
 export const config = {
   runtime: 'nodejs',
-  matcher: ['/((?!login|register|api/trpc|_next|api/auth).*)'],
+  matcher: ['/((?!auth|api/trpc|_next|api/auth).*)'],
 };

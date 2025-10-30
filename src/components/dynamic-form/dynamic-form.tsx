@@ -12,7 +12,11 @@ import {
 } from 'react-hook-form';
 import { type z } from 'zod';
 
-import { type FormField, RenderFormInput } from '@/components/dynamic-form/dynamic-form-fields';
+import {
+  type FormField,
+  RenderFormInput,
+  RenderLabelAfter,
+} from '@/components/dynamic-form/dynamic-form-fields';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -87,11 +91,22 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
             control={form.control}
             name={field.name}
             render={({ field: formField }) => (
-              <FormItem>
-                <FormLabel>{field.label}</FormLabel>
+              <FormItem className={cn(`${field.type === RenderLabelAfter ? 'flex flex-row' : ''}`)}>
+                {field.type !== RenderLabelAfter &&
+                  (typeof field.label === 'string' ? (
+                    <FormLabel>{field.label}</FormLabel>
+                  ) : (
+                    field.label
+                  ))}
                 <FormControl>
                   <RenderFormInput field={formField} formField={field} type={field.type} />
                 </FormControl>
+                {field.type === RenderLabelAfter &&
+                  (typeof field.label === 'string' ? (
+                    <FormLabel>{field.label}</FormLabel>
+                  ) : (
+                    field.label
+                  ))}
                 {field.description !== undefined && (
                   <FormDescription>{field.description}</FormDescription>
                 )}
@@ -100,12 +115,12 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
             )}
           />
         ))}
-        {props.FormFooter === undefined ? null : <props.FormFooter form={form} />}
         {props.showSubmitButton === true && (
           <Button disabled={props.submitButtonDisabled} type="submit">
             {props.submitButtonText ?? 'Submit'}
           </Button>
         )}
+        {props.FormFooter === undefined ? null : <props.FormFooter form={form} />}
       </form>
     </Form>
   );

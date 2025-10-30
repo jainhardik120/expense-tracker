@@ -27,6 +27,7 @@ type Props<Input extends FieldValues, Output, MutationResult> = {
   titleText?: string;
   refresh?: () => void;
   successToast: (mutationResult: MutationResult) => string;
+  submitButtonText?: string;
 };
 
 const MutationModal = <T extends FieldValues, MutationResult>(
@@ -59,7 +60,7 @@ const MutationModal = <T extends FieldValues, MutationResult>(
           schema={props.schema}
           showSubmitButton
           submitButtonDisabled={props.mutation.isPending}
-          submitButtonText="Save"
+          submitButtonText={props.submitButtonText ?? 'Save'}
           onSubmit={onSubmit}
         />
       </DialogContent>
