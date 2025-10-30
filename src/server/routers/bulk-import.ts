@@ -28,31 +28,55 @@ type RowValidation = {
   data?: { accounts: string[]; friends: string[]; categories: string[]; tags: string[] };
 };
 
-const validateCsvRow = (row: CsvRow, dateFormat: string): RowValidation => {
+type BaseValidationResult = {
+  errors: string[];
+  amount?: string;
+  parsedDate?: Date;
+  hasAccount: boolean;
+  hasFriend: boolean;
+};
+
+const baseValidateRow = (
+  row: CsvRow,
+  dateFormat: string,
+  options?: {
+    timezone?: string;
+    accountId?: string | null;
+    friendId?: string | null;
+  },
+): BaseValidationResult => {
   const rowErrors: string[] = [];
-  const data = {
-    accounts: [] as string[],
-    friends: [] as string[],
-    categories: [] as string[],
-    tags: [] as string[],
-  };
 
   const amount = row.amount.replaceAll(',', '');
   if (Number.isNaN(Number.parseFloat(amount))) {
     rowErrors.push('Invalid amount format');
   }
 
+  let parsedDate: Date | undefined;
   try {
-    const parsedDate = parse(row.date, dateFormat, new Date());
-    if (Number.isNaN(parsedDate.getTime())) {
+    const localDate = parse(row.date, dateFormat, new Date());
+    if (Number.isNaN(localDate.getTime())) {
       rowErrors.push(`Invalid date format (expected: ${dateFormat})`);
+    } else {
+      const timezone = options?.timezone;
+      parsedDate =
+        timezone !== undefined && timezone.length > 0
+          ? fromZonedTime(localDate, timezone)
+          : localDate;
     }
   } catch {
     rowErrors.push(`Cannot parse date with format ${dateFormat}`);
   }
 
-  const hasAccount = row.accountName !== undefined && row.accountName.length > 0;
-  const hasFriend = row.friendName !== undefined && row.friendName.length > 0;
+  const hasAccount =
+    options?.accountId === undefined
+      ? row.accountName !== undefined && row.accountName.length > 0
+      : options.accountId !== null && options.accountId.length > 0;
+
+  const hasFriend =
+    options?.friendId === undefined
+      ? row.friendName !== undefined && row.friendName.length > 0
+      : options.friendId !== null && options.friendId.length > 0;
 
   if (row.statementKind === 'expense') {
     if (!hasAccount && !hasFriend) {
@@ -68,20 +92,41 @@ const validateCsvRow = (row: CsvRow, dateFormat: string): RowValidation => {
     rowErrors.push('Outside transaction cannot have friendName and must have accountName');
   }
 
-  if (rowErrors.length === 0) {
-    if (hasAccount && row.accountName !== undefined) {
-      data.accounts.push(row.accountName);
-    }
-    if (hasFriend && row.friendName !== undefined) {
-      data.friends.push(row.friendName);
-    }
-    data.categories.push(row.category);
-    if (row.tag !== undefined && row.tag.length > 0) {
-      data.tags.push(row.tag);
-    }
+  return {
+    errors: rowErrors,
+    amount: rowErrors.length === 0 ? amount : undefined,
+    parsedDate: rowErrors.length === 0 ? parsedDate : undefined,
+    hasAccount,
+    hasFriend,
+  };
+};
+
+const validateCsvRow = (row: CsvRow, dateFormat: string): RowValidation => {
+  const validation = baseValidateRow(row, dateFormat);
+
+  if (validation.errors.length > 0) {
+    return { errors: validation.errors };
   }
 
-  return { errors: rowErrors, data: rowErrors.length === 0 ? data : undefined };
+  const data = {
+    accounts: [] as string[],
+    friends: [] as string[],
+    categories: [] as string[],
+    tags: [] as string[],
+  };
+
+  if (validation.hasAccount && row.accountName !== undefined) {
+    data.accounts.push(row.accountName);
+  }
+  if (validation.hasFriend && row.friendName !== undefined) {
+    data.friends.push(row.friendName);
+  }
+  data.categories.push(row.category);
+  if (row.tag !== undefined && row.tag.length > 0) {
+    data.tags.push(row.tag);
+  }
+
+  return { errors: [], data };
 };
 
 type ImportRow = {
@@ -97,45 +142,18 @@ const processImportRow = (
   dateFormat: string,
   timezone: string,
 ): { errors: string[]; statement?: typeof statements.$inferInsert } => {
-  const rowErrors: string[] = [];
-  let parsedDate: Date;
+  const validation = baseValidateRow(row, dateFormat, {
+    timezone,
+    accountId,
+    friendId,
+  });
 
-  try {
-    const localDate = parse(row.date, dateFormat, new Date());
-    if (Number.isNaN(localDate.getTime())) {
-      rowErrors.push(`Invalid date: ${row.date}`);
-      return { errors: rowErrors };
-    }
-    parsedDate = fromZonedTime(localDate, timezone);
-  } catch {
-    rowErrors.push(`Cannot parse date: ${row.date}`);
-    return { errors: rowErrors };
-  }
-
-  const amount = row.amount.replaceAll(',', '');
-  if (Number.isNaN(Number.parseFloat(amount))) {
-    rowErrors.push(`Invalid amount: ${amount}`);
-  }
-
-  const hasAccount = accountId !== null && accountId.length > 0;
-  const hasFriend = friendId !== null && friendId.length > 0;
-
-  if (row.statementKind === 'expense') {
-    if (!hasAccount && !hasFriend) {
-      rowErrors.push('Expense requires either account or friend');
-    } else if (hasAccount && hasFriend) {
-      rowErrors.push('Expense cannot have both account and friend');
-    }
-  } else if (row.statementKind === 'friend_transaction') {
-    if (!hasAccount || !hasFriend) {
-      rowErrors.push('Friend transaction requires both account and friend');
-    }
-  } else if (hasFriend || !hasAccount) {
-    rowErrors.push('Outside transaction cannot have friendName and must have accountName');
-  }
-
-  if (rowErrors.length > 0) {
-    return { errors: rowErrors };
+  if (
+    validation.errors.length > 0 ||
+    validation.amount === undefined ||
+    validation.parsedDate === undefined
+  ) {
+    return { errors: validation.errors };
   }
 
   return {
@@ -144,11 +162,11 @@ const processImportRow = (
       userId,
       accountId,
       friendId,
-      amount: parseFloat(amount).toString(),
+      amount: parseFloat(validation.amount).toString(),
       category: row.category,
       tags: row.tag !== undefined && row.tag.length > 0 ? [row.tag] : [],
       statementKind: row.statementKind,
-      createdAt: parsedDate,
+      createdAt: validation.parsedDate,
     },
   };
 };
