@@ -4,11 +4,12 @@ import { twoFactor } from 'better-auth/plugins';
 import { passkey } from 'better-auth/plugins/passkey';
 
 import * as schema from '@/db/auth-schema';
-import DropboxResetPasswordEmail from '@/emails/reset-password';
+import ResetPasswordEmail from '@/emails/reset-password';
 import { db } from '@/lib/db';
 import { sendSESEmail } from '@/lib/send-email';
 
 export const auth = betterAuth({
+  appName: 'Expense Tracker',
   plugins: [
     passkey(),
     twoFactor({
@@ -17,7 +18,7 @@ export const auth = betterAuth({
           await sendSESEmail(
             [user.email],
             'Enter OTP',
-            DropboxResetPasswordEmail({ userFirstname: user.name, resetPasswordLink: otp }),
+            ResetPasswordEmail({ userFirstname: user.name, resetPasswordLink: otp }),
           );
         },
       },
@@ -41,7 +42,7 @@ export const auth = betterAuth({
       await sendSESEmail(
         [user.email],
         'Verify your email',
-        DropboxResetPasswordEmail({ userFirstname: user.name, resetPasswordLink: url }),
+        ResetPasswordEmail({ userFirstname: user.name, resetPasswordLink: url }),
       );
     },
   },
@@ -52,7 +53,7 @@ export const auth = betterAuth({
       await sendSESEmail(
         [user.email],
         'Reset your password',
-        DropboxResetPasswordEmail({ userFirstname: user.name, resetPasswordLink: url }),
+        ResetPasswordEmail({ userFirstname: user.name, resetPasswordLink: url }),
       );
     },
   },

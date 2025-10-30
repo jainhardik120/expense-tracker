@@ -1,14 +1,5 @@
 import { desc, sql } from 'drizzle-orm';
-import {
-  pgTable,
-  text,
-  timestamp,
-  numeric,
-  pgEnum,
-  uuid,
-  check,
-  index,
-} from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, numeric, pgEnum, uuid, check, index } from 'drizzle-orm/pg-core';
 
 import { user } from './auth-schema';
 

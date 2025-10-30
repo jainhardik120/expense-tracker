@@ -298,8 +298,8 @@ export const ForgotPasswordForm = () => {
             onError: (ctx) => {
               toast.error(ctx.error.message);
             },
-            onSuccess: (ctx) => {
-              toast.success((ctx.data as { message: string; status: boolean }).message);
+            onSuccess: () => {
+              toast.success('Check your email for password reset link');
             },
           },
         );

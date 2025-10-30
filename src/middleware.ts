@@ -8,7 +8,8 @@ export const middleware = async (request: NextRequest) => {
     headers: await headers(),
   });
   if (session === null) {
-    return NextResponse.redirect(new URL('/auth/login', request.url));
+    const redirectUri = encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search);
+    return NextResponse.redirect(new URL(`/auth/login?redirect=${redirectUri}`, request.url));
   }
   return NextResponse.next();
 };
