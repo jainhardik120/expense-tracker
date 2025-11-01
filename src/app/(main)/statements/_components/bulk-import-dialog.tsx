@@ -192,7 +192,9 @@ export const BulkImportDialog = ({ onImportSuccess }: { onImportSuccess: () => v
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline">Import CSV</Button>
+        <Button className="h-8" variant="outline">
+          Import CSV
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
