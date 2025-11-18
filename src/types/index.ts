@@ -50,6 +50,13 @@ export const createSplitSchema = z.object({
   amount: amount,
 });
 
+export const ONE_HUNDRED_PERCENTAGE = 100;
+
+export const bulkSplitSchema = z.object({
+  friendId: z.uuidv4(),
+  percentage: amount,
+});
+
 export const createSelfTransferSchema = z.object({
   fromAccountId: z.uuidv4(),
   toAccountId: z.uuidv4(),

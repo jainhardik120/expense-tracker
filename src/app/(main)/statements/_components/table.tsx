@@ -22,6 +22,7 @@ import {
 
 import { BulkImportDialog } from './bulk-import-dialog';
 import { CreateSelfTransferStatementForm } from './SelfTransferStatementForms';
+import StatementTableActionBar from './statement-table-action-bar';
 import { createStatementColumns } from './StatementColumns';
 import { CreateStatementForm } from './StatementForms';
 
@@ -96,6 +97,7 @@ const Table = ({
   const updateSelfTransferStatement = api.statements.updateSelfTransferStatement.useMutation();
   return (
     <DataTable
+      actionBar={<StatementTableActionBar table={table} />}
       getItemValue={(item) => item.id}
       table={table}
       onValueChange={(items) => {

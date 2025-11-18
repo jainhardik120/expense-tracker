@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { selfTransferStatements, splits, statements } from '@/db/schema';
@@ -12,9 +12,11 @@ import {
 } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
+  bulkSplitSchema,
   createSelfTransferSchema,
   createSplitSchema,
   createStatementSchema,
+  ONE_HUNDRED_PERCENTAGE,
   statementParserSchema,
 } from '@/types';
 
@@ -214,6 +216,83 @@ export const statementsRouter = createTRPCRouter({
         .select()
         .from(splits)
         .where(and(eq(splits.statementId, input.id), eq(splits.userId, ctx.session.user.id)));
+    }),
+  addBulkStatementSplits: protectedProcedure
+    .input(
+      z.object({
+        statementIds: z.array(z.string()),
+        bulkSplitSchema: bulkSplitSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { db } = ctx;
+      const splitTotals = db.$with('split_totals').as(
+        db
+          .select({
+            statementId: splits.statementId,
+            total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
+          })
+          .from(splits)
+          .groupBy(splits.statementId),
+      );
+      const rawStatements = await db
+        .with(splitTotals)
+        .select({
+          id: statements.id,
+          splitAmount: splitTotals.total,
+          amount: statements.amount,
+        })
+        .from(statements)
+        .where(
+          and(
+            eq(statements.userId, ctx.session.user.id),
+            inArray(statements.id, input.statementIds),
+            eq(statements.statementKind, 'expense'),
+          ),
+        )
+        .leftJoin(splitTotals, eq(statements.id, splitTotals.statementId));
+      if (rawStatements.length !== input.statementIds.length) {
+        throw new Error('One or more statements not found or are not expenses.');
+      }
+      const maxPercentages = rawStatements.map((stmt) => {
+        const amount = Number.parseFloat(stmt.amount);
+        return ONE_HUNDRED_PERCENTAGE - (stmt.splitAmount / amount) * ONE_HUNDRED_PERCENTAGE;
+      });
+      const maxAllowedPercentage = Math.min(...maxPercentages);
+      if (parseFloat(input.bulkSplitSchema.percentage) > maxAllowedPercentage) {
+        throw new Error(
+          `Cannot add bulk splits. The maximum allowed percentage is ${maxAllowedPercentage.toFixed(
+            2,
+          )}%.`,
+        );
+      }
+      const existingSplits = await db
+        .select({ id: splits.id })
+        .from(splits)
+        .where(
+          and(
+            inArray(splits.statementId, input.statementIds),
+            eq(splits.userId, ctx.session.user.id),
+            eq(splits.friendId, input.bulkSplitSchema.friendId),
+          ),
+        );
+      if (existingSplits.length > 0) {
+        throw new Error('One or more splits already exist for the selected friend.');
+      }
+      const inserts = rawStatements.map((stmt) => {
+        const amount = Number.parseFloat(stmt.amount);
+        const splitAmount = (
+          (parseFloat(input.bulkSplitSchema.percentage) / ONE_HUNDRED_PERCENTAGE) *
+          amount
+        ).toFixed(2);
+        return {
+          userId: ctx.session.user.id,
+          statementId: stmt.id,
+          friendId: input.bulkSplitSchema.friendId,
+          amount: splitAmount,
+        };
+      });
+      await ctx.db.insert(splits).values(inserts);
     }),
   addStatementSplit: protectedProcedure
     .input(

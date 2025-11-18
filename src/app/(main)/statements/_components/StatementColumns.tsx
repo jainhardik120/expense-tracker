@@ -6,6 +6,7 @@ import { GripVertical, Trash } from 'lucide-react';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { SortableItemHandle } from '@/components/ui/sortable';
 import { useIsMounted } from '@/hooks/use-is-mounted';
 import { getFromAccount, getToAccount } from '@/server/helpers/summary';
@@ -21,7 +22,7 @@ import {
 
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
-import StatementSplits from './StatementSplits';
+import { StatementSplitsDialog } from './StatementSplits';
 
 const StatementActions = ({
   statement,
@@ -39,7 +40,7 @@ const StatementActions = ({
   return (
     <div className="flex flex-row gap-2">
       {statement.statementKind === 'expense' && (
-        <StatementSplits statementData={statement} statementId={id} />
+        <StatementSplitsDialog statementData={statement} statementId={id} />
       )}
       <UpdateStatementForm
         accountsData={accountsData}
@@ -110,17 +111,32 @@ export const createStatementColumns = (
   },
 ): ColumnDef<Statement | SelfTransferStatement>[] => [
   {
-    id: 'drag-handle',
-    header: '',
-    cell: () => {
-      return (
-        <SortableItemHandle asChild>
-          <Button className="size-8" size="icon" variant="ghost">
-            <GripVertical className="h-4 w-4" />
-          </Button>
-        </SortableItemHandle>
-      );
-    },
+    id: 'select',
+    header: ({ table }) => (
+      <Checkbox
+        aria-label="Select all"
+        checked={
+          table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && 'indeterminate')
+        }
+        className="translate-y-0.5"
+        onCheckedChange={(value) => {
+          table.toggleAllPageRowsSelected(value === true);
+        }}
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label="Select row"
+        checked={row.getIsSelected()}
+        className="translate-y-0.5"
+        onCheckedChange={(value) => {
+          row.toggleSelected(value === true);
+        }}
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+    size: 40,
   },
   {
     accessorKey: 'createdAt',
@@ -252,5 +268,21 @@ export const createStatementColumns = (
         </div>
       );
     },
+  },
+  {
+    id: 'drag-handle',
+    header: '',
+    cell: () => {
+      return (
+        <SortableItemHandle asChild>
+          <Button className="size-8" size="icon" variant="ghost">
+            <GripVertical className="h-4 w-4" />
+          </Button>
+        </SortableItemHandle>
+      );
+    },
+    enableSorting: false,
+    enableHiding: false,
+    size: 40,
   },
 ];

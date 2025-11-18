@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { SquareSlash } from 'lucide-react';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
+import { DataTableActionBarAction } from '@/components/data-table/data-table-action-bar';
 import DynamicForm from '@/components/dynamic-form/dynamic-form';
+import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,9 +16,15 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { api } from '@/server/react';
-import { createSplitSchema, type Statement } from '@/types';
+import {
+  type SelfTransferStatement,
+  createSplitSchema,
+  isSelfTransfer,
+  type Statement,
+  bulkSplitSchema,
+} from '@/types';
 
-const StatementSplits = ({
+export const StatementSplitsDialog = ({
   statementId,
   statementData,
 }: {
@@ -111,4 +119,85 @@ const StatementSplits = ({
   );
 };
 
-export default StatementSplits;
+export const BulkStatementSplitsDialog = ({
+  selectedRows,
+}: {
+  selectedRows: (Statement | SelfTransferStatement)[];
+}) => {
+  const { data: friends = [] } = api.friends.getFriends.useQuery();
+  const bulkSplitConditions = useMemo(():
+    | { allowed: false }
+    | { allowed: true; maxPercentage: number } => {
+    const isAnyNotExpense = selectedRows.some(
+      (row) => isSelfTransfer(row) || row.statementKind !== 'expense',
+    );
+    if (isAnyNotExpense) {
+      return { allowed: false };
+    }
+    let maxPercentage = 100;
+    selectedRows.forEach((row) => {
+      if (isSelfTransfer(row)) {
+        return;
+      }
+      const percentage = 100 - (row.splitAmount / parseFloat(row.amount)) * 100;
+      if (percentage < maxPercentage) {
+        maxPercentage = percentage;
+      }
+    });
+    return { allowed: true, maxPercentage };
+  }, [selectedRows]);
+  const mutation = api.statements.addBulkStatementSplits.useMutation();
+  return (
+    <MutationModal
+      button={
+        <DataTableActionBarAction disabled={!bulkSplitConditions.allowed} size="icon">
+          <SquareSlash />
+        </DataTableActionBarAction>
+      }
+      customDescription={
+        bulkSplitConditions.allowed ? (
+          <p>
+            You can apply a bulk split up to {bulkSplitConditions.maxPercentage.toFixed(2)}% for the
+            selected statements.
+          </p>
+        ) : (
+          <p className="text-red-600">Bulk splits cannot be applied to self-transfer statements.</p>
+        )
+      }
+      defaultValues={{
+        percentage: '0',
+        friendId: '',
+      }}
+      fields={[
+        {
+          name: 'percentage',
+          label: 'Percentage',
+          type: 'number',
+          placeholder: 'Amount',
+        },
+        {
+          name: 'friendId',
+          label: 'Friend ID',
+          type: 'select',
+          placeholder: 'Select Friend',
+          options: friends.map((friend) => ({
+            label: friend.name,
+            value: friend.id,
+          })),
+        },
+      ]}
+      mutation={{
+        mutateAsync: (values) => {
+          return mutation.mutateAsync({
+            statementIds: selectedRows.map((row) => row.id),
+            bulkSplitSchema: values,
+          });
+        },
+        isPending: mutation.isPending,
+      }}
+      schema={bulkSplitSchema}
+      successToast={() => 'Bulk splits applied successfully.'}
+      titleText="Bulk Statement Splits"
+    />
+  );
+};

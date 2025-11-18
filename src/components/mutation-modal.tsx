@@ -36,6 +36,7 @@ type Props<Input extends FieldValues, Output, MutationResult> = {
   refresh?: () => void;
   successToast: (mutationResult: MutationResult) => string;
   submitButtonText?: string;
+  customDescription?: React.ReactNode;
 };
 
 const FormComponent = <T extends FieldValues, MutationResult>(
@@ -83,6 +84,7 @@ const MutationModal = <T extends FieldValues, MutationResult>(
           <DrawerHeader className="text-left">
             <DrawerTitle>{props.titleText}</DrawerTitle>
           </DrawerHeader>
+          {props.customDescription}
           <FormComponent {...props} onSubmit={onSubmit} />
         </DrawerContent>
       </Drawer>
@@ -95,6 +97,7 @@ const MutationModal = <T extends FieldValues, MutationResult>(
         <DialogHeader>
           <DialogTitle>{props.titleText}</DialogTitle>
         </DialogHeader>
+        {props.customDescription}
         <FormComponent {...props} onSubmit={onSubmit} />
       </DialogContent>
     </Dialog>
