@@ -19,11 +19,11 @@ export default async function SecurityPage() {
     redirect('/auth/login');
   });
   return (
-    <div className="space-y-4 p-4">
+    <>
       <h1>Security</h1>
       <Passkeys />
       <TwoFactor session={session} />
       <Sessions activeSessions={activeSessions} session={session} />
-    </div>
+    </>
   );
 }

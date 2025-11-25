@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode, type Ref, useEffect } from 'react';
+import { type ReactNode, type Ref, useEffect, useId } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -78,7 +78,7 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
       ...defaultValues,
     });
   }, [defaultValues, form]);
-
+  const formId = useId();
   return (
     <Form {...form}>
       <form
@@ -94,16 +94,21 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
               <FormItem className={cn(`${field.type === RenderLabelAfter ? 'flex flex-row' : ''}`)}>
                 {field.type !== RenderLabelAfter &&
                   (typeof field.label === 'string' ? (
-                    <FormLabel>{field.label}</FormLabel>
+                    <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
                   ) : (
                     field.label
                   ))}
                 <FormControl>
-                  <RenderFormInput field={formField} formField={field} type={field.type} />
+                  <RenderFormInput
+                    field={formField}
+                    formField={field}
+                    id={`${formId}-${field.name}`}
+                    type={field.type}
+                  />
                 </FormControl>
                 {field.type === RenderLabelAfter &&
                   (typeof field.label === 'string' ? (
-                    <FormLabel>{field.label}</FormLabel>
+                    <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
                   ) : (
                     field.label
                   ))}

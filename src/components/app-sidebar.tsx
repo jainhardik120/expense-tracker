@@ -2,7 +2,7 @@ import type * as React from 'react';
 
 import Link from 'next/link';
 
-import { File } from 'lucide-react';
+import { LineChart, Sheet } from 'lucide-react';
 
 import {
   Sidebar,
@@ -19,10 +19,12 @@ const links = [
   {
     label: 'Dashboard',
     href: '/',
+    icon: LineChart,
   },
   {
     label: 'Statements',
     href: '/statements',
+    icon: Sheet,
   },
 ];
 
@@ -36,7 +38,7 @@ export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) =
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton asChild>
                   <Link href={item.href}>
-                    <File />
+                    <item.icon />
                     {item.label}
                   </Link>
                 </SidebarMenuButton>

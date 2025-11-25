@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 
 import Link from 'next/link';
 
-import { GalleryVerticalEnd } from 'lucide-react';
+import { Wallet } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FieldDescription } from '@/components/ui/field';
@@ -66,7 +66,7 @@ export default async function Page(props: Readonly<PageProps<'/auth/[...path]'>>
       <div className="flex w-full max-w-sm flex-col gap-6">
         <Link className="flex items-center gap-2 self-center font-medium" href="/">
           <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md">
-            <GalleryVerticalEnd className="size-4" />
+            <Wallet className="size-4" />
           </div>
           Expense Tracker
         </Link>

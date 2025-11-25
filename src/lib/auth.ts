@@ -11,7 +11,9 @@ import { sendSESEmail } from '@/lib/send-email';
 export const auth = betterAuth({
   appName: 'Expense Tracker',
   plugins: [
-    passkey(),
+    passkey({
+      rpID: 'localhost',
+    }),
     twoFactor({
       otpOptions: {
         sendOTP: async ({ user, otp }) => {

@@ -48,10 +48,12 @@ const ENTER_THE_CODE = 'Enter the code';
 
 export const LoginForm = () => {
   const [loading, setLoading] = useState(false);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [searchParams] = useQueryStates({
     redirect: parseAsString.withDefault('/'),
   });
   const router = useRouter();
+
   const signInUsingPasskey = useCallback(
     async (opts?: { autoFill?: boolean }) => {
       await authClient.signIn.passkey(opts, {
@@ -68,8 +70,13 @@ export const LoginForm = () => {
 
   useEffect(() => {
     const check = async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition, sonarjs/different-types-comparison
+      if (typeof window === 'undefined' || window.PublicKeyCredential === undefined) {
+        return;
+      }
       const conditionalMediaAvailable = await PublicKeyCredential.isConditionalMediationAvailable();
       if (conditionalMediaAvailable) {
+        setPasskeyAvailable(true);
         void signInUsingPasskey({ autoFill: true });
       }
     };
@@ -91,6 +98,7 @@ export const LoginForm = () => {
                 Login with GitHub
               </Button>
               <Button
+                disabled={!passkeyAvailable}
                 type="button"
                 variant="outline"
                 onClick={() => {
