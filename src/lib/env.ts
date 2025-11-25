@@ -8,6 +8,7 @@ export const env = createEnv({
     AWS_SECRET_ACCESS_KEY: z.string(),
     DATABASE_URL: z.url(),
     EMAIL_SENDER_ADDRESS: z.string(),
+    NODE_ENV: z.enum(['development', 'test', 'production']),
   },
   client: {
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
@@ -22,6 +23,7 @@ export const env = createEnv({
     NEXT_PUBLIC_BASE_URL: process.env['NEXT_PUBLIC_BASE_URL'],
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
       process.env['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL'],
+    NODE_ENV: process.env['NODE_ENV'],
   },
   skipValidation:
     process.env['SKIP_ENV_VALIDATION'] !== undefined &&

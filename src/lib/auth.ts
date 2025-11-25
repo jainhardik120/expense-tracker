@@ -6,13 +6,14 @@ import { passkey } from 'better-auth/plugins/passkey';
 import * as schema from '@/db/auth-schema';
 import ResetPasswordEmail from '@/emails/reset-password';
 import { db } from '@/lib/db';
+import { env } from '@/lib/env';
 import { sendSESEmail } from '@/lib/send-email';
 
 export const auth = betterAuth({
   appName: 'Expense Tracker',
   plugins: [
     passkey({
-      rpID: 'localhost',
+      rpID: env.NODE_ENV === 'development' ? 'localhost' : undefined,
     }),
     twoFactor({
       otpOptions: {
@@ -59,11 +60,7 @@ export const auth = betterAuth({
       );
     },
   },
-  trustedOrigins: [
-    'https://local-dev.hardikja.in',
-    'https://local-dev-mac.hardikja.in',
-    'http://localhost:3000',
-  ],
+  trustedOrigins: env.NODE_ENV === 'development' ? ['http://localhost:3000'] : [],
 });
 
 type SessionResult = Awaited<ReturnType<typeof auth.api.getSession>>;
