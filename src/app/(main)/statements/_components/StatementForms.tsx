@@ -67,7 +67,6 @@ const statementFormFields = (
       placeholder: 'Amount',
       min: -9999999999,
       max: 9999999999,
-      step: 10,
     },
     {
       name: 'tags',
