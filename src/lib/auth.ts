@@ -61,6 +61,12 @@ export const auth = betterAuth({
     },
   },
   trustedOrigins: env.NODE_ENV === 'development' ? ['http://localhost:3000'] : [],
+  socialProviders: {
+    github: {
+      clientId: env.GITHUB_CLIENT_ID,
+      clientSecret: env.GITHUB_CLIENT_SECRET,
+    },
+  },
 });
 
 type SessionResult = Awaited<ReturnType<typeof auth.api.getSession>>;

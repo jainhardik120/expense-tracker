@@ -93,7 +93,13 @@ export const LoginForm = () => {
               Or continue with
             </FieldSeparator>
             <Field>
-              <Button type="button" variant="outline">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={async () => {
+                  await signIn.social({ provider: 'github' });
+                }}
+              >
                 <GitHubLogoIcon />
                 Login with GitHub
               </Button>
