@@ -13,8 +13,9 @@ import { cn } from '@/lib/utils';
 
 import type { Column } from '@tanstack/react-table';
 
-interface DataTableColumnHeaderProps<TData, TValue>
-  extends React.ComponentProps<typeof DropdownMenuTrigger> {
+interface DataTableColumnHeaderProps<TData, TValue> extends React.ComponentProps<
+  typeof DropdownMenuTrigger
+> {
   column: Column<TData, TValue>;
   title: string;
 }

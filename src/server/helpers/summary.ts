@@ -749,6 +749,7 @@ export const getMergedStatementsDetailedRaw = (
   account: string[],
   category: string[],
   tags: string[],
+  statementKind: StatementKind[],
   start?: Date,
   end?: Date,
 ) => {
@@ -782,6 +783,9 @@ export const getMergedStatementsDetailedRaw = (
   if (tags.length > 0) {
     conditions.push(inArray(union.tag, tags));
   }
+  if (statementKind.length > 0) {
+    conditions.push(inArray(union.statementKind, statementKind));
+  }
   return db
     .select()
     .from(union)
@@ -801,6 +805,7 @@ export const getMergedStatements = async (
     input.account,
     input.category,
     input.tags,
+    input.statementKind,
     input.start,
     input.end,
   );
@@ -869,6 +874,12 @@ export const getRowsCount = async (
         inArray(selfTransferStatements.toAccountId, input.account),
       ),
     );
+  }
+  if (input.statementKind.length > 0) {
+    statementConditions.push(inArray(statements.statementKind, input.statementKind));
+    if (input.statementKind.findIndex((kind) => kind === 'self_transfer') === -1) {
+      selfTransferStatementConditions.push(sql`1 = 0`);
+    }
   }
   if (input.category.length > 0) {
     statementConditions.push(inArray(statements.category, input.category));
@@ -1018,6 +1029,7 @@ export const getStartingBalancesPaginated = async (
     db,
     userId,
     [input.account],
+    [],
     [],
     [],
     input.start,

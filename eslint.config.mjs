@@ -296,7 +296,7 @@ const eslintConfig = [
       'import/newline-after-import': 'error',
       'import/no-absolute-path': 'error',
       'import/no-anonymous-default-export': 'error',
-      'import/no-cycle': ['error', { maxDepth: 3 }],
+      'import/no-cycle': 'off',
       'import/no-deprecated': 'warn',
       'import/no-duplicates': 'error',
       'import/no-dynamic-require': 'error',

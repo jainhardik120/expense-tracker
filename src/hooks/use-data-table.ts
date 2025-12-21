@@ -21,13 +21,13 @@ import {
   type VisibilityState,
 } from '@tanstack/react-table';
 import {
-  type Parser,
   parseAsArrayOf,
   parseAsInteger,
   parseAsString,
   type UseQueryStateOptions,
   useQueryState,
   useQueryStates,
+  type SingleParser,
 } from 'nuqs';
 
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
@@ -42,7 +42,8 @@ const DEBOUNCE_MS = 300;
 const THROTTLE_MS = 50;
 
 interface UseDataTableProps<TData>
-  extends Omit<
+  extends
+    Omit<
       TableOptions<TData>,
       | 'state'
       | 'pageCount'
@@ -169,7 +170,7 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
       return {};
     }
 
-    return filterableColumns.reduce<Record<string, Parser<string> | Parser<string[]>>>(
+    return filterableColumns.reduce<Record<string, SingleParser<string> | SingleParser<string[]>>>(
       (acc, column) => {
         if (column.meta?.options === undefined) {
           acc[column.id ?? ''] = parseAsString.withOptions(queryStateOptions);

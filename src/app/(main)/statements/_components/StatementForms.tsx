@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { SquarePen } from 'lucide-react';
+import { useQueryStates } from 'nuqs';
 import { type z } from 'zod';
 
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
@@ -17,6 +18,7 @@ import {
   type Friend,
   type Statement,
   statementKindMap,
+  statementParser,
 } from '@/types';
 
 const statementFormFields = (
@@ -89,6 +91,12 @@ export const CreateStatementForm = ({
   accountsData: Account[];
   friendsData: Friend[];
 }) => {
+  const [searchParams] = useQueryStates(statementParser);
+  const selectedAccount =
+    searchParams.account.length === 1 &&
+    accountsData.findIndex((account) => account.id === searchParams.account[0]) > 0
+      ? searchParams.account[0]
+      : '';
   const mutation = api.statements.addStatement.useMutation();
   const formFields = useMemo(
     () => statementFormFields(accountsData, friendsData),
@@ -106,7 +114,7 @@ export const CreateStatementForm = ({
         amount: '',
         category: '',
         statementKind: 'expense',
-        accountId: '',
+        accountId: selectedAccount,
         friendId: '',
         tags: [],
         createdAt: new Date(),

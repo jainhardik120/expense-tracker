@@ -43,7 +43,12 @@ export const statementsRouter = createTRPCRouter({
   getStatements: protectedProcedure.input(statementParserSchema).query(async ({ ctx, input }) => {
     let statements = await getMergedStatements(ctx.db, ctx.session.user.id, input);
     let summary = null;
-    if (input.account.length === 1 && input.category.length === 0) {
+    if (
+      input.account.length === 1 &&
+      input.category.length === 0 &&
+      input.statementKind.length === 0 &&
+      input.tags.length === 0
+    ) {
       const accountId = input.account[0];
       const { summary: accountSummary, statements: accountStatements } =
         await mergeRawStatementsWithSummary(
