@@ -67,8 +67,6 @@ const statementFormFields = (
       label: 'Amount',
       type: 'number',
       placeholder: 'Amount',
-      min: -9999999999,
-      max: 9999999999,
     },
     {
       name: 'tags',

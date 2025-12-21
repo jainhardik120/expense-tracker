@@ -9,7 +9,7 @@
     "dev": "next dev --turbopack",
     "duplicate:check": "jscpd ./src",
     "email:dev": "email dev --dir src/emails --port 3001",
-    "build": "eslint \"src/**/*.{ts,tsx}\" && next build --turbopack",
+    "build": "next typegen && eslint \"src/**/*.{ts,tsx}\" && next build --turbopack",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
