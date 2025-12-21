@@ -118,3 +118,18 @@ export const splits = pgTable('splits', {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const investments = pgTable('investments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  investmentKind: text('investment_kind').notNull(),
+  investmentDate: timestamp('investment_date').notNull(),
+  investmentAmount: numeric('investment_amount').notNull(),
+  maturityDate: timestamp('maturity_date'),
+  maturityAmount: numeric('maturity_amount'),
+  amount: numeric('amount'),
+  units: numeric('units'),
+  purchaseRate: numeric('purchase_rate'),
+});

@@ -2,7 +2,7 @@ import type * as React from 'react';
 
 import Link from 'next/link';
 
-import { LineChart, Sheet } from 'lucide-react';
+import { DollarSign, LineChart, Sheet } from 'lucide-react';
 
 import {
   Sidebar,
@@ -25,6 +25,11 @@ const links = [
     label: 'Statements',
     href: '/statements',
     icon: Sheet,
+  },
+  {
+    label: 'Investments',
+    href: '/investments',
+    icon: DollarSign,
   },
 ];
 

@@ -3,6 +3,7 @@ import { createCallerFactory, createTRPCRouter } from '@/server/trpc';
 import { accountsRouter } from './accounts';
 import { bulkImportRouter } from './bulk-import';
 import { friendsRouter } from './friends';
+import { investmentsRouter } from './investments';
 import { statementsRouter } from './statements';
 import { summaryRouter } from './summary';
 
@@ -14,6 +15,7 @@ export const appRouter = createTRPCRouter({
   statements: statementsRouter,
   summary: summaryRouter,
   bulkImport: bulkImportRouter,
+  investments: investmentsRouter,
 });
 
 export type AppRouter = typeof appRouter;
