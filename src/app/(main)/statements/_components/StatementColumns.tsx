@@ -153,6 +153,7 @@ export const createStatementColumns = (
     enableColumnFilter: true,
   },
   {
+    id: 'statementKind',
     accessorKey: 'statementKind',
     header: 'Statement Kind',
     cell: ({ row }) => (
@@ -162,6 +163,15 @@ export const createStatementColumns = (
           : statementKindMap[row.original.statementKind]}
       </>
     ),
+    meta: {
+      label: 'Statement Kind',
+      variant: 'multiSelect',
+      options: Object.entries(statementKindMap).map(([key, value]) => ({
+        label: value,
+        value: key,
+      })),
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'amount',
