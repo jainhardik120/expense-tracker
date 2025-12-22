@@ -90,8 +90,8 @@ const RenderedStringArrayInput = <T extends FieldValues = FieldValues>(props: Fi
     <>
       <div className="flex flex-wrap gap-2">
         {(props.field.value as string[]).map((item: string, index: number) => (
-          <Badge key={item} className="px-2 py-1" variant="secondary">
-            {item}
+          <Badge key={item} className="max-w-[320px] px-2 py-1" variant="secondary">
+            <span className="min-w-0 truncate">{item}</span>
             <button
               className="text-muted-foreground hover:text-foreground ml-2"
               title="Remove"

@@ -91,7 +91,9 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
             control={form.control}
             name={field.name}
             render={({ field: formField }) => (
-              <FormItem className={cn(`${field.type === RenderLabelAfter ? 'flex flex-row' : ''}`)}>
+              <FormItem
+                className={cn(`${field.type === RenderLabelAfter ? 'flex flex-row' : 'min-w-0'}`)}
+              >
                 {field.type !== RenderLabelAfter &&
                   (typeof field.label === 'string' ? (
                     <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>

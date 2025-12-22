@@ -26,7 +26,7 @@ const Table = ({ data }: { data: InvestmentData }) => {
   });
 
   return (
-    <DataTable table={table}>
+    <DataTable getItemValue={(item) => item.id} table={table}>
       <DataTableToolbar table={table}>
         <CreateInvestmentForm />
       </DataTableToolbar>

@@ -240,8 +240,8 @@ export const createStatementColumns = (
         ) : (
           <div className="flex flex-wrap gap-2">
             {row.original.tags.map((item: string) => (
-              <Badge key={item} className="px-2 py-1" variant="secondary">
-                {item}
+              <Badge key={item} className="max-w-[320px] px-2 py-1" variant="secondary">
+                <span className="min-w-0 truncate">{item}</span>
               </Badge>
             ))}
           </div>
