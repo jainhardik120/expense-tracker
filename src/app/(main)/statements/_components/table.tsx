@@ -174,7 +174,7 @@ const Table = ({
           }}
         />
         <CreateSelfTransferStatementForm accountsData={accountsData} />
-        <CreateStatementForm accountsData={accountsData} friendsData={friendsData} />
+        <CreateStatementForm accountsData={accountsData} categories={categories} friendsData={friendsData}/>
       </DataTableToolbar>
     </DataTable>
   );

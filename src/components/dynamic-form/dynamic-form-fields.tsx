@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
+import { Autocomplete } from '../ui/autocomplete';
+
 type SelectOption = { label: string; value: string };
 
 export type FormField<T extends FieldValues = FieldValues> = {
@@ -228,6 +230,9 @@ export const RenderedFormFields: {
 } = {
   input: (props) => (
     <Input placeholder={props.formField.placeholder} {...props.field} id={props.id} />
+  ),
+  autocompleteInput: (props) => (
+    <Autocomplete options={props.formField.options ?? []} {...props.field} />
   ),
   number: (props) => (
     <Input

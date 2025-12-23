@@ -29,11 +29,13 @@ const StatementActions = ({
   onRefresh,
   accountsData,
   friendsData,
+  categories,
 }: {
   statement: Statement;
   onRefresh: () => void;
   accountsData: Account[];
   friendsData: Friend[];
+  categories: string[];
 }) => {
   const mutation = api.statements.deleteStatement.useMutation();
   const { id } = statement;
@@ -44,6 +46,7 @@ const StatementActions = ({
       )}
       <UpdateStatementForm
         accountsData={accountsData}
+        categories={categories}
         friendsData={friendsData}
         initialData={statement}
         refresh={onRefresh}
@@ -282,6 +285,7 @@ export const createStatementColumns = (
           ) : (
             <StatementActions
               accountsData={accountsData}
+              categories={categories}
               friendsData={friendsData}
               statement={row.original}
               onRefresh={onRefreshStatements}

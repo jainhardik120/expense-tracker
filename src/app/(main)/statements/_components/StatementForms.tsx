@@ -24,6 +24,7 @@ import {
 const statementFormFields = (
   accountsData: Account[],
   friendsData: Friend[],
+  categories: string[],
 ): FormField<z.infer<typeof createStatementSchema>>[] => {
   return [
     {
@@ -59,8 +60,9 @@ const statementFormFields = (
     {
       name: 'category',
       label: 'Category',
-      type: 'input',
+      type: 'autocompleteInput',
       placeholder: 'Category',
+      options: categories.map((category) => ({ label: category, value: category })),
     },
     {
       name: 'amount',
@@ -85,9 +87,11 @@ const statementFormFields = (
 export const CreateStatementForm = ({
   accountsData,
   friendsData,
+  categories,
 }: {
   accountsData: Account[];
   friendsData: Friend[];
+  categories: string[];
 }) => {
   const [searchParams] = useQueryStates(statementParser);
   const selectedAccount =
@@ -97,8 +101,8 @@ export const CreateStatementForm = ({
       : '';
   const mutation = api.statements.addStatement.useMutation();
   const formFields = useMemo(
-    () => statementFormFields(accountsData, friendsData),
-    [accountsData, friendsData],
+    () => statementFormFields(accountsData, friendsData, categories),
+    [accountsData, friendsData, categories],
   );
   const router = useRouter();
   return (
@@ -135,17 +139,19 @@ export const UpdateStatementForm = ({
   initialData,
   accountsData,
   friendsData,
+  categories,
 }: {
   refresh?: () => void;
   statementId: string;
   initialData: Statement;
   accountsData: Account[];
   friendsData: Friend[];
+  categories: string[];
 }) => {
   const mutation = api.statements.updateStatement.useMutation();
   const formFields = useMemo(
-    () => statementFormFields(accountsData, friendsData),
-    [accountsData, friendsData],
+    () => statementFormFields(accountsData, friendsData, categories),
+    [accountsData, friendsData, categories],
   );
   return (
     <MutationModal

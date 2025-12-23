@@ -165,9 +165,6 @@ export type ProcessedAggregationData = {
 };
 
 export const DateTruncValues = [
-  'second',
-  'minute',
-  'hour',
   'day',
   'week',
   'month',
