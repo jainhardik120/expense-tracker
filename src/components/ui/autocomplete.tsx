@@ -21,26 +21,19 @@ export interface AutocompleteOption {
   label: string;
 }
 
-export interface AutocompleteProps {
+export type AutocompleteProps = {
   options: AutocompleteOption[];
-  value?: string;
-  onValueChange?: (value: string) => void;
-  placeholder?: string;
-  emptyMessage?: string;
-  disabled?: boolean;
-  className?: string;
-  allowCustomValue?: boolean;
-}
+  value: string;
+  onValueChange: (value: string) => void;
+} & React.ComponentProps<'input'>;
 
 const Autocomplete = ({
   options,
   value = '',
   onValueChange,
   placeholder = 'Select or type...',
-  emptyMessage = 'No results found.',
   disabled = false,
   className,
-  allowCustomValue = true,
 }: AutocompleteProps) => {
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState('');
@@ -53,14 +46,16 @@ const Autocomplete = ({
 
   const filteredOptions = React.useMemo(() => {
     if (searchValue === '') {
-      return options;
+      return options.sort((a, b) => a.label.localeCompare(b.label));
     }
 
-    return options.filter(
-      (option) =>
-        option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
-        option.value.toLowerCase().includes(searchValue.toLowerCase()),
-    );
+    return options
+      .filter(
+        (option) =>
+          option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
+          option.value.toLowerCase().includes(searchValue.toLowerCase()),
+      )
+      .sort((a, b) => a.label.localeCompare(b.label));
   }, [options, searchValue]);
 
   const displayLabel = React.useMemo(() => {
@@ -71,24 +66,21 @@ const Autocomplete = ({
   const handleSelect = (selectedValue: string) => {
     const newValue = selectedValue === internalValue ? '' : selectedValue;
     setInternalValue(newValue);
-    onValueChange?.(newValue);
+    onValueChange(newValue);
     setOpen(false);
     setSearchValue('');
   };
 
   const handleSearchChange = (search: string) => {
     setSearchValue(search);
-
-    if (allowCustomValue) {
-      setInternalValue(search);
-      onValueChange?.(search);
-    }
+    setInternalValue(search);
+    onValueChange(search);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter' && allowCustomValue && searchValue !== '') {
+    if (e.key === 'Enter' && searchValue !== '') {
       setInternalValue(searchValue);
-      onValueChange?.(searchValue);
+      onValueChange(searchValue);
       setOpen(false);
       setSearchValue('');
     }
@@ -97,7 +89,6 @@ const Autocomplete = ({
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      // Focus the input when opening
       setTimeout(() => {
         inputRef.current?.focus();
       }, 0);
@@ -139,12 +130,10 @@ const Autocomplete = ({
           />
           <CommandList>
             <CommandEmpty>
-              {allowCustomValue && searchValue !== '' ? (
+              {searchValue !== '' && (
                 <div className="px-2 py-1.5 text-sm">
                   Press Enter to use &quot;{searchValue}&quot;
                 </div>
-              ) : (
-                emptyMessage
               )}
             </CommandEmpty>
             {filteredOptions.length > 0 && (

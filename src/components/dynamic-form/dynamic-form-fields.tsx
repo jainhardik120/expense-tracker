@@ -232,7 +232,11 @@ export const RenderedFormFields: {
     <Input placeholder={props.formField.placeholder} {...props.field} id={props.id} />
   ),
   autocompleteInput: (props) => (
-    <Autocomplete options={props.formField.options ?? []} {...props.field} />
+    <Autocomplete
+      options={props.formField.options ?? []}
+      {...props.field}
+      onValueChange={props.field.onChange}
+    />
   ),
   number: (props) => (
     <Input

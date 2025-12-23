@@ -30,7 +30,7 @@ export const statementsRouter = createTRPCRouter({
         .selectDistinct({ category: statements.category })
         .from(statements)
         .where(eq(statements.userId, ctx.session.user.id))
-    ).map((c) => c.category);
+    ).map((c) => c.category).sort((a, b) => a.localeCompare(b));
   }),
   getTags: protectedProcedure.query(async ({ ctx }) => {
     const result = await ctx.db
@@ -38,7 +38,7 @@ export const statementsRouter = createTRPCRouter({
       .from(statements)
       .where(eq(statements.userId, ctx.session.user.id))
       .orderBy(sql<string>`tag`);
-    return result.map((r) => r.tag);
+    return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
   }),
   getStatements: protectedProcedure.input(statementParserSchema).query(async ({ ctx, input }) => {
     let statements = await getMergedStatements(ctx.db, ctx.session.user.id, input);
