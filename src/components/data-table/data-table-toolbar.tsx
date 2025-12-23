@@ -38,7 +38,7 @@ export const DataTableToolbar = <TData,>({
   return (
     <div
       aria-orientation="horizontal"
-      className={cn('flex w-full items-start justify-between gap-2 p-1', className)}
+      className={cn('flex w-full items-start justify-between gap-2', className)}
       role="toolbar"
       {...props}
     >

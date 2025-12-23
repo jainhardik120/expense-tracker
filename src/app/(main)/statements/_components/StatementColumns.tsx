@@ -180,6 +180,9 @@ export const createStatementColumns = (
       const { amount } = row.original;
       return Number.parseFloat(amount).toFixed(2);
     },
+    meta: {
+      label: 'Amount',
+    },
   },
   {
     id: 'category',
@@ -212,6 +215,9 @@ export const createStatementColumns = (
     accessorKey: 'to',
     header: 'To',
     cell: ({ row }) => <>{getToAccount(row.original) ?? '-'}</>,
+    meta: {
+      label: 'To Account',
+    },
   },
   {
     accessorKey: 'expense',
@@ -223,11 +229,17 @@ export const createStatementColumns = (
           : '-'}
       </>
     ),
+    meta: {
+      label: 'Expense',
+    },
   },
   {
     id: 'finalBalance',
     accessorFn: (row) => (row.finalBalance ?? 0).toFixed(2),
     header: startingBalance?.name ?? '-',
+    meta: {
+      label: 'Final Balance',
+    },
   },
   {
     id: 'tags',
@@ -278,6 +290,10 @@ export const createStatementColumns = (
         </div>
       );
     },
+    meta: {
+      label: 'Actions',
+    },
+    enableHiding: false,
   },
   {
     id: 'drag-handle',

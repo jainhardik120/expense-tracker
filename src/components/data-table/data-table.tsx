@@ -79,7 +79,7 @@ export const DataTable = <TData extends object>({
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
-                            className="p-1"
+                            className="py-1"
                             style={{
                               ...getCommonPinningStyles({ column: cell.column }),
                             }}
