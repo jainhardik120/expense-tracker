@@ -107,7 +107,7 @@ export const splits = pgTable('splits', {
     .references(() => user.id, { onDelete: 'cascade' }),
   statementId: uuid('statement_id')
     .notNull()
-    .references(() => statements.id, { onDelete: 'no action' }),
+    .references(() => statements.id, { onDelete: 'cascade' }),
   amount: numeric('amount').notNull(),
   friendId: uuid('friend_id')
     .notNull()

@@ -30,7 +30,9 @@ export const statementsRouter = createTRPCRouter({
         .selectDistinct({ category: statements.category })
         .from(statements)
         .where(eq(statements.userId, ctx.session.user.id))
-    ).map((c) => c.category).sort((a, b) => a.localeCompare(b));
+    )
+      .map((c) => c.category)
+      .sort((a, b) => a.localeCompare(b));
   }),
   getTags: protectedProcedure.query(async ({ ctx }) => {
     const result = await ctx.db

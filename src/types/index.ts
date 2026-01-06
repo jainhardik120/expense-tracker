@@ -164,13 +164,7 @@ export type ProcessedAggregationData = {
   totalExpenses: number;
 };
 
-export const DateTruncValues = [
-  'day',
-  'week',
-  'month',
-  'quarter',
-  'year',
-];
+export const DateTruncValues = ['day', 'week', 'month', 'quarter', 'year'];
 export const DateTruncEnum = z.enum(DateTruncValues);
 export type DateTruncUnit = z.infer<typeof DateTruncEnum>;
 
