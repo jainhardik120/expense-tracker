@@ -33,6 +33,7 @@ export type FormField<T extends FieldValues = FieldValues> = {
   max?: number;
   step?: number;
   render?: (field: ControllerRenderProps<T, Path<T>>) => ReactNode;
+  displayCondition?: ((values: T) => boolean) | boolean;
 };
 
 type FieldProps<T extends FieldValues = FieldValues> = {

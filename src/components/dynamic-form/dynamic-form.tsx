@@ -1,15 +1,9 @@
 'use client';
 
-import { type ReactNode, type Ref, useEffect, useId } from 'react';
+import { type ReactNode, type Ref, useEffect, useId, useImperativeHandle, useRef } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  type DeepPartial,
-  useForm,
-  type UseFormReturn,
-  type FieldValues,
-  type DefaultValues,
-} from 'react-hook-form';
+import { useForm, type UseFormReturn, type FieldValues, type DefaultValues } from 'react-hook-form';
 import { type z } from 'zod';
 
 import {
@@ -33,20 +27,20 @@ import type * as z4 from 'zod/v4/core';
 
 type Props<Input extends FieldValues, Output> = {
   schema: z4.$ZodType<Output, Input>;
-  onSubmit: (values: Output) => Promise<void> | void;
+  onSubmit?: (values: Output) => Promise<void> | void;
   defaultValues: DefaultValues<z.infer<z4.$ZodType<Output, Input>>>;
   fields: Array<FormField<Input>>;
   submitButtonText?: string;
   submitButtonDisabled?: boolean;
   FormFooter?: ({ form }: { form: UseFormReturn<Input, unknown, Input> }) => ReactNode;
-  onValuesChange?: (values: DeepPartial<Output>) => void;
   showSubmitButton?: boolean;
   ref?: Ref<UseFormReturn<Input, unknown, Output>>;
   className?: string;
+  submissionError?: string;
 };
 
 const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
-  const { onValuesChange, defaultValues } = props;
+  const { defaultValues } = props;
   type FormData = T;
 
   const form = useForm<FormData>({
@@ -54,74 +48,70 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
     defaultValues: props.defaultValues,
   });
 
-  if (props.ref !== undefined && props.ref !== null) {
-    if (typeof props.ref === 'function') {
-      props.ref(form);
-    } else {
-      props.ref.current = form;
+  useImperativeHandle(props.ref, () => form, [form]);
+  const prevDefaultValuesRef = useRef<string>('');
+
+  useEffect(() => {
+    const serializedValues = JSON.stringify(defaultValues);
+    if (prevDefaultValuesRef.current !== serializedValues) {
+      prevDefaultValuesRef.current = serializedValues;
+      form.reset({
+        ...defaultValues,
+      });
     }
-  }
-
-  useEffect(() => {
-    const subscription = form.watch((values) => {
-      if (onValuesChange !== undefined) {
-        onValuesChange(values);
-      }
-    });
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [form, onValuesChange]);
-
-  useEffect(() => {
-    form.reset({
-      ...defaultValues,
-    });
   }, [defaultValues, form]);
+  const onFormSubmit = props.onSubmit === undefined ? undefined : form.handleSubmit(props.onSubmit);
+  const values = form.watch();
   const formId = useId();
   return (
     <Form {...form}>
-      <form
-        className={cn('grid gap-4', props.className)}
-        onSubmit={form.handleSubmit(props.onSubmit)}
-      >
-        {props.fields.map((field) => (
-          <FormFieldPrimitive
-            key={field.name}
-            control={form.control}
-            name={field.name}
-            render={({ field: formField }) => (
-              <FormItem
-                className={cn(`${field.type === RenderLabelAfter ? 'flex flex-row' : 'min-w-0'}`)}
-              >
-                {field.type !== RenderLabelAfter &&
-                  (typeof field.label === 'string' ? (
-                    <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
-                  ) : (
-                    field.label
-                  ))}
-                <FormControl>
-                  <RenderFormInput
-                    field={formField}
-                    formField={field}
-                    id={`${formId}-${field.name}`}
-                    type={field.type}
-                  />
-                </FormControl>
-                {field.type === RenderLabelAfter &&
-                  (typeof field.label === 'string' ? (
-                    <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
-                  ) : (
-                    field.label
-                  ))}
-                {field.description !== undefined && (
-                  <FormDescription>{field.description}</FormDescription>
-                )}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        ))}
+      <form className={cn('grid gap-4', props.className)} onSubmit={onFormSubmit}>
+        {props.fields.map((field) => {
+          const { displayCondition = true } = field;
+          if (
+            displayCondition === false ||
+            (typeof displayCondition === 'function' && !displayCondition(values))
+          ) {
+            return null;
+          }
+          return (
+            <FormFieldPrimitive
+              key={field.name}
+              control={form.control}
+              name={field.name}
+              render={({ field: formField }) => (
+                <FormItem
+                  className={cn(`${field.type === RenderLabelAfter ? 'flex flex-row' : 'min-w-0'}`)}
+                >
+                  {field.type !== RenderLabelAfter &&
+                    (typeof field.label === 'string' ? (
+                      <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
+                    ) : (
+                      field.label
+                    ))}
+                  <FormControl>
+                    <RenderFormInput
+                      field={formField}
+                      formField={field}
+                      id={`${formId}-${field.name}`}
+                      type={field.type}
+                    />
+                  </FormControl>
+                  {field.type === RenderLabelAfter &&
+                    (typeof field.label === 'string' ? (
+                      <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
+                    ) : (
+                      field.label
+                    ))}
+                  {field.description !== undefined && (
+                    <FormDescription>{field.description}</FormDescription>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          );
+        })}
         {props.showSubmitButton === true && (
           <Button disabled={props.submitButtonDisabled} type="submit">
             {props.submitButtonText ?? 'Submit'}
