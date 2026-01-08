@@ -586,8 +586,7 @@ export const processAggregatedData = ({
         ...friendsStatements,
         ...splitsStatements,
       );
-      const expense =
-        statementsSummary.expenses + friendsSummary.paidByFriend - friendsSummary.splits;
+      const expense = statementsSummary.expenses - friendsSummary.splits;
       categoryWiseSummary[category] = expense;
     }
     return {
@@ -612,8 +611,6 @@ export const processAggregatedData = ({
   return {
     periodAggregations,
     categoryWiseTotals,
-    uniqueCategories,
-    uniquePeriodStarts,
   };
 };
 
