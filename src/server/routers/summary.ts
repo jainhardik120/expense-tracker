@@ -10,11 +10,33 @@ import {
   processAggregatedData,
 } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { dateSchema, DateTruncEnum } from '@/types';
+import {
+  accountSummarySchema,
+  aggregatedAccountTransferSummarySchema,
+  aggregatedFriendTransferSummarySchema,
+  dateSchema,
+  DateTruncEnum,
+  friendSummarySchema,
+} from '@/types';
 
 export const summaryRouter = createTRPCRouter({
   getSummary: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/summary',
+      },
+    })
     .input(z.object({ ...dateSchema }))
+    .output(
+      z.object({
+        myExpensesTotal: z.number(),
+        accountsSummaryData: z.array(accountSummarySchema),
+        friendsSummaryData: z.array(friendSummarySchema),
+        aggregatedAccountsSummaryData: aggregatedAccountTransferSummarySchema,
+        aggregatedFriendsSummaryData: aggregatedFriendTransferSummarySchema,
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const accountsSummaryData = await getAccountsSummaryBetweenDates(
         ctx.db,

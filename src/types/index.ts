@@ -93,22 +93,42 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
 
 export type Investment = typeof investments.$inferSelect;
 
-export type AccountTransferSummary = {
-  expenses: number;
-  selfTransfers: number;
-  outsideTransactions: number;
-  friendTransactions: number;
-  totalTransfers: number;
-};
+export const accountTransferSummarySchema = z.object({
+  expenses: z.number(),
+  selfTransfers: z.number(),
+  outsideTransactions: z.number(),
+  friendTransactions: z.number(),
+  totalTransfers: z.number(),
+});
 
-export type AggregatedAccountTransferSummary = {
-  startingBalance: number;
-  finalBalance: number;
-} & AccountTransferSummary;
+export type AccountTransferSummary = z.infer<typeof accountTransferSummarySchema>;
 
-export type AccountSummary = {
-  account: Account;
-} & AggregatedAccountTransferSummary;
+export const aggregatedAccountTransferSummarySchema = z
+  .object({
+    startingBalance: z.number(),
+    finalBalance: z.number(),
+  })
+  .extend(accountTransferSummarySchema.shape);
+
+export type AggregatedAccountTransferSummary = z.infer<
+  typeof aggregatedAccountTransferSummarySchema
+>;
+
+export const accountSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  createdAt: z.date().nullable(),
+  startingBalance: z.string(),
+  accountName: z.string(),
+});
+
+export const accountSummarySchema = z
+  .object({
+    account: accountSchema,
+  })
+  .extend(aggregatedAccountTransferSummarySchema.shape);
+
+export type AccountSummary = z.infer<typeof accountSummarySchema>;
 
 export const defaultAccountSummary: AggregatedAccountTransferSummary = {
   startingBalance: 0,
@@ -120,17 +140,38 @@ export const defaultAccountSummary: AggregatedAccountTransferSummary = {
   finalBalance: 0,
 };
 
-export type FriendTransferSummary = {
-  paidByFriend: number;
-  splits: number;
-  friendTransactions: number;
-  totalTransfers: number;
-};
+export const friendTransferSummarySchema = z.object({
+  paidByFriend: z.number(),
+  splits: z.number(),
+  friendTransactions: z.number(),
+  totalTransfers: z.number(),
+});
 
-export type AggregatedFriendTransferSummary = {
-  startingBalance: number;
-  finalBalance: number;
-} & FriendTransferSummary;
+export type FriendTransferSummary = z.infer<typeof friendTransferSummarySchema>;
+
+export const aggregatedFriendTransferSummarySchema = z
+  .object({
+    startingBalance: z.number(),
+    finalBalance: z.number(),
+  })
+  .extend(friendTransferSummarySchema.shape);
+
+export type AggregatedFriendTransferSummary = z.infer<typeof aggregatedFriendTransferSummarySchema>;
+
+export const friendSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  createdAt: z.date().nullable(),
+  name: z.string(),
+});
+
+export const friendSummarySchema = z
+  .object({
+    friend: friendSchema,
+  })
+  .extend(aggregatedFriendTransferSummarySchema.shape);
+
+export type FriendSummary = z.infer<typeof friendSummarySchema>;
 
 export const defaultFriendSummary: AggregatedFriendTransferSummary = {
   startingBalance: 0,
@@ -140,10 +181,6 @@ export const defaultFriendSummary: AggregatedFriendTransferSummary = {
   totalTransfers: 0,
   finalBalance: 0,
 };
-
-export type FriendSummary = {
-  friend: Friend;
-} & AggregatedFriendTransferSummary;
 
 export type ProcessedAggregationData = {
   date: Date;

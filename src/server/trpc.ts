@@ -6,16 +6,22 @@ import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import logger from '@/lib/logger';
 
-const t = initTRPC.context<typeof createTRPCContext>().create({
-  transformer: superjson,
-  errorFormatter: ({ shape, error }) => ({
-    ...shape,
-    data: {
-      ...shape.data,
-      zodError: error.cause instanceof ZodError ? treeifyError(error.cause) : null,
-    },
-  }),
-});
+import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
+import type { OpenApiMeta } from 'trpc-to-openapi';
+
+const t = initTRPC
+  .meta<OpenApiMeta>()
+  .context<() => Context>()
+  .create({
+    transformer: superjson,
+    errorFormatter: ({ shape, error }) => ({
+      ...shape,
+      data: {
+        ...shape.data,
+        zodError: error.cause instanceof ZodError ? treeifyError(error.cause) : null,
+      },
+    }),
+  });
 
 const timingMiddleware = t.middleware(async ({ next, path }) => {
   const start = Date.now();
@@ -32,6 +38,18 @@ export const createTRPCContext = (opts: { headers: Headers }) => {
   return {
     db: db,
     ...opts,
+  };
+};
+
+type Context = Awaited<ReturnType<typeof createTRPCContext>>;
+
+export const createTRPCContextNext = async ({
+  req,
+  // eslint-disable-next-line @typescript-eslint/require-await
+}: FetchCreateContextFnOptions): Promise<Context> => {
+  return {
+    db: db,
+    headers: req.headers,
   };
 };
 

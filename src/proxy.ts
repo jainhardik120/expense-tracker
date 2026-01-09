@@ -15,5 +15,5 @@ export const proxy = async (request: NextRequest) => {
 };
 
 export const config = {
-  matcher: ['/((?!auth|api/trpc|_next|api/auth).*)'],
+  matcher: ['/((?!auth|api/trpc|_next|api/auth|api/external).*)'],
 };
