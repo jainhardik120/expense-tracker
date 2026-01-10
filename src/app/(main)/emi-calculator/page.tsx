@@ -1,34 +1,30 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
+
+import { useQueryStates } from 'nuqs';
+
+import { type EMICalculationResult, emiCalculatorParser } from '@/types';
 
 import { calculateSchedule } from './_components/calculations';
 import { LoanDetailsForm } from './_components/loan-details-form';
 import { PaymentScheduleTable } from './_components/payment-schedule-table';
 import { SummaryCard } from './_components/summary-card';
-import { type FormValues } from './_components/types';
 
 export default function EMICalculatorPage() {
-  const [formValues, setFormValues] = useState<FormValues>({
-    calculationMode: 'emi' as const,
-    principalAmount: 0,
-    emiAmount: 0,
-    totalEmiAmount: 0,
-    annualRate: 16,
-    tenureMonths: 6,
-    gstRate: 18,
-    processingFees: 199,
-    processingFeesGst: 18,
-  });
-
-  const result = useMemo(() => {
-    return calculateSchedule(formValues);
-  }, [formValues]);
+  const [defaultValues, setDefaultValues] = useQueryStates(emiCalculatorParser);
+  const [result, setResult] = useState<EMICalculationResult>(calculateSchedule(defaultValues));
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <LoanDetailsForm onFormChange={setFormValues} />
+        <LoanDetailsForm
+          defaultValues={defaultValues}
+          onFormChange={(values) => {
+            void setDefaultValues(values);
+            setResult(calculateSchedule(values));
+          }}
+        />
         <SummaryCard result={result} />
       </div>
       <PaymentScheduleTable result={result} />

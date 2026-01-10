@@ -64,7 +64,7 @@ export const statements = pgTable(
       'friend_transaction_check',
       sql`
       (${table.statementKind} != 'friend_transaction') OR 
-      (${table.accountId} IS NOT NULL AND ${table.friendId} IS NOT NULL)
+      (${table.friendId} IS NOT NULL)
     `,
     ),
     // Outside transaction: friendId should be undefined

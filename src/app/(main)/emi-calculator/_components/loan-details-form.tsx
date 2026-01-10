@@ -4,29 +4,28 @@ import { type UseFormReturn } from 'react-hook-form';
 
 import DynamicForm from '@/components/dynamic-form/dynamic-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
-import { formSchema, type FormValues } from './types';
+import { emiCalculatorFormSchema, type EMICalculatorFormValues } from '@/types';
 
 interface LoanDetailsFormProps {
-  onFormChange: (values: FormValues) => void;
+  onFormChange: (values: Partial<EMICalculatorFormValues>) => void;
+  defaultValues: EMICalculatorFormValues;
 }
 
-export const LoanDetailsForm = ({ onFormChange }: LoanDetailsFormProps) => {
-  const formRef = useRef<UseFormReturn<FormValues>>(null);
+export const LoanDetailsForm = ({ onFormChange, defaultValues }: LoanDetailsFormProps) => {
+  const formRef = useRef<UseFormReturn<EMICalculatorFormValues>>(null);
 
   useEffect(() => {
     if (formRef.current === null) {
       return;
     }
-
     const subscription = formRef.current.watch((values) => {
-      onFormChange(values as FormValues);
+      onFormChange(values);
     });
-
     return () => {
       subscription.unsubscribe();
     };
   }, [onFormChange]);
+
   return (
     <Card>
       <CardHeader>
@@ -38,17 +37,7 @@ export const LoanDetailsForm = ({ onFormChange }: LoanDetailsFormProps) => {
       <CardContent>
         <DynamicForm
           ref={formRef}
-          defaultValues={{
-            calculationMode: 'emi' as const,
-            principalAmount: 0,
-            emiAmount: 0,
-            totalEmiAmount: 0,
-            annualRate: 16,
-            tenureMonths: 6,
-            gstRate: 18,
-            processingFees: 199,
-            processingFeesGst: 18,
-          }}
+          defaultValues={defaultValues}
           fields={[
             {
               name: 'calculationMode',
@@ -56,7 +45,7 @@ export const LoanDetailsForm = ({ onFormChange }: LoanDetailsFormProps) => {
               type: 'select',
               options: [
                 { label: 'Principal', value: 'principal' },
-                { label: 'EMI', value: 'emi' },
+                { label: 'Monthly EMI', value: 'emi' },
                 { label: 'Total EMI', value: 'totalEmi' },
               ],
             },
@@ -92,9 +81,6 @@ export const LoanDetailsForm = ({ onFormChange }: LoanDetailsFormProps) => {
               label: 'Tenure (Months)',
               type: 'number',
               placeholder: '0',
-              min: 1,
-              max: 12,
-              step: 1,
             },
             {
               name: 'gstRate',
@@ -115,7 +101,7 @@ export const LoanDetailsForm = ({ onFormChange }: LoanDetailsFormProps) => {
               placeholder: '0',
             },
           ]}
-          schema={formSchema}
+          schema={emiCalculatorFormSchema}
           showSubmitButton={false}
         />
       </CardContent>

@@ -127,6 +127,13 @@
       "when": 1766658303233,
       "tag": "0017_amused_leader",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1768026956355,
+      "tag": "0018_tiny_pandemic",
+      "breakpoints": true
     }
   ]
 }

@@ -8,11 +8,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
-
-import { type CalculationResult } from './types';
+import { type EMICalculationResult } from '@/types';
 
 interface PaymentScheduleTableProps {
-  result: CalculationResult;
+  result: EMICalculationResult;
 }
 
 export const PaymentScheduleTable = ({ result }: PaymentScheduleTableProps) => {

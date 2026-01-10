@@ -1,10 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format';
-
-import { type CalculationResult } from './types';
+import { type EMICalculationResult } from '@/types';
 
 interface SummaryCardProps {
-  result: CalculationResult;
+  result: EMICalculationResult;
 }
 
 export const SummaryCard = ({ result }: SummaryCardProps) => {

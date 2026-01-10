@@ -23,7 +23,7 @@ export const statementKindMap = {
   self_transfer: 'Self Transfer',
 };
 
-const amount = z.string().refine((val) => !Number.isNaN(parseInt(val, 10)), {
+export const amount = z.string().refine((val) => !Number.isNaN(parseInt(val, 10)), {
   message: 'Expected number, received a string',
 });
 
@@ -204,10 +204,14 @@ export type ProcessedAggregationData = {
 export const DateTruncValues = ['day', 'week', 'month', 'quarter', 'year'];
 export const DateTruncEnum = z.enum(DateTruncValues);
 export type DateTruncUnit = z.infer<typeof DateTruncEnum>;
+export const MONTHS_PER_YEAR = 12;
+export const PERCENTAGE_DIVISOR = 100;
+export const MAX_PERCENTAGE = 100;
+export const MIN_PERCENTAGE = 0;
 
 export const SECONDS = 1000;
 export const MINUTES = 60 * SECONDS;
-const HOURS = 60 * MINUTES;
+export const HOURS = 60 * MINUTES;
 export const DAYS = 24 * HOURS;
 
 export const dateParser = {
@@ -296,3 +300,53 @@ export const isFriendSummary = (
 
 export const TIMEZONE_COOKIE = 'timezone';
 export const TIME_OFFSET_COOKIE = 'time-offset';
+
+export const emiCalculatorFormSchema = z.object({
+  calculationMode: z.enum(['principal', 'emi', 'totalEmi']),
+  principalAmount: amount,
+  emiAmount: amount,
+  totalEmiAmount: amount,
+  annualRate: amount,
+  tenureMonths: amount,
+  gstRate: amount,
+  processingFees: amount,
+  processingFeesGst: amount,
+});
+
+export const emiCalculatorParser = {
+  calculationMode: parseAsStringEnum(['principal', 'emi', 'totalEmi']).withDefault('emi'),
+  principalAmount: parseAsString.withDefault(''),
+  emiAmount: parseAsString.withDefault(''),
+  totalEmiAmount: parseAsString.withDefault(''),
+  annualRate: parseAsString.withDefault('16'),
+  tenureMonths: parseAsString.withDefault('6'),
+  gstRate: parseAsString.withDefault('18'),
+  processingFees: parseAsString.withDefault('199'),
+  processingFeesGst: parseAsString.withDefault('18'),
+};
+export type EMICalculatorFormValues = z.infer<typeof emiCalculatorFormSchema>;
+
+export interface EMIScheduleRow {
+  month: number;
+  emi: number;
+  interest: number;
+  principal: number;
+  gst: number;
+  totalPayment: number;
+  balance: number;
+}
+
+export interface EMICalculationResult {
+  schedule: EMIScheduleRow[];
+  summary: {
+    totalEMI: number;
+    totalInterest: number;
+    totalGST: number;
+    totalPrincipal: number;
+    processingFees: number;
+    processingFeesGST: number;
+    totalProcessingFees: number;
+    totalAmount: number;
+    effectivePrincipal: number;
+  };
+}

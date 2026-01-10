@@ -1,10 +1,10 @@
 import {
   MONTHS_PER_YEAR,
   PERCENTAGE_DIVISOR,
-  type CalculationResult,
-  type FormValues,
-  type ScheduleRow,
-} from './types';
+  type EMICalculationResult,
+  type EMICalculatorFormValues,
+  type EMIScheduleRow,
+} from '@/types';
 
 export const calculateEMI = (principal: number, monthlyRate: number, tenure: number): number => {
   if (monthlyRate === 0) {
@@ -30,26 +30,45 @@ export const calculatePrincipalFromEMI = (
   );
 };
 
-export const calculateSchedule = (values: FormValues): CalculationResult => {
+const parseFloatSafe = (value: string | undefined): number => {
+  if (value === '' || value === undefined || isNaN(Number.parseFloat(value))) {
+    return 0;
+  }
+  return Number.parseFloat(value);
+};
+
+export const calculateSchedule = (
+  inputValues: Partial<EMICalculatorFormValues>,
+): EMICalculationResult => {
+  const values = {
+    ...inputValues,
+    principalAmount: parseFloatSafe(inputValues.principalAmount),
+    emiAmount: parseFloatSafe(inputValues.emiAmount),
+    totalEmiAmount: parseFloatSafe(inputValues.totalEmiAmount),
+    annualRate: parseFloatSafe(inputValues.annualRate),
+    tenureMonths: parseFloatSafe(inputValues.tenureMonths),
+    gstRate: parseFloatSafe(inputValues.gstRate),
+    processingFees: parseFloatSafe(inputValues.processingFees),
+    processingFeesGst: parseFloatSafe(inputValues.processingFeesGst),
+  };
   const monthlyRate = values.annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
 
-  let principal: number;
-  let emi: number;
+  let principal: number = 0;
+  let emi: number = 0;
 
   if (values.calculationMode === 'principal') {
-    principal = values.principalAmount ?? 0;
+    principal = values.principalAmount;
     emi = calculateEMI(principal, monthlyRate, values.tenureMonths);
   } else if (values.calculationMode === 'emi') {
-    emi = values.emiAmount ?? 0;
+    emi = values.emiAmount;
     principal = calculatePrincipalFromEMI(emi, monthlyRate, values.tenureMonths);
-  } else {
-    // totalEmi mode - calculate monthly EMI from total
-    const totalEmi = values.totalEmiAmount ?? 0;
+  } else if (values.calculationMode === 'totalEmi') {
+    const totalEmi = values.totalEmiAmount;
     emi = totalEmi / values.tenureMonths;
     principal = calculatePrincipalFromEMI(emi, monthlyRate, values.tenureMonths);
   }
 
-  const schedule: ScheduleRow[] = [];
+  const schedule: EMIScheduleRow[] = [];
   let balance = principal;
   let totalInterest = 0;
   let totalGST = 0;
