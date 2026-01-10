@@ -32,6 +32,11 @@ const links = [
     icon: DollarSign,
   },
   {
+    label: 'EMIs',
+    href: '/emis',
+    icon: Calculator,
+  },
+  {
     label: 'EMI Calculator',
     href: '/emi-calculator',
     icon: Calculator,

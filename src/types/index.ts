@@ -10,6 +10,7 @@ import { z } from 'zod';
 import {
   type bankAccount,
   type creditCardAccounts,
+  type emis,
   type friendsProfiles,
   type investments,
   type selfTransferStatements,
@@ -82,6 +83,18 @@ export const createCreditCardAccountSchema = z.object({
   cardLimit: amount,
 });
 
+export const createEmiSchema = z.object({
+  name: z.string().min(1),
+  creditId: z.string(),
+  principal: amount,
+  tenure: amount,
+  annualInterestRate: amount,
+  processingFees: amount,
+  processingFeesGst: amount,
+  gst: amount,
+  balance: amount,
+});
+
 export type StatementKind = (typeof statementKindEnum.enumValues)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
@@ -99,6 +112,9 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
 
 export type Investment = typeof investments.$inferSelect;
 export type CreditCardAccount = typeof creditCardAccounts.$inferSelect;
+export type Emi = typeof emis.$inferSelect & {
+  creditCardName?: string;
+};
 export const accountTransferSummarySchema = z.object({
   expenses: z.number(),
   selfTransfers: z.number(),
@@ -267,6 +283,11 @@ export const investmentParser = {
   investmentKind: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
+export const emiParser = {
+  ...pageParser,
+  creditId: parseAsArrayOf(parseAsString, ',').withDefault([]),
+};
+
 export const summaryParser = {
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
@@ -284,6 +305,11 @@ export const investmentParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
   investmentKind: z.string().array().optional().default([]),
+});
+
+export const emiParserSchema = z.object({
+  ...pageSchema,
+  creditId: z.string().array().optional().default([]),
 });
 
 export const accountFriendStatementsParserSchema = z.object({
