@@ -9,13 +9,35 @@ import { api } from '@/server/react';
 import { type FriendSummary, type AccountSummary, isFriendSummary } from '@/types';
 
 import { UpdateAccountForm } from './AccountForms';
+import { CreditCardDialog } from './CreditCardDialog';
 import { UpdateFriendForm } from './FriendsForms';
 
-const AccountActions = ({ row, onRefresh }: { row: AccountSummary; onRefresh: () => void }) => {
+type CreditCardAccount = { creditCardId?: string; creditAccountId?: string; cardLimit?: string };
+
+const AccountActions = ({
+  row,
+  onRefresh,
+}: {
+  row: AccountSummary & CreditCardAccount;
+  onRefresh: () => void;
+}) => {
   const mutation = api.accounts.deleteAccount.useMutation();
+  const isExistingCreditCard = row.creditCardId !== undefined && row.creditCardId.length > 0;
   return (
     <div className="flex w-full justify-end">
       <div className="flex flex-row gap-2">
+        <CreditCardDialog
+          accountId={row.account.id}
+          accountName={row.account.accountName}
+          existingCreditCard={
+            isExistingCreditCard
+              ? {
+                  id: row.creditCardId ?? '',
+                  cardLimit: row.cardLimit ?? '',
+                }
+              : null
+          }
+        />
         <UpdateAccountForm
           accountId={row.account.id}
           initialData={row.account}
@@ -57,7 +79,7 @@ const FriendActions = ({ row, onRefresh }: { row: FriendSummary; onRefresh: () =
 
 export const createAccountColumns = (
   onRefresh: () => void,
-): ColumnDef<AccountSummary | FriendSummary>[] => {
+): ColumnDef<(AccountSummary & CreditCardAccount) | FriendSummary>[] => {
   return [
     {
       id: 'name',

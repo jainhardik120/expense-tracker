@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import { useRouter } from 'next/navigation';
 
 import { DataTable } from '@/components/data-table/data-table';
@@ -13,15 +15,27 @@ import { CreateAccountForm } from './AccountForms';
 import { CreateFriendForm } from './FriendsForms';
 
 type SummaryData = RouterOutput['summary']['getSummary'];
+type CreditData = RouterOutput['accounts']['getCreditCards'];
 
-const Table = ({ data }: { data: SummaryData }) => {
+const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData }) => {
   const router = useRouter();
   const refetch = () => {
     router.refresh();
   };
   const accountColumns = createAccountColumns(refetch);
+  const accountsDataWithCreditData = useMemo(() => {
+    return data.accountsSummaryData.map((account) => {
+      const creditAccount = creditData.find((credit) => credit.accountId === account.account.id);
+      return {
+        ...account,
+        creditCardId: creditAccount?.id,
+        creditAccountId: creditAccount?.accountId,
+        cardLimit: creditAccount?.cardLimit,
+      };
+    });
+  }, [data, creditData]);
   const { table } = useDataTable({
-    data: [...data.accountsSummaryData, ...data.friendsSummaryData],
+    data: [...accountsDataWithCreditData, ...data.friendsSummaryData],
     columns: accountColumns,
     pageCount: -1,
     shallow: false,

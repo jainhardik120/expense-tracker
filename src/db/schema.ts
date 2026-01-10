@@ -1,5 +1,15 @@
 import { desc, sql } from 'drizzle-orm';
-import { pgTable, text, timestamp, numeric, pgEnum, uuid, check, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  timestamp,
+  numeric,
+  pgEnum,
+  uuid,
+  check,
+  index,
+  jsonb,
+} from 'drizzle-orm/pg-core';
 
 import { user } from './auth-schema';
 
@@ -49,6 +59,7 @@ export const statements = pgTable(
     createdAt: timestamp('created_at')
       .notNull()
       .$defaultFn(() => new Date()),
+    additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
   },
   (table) => [
     check(
@@ -132,4 +143,32 @@ export const investments = pgTable('investments', {
   amount: numeric('amount'),
   units: numeric('units'),
   purchaseRate: numeric('purchase_rate'),
+});
+
+export const creditCardAccounts = pgTable('credit_card_accounts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  accountId: uuid('account_id')
+    .notNull()
+    .references(() => bankAccount.id, { onDelete: 'cascade' })
+    .unique(),
+  cardLimit: numeric('card_limit').notNull(),
+});
+
+export const emis = pgTable('emis', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  creditId: uuid('credit_id')
+    .notNull()
+    .references(() => creditCardAccounts.id, { onDelete: 'no action' }),
+  principal: numeric('principal').notNull(),
+  tenure: numeric('tenure').notNull(),
+  annualInterestRate: numeric('annual_interest_rate').notNull(),
+  processingFees: numeric('processing_fees').notNull(),
+  processingFeesGst: numeric('processing_fees_gst').notNull(),
+  gst: numeric('gst').notNull(),
+  balance: numeric('balance').notNull(),
+  createdAt: timestamp('created_at').$defaultFn(() => new Date()),
 });

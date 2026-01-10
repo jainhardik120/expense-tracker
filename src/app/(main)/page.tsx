@@ -27,6 +27,7 @@ export default async function Page({
     ...dateParams,
   });
   const summaryPromise = api.summary.getSummary(dateParams);
+  const creditAccountsPromise = api.accounts.getCreditCards();
   return (
     <div className="flex flex-col gap-4">
       <FilterPanel />
@@ -66,8 +67,11 @@ export default async function Page({
           {(summaryData) => <SummaryCard data={summaryData} />}
         </AsyncComponent>
       </div>
-      <AsyncComponent loadingFallbackClassName="h-[400]" promise={summaryPromise}>
-        {(summaryData) => <SummaryTable data={summaryData} />}
+      <AsyncComponent
+        loadingFallbackClassName="h-[400]"
+        promise={Promise.all([summaryPromise, creditAccountsPromise])}
+      >
+        {([summaryData, creditData]) => <SummaryTable creditData={creditData} data={summaryData} />}
       </AsyncComponent>
       <AsyncComponent loadingFallbackClassName="h-[400]" promise={aggregationPromise}>
         {(aggregationData) => (

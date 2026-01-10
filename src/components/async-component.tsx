@@ -30,9 +30,7 @@ export const AsyncComponent = <T,>({
   errorFallbackClassName,
   children,
 }: Readonly<AsyncComponentProps<T>>) => {
-  const defaultFallback = (
-    <Skeleton className={cn('h-full min-h-[400px]', loadingFallbackClassName)} />
-  );
+  const defaultFallback = <Skeleton className={cn('h-full min-h-100', loadingFallbackClassName)} />;
 
   return (
     <ErrorBoundary

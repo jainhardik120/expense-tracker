@@ -30,7 +30,10 @@ const addColorsToChartData = <N extends string, D extends string>(data: ChartDat
   };
 
   const dataWithColors = data.data.map((item, index) => {
-    const colorIndex = (index % CHART_COLORS_COUNT) + 1;
+    let colorIndex = (index % CHART_COLORS_COUNT) + 1;
+    if (index === data.data.length - 1 && colorIndex === 1) {
+      colorIndex = 2;
+    }
     const nameValue = item[data.nameKey] as string;
     const nameKey = nameValue.replaceAll(' ', '-');
     chartConfig[nameKey] = {

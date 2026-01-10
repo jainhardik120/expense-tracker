@@ -9,6 +9,7 @@ import { z } from 'zod';
 
 import {
   type bankAccount,
+  type creditCardAccounts,
   type friendsProfiles,
   type investments,
   type selfTransferStatements,
@@ -76,6 +77,11 @@ export const createInvestmentSchema = z.object({
   purchaseRate: amount.optional(),
 });
 
+export const createCreditCardAccountSchema = z.object({
+  accountId: z.string(),
+  cardLimit: amount,
+});
+
 export type StatementKind = (typeof statementKindEnum.enumValues)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
@@ -92,7 +98,7 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
 };
 
 export type Investment = typeof investments.$inferSelect;
-
+export type CreditCardAccount = typeof creditCardAccounts.$inferSelect;
 export const accountTransferSummarySchema = z.object({
   expenses: z.number(),
   selfTransfers: z.number(),

@@ -670,6 +670,7 @@ const generateStatementUnionDetailedQuery = (db: Database, unnestTags?: boolean)
       category: statements.category,
       tags: statements.tags,
       statementKind: statements.statementKind,
+      additionalAttributes: statements.additionalAttributes,
       type: sql<string>`'statement'`.as('type'),
       fromAccount: sql<string | null>`NULL`.as('from_account'),
       toAccount: sql<string | null>`NULL`.as('to_account'),
@@ -702,6 +703,7 @@ const generateStatementUnionDetailedQuery = (db: Database, unnestTags?: boolean)
         category: sql<string>`NULL`.as('category'),
         tags: sql<string[]>`ARRAY[]::text[]`.as('tags'),
         statementKind: sql<'self_transfer'>`'self_transfer'`.as('statement_kind'),
+        additionalAttributes: sql`'{}'`.as('additional_attributes'),
         type: sql<string>`'self_transfer'`.as('type'),
         fromAccount: fromAccount.accountName,
         toAccount: toAccount.accountName,
@@ -822,6 +824,7 @@ export const getMergedStatements = async (
           splitAmount: row.splitAmount,
           accountName: row.accountName,
           friendName: row.friendName,
+          additionalAttributes: row.additionalAttributes,
         };
         return value;
       }

@@ -8,21 +8,8 @@ import { type z } from 'zod';
 
 import DynamicForm from '@/components/dynamic-form/dynamic-form';
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@/components/ui/drawer';
-import { useIsMobile } from '@/hooks/use-mobile';
+
+import Modal from './modal';
 
 import type * as z4 from 'zod/v4/core';
 
@@ -61,7 +48,6 @@ const FormComponent = <T extends FieldValues, MutationResult>(
 const MutationModal = <T extends FieldValues, MutationResult>(
   props: Props<T, T, MutationResult>,
 ) => {
-  const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
   const onSubmit = (values: z.infer<typeof props.schema>) => {
     props.mutation
@@ -76,31 +62,11 @@ const MutationModal = <T extends FieldValues, MutationResult>(
         toast.error(err instanceof Error ? err.message : String(err));
       });
   };
-  if (isMobile) {
-    return (
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerTrigger asChild>{props.button}</DrawerTrigger>
-        <DrawerContent className="p-4 pb-8">
-          <DrawerHeader className="text-left">
-            <DrawerTitle>{props.titleText}</DrawerTitle>
-          </DrawerHeader>
-          {props.customDescription}
-          <FormComponent {...props} onSubmit={onSubmit} />
-        </DrawerContent>
-      </Drawer>
-    );
-  }
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{props.button}</DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{props.titleText}</DialogTitle>
-        </DialogHeader>
-        {props.customDescription}
-        <FormComponent {...props} onSubmit={onSubmit} />
-      </DialogContent>
-    </Dialog>
+    <Modal open={open} setOpen={setOpen} title={props.titleText} trigger={props.button}>
+      {props.customDescription}
+      <FormComponent {...props} onSubmit={onSubmit} />
+    </Modal>
   );
 };
 

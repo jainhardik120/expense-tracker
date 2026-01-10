@@ -134,6 +134,20 @@
       "when": 1768026956355,
       "tag": "0018_tiny_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1768041666720,
+      "tag": "0019_oval_exiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1768042128328,
+      "tag": "0020_public_masque",
+      "breakpoints": true
     }
   ]
 }
