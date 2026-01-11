@@ -2,8 +2,10 @@
 
 import { type ColumnDef } from '@tanstack/react-table';
 import { format } from 'date-fns';
+import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
 import { type Investment } from '@/types';
 
@@ -69,7 +71,11 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
             refresh={() => {
               refresh();
             }}
-          />
+          >
+            <Button className="size-8" size="icon" variant="ghost">
+              <Trash />
+            </Button>
+          </DeleteConfirmationDialog>
         </div>
       );
     },

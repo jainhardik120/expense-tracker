@@ -1,8 +1,10 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
+import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -65,7 +67,11 @@ export const createEmiColumns = (
             refresh={() => {
               refresh();
             }}
-          />
+          >
+            <Button className="size-8" size="icon" variant="ghost">
+              <Trash />
+            </Button>
+          </DeleteConfirmationDialog>
         </div>
       );
     },

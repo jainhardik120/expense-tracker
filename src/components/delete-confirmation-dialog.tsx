@@ -18,7 +18,7 @@ import {
 
 type DeleteConfirmationDialogProps<T, MutationResult> = {
   mutationInput: T;
-  children?: React.ReactNode;
+  children: React.ReactNode;
   title?: string;
   description?: string;
   onCancel?: () => void;
@@ -46,7 +46,7 @@ const DeleteConfirmationDialog = <T, MutationResult>({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      {children === undefined ? null : <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>}
+      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
