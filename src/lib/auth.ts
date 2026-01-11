@@ -60,7 +60,10 @@ export const auth = betterAuth({
       );
     },
   },
-  trustedOrigins: env.NODE_ENV === 'development' ? ['http://localhost:3000'] : [],
+  trustedOrigins:
+    env.NODE_ENV === 'development'
+      ? ['http://localhost:3000']
+      : [`https://${process.env.VERCEL_URL ?? ''}`],
   socialProviders: {
     github: {
       clientId: env.GITHUB_CLIENT_ID,
