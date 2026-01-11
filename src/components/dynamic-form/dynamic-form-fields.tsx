@@ -126,9 +126,21 @@ const RenderedTimeInput = <T extends FieldValues = FieldValues>(props: FieldProp
   <Input placeholder={props.formField.placeholder} type="time" {...props.field} />
 );
 
-const RenderedDateInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
-  <Input placeholder={props.formField.placeholder} type="date" {...props.field} />
-);
+const RenderedDateInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
+  const fieldDate = props.field.value as Date;
+  return (
+    <DateInput
+      date={fieldDate}
+      onChange={(date) => {
+        const updatedDate = new Date(fieldDate);
+        updatedDate.setDate(date.getDate());
+        updatedDate.setMonth(date.getMonth());
+        updatedDate.setFullYear(date.getFullYear());
+        props.field.onChange(updatedDate);
+      }}
+    />
+  );
+};
 
 const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
   const fieldDate = props.field.value as Date;

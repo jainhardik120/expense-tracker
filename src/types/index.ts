@@ -347,6 +347,9 @@ export const emiCalculatorFormSchema = z.object({
 export const createEmiSchema = emiCalculatorFormSchema.extend({
   name: z.string().min(1),
   creditId: z.string(),
+  firstInstallmentDate: z.date(),
+  processingFeesDate: z.date(),
+  iafe: optionalAmount,
 });
 
 export const emiCalculatorParser = {

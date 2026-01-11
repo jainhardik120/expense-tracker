@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import { useRouter } from 'next/navigation';
 
 import { SquarePen } from 'lucide-react';
@@ -33,12 +35,29 @@ const createEmiFormFields = (
       value: card.id,
     })),
   },
+  {
+    name: 'firstInstallmentDate',
+    label: 'First Installment Date',
+    type: 'date',
+  },
+  {
+    name: 'processingFeesDate',
+    label: 'Processing Fees Date',
+    type: 'date',
+  },
+  {
+    name: 'iafe',
+    label: 'IAFE (Interest Adjustment for First EMI)',
+    type: 'number',
+    placeholder: '0',
+  },
   ...(emiCalculationFormFields as unknown as FormField<z.infer<typeof createEmiSchema>>[]),
 ];
 
 export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) => {
   const mutation = api.emis.addEmi.useMutation();
   const router = useRouter();
+  const currentDate = useMemo(() => new Date(), []);
 
   if (creditCards.length === 0) {
     return (
@@ -67,6 +86,9 @@ export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) =>
         processingFees: '',
         processingFeesGst: '',
         gst: '',
+        firstInstallmentDate: currentDate,
+        processingFeesDate: currentDate,
+        iafe: '',
       }}
       fields={createEmiFormFields(creditCards)}
       mutation={mutation}
@@ -101,17 +123,10 @@ export const UpdateEmiForm = ({
         </Button>
       }
       defaultValues={{
-        name: initialData.name,
-        creditId: initialData.creditId,
+        ...initialData,
         calculationMode: 'principal' as const,
-        principalAmount: initialData.principal,
         emiAmount: '',
         totalEmiAmount: '',
-        tenure: initialData.tenure,
-        annualInterestRate: initialData.annualInterestRate,
-        processingFees: initialData.processingFees,
-        processingFeesGst: initialData.processingFeesGst,
-        gst: initialData.gst,
       }}
       fields={createEmiFormFields(creditCards)}
       mutation={{

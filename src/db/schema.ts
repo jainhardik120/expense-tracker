@@ -170,4 +170,11 @@ export const emis = pgTable('emis', {
   processingFeesGst: numeric('processing_fees_gst').notNull(),
   gst: numeric('gst').notNull(),
   createdAt: timestamp('created_at').$defaultFn(() => new Date()),
+  firstInstallmentDate: timestamp('first_installment_date')
+    .notNull()
+    .$defaultFn(() => new Date()),
+  processingFeesDate: timestamp('processing_fees_date')
+    .notNull()
+    .$defaultFn(() => new Date()),
+  iafe: numeric('iafe').notNull().default('0'),
 });

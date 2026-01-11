@@ -32,6 +32,9 @@ export const emisRouter = createTRPCRouter({
         gst: emis.gst,
         createdAt: emis.createdAt,
         creditCardName: bankAccount.accountName,
+        firstInstallmentDate: emis.firstInstallmentDate,
+        processingFeesDate: emis.processingFeesDate,
+        iafe: emis.iafe,
       })
       .from(emis)
       .innerJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
@@ -94,6 +97,9 @@ export const emisRouter = createTRPCRouter({
         processingFees: input.processingFees,
         processingFeesGst: input.processingFeesGst,
         gst: input.gst,
+        firstInstallmentDate: input.firstInstallmentDate,
+        processingFeesDate: input.processingFeesDate,
+        iafe: input.iafe,
       })
       .returning({ id: emis.id });
   }),
@@ -149,6 +155,9 @@ export const emisRouter = createTRPCRouter({
           processingFees: restInput.processingFees,
           processingFeesGst: restInput.processingFeesGst,
           gst: restInput.gst,
+          firstInstallmentDate: restInput.firstInstallmentDate,
+          processingFeesDate: restInput.processingFeesDate,
+          iafe: restInput.iafe,
         })
         .where(and(eq(emis.id, id), eq(emis.userId, ctx.session.user.id)))
         .returning({ id: emis.id });
