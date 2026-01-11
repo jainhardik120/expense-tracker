@@ -334,7 +334,7 @@ export const TIME_OFFSET_COOKIE = 'time-offset';
 
 export const emiCalculatorFormSchema = z.object({
   calculationMode: z.enum(['principal', 'emi', 'totalEmi']),
-  principalAmount: optionalAmount,
+  principal: optionalAmount,
   emiAmount: optionalAmount,
   totalEmiAmount: optionalAmount,
   annualInterestRate: amount,
@@ -354,7 +354,7 @@ export const createEmiSchema = emiCalculatorFormSchema.extend({
 
 export const emiCalculatorParser = {
   calculationMode: parseAsStringEnum(['principal', 'emi', 'totalEmi']).withDefault('emi'),
-  principalAmount: parseAsString.withDefault(''),
+  principal: parseAsString.withDefault(''),
   emiAmount: parseAsString.withDefault(''),
   totalEmiAmount: parseAsString.withDefault(''),
   annualInterestRate: parseAsString.withDefault('16'),

@@ -4,11 +4,11 @@ import { useState } from 'react';
 
 import { useQueryStates } from 'nuqs';
 
+import { PaymentScheduleTable } from '@/components/payment-schedule-table';
 import { calculateSchedule } from '@/server/helpers/emi-calculations';
 import { type EMICalculationResult, emiCalculatorParser } from '@/types';
 
 import { LoanDetailsForm } from './_components/loan-details-form';
-import { PaymentScheduleTable } from './_components/payment-schedule-table';
 import { SummaryCard } from './_components/summary-card';
 
 export default function EMICalculatorPage() {

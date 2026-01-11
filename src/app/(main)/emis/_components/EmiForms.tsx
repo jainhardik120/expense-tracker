@@ -78,7 +78,7 @@ export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) =>
         name: '',
         creditId: creditCards[0].id,
         calculationMode: 'principal' as const,
-        principalAmount: '',
+        principal: '',
         emiAmount: '',
         totalEmiAmount: '',
         tenure: '',

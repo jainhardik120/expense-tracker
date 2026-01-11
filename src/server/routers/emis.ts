@@ -80,7 +80,7 @@ export const emisRouter = createTRPCRouter({
       calculationMode: input.calculationMode,
       monthlyRate,
       tenureMonths: tenure,
-      principalAmount: parseFloatSafe(input.principalAmount),
+      principalAmount: parseFloatSafe(input.principal),
       emiAmount: parseFloatSafe(input.emiAmount),
       totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
     });
@@ -138,7 +138,7 @@ export const emisRouter = createTRPCRouter({
         calculationMode: input.calculationMode,
         monthlyRate,
         tenureMonths: tenure,
-        principalAmount: parseFloatSafe(input.principalAmount),
+        principalAmount: parseFloatSafe(input.principal),
         emiAmount: parseFloatSafe(input.emiAmount),
         totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
       });
@@ -280,6 +280,7 @@ export const emisRouter = createTRPCRouter({
           id: statements.id,
           accountId: statements.accountId,
           attributes: statements.additionalAttributes,
+          amount: statements.amount,
         })
         .from(statements)
         .where(

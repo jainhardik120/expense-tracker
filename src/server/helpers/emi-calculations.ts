@@ -50,17 +50,16 @@ export const calculateEMIAndPrincipal = (values: {
 }) => {
   let principal: number = 0;
   let emi: number = 0;
-
-  if (values.calculationMode === 'principal') {
-    principal = values.principalAmount;
-    emi = calculateEMI(principal, values.monthlyRate, values.tenureMonths);
+  if (values.calculationMode === 'totalEmi') {
+    const totalEmi = values.totalEmiAmount;
+    emi = totalEmi / values.tenureMonths;
+    principal = calculatePrincipalFromEMI(emi, values.monthlyRate, values.tenureMonths);
   } else if (values.calculationMode === 'emi') {
     emi = values.emiAmount;
     principal = calculatePrincipalFromEMI(emi, values.monthlyRate, values.tenureMonths);
   } else {
-    const totalEmi = values.totalEmiAmount;
-    emi = totalEmi / values.tenureMonths;
-    principal = calculatePrincipalFromEMI(emi, values.monthlyRate, values.tenureMonths);
+    principal = values.principalAmount;
+    emi = calculateEMI(principal, values.monthlyRate, values.tenureMonths);
   }
   return { emi, principal };
 };
@@ -70,7 +69,7 @@ export const calculateSchedule = (
 ): EMICalculationResult => {
   const values = {
     ...inputValues,
-    principalAmount: parseFloatSafe(inputValues.principalAmount),
+    principalAmount: parseFloatSafe(inputValues.principal),
     emiAmount: parseFloatSafe(inputValues.emiAmount),
     totalEmiAmount: parseFloatSafe(inputValues.totalEmiAmount),
     annualRate: parseFloatSafe(inputValues.annualInterestRate),
