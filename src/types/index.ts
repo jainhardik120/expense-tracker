@@ -24,10 +24,20 @@ export const statementKindMap = {
   friend_transaction: 'Friend Transaction',
   self_transfer: 'Self Transfer',
 };
+export const amount = z
+  .string()
+  .refine((val) => val !== '', {
+    message: 'Expected a number value',
+  })
+  .refine((val) => !Number.isNaN(parseInt(val, 10)), {
+    message: 'Expected number, received a string',
+  });
 
-export const amount = z.string().refine((val) => !Number.isNaN(parseInt(val, 10)), {
-  message: 'Expected number, received a string',
-});
+export const optionalAmount = z
+  .string()
+  .refine((val) => val === '' || !Number.isNaN(parseInt(val, 10)), {
+    message: 'Expected number, received a string',
+  });
 
 export const createAccountSchema = z.object({
   startingBalance: amount,
@@ -87,9 +97,9 @@ export const createEmiSchema = z.object({
   name: z.string().min(1),
   creditId: z.string(),
   calculationMode: z.enum(['principal', 'emi', 'totalEmi']),
-  principalAmount: amount,
-  emiAmount: amount,
-  totalEmiAmount: amount,
+  principalAmount: optionalAmount,
+  emiAmount: optionalAmount,
+  totalEmiAmount: optionalAmount,
   tenure: amount,
   annualInterestRate: amount,
   processingFees: amount,

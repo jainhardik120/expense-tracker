@@ -8,11 +8,7 @@ import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR }
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 
 // Helper function to calculate principal from EMI
-const calculatePrincipalFromEMI = (
-  emi: number,
-  monthlyRate: number,
-  tenure: number,
-): number => {
+const calculatePrincipalFromEMI = (emi: number, monthlyRate: number, tenure: number): number => {
   if (monthlyRate === 0) {
     return emi * tenure;
   }
@@ -138,7 +134,10 @@ export const emisRouter = createTRPCRouter({
         .from(creditCardAccounts)
         .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
         .where(
-          and(eq(creditCardAccounts.id, input.creditId), eq(bankAccount.userId, ctx.session.user.id)),
+          and(
+            eq(creditCardAccounts.id, input.creditId),
+            eq(bankAccount.userId, ctx.session.user.id),
+          ),
         )
         .limit(1);
 
