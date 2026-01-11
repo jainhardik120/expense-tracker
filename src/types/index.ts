@@ -93,20 +93,6 @@ export const createCreditCardAccountSchema = z.object({
   cardLimit: amount,
 });
 
-export const createEmiSchema = z.object({
-  name: z.string().min(1),
-  creditId: z.string(),
-  calculationMode: z.enum(['principal', 'emi', 'totalEmi']),
-  principalAmount: optionalAmount,
-  emiAmount: optionalAmount,
-  totalEmiAmount: optionalAmount,
-  tenure: amount,
-  annualInterestRate: amount,
-  processingFees: amount,
-  processingFeesGst: amount,
-  gst: amount,
-});
-
 export type StatementKind = (typeof statementKindEnum.enumValues)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
@@ -347,14 +333,19 @@ export const TIME_OFFSET_COOKIE = 'time-offset';
 
 export const emiCalculatorFormSchema = z.object({
   calculationMode: z.enum(['principal', 'emi', 'totalEmi']),
-  principalAmount: amount,
-  emiAmount: amount,
-  totalEmiAmount: amount,
-  annualRate: amount,
-  tenureMonths: amount,
-  gstRate: amount,
+  principalAmount: optionalAmount,
+  emiAmount: optionalAmount,
+  totalEmiAmount: optionalAmount,
+  annualInterestRate: amount,
+  tenure: amount,
+  gst: amount,
   processingFees: amount,
   processingFeesGst: amount,
+});
+
+export const createEmiSchema = emiCalculatorFormSchema.extend({
+  name: z.string().min(1),
+  creditId: z.string(),
 });
 
 export const emiCalculatorParser = {
@@ -362,9 +353,9 @@ export const emiCalculatorParser = {
   principalAmount: parseAsString.withDefault(''),
   emiAmount: parseAsString.withDefault(''),
   totalEmiAmount: parseAsString.withDefault(''),
-  annualRate: parseAsString.withDefault('16'),
-  tenureMonths: parseAsString.withDefault('6'),
-  gstRate: parseAsString.withDefault('18'),
+  annualInterestRate: parseAsString.withDefault('16'),
+  tenure: parseAsString.withDefault('6'),
+  gst: parseAsString.withDefault('18'),
   processingFees: parseAsString.withDefault('199'),
   processingFeesGst: parseAsString.withDefault('18'),
 };

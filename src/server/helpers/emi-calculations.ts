@@ -70,9 +70,9 @@ export const calculateSchedule = (
     principalAmount: parseFloatSafe(inputValues.principalAmount),
     emiAmount: parseFloatSafe(inputValues.emiAmount),
     totalEmiAmount: parseFloatSafe(inputValues.totalEmiAmount),
-    annualRate: parseFloatSafe(inputValues.annualRate),
-    tenureMonths: parseFloatSafe(inputValues.tenureMonths),
-    gstRate: parseFloatSafe(inputValues.gstRate),
+    annualRate: parseFloatSafe(inputValues.annualInterestRate),
+    tenureMonths: parseFloatSafe(inputValues.tenure),
+    gstRate: parseFloatSafe(inputValues.gst),
     processingFees: parseFloatSafe(inputValues.processingFees),
     processingFeesGst: parseFloatSafe(inputValues.processingFeesGst),
   };

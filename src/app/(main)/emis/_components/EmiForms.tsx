@@ -11,10 +11,9 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { createEmiSchema, type Emi } from '@/types';
+import { emiCalculationFormFields } from '@/types/emi';
 
 type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
-
-const PRINCIPAL_AMOUNT_LABEL = 'Principal Amount';
 
 const createEmiFormFields = (
   creditCards: CreditCard[],
@@ -34,83 +33,7 @@ const createEmiFormFields = (
       value: card.id,
     })),
   },
-  {
-    name: 'calculationMode',
-    label: 'Calculation Mode',
-    type: 'select',
-    options: [
-      { label: PRINCIPAL_AMOUNT_LABEL, value: 'principal' },
-      { label: 'Monthly EMI', value: 'emi' },
-      { label: 'Total EMI', value: 'totalEmi' },
-    ],
-  },
-  {
-    name: 'principalAmount',
-    label: PRINCIPAL_AMOUNT_LABEL,
-    type: 'number',
-    placeholder: PRINCIPAL_AMOUNT_LABEL,
-    min: 0,
-    max: 9999999999,
-    displayCondition: (values) => values.calculationMode === 'principal',
-  },
-  {
-    name: 'emiAmount',
-    label: 'Monthly EMI Amount',
-    type: 'number',
-    placeholder: 'Monthly EMI',
-    min: 0,
-    max: 9999999999,
-    displayCondition: (values) => values.calculationMode === 'emi',
-  },
-  {
-    name: 'totalEmiAmount',
-    label: 'Total EMI Amount',
-    type: 'number',
-    placeholder: 'Total EMI',
-    min: 0,
-    max: 9999999999,
-    displayCondition: (values) => values.calculationMode === 'totalEmi',
-  },
-  {
-    name: 'tenure',
-    label: 'Tenure (Months)',
-    type: 'number',
-    placeholder: 'Number of months',
-    min: 1,
-    max: 360,
-  },
-  {
-    name: 'annualInterestRate',
-    label: 'Annual Interest Rate (%)',
-    type: 'number',
-    placeholder: 'Interest rate',
-    min: 0,
-    max: 100,
-  },
-  {
-    name: 'processingFees',
-    label: 'Processing Fees',
-    type: 'number',
-    placeholder: 'Processing fees amount',
-    min: 0,
-    max: 9999999999,
-  },
-  {
-    name: 'processingFeesGst',
-    label: 'GST on Processing Fees (%)',
-    type: 'number',
-    placeholder: 'GST percentage',
-    min: 0,
-    max: 100,
-  },
-  {
-    name: 'gst',
-    label: 'GST on Interest (%)',
-    type: 'number',
-    placeholder: 'GST percentage',
-    min: 0,
-    max: 100,
-  },
+  ...(emiCalculationFormFields as unknown as FormField<z.infer<typeof createEmiSchema>>[]),
 ];
 
 export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) => {

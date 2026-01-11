@@ -2,14 +2,9 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { bankAccount, creditCardAccounts, emis } from '@/db/schema';
+import { calculateEMIAndPrincipal, parseFloatSafe } from '@/server/helpers/emi-calculations';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
-
-import {
-  calculateEMIAndPrincipal,
-  calculatePrincipalFromEMI,
-  parseFloatSafe,
-} from '../helpers/emi-calculations';
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 
@@ -91,7 +86,7 @@ export const emisRouter = createTRPCRouter({
         userId: ctx.session.user.id,
         name: input.name,
         creditId: input.creditId,
-        principal: principal.toString(),
+        principal: principal.toFixed(2).toString(),
         tenure: input.tenure,
         annualInterestRate: input.annualInterestRate,
         processingFees: input.processingFees,
@@ -131,19 +126,14 @@ export const emisRouter = createTRPCRouter({
       const annualRate = parseFloatSafe(input.annualInterestRate);
       const monthlyRate = annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
 
-      let principal: number = 0;
-
-      if (input.calculationMode === 'principal') {
-        principal = parseFloatSafe(input.principalAmount);
-      } else if (input.calculationMode === 'emi') {
-        const emi = parseFloatSafe(input.emiAmount);
-        principal = calculatePrincipalFromEMI(emi, monthlyRate, tenure);
-      } else {
-        // calculationMode === 'totalEmi'
-        const totalEmi = parseFloatSafe(input.totalEmiAmount);
-        const emi = totalEmi / tenure;
-        principal = calculatePrincipalFromEMI(emi, monthlyRate, tenure);
-      }
+      const { principal } = calculateEMIAndPrincipal({
+        calculationMode: input.calculationMode,
+        monthlyRate,
+        tenureMonths: tenure,
+        principalAmount: parseFloatSafe(input.principalAmount),
+        emiAmount: parseFloatSafe(input.emiAmount),
+        totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
+      });
 
       const { id, ...restInput } = input;
       const result = await ctx.db
@@ -151,7 +141,7 @@ export const emisRouter = createTRPCRouter({
         .set({
           name: restInput.name,
           creditId: restInput.creditId,
-          principal: principal.toString(),
+          principal: principal.toFixed(2).toString(),
           tenure: restInput.tenure,
           annualInterestRate: restInput.annualInterestRate,
           processingFees: restInput.processingFees,
