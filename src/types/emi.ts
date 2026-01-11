@@ -15,7 +15,7 @@ export const emiCalculationFormFields: FormField<z.infer<typeof emiCalculatorFor
     ],
   },
   {
-    name: 'principalAmount',
+    name: 'principal',
     label: 'Principal Amount',
     type: 'number',
     placeholder: '0',
