@@ -3,6 +3,7 @@
 import { type ColumnDef } from '@tanstack/react-table';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { type Emi } from '@/types';
@@ -26,7 +27,7 @@ export const createEmiColumns = (
   {
     accessorKey: 'principal',
     header: 'Principal',
-    cell: ({ row }) => `₹${row.original.principal}`,
+    cell: ({ row }) => formatCurrency(Number(row.original.principal)),
   },
   {
     accessorKey: 'tenure',
@@ -39,7 +40,7 @@ export const createEmiColumns = (
   {
     accessorKey: 'processingFees',
     header: 'Processing Fees',
-    cell: ({ row }) => `₹${row.original.processingFees}`,
+    cell: ({ row }) => formatCurrency(Number(row.original.processingFees)),
   },
   {
     accessorKey: 'gst',

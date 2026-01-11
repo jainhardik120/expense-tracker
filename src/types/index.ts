@@ -86,13 +86,15 @@ export const createCreditCardAccountSchema = z.object({
 export const createEmiSchema = z.object({
   name: z.string().min(1),
   creditId: z.string(),
-  principal: amount,
+  calculationMode: z.enum(['principal', 'emi', 'totalEmi']),
+  principalAmount: amount,
+  emiAmount: amount,
+  totalEmiAmount: amount,
   tenure: amount,
   annualInterestRate: amount,
   processingFees: amount,
   processingFeesGst: amount,
   gst: amount,
-  balance: amount,
 });
 
 export type StatementKind = (typeof statementKindEnum.enumValues)[number];

@@ -33,12 +33,41 @@ const createEmiFormFields = (
     })),
   },
   {
-    name: 'principal',
+    name: 'calculationMode',
+    label: 'Calculation Mode',
+    type: 'select',
+    options: [
+      { label: 'Principal Amount', value: 'principal' },
+      { label: 'Monthly EMI', value: 'emi' },
+      { label: 'Total EMI', value: 'totalEmi' },
+    ],
+  },
+  {
+    name: 'principalAmount',
     label: 'Principal Amount',
     type: 'number',
     placeholder: 'Principal Amount',
     min: 0,
     max: 9999999999,
+    displayCondition: (values) => values.calculationMode === 'principal',
+  },
+  {
+    name: 'emiAmount',
+    label: 'Monthly EMI Amount',
+    type: 'number',
+    placeholder: 'Monthly EMI',
+    min: 0,
+    max: 9999999999,
+    displayCondition: (values) => values.calculationMode === 'emi',
+  },
+  {
+    name: 'totalEmiAmount',
+    label: 'Total EMI Amount',
+    type: 'number',
+    placeholder: 'Total EMI',
+    min: 0,
+    max: 9999999999,
+    displayCondition: (values) => values.calculationMode === 'totalEmi',
   },
   {
     name: 'tenure',
@@ -86,6 +115,14 @@ export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) =>
   const mutation = api.emis.addEmi.useMutation();
   const router = useRouter();
 
+  if (creditCards.length === 0) {
+    return (
+      <Button className="h-8" disabled variant="outline">
+        New EMI (No Credit Cards)
+      </Button>
+    );
+  }
+
   return (
     <MutationModal
       button={
@@ -95,14 +132,16 @@ export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) =>
       }
       defaultValues={{
         name: '',
-        creditId: creditCards[0]?.id ?? '',
-        principal: '',
+        creditId: creditCards[0].id,
+        calculationMode: 'principal' as const,
+        principalAmount: '',
+        emiAmount: '',
+        totalEmiAmount: '',
         tenure: '',
         annualInterestRate: '',
         processingFees: '',
         processingFeesGst: '',
         gst: '',
-        balance: '',
       }}
       fields={createEmiFormFields(creditCards)}
       mutation={mutation}
@@ -139,7 +178,10 @@ export const UpdateEmiForm = ({
       defaultValues={{
         name: initialData.name,
         creditId: initialData.creditId,
-        principal: initialData.principal,
+        calculationMode: 'principal' as const,
+        principalAmount: initialData.principal,
+        emiAmount: '',
+        totalEmiAmount: '',
         tenure: initialData.tenure,
         annualInterestRate: initialData.annualInterestRate,
         processingFees: initialData.processingFees,
@@ -152,7 +194,7 @@ export const UpdateEmiForm = ({
         mutateAsync: (values) => {
           return mutation.mutateAsync({
             id: emiId,
-            createEmiSchema: values,
+            ...values,
           });
         },
       }}
