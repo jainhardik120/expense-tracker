@@ -94,7 +94,6 @@ export const CreditCardDialog = ({
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen);
     if (!newOpen && (existingCreditCard === null || existingCreditCard === undefined)) {
-      // Reset to initial state when closing if not an existing credit card
       setShowForm(false);
       reset({ accountId, cardLimit: '' });
     }

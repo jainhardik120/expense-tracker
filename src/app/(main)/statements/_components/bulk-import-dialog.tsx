@@ -232,7 +232,7 @@ export const BulkImportDialog = ({ onImportSuccess }: { onImportSuccess: () => v
             <div className="space-y-2">
               <Label>Paste CSV Data</Label>
               <Textarea
-                className="h-[200px] overflow-y-auto font-mono text-xs"
+                className="h-50 overflow-y-auto font-mono text-xs"
                 placeholder={placeholderText}
                 value={csvData}
                 onChange={(e) => {
