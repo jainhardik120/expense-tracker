@@ -281,6 +281,7 @@ export const emisRouter = createTRPCRouter({
           accountId: statements.accountId,
           attributes: statements.additionalAttributes,
           amount: statements.amount,
+          createdAt: statements.createdAt,
         })
         .from(statements)
         .where(
@@ -288,6 +289,7 @@ export const emisRouter = createTRPCRouter({
             eq(statements.userId, ctx.session.user.id),
             eq(sql`${statements.additionalAttributes}->>'emiId'`, input.emiId),
           ),
-        );
+        )
+        .orderBy(desc(statements.createdAt));
     }),
 });
