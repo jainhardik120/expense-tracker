@@ -27,7 +27,6 @@ export const emisRouter = createTRPCRouter({
         processingFees: emis.processingFees,
         processingFeesGst: emis.processingFeesGst,
         gst: emis.gst,
-        balance: emis.balance,
         createdAt: emis.createdAt,
         creditCardName: bankAccount.accountName,
       })

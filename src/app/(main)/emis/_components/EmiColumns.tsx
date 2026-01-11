@@ -37,11 +37,6 @@ export const createEmiColumns = (
     header: 'Interest Rate (%)',
   },
   {
-    accessorKey: 'balance',
-    header: 'Balance',
-    cell: ({ row }) => `₹${row.original.balance}`,
-  },
-  {
     accessorKey: 'processingFees',
     header: 'Processing Fees',
     cell: ({ row }) => `₹${row.original.processingFees}`,

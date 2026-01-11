@@ -80,14 +80,6 @@ const createEmiFormFields = (
     min: 0,
     max: 100,
   },
-  {
-    name: 'balance',
-    label: 'Current Balance',
-    type: 'number',
-    placeholder: 'Outstanding balance',
-    min: 0,
-    max: 9999999999,
-  },
 ];
 
 export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) => {
@@ -153,7 +145,6 @@ export const UpdateEmiForm = ({
         processingFees: initialData.processingFees,
         processingFeesGst: initialData.processingFeesGst,
         gst: initialData.gst,
-        balance: initialData.balance,
       }}
       fields={createEmiFormFields(creditCards)}
       mutation={{
