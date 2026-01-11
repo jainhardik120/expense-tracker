@@ -2,7 +2,7 @@ import type * as React from 'react';
 
 import Link from 'next/link';
 
-import { Calculator, DollarSign, LineChart, Sheet } from 'lucide-react';
+import { Calculator, CreditCard, DollarSign, LineChart, Sheet } from 'lucide-react';
 
 import {
   Sidebar,
@@ -30,6 +30,11 @@ const links = [
     label: 'Investments',
     href: '/investments',
     icon: DollarSign,
+  },
+  {
+    label: 'EMIs',
+    href: '/emis',
+    icon: CreditCard,
   },
   {
     label: 'EMI Calculator',

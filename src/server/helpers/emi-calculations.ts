@@ -30,11 +30,36 @@ export const calculatePrincipalFromEMI = (
   );
 };
 
-const parseFloatSafe = (value: string | undefined): number => {
+export const parseFloatSafe = (value: string | undefined): number => {
   if (value === '' || value === undefined || isNaN(Number.parseFloat(value))) {
     return 0;
   }
   return Number.parseFloat(value);
+};
+
+export const calculateEMIAndPrincipal = (values: {
+  calculationMode?: EMICalculatorFormValues['calculationMode'];
+  monthlyRate: number;
+  tenureMonths: number;
+  principalAmount: number;
+  emiAmount: number;
+  totalEmiAmount: number;
+}) => {
+  let principal: number = 0;
+  let emi: number = 0;
+
+  if (values.calculationMode === 'principal') {
+    principal = values.principalAmount;
+    emi = calculateEMI(principal, values.monthlyRate, values.tenureMonths);
+  } else if (values.calculationMode === 'emi') {
+    emi = values.emiAmount;
+    principal = calculatePrincipalFromEMI(emi, values.monthlyRate, values.tenureMonths);
+  } else {
+    const totalEmi = values.totalEmiAmount;
+    emi = totalEmi / values.tenureMonths;
+    principal = calculatePrincipalFromEMI(emi, values.monthlyRate, values.tenureMonths);
+  }
+  return { emi, principal };
 };
 
 export const calculateSchedule = (
@@ -45,28 +70,15 @@ export const calculateSchedule = (
     principalAmount: parseFloatSafe(inputValues.principalAmount),
     emiAmount: parseFloatSafe(inputValues.emiAmount),
     totalEmiAmount: parseFloatSafe(inputValues.totalEmiAmount),
-    annualRate: parseFloatSafe(inputValues.annualRate),
-    tenureMonths: parseFloatSafe(inputValues.tenureMonths),
-    gstRate: parseFloatSafe(inputValues.gstRate),
+    annualRate: parseFloatSafe(inputValues.annualInterestRate),
+    tenureMonths: parseFloatSafe(inputValues.tenure),
+    gstRate: parseFloatSafe(inputValues.gst),
     processingFees: parseFloatSafe(inputValues.processingFees),
     processingFeesGst: parseFloatSafe(inputValues.processingFeesGst),
   };
   const monthlyRate = values.annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
 
-  let principal: number = 0;
-  let emi: number = 0;
-
-  if (values.calculationMode === 'principal') {
-    principal = values.principalAmount;
-    emi = calculateEMI(principal, monthlyRate, values.tenureMonths);
-  } else if (values.calculationMode === 'emi') {
-    emi = values.emiAmount;
-    principal = calculatePrincipalFromEMI(emi, monthlyRate, values.tenureMonths);
-  } else if (values.calculationMode === 'totalEmi') {
-    const totalEmi = values.totalEmiAmount;
-    emi = totalEmi / values.tenureMonths;
-    principal = calculatePrincipalFromEMI(emi, monthlyRate, values.tenureMonths);
-  }
+  const { emi, principal } = calculateEMIAndPrincipal({ ...values, monthlyRate });
 
   const schedule: EMIScheduleRow[] = [];
   let balance = principal;

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import {
   type bankAccount,
   type creditCardAccounts,
+  type emis,
   type friendsProfiles,
   type investments,
   type selfTransferStatements,
@@ -23,10 +24,20 @@ export const statementKindMap = {
   friend_transaction: 'Friend Transaction',
   self_transfer: 'Self Transfer',
 };
+export const amount = z
+  .string()
+  .refine((val) => val !== '', {
+    message: 'Expected a number value',
+  })
+  .refine((val) => !Number.isNaN(parseInt(val, 10)), {
+    message: 'Expected number, received a string',
+  });
 
-export const amount = z.string().refine((val) => !Number.isNaN(parseInt(val, 10)), {
-  message: 'Expected number, received a string',
-});
+export const optionalAmount = z
+  .string()
+  .refine((val) => val === '' || !Number.isNaN(parseInt(val, 10)), {
+    message: 'Expected number, received a string',
+  });
 
 export const createAccountSchema = z.object({
   startingBalance: amount,
@@ -99,6 +110,9 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
 
 export type Investment = typeof investments.$inferSelect;
 export type CreditCardAccount = typeof creditCardAccounts.$inferSelect;
+export type Emi = typeof emis.$inferSelect & {
+  creditCardName?: string;
+};
 export const accountTransferSummarySchema = z.object({
   expenses: z.number(),
   selfTransfers: z.number(),
@@ -267,6 +281,11 @@ export const investmentParser = {
   investmentKind: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
+export const emiParser = {
+  ...pageParser,
+  creditId: parseAsArrayOf(parseAsString, ',').withDefault([]),
+};
+
 export const summaryParser = {
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
@@ -284,6 +303,11 @@ export const investmentParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
   investmentKind: z.string().array().optional().default([]),
+});
+
+export const emiParserSchema = z.object({
+  ...pageSchema,
+  creditId: z.string().array().optional().default([]),
 });
 
 export const accountFriendStatementsParserSchema = z.object({
@@ -309,14 +333,19 @@ export const TIME_OFFSET_COOKIE = 'time-offset';
 
 export const emiCalculatorFormSchema = z.object({
   calculationMode: z.enum(['principal', 'emi', 'totalEmi']),
-  principalAmount: amount,
-  emiAmount: amount,
-  totalEmiAmount: amount,
-  annualRate: amount,
-  tenureMonths: amount,
-  gstRate: amount,
+  principalAmount: optionalAmount,
+  emiAmount: optionalAmount,
+  totalEmiAmount: optionalAmount,
+  annualInterestRate: amount,
+  tenure: amount,
+  gst: amount,
   processingFees: amount,
   processingFeesGst: amount,
+});
+
+export const createEmiSchema = emiCalculatorFormSchema.extend({
+  name: z.string().min(1),
+  creditId: z.string(),
 });
 
 export const emiCalculatorParser = {
@@ -324,9 +353,9 @@ export const emiCalculatorParser = {
   principalAmount: parseAsString.withDefault(''),
   emiAmount: parseAsString.withDefault(''),
   totalEmiAmount: parseAsString.withDefault(''),
-  annualRate: parseAsString.withDefault('16'),
-  tenureMonths: parseAsString.withDefault('6'),
-  gstRate: parseAsString.withDefault('18'),
+  annualInterestRate: parseAsString.withDefault('16'),
+  tenure: parseAsString.withDefault('6'),
+  gst: parseAsString.withDefault('18'),
   processingFees: parseAsString.withDefault('199'),
   processingFeesGst: parseAsString.withDefault('18'),
 };
