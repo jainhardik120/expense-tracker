@@ -14,6 +14,8 @@ import { createEmiSchema, type Emi } from '@/types';
 
 type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
 
+const PRINCIPAL_AMOUNT_LABEL = 'Principal Amount';
+
 const createEmiFormFields = (
   creditCards: CreditCard[],
 ): FormField<z.infer<typeof createEmiSchema>>[] => [
@@ -37,16 +39,16 @@ const createEmiFormFields = (
     label: 'Calculation Mode',
     type: 'select',
     options: [
-      { label: 'Principal Amount', value: 'principal' },
+      { label: PRINCIPAL_AMOUNT_LABEL, value: 'principal' },
       { label: 'Monthly EMI', value: 'emi' },
       { label: 'Total EMI', value: 'totalEmi' },
     ],
   },
   {
     name: 'principalAmount',
-    label: 'Principal Amount',
+    label: PRINCIPAL_AMOUNT_LABEL,
     type: 'number',
-    placeholder: 'Principal Amount',
+    placeholder: PRINCIPAL_AMOUNT_LABEL,
     min: 0,
     max: 9999999999,
     displayCondition: (values) => values.calculationMode === 'principal',

@@ -7,17 +7,6 @@ import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR }
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 
-// Helper function to calculate EMI from principal
-const calculateEMI = (principal: number, monthlyRate: number, tenure: number): number => {
-  if (monthlyRate === 0) {
-    return principal / tenure;
-  }
-  return (
-    (principal * monthlyRate * Math.pow(1 + monthlyRate, tenure)) /
-    (Math.pow(1 + monthlyRate, tenure) - 1)
-  );
-};
-
 // Helper function to calculate principal from EMI
 const calculatePrincipalFromEMI = (
   emi: number,
@@ -112,7 +101,8 @@ export const emisRouter = createTRPCRouter({
     } else if (input.calculationMode === 'emi') {
       const emi = parseFloatSafe(input.emiAmount);
       principal = calculatePrincipalFromEMI(emi, monthlyRate, tenure);
-    } else if (input.calculationMode === 'totalEmi') {
+    } else {
+      // calculationMode === 'totalEmi'
       const totalEmi = parseFloatSafe(input.totalEmiAmount);
       const emi = totalEmi / tenure;
       principal = calculatePrincipalFromEMI(emi, monthlyRate, tenure);
@@ -168,18 +158,25 @@ export const emisRouter = createTRPCRouter({
       } else if (input.calculationMode === 'emi') {
         const emi = parseFloatSafe(input.emiAmount);
         principal = calculatePrincipalFromEMI(emi, monthlyRate, tenure);
-      } else if (input.calculationMode === 'totalEmi') {
+      } else {
+        // calculationMode === 'totalEmi'
         const totalEmi = parseFloatSafe(input.totalEmiAmount);
         const emi = totalEmi / tenure;
         principal = calculatePrincipalFromEMI(emi, monthlyRate, tenure);
       }
 
-      const { id, calculationMode, principalAmount, emiAmount, totalEmiAmount, ...restInput } = input;
+      const { id, ...restInput } = input;
       const result = await ctx.db
         .update(emis)
         .set({
-          ...restInput,
+          name: restInput.name,
+          creditId: restInput.creditId,
           principal: principal.toString(),
+          tenure: restInput.tenure,
+          annualInterestRate: restInput.annualInterestRate,
+          processingFees: restInput.processingFees,
+          processingFeesGst: restInput.processingFeesGst,
+          gst: restInput.gst,
         })
         .where(and(eq(emis.id, id), eq(emis.userId, ctx.session.user.id)))
         .returning({ id: emis.id });
