@@ -5,25 +5,13 @@ import { bankAccount, creditCardAccounts, emis } from '@/db/schema';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
 
+import {
+  calculateEMIAndPrincipal,
+  calculatePrincipalFromEMI,
+  parseFloatSafe,
+} from '../helpers/emi-calculations';
+
 const EMI_NOT_FOUND = 'EMI not found or access denied';
-
-// Helper function to calculate principal from EMI
-const calculatePrincipalFromEMI = (emi: number, monthlyRate: number, tenure: number): number => {
-  if (monthlyRate === 0) {
-    return emi * tenure;
-  }
-  return (
-    (emi * (Math.pow(1 + monthlyRate, tenure) - 1)) /
-    (monthlyRate * Math.pow(1 + monthlyRate, tenure))
-  );
-};
-
-const parseFloatSafe = (value: string | undefined): number => {
-  if (value === '' || value === undefined || isNaN(Number.parseFloat(value))) {
-    return 0;
-  }
-  return Number.parseFloat(value);
-};
 
 export const emisRouter = createTRPCRouter({
   getEmis: protectedProcedure.input(emiParserSchema).query(async ({ ctx, input }) => {
@@ -71,7 +59,6 @@ export const emisRouter = createTRPCRouter({
   }),
 
   addEmi: protectedProcedure.input(createEmiSchema).mutation(async ({ ctx, input }) => {
-    // Verify credit card belongs to user
     const creditCard = await ctx.db
       .select({ id: creditCardAccounts.id })
       .from(creditCardAccounts)
@@ -85,24 +72,18 @@ export const emisRouter = createTRPCRouter({
       throw new Error('Credit card not found or access denied');
     }
 
-    // Calculate principal based on calculation mode
     const tenure = parseFloatSafe(input.tenure);
     const annualRate = parseFloatSafe(input.annualInterestRate);
     const monthlyRate = annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
 
-    let principal: number = 0;
-
-    if (input.calculationMode === 'principal') {
-      principal = parseFloatSafe(input.principalAmount);
-    } else if (input.calculationMode === 'emi') {
-      const emi = parseFloatSafe(input.emiAmount);
-      principal = calculatePrincipalFromEMI(emi, monthlyRate, tenure);
-    } else {
-      // calculationMode === 'totalEmi'
-      const totalEmi = parseFloatSafe(input.totalEmiAmount);
-      const emi = totalEmi / tenure;
-      principal = calculatePrincipalFromEMI(emi, monthlyRate, tenure);
-    }
+    const { principal } = calculateEMIAndPrincipal({
+      calculationMode: input.calculationMode,
+      monthlyRate,
+      tenureMonths: tenure,
+      principalAmount: parseFloatSafe(input.principalAmount),
+      emiAmount: parseFloatSafe(input.emiAmount),
+      totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
+    });
 
     return ctx.db
       .insert(emis)
