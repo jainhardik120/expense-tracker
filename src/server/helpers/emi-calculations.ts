@@ -30,7 +30,10 @@ export const calculatePrincipalFromEMI = (
   );
 };
 
-export const parseFloatSafe = (value: string | undefined): number => {
+export const parseFloatSafe = (value: string | undefined | number): number => {
+  if (typeof value === 'number') {
+    return value;
+  }
   if (value === '' || value === undefined || isNaN(Number.parseFloat(value))) {
     return 0;
   }

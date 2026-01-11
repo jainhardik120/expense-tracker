@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type Statement, type CreditCardAccount } from '@/types';
 
@@ -140,8 +141,8 @@ const LinkToEMIContent = ({
           <div className="space-y-1">
             <div className="font-medium">{emi.name}</div>
             <div className="text-muted-foreground text-sm">
-              Principal: ₹{parseFloat(emi.principal).toFixed(2)} | Tenure: {emi.tenure} months |
-              Rate: {emi.annualInterestRate}%
+              Principal: {formatCurrency(emi.principal)} | Tenure: {emi.tenure} months | Rate:{' '}
+              {emi.annualInterestRate}%
             </div>
           </div>
           <Button

@@ -1,3 +1,5 @@
+import { parseFloatSafe } from '@/server/helpers/emi-calculations';
+
 export const formatDate = (
   date: Date | string | number | undefined,
   opts: Intl.DateTimeFormatOptions = {},
@@ -19,7 +21,7 @@ export const formatDate = (
 };
 
 export const formatCurrency = (
-  amount: number,
+  amount: number | string,
   currency: string = 'INR',
   locale: string = 'en-IN',
 ) => {
@@ -28,5 +30,5 @@ export const formatCurrency = (
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount);
+  }).format(parseFloatSafe(amount));
 };

@@ -6,6 +6,7 @@ import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type Investment } from '@/types';
 
@@ -24,7 +25,6 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
   {
     accessorKey: 'investmentAmount',
     header: 'Investment Amount',
-    cell: ({ row }) => `₹${row.original.investmentAmount}`,
   },
   {
     accessorKey: 'maturityDate',
@@ -36,12 +36,12 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
     accessorKey: 'maturityAmount',
     header: 'Maturity Amount',
     cell: ({ row }) =>
-      row.original.maturityAmount === null ? '-' : `₹${row.original.maturityAmount}`,
+      row.original.maturityAmount === null ? '-' : formatCurrency(row.original.maturityAmount),
   },
   {
     accessorKey: 'amount',
     header: 'Current Amount',
-    cell: ({ row }) => (row.original.amount === null ? '-' : `₹${row.original.amount}`),
+    cell: ({ row }) => (row.original.amount === null ? '-' : formatCurrency(row.original.amount)),
   },
   {
     accessorKey: 'units',
@@ -51,7 +51,8 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
   {
     accessorKey: 'purchaseRate',
     header: 'Purchase Rate',
-    cell: ({ row }) => (row.original.purchaseRate === null ? '-' : `₹${row.original.purchaseRate}`),
+    cell: ({ row }) =>
+      row.original.purchaseRate === null ? '-' : formatCurrency(row.original.purchaseRate),
   },
   {
     id: 'actions',
