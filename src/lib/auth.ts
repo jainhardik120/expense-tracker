@@ -1,7 +1,7 @@
 import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { twoFactor } from 'better-auth/plugins';
+import { apiKey, twoFactor } from 'better-auth/plugins';
 
 import * as schema from '@/db/auth-schema';
 import ResetPasswordEmail from '@/emails/reset-password';
@@ -26,6 +26,7 @@ export const auth = betterAuth({
         },
       },
     }),
+    apiKey(),
   ],
   database: drizzleAdapter(db, {
     provider: 'pg',

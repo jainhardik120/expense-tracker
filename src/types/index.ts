@@ -388,4 +388,5 @@ export interface EMICalculationResult {
     totalAmount: number;
     effectivePrincipal: number;
   };
+  savedEMIData?: Emi;
 }

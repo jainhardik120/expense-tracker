@@ -162,6 +162,20 @@
       "when": 1768135615661,
       "tag": "0022_shiny_chimera",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1768149623912,
+      "tag": "0023_tired_scarlet_spider",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1768155146604,
+      "tag": "0024_striped_killer_shrike",
+      "breakpoints": true
     }
   ]
 }

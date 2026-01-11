@@ -66,52 +66,57 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
   return (
     <Form {...form}>
       <form className={cn('grid gap-4', props.className)} onSubmit={onFormSubmit}>
-        {props.fields.map((field) => {
-          const { displayCondition = true } = field;
-          if (
-            displayCondition === false ||
-            (typeof displayCondition === 'function' && !displayCondition(values))
-          ) {
-            return null;
-          }
-          return (
-            <FormFieldPrimitive
-              key={field.name}
-              control={form.control}
-              name={field.name}
-              render={({ field: formField }) => (
-                <FormItem
-                  className={cn(`${field.type === RenderLabelAfter ? 'flex flex-row' : 'min-w-0'}`)}
-                >
-                  {field.type !== RenderLabelAfter &&
-                    (typeof field.label === 'string' ? (
-                      <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
-                    ) : (
-                      field.label
-                    ))}
-                  <FormControl>
-                    <RenderFormInput
-                      field={formField}
-                      formField={field}
-                      id={`${formId}-${field.name}`}
-                      type={field.type}
-                    />
-                  </FormControl>
-                  {field.type === RenderLabelAfter &&
-                    (typeof field.label === 'string' ? (
-                      <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
-                    ) : (
-                      field.label
-                    ))}
-                  {field.description !== undefined && (
-                    <FormDescription>{field.description}</FormDescription>
-                  )}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          );
-        })}
+        <div className={cn('grid max-h-[70vh] gap-4 overflow-y-auto', props.className)}>
+          {props.fields.map((field) => {
+            const { displayCondition = true } = field;
+            if (
+              displayCondition === false ||
+              (typeof displayCondition === 'function' && !displayCondition(values))
+            ) {
+              return null;
+            }
+            return (
+              <FormFieldPrimitive
+                key={field.name}
+                control={form.control}
+                name={field.name}
+                render={({ field: formField }) => (
+                  <FormItem
+                    className={cn(
+                      `${field.type === RenderLabelAfter ? 'flex flex-row' : 'min-w-0'}`,
+                    )}
+                  >
+                    {field.type !== RenderLabelAfter &&
+                      (typeof field.label === 'string' ? (
+                        <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
+                      ) : (
+                        field.label
+                      ))}
+                    <FormControl>
+                      <RenderFormInput
+                        field={formField}
+                        formField={field}
+                        id={`${formId}-${field.name}`}
+                        type={field.type}
+                      />
+                    </FormControl>
+                    {field.type === RenderLabelAfter &&
+                      (typeof field.label === 'string' ? (
+                        <FormLabel htmlFor={`${formId}-${field.name}`}>{field.label}</FormLabel>
+                      ) : (
+                        field.label
+                      ))}
+                    {field.description !== undefined && (
+                      <FormDescription>{field.description}</FormDescription>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            );
+          })}
+        </div>
+
         {props.showSubmitButton === true && (
           <Button disabled={props.submitButtonDisabled} type="submit">
             {props.submitButtonText ?? 'Submit'}
