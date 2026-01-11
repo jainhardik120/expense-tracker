@@ -20,10 +20,12 @@ export default async function Page({
   const accounts = await api.accounts.getAccounts();
   const categories = await api.statements.getCategories();
   const tags = await api.statements.getTags();
+  const creditAccounts = await api.accounts.getCreditCards();
   return (
     <Table
       accountsData={accounts}
       categories={categories}
+      creditAccounts={creditAccounts}
       data={data}
       friendsData={friends}
       tags={tags}

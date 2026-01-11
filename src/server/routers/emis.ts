@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { bankAccount, creditCardAccounts, emis } from '@/db/schema';
+import { bankAccount, creditCardAccounts, emis, statements } from '@/db/schema';
 import { calculateEMIAndPrincipal, parseFloatSafe } from '@/server/helpers/emi-calculations';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
@@ -15,7 +15,9 @@ export const emisRouter = createTRPCRouter({
     if (input.creditId.length > 0) {
       conditions.push(inArray(emis.creditId, input.creditId));
     }
-
+    if (input.accountId.length > 0) {
+      conditions.push(inArray(creditCardAccounts.accountId, input.accountId));
+    }
     const emisList = await ctx.db
       .select({
         id: emis.id,
@@ -171,5 +173,111 @@ export const emisRouter = createTRPCRouter({
       }
 
       return result;
+    }),
+  unlinkStatement: protectedProcedure
+    .input(
+      z.object({
+        statementId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const statement = await ctx.db
+        .select({
+          id: statements.id,
+          accountId: statements.accountId,
+          attributes: statements.additionalAttributes,
+        })
+        .from(statements)
+        .where(
+          and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
+        )
+        .limit(1);
+      if (statement.length === 0) {
+        throw new Error('Statement not found or access denied');
+      }
+      const attributes = statement[0].attributes as Partial<Record<string, unknown>>;
+      if (attributes.emiId === undefined) {
+        throw new Error('Statement is not linked to an EMI');
+      }
+      await ctx.db
+        .update(statements)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            emiId: undefined,
+          },
+        })
+        .where(eq(statements.id, input.statementId));
+      return { success: true };
+    }),
+  linkStatement: protectedProcedure
+    .input(
+      z.object({
+        emiId: z.string(),
+        statementId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const emiDetails = await ctx.db
+        .select({
+          id: emis.id,
+          accountId: creditCardAccounts.accountId,
+        })
+        .from(emis)
+        .leftJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+      if (emiDetails.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+      const statement = await ctx.db
+        .select({
+          id: statements.id,
+          accountId: statements.accountId,
+          attributes: statements.additionalAttributes,
+        })
+        .from(statements)
+        .where(
+          and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
+        )
+        .limit(1);
+      if (statement.length === 0) {
+        throw new Error('Statement not found or access denied');
+      }
+      const attributes = statement[0].attributes as Partial<Record<string, unknown>>;
+      if (attributes.emiId !== undefined) {
+        throw new Error('Statement is already linked to an EMI');
+      }
+      await ctx.db
+        .update(statements)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            emiId: input.emiId,
+          },
+        })
+        .where(eq(statements.id, input.statementId));
+      return { success: true };
+    }),
+  getLinkedStatements: protectedProcedure
+    .input(
+      z.object({
+        emiId: z.string(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      return ctx.db
+        .select({
+          id: statements.id,
+          accountId: statements.accountId,
+          attributes: statements.additionalAttributes,
+        })
+        .from(statements)
+        .where(
+          and(
+            eq(statements.userId, ctx.session.user.id),
+            eq(sql`${statements.additionalAttributes}->>'emiId'`, input.emiId),
+          ),
+        );
     }),
 });

@@ -18,8 +18,10 @@ import {
   type Account,
   type Friend,
   isSelfTransfer,
+  type CreditCardAccount,
 } from '@/types';
 
+import { LinkToEMIDialog } from './EMIForms';
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
 import { StatementSplitsDialog } from './StatementSplits';
@@ -30,20 +32,33 @@ const StatementActions = ({
   accountsData,
   friendsData,
   categories,
+  creditAccounts,
 }: {
   statement: Statement;
   onRefresh: () => void;
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
+  creditAccounts: CreditCardAccount[];
 }) => {
   const mutation = api.statements.deleteStatement.useMutation();
   const { id } = statement;
+  const isCreditCardAccount =
+    statement.accountId !== null &&
+    creditAccounts.some((cc) => cc.accountId === statement.accountId);
+
   return (
     <div className="flex flex-row gap-2">
       {statement.statementKind === 'expense' && (
         <StatementSplitsDialog statementData={statement} statementId={id} />
       )}
+      {isCreditCardAccount ? (
+        <LinkToEMIDialog
+          creditAccounts={creditAccounts}
+          statement={statement}
+          onRefresh={onRefresh}
+        />
+      ) : null}
       <UpdateStatementForm
         accountsData={accountsData}
         categories={categories}
@@ -102,17 +117,26 @@ const DateCell = ({ date }: { date: Date }) => {
     : '-';
 };
 
-export const createStatementColumns = (
-  onRefreshStatements: () => void,
-  accountsData: Account[],
-  friendsData: Friend[],
-  categories: string[],
-  tags: string[],
+export const createStatementColumns = ({
+  onRefreshStatements,
+  accountsData,
+  friendsData,
+  categories,
+  tags,
+  creditAccounts,
+  startingBalance,
+}: {
+  onRefreshStatements: () => void;
+  accountsData: Account[];
+  friendsData: Friend[];
+  categories: string[];
+  tags: string[];
+  creditAccounts: CreditCardAccount[];
   startingBalance?: {
     name: string;
     amount: number;
-  },
-): ColumnDef<Statement | SelfTransferStatement>[] => [
+  };
+}): ColumnDef<Statement | SelfTransferStatement>[] => [
   {
     id: 'select',
     header: ({ table }) => (
@@ -286,6 +310,7 @@ export const createStatementColumns = (
             <StatementActions
               accountsData={accountsData}
               categories={categories}
+              creditAccounts={creditAccounts}
               friendsData={friendsData}
               statement={row.original}
               onRefresh={onRefreshStatements}

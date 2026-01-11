@@ -308,6 +308,7 @@ export const investmentParserSchema = z.object({
 export const emiParserSchema = z.object({
   ...pageSchema,
   creditId: z.string().array().optional().default([]),
+  accountId: z.string().array().optional().default([]),
 });
 
 export const accountFriendStatementsParserSchema = z.object({

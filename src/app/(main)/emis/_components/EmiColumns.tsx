@@ -1,18 +1,41 @@
 'use client';
 
+import { useState } from 'react';
+
 import { type ColumnDef } from '@tanstack/react-table';
-import { Trash } from 'lucide-react';
+import { Info, Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { type Emi } from '@/types';
 
+import EmiDetails from './EmiDetails';
 import { UpdateEmiForm } from './EmiForms';
 
 type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
+
+const EMIDetailsDialog = ({ emi }: { emi: Emi }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <Modal
+      className="min-w-106.25 sm:max-w-fit"
+      open={open}
+      setOpen={setOpen}
+      title={emi.name}
+      trigger={
+        <Button className="size-8" size="icon" variant="ghost">
+          <Info className="h-4 w-4" />
+        </Button>
+      }
+    >
+      <EmiDetails emi={emi} />
+    </Modal>
+  );
+};
 
 export const createEmiColumns = (
   refresh: () => void,
@@ -61,6 +84,7 @@ export const createEmiColumns = (
             initialData={row.original}
             refresh={refresh}
           />
+          <EMIDetailsDialog emi={row.original} />
           <DeleteConfirmationDialog
             mutation={deleteMutation}
             mutationInput={{ id: row.original.id }}
