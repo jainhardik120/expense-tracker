@@ -56,7 +56,12 @@ export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) =
             <SidebarMenu>
               {links.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={pathname.includes(item.href)}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      item.href === '/' ? pathname === item.href : pathname.includes(item.href)
+                    }
+                  >
                     <Link href={item.href}>
                       <item.icon />
                       {item.label}

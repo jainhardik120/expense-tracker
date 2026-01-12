@@ -66,7 +66,7 @@ export const calculateEMIAndPrincipal = (values: {
 };
 
 export const calculateSchedule = (
-  inputValues: Partial<EMICalculatorFormValues>,
+  inputValues: Partial<EMICalculatorFormValues & Emi>,
 ): EMICalculationResult => {
   const values = {
     ...inputValues,
@@ -78,6 +78,7 @@ export const calculateSchedule = (
     gst: parseFloatSafe(inputValues.gst),
     processingFees: parseFloatSafe(inputValues.processingFees),
     processingFeesGst: parseFloatSafe(inputValues.processingFeesGst),
+    iafe: parseFloatSafe(inputValues.iafe),
   };
   const monthlyRate = values.annualInterestRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
 
@@ -88,25 +89,50 @@ export const calculateSchedule = (
   let totalInterest = 0;
   let totalGST = 0;
 
+  if (values.processingFees > 0) {
+    schedule.push({
+      installment: 0,
+      emi: 0,
+      interest: 0,
+      principal: values.processingFees,
+      gst: (values.processingFees * values.processingFeesGst) / PERCENTAGE_DIVISOR,
+      totalPayment:
+        values.processingFees +
+        (values.processingFees * values.processingFeesGst) / PERCENTAGE_DIVISOR,
+      balance,
+      date: inputValues.processingFeesDate,
+    });
+  }
+
   for (let month = 1; month <= values.tenure; month++) {
-    const interest = balance * monthlyRate;
+    let interest = balance * monthlyRate;
     const principalComponent = emi - interest;
     balance = Math.max(balance - principalComponent, 0);
-
+    if (month === 1) {
+      interest += values.iafe;
+    }
     const gst = (interest * values.gst) / PERCENTAGE_DIVISOR;
     const totalPayment = emi + gst;
 
     totalInterest += interest;
     totalGST += gst;
-
+    const date =
+      inputValues.firstInstallmentDate === undefined
+        ? undefined
+        : new Date(
+            inputValues.firstInstallmentDate.getFullYear(),
+            inputValues.firstInstallmentDate.getMonth() + month - 1,
+            inputValues.firstInstallmentDate.getDate(),
+          );
     schedule.push({
-      month,
+      installment: month,
       emi,
       interest,
       principal: principalComponent,
       gst,
       totalPayment,
       balance,
+      date,
     });
   }
 
@@ -123,7 +149,7 @@ export const calculateSchedule = (
       processingFees: values.processingFees,
       processingFeesGST,
       totalProcessingFees,
-      totalAmount: emi * values.tenure + totalGST + totalProcessingFees,
+      totalAmount: emi * values.tenure + values.iafe + totalGST + totalProcessingFees,
       effectivePrincipal: principal,
     },
   };

@@ -1,8 +1,8 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { bankAccount, creditCardAccounts, emis, statements } from '@/db/schema';
-import { getPendingEMIs } from '@/server/helpers/emi';
+import { getEMIs } from '@/server/helpers/emi';
 import {
   calculateEMIAndPrincipal,
   getOutstandingBalanceOnInstallment,
@@ -192,53 +192,18 @@ const validateInstallmentSequence = (
 export const emisRouter = createTRPCRouter({
   getEmis: protectedProcedure.input(emiParserSchema).query(async ({ ctx, input }) => {
     const conditions = [eq(emis.userId, ctx.session.user.id)];
-
-    if (input.creditId.length > 0) {
-      conditions.push(inArray(emis.creditId, input.creditId));
-    }
-    if (input.accountId.length > 0) {
-      conditions.push(inArray(creditCardAccounts.accountId, input.accountId));
-    }
-    const emisList = await ctx.db
-      .select({
-        id: emis.id,
-        userId: emis.userId,
-        name: emis.name,
-        creditId: emis.creditId,
-        principal: emis.principal,
-        tenure: emis.tenure,
-        annualInterestRate: emis.annualInterestRate,
-        processingFees: emis.processingFees,
-        processingFeesGst: emis.processingFeesGst,
-        gst: emis.gst,
-        createdAt: emis.createdAt,
-        creditCardName: bankAccount.accountName,
-        firstInstallmentDate: emis.firstInstallmentDate,
-        processingFeesDate: emis.processingFeesDate,
-        iafe: emis.iafe,
-      })
-      .from(emis)
-      .innerJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
-      .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-      .where(and(...conditions))
-      .orderBy(desc(emis.createdAt))
-      .limit(input.perPage)
-      .offset((input.page - 1) * input.perPage);
-
     const [{ count }] = await ctx.db
       .select({ count: sql<number>`count(*)::int` })
       .from(emis)
       .where(and(...conditions));
-
+    const emisList = await getEMIs(ctx.db, ctx.session.user.id, input);
     const pageCount = Math.ceil(count / input.perPage);
-
     return {
       emis: emisList,
       pageCount,
       rowsCount: count,
     };
   }),
-
   addEmi: protectedProcedure.input(createEmiSchema).mutation(async ({ ctx, input }) => {
     const creditCard = await ctx.db
       .select({ id: creditCardAccounts.id })
@@ -293,7 +258,6 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify credit card belongs to user before allowing update
       const creditCard = await ctx.db
         .select({ id: creditCardAccounts.id })
         .from(creditCardAccounts)
@@ -305,16 +269,12 @@ export const emisRouter = createTRPCRouter({
           ),
         )
         .limit(1);
-
       if (creditCard.length === 0) {
         throw new Error('Credit card not found or access denied');
       }
-
-      // Calculate principal based on calculation mode
       const tenure = parseFloatSafe(input.tenure);
       const annualRate = parseFloatSafe(input.annualInterestRate);
       const monthlyRate = annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
-
       const { principal } = calculateEMIAndPrincipal({
         calculationMode: input.calculationMode,
         monthlyRate,
@@ -323,7 +283,6 @@ export const emisRouter = createTRPCRouter({
         emiAmount: parseFloatSafe(input.emiAmount),
         totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
       });
-
       const { id, ...restInput } = input;
       const result = await ctx.db
         .update(emis)
@@ -342,14 +301,11 @@ export const emisRouter = createTRPCRouter({
         })
         .where(and(eq(emis.id, id), eq(emis.userId, ctx.session.user.id)))
         .returning({ id: emis.id });
-
       if (result.length === 0) {
         throw new Error(EMI_NOT_FOUND);
       }
-
       return result;
     }),
-
   deleteEmi: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -357,11 +313,9 @@ export const emisRouter = createTRPCRouter({
         .delete(emis)
         .where(and(eq(emis.id, input.id), eq(emis.userId, ctx.session.user.id)))
         .returning({ id: emis.id });
-
       if (result.length === 0) {
         throw new Error(EMI_NOT_FOUND);
       }
-
       return result;
     }),
   unlinkStatement: protectedProcedure
@@ -603,21 +557,24 @@ export const emisRouter = createTRPCRouter({
         )
         .orderBy(desc(statements.createdAt));
     }),
-  getPendingEMIs: protectedProcedure.query(async ({ ctx }) => {
-    return getPendingEMIs(ctx.db, ctx.session.user.id);
-  }),
   getCreditCardsWithOutstandingBalance: protectedProcedure.query(async ({ ctx }) => {
     const cards = await getCreditCards(ctx.db, ctx.session.user.id);
-    const pendingEMIs = await getPendingEMIs(ctx.db, ctx.session.user.id);
+    const pendingEMIs = await getEMIs(ctx.db, ctx.session.user.id, {
+      completed: false,
+      perPage: 100,
+      page: 1,
+      accountId: [],
+      creditId: [],
+    });
     const usedLimits: Record<string, number> = cards.reduce<Record<string, number>>((acc, card) => {
       const cardId = card.id;
-      const pendingEMI = pendingEMIs.filter((emi) => emi.emi.creditId === cardId);
+      const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
       if (pendingEMI.length === 0) {
         return acc;
       }
       const outstandingBalance = pendingEMI.reduce((acc, emi) => {
         const oB = getOutstandingBalanceOnInstallment(
-          emi.emi,
+          emi,
           emi.maxInstallmentNo === null ? null : parseInt(emi.maxInstallmentNo),
         );
         return acc + oB;

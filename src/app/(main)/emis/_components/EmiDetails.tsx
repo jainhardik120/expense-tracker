@@ -17,12 +17,7 @@ const EmiDetails = ({ emi }: { emi: Emi }) => {
   return (
     <div className="flex flex-col gap-4">
       <p>{JSON.stringify(data)}</p>
-      <PaymentScheduleTable
-        result={{
-          ...schedule,
-          savedEMIData: emi,
-        }}
-      />
+      <PaymentScheduleTable result={schedule} />
     </div>
   );
 };

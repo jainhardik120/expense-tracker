@@ -40,7 +40,7 @@ const EMIDetailsDialog = ({ emi }: { emi: Emi }) => {
 export const createEmiColumns = (
   refresh: () => void,
   creditCards: CreditCard[],
-): ColumnDef<Emi>[] => [
+): ColumnDef<Emi & { creditCardName: string }>[] => [
   {
     accessorKey: 'name',
     header: 'Name',

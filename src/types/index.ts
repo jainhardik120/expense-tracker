@@ -4,6 +4,7 @@ import {
   parseAsString,
   parseAsStringEnum,
   parseAsTimestamp,
+  parseAsBoolean,
 } from 'nuqs/server';
 import { z } from 'zod';
 
@@ -110,9 +111,7 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
 
 export type Investment = typeof investments.$inferSelect;
 export type CreditCardAccount = typeof creditCardAccounts.$inferSelect;
-export type Emi = typeof emis.$inferSelect & {
-  creditCardName?: string;
-};
+export type Emi = typeof emis.$inferSelect;
 export const accountTransferSummarySchema = z.object({
   expenses: z.number(),
   selfTransfers: z.number(),
@@ -284,6 +283,8 @@ export const investmentParser = {
 export const emiParser = {
   ...pageParser,
   creditId: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  accountId: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  completed: parseAsBoolean,
 };
 
 export const summaryParser = {
@@ -309,6 +310,7 @@ export const emiParserSchema = z.object({
   ...pageSchema,
   creditId: z.string().array().optional().default([]),
   accountId: z.string().array().optional().default([]),
+  completed: z.boolean().optional(),
 });
 
 export const accountFriendStatementsParserSchema = z.object({
@@ -366,13 +368,14 @@ export const emiCalculatorParser = {
 export type EMICalculatorFormValues = z.infer<typeof emiCalculatorFormSchema>;
 
 export interface EMIScheduleRow {
-  month: number;
+  installment: number;
   emi: number;
   interest: number;
   principal: number;
   gst: number;
   totalPayment: number;
   balance: number;
+  date?: Date;
 }
 
 export interface EMICalculationResult {
@@ -388,5 +391,4 @@ export interface EMICalculationResult {
     totalAmount: number;
     effectivePrincipal: number;
   };
-  savedEMIData?: Emi;
 }
