@@ -18,6 +18,7 @@ import { type z } from 'zod';
 
 import {
   bankAccount,
+  creditCardAccounts,
   friendsProfiles,
   selfTransferStatements,
   splits,
@@ -1226,4 +1227,17 @@ export const accountBelongToUser = async (accountId: string, userId: string, db:
     .where(and(eq(bankAccount.id, accountId), eq(bankAccount.userId, userId)))
     .limit(1);
   return account.length > 0;
+};
+
+export const getCreditCards = async (db: Database, userId: string) => {
+  return db
+    .select({
+      id: creditCardAccounts.id,
+      accountId: creditCardAccounts.accountId,
+      cardLimit: creditCardAccounts.cardLimit,
+      accountName: bankAccount.accountName,
+    })
+    .from(creditCardAccounts)
+    .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
+    .where(eq(bankAccount.userId, userId));
 };

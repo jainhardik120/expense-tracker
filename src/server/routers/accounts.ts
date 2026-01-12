@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { bankAccount, creditCardAccounts } from '@/db/schema';
-import { getAccounts } from '@/server/helpers/summary';
+import { getAccounts, getCreditCards } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createAccountSchema, createCreditCardAccountSchema } from '@/types';
 
@@ -40,16 +40,7 @@ export const accountsRouter = createTRPCRouter({
         .returning({ id: bankAccount.id });
     }),
   getCreditCards: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.db
-      .select({
-        id: creditCardAccounts.id,
-        accountId: creditCardAccounts.accountId,
-        cardLimit: creditCardAccounts.cardLimit,
-        accountName: bankAccount.accountName,
-      })
-      .from(creditCardAccounts)
-      .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-      .where(eq(bankAccount.userId, ctx.session.user.id));
+    return getCreditCards(ctx.db, ctx.session.user.id);
   }),
   createCreditCard: protectedProcedure
     .input(createCreditCardAccountSchema)

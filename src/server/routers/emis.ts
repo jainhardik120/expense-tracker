@@ -2,7 +2,13 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { bankAccount, creditCardAccounts, emis, statements } from '@/db/schema';
-import { calculateEMIAndPrincipal, parseFloatSafe } from '@/server/helpers/emi-calculations';
+import { getPendingEMIs } from '@/server/helpers/emi';
+import {
+  calculateEMIAndPrincipal,
+  getOutstandingBalanceOnInstallment,
+  parseFloatSafe,
+} from '@/server/helpers/emi-calculations';
+import { getCreditCards } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
 
@@ -254,8 +260,8 @@ export const emisRouter = createTRPCRouter({
     const { principal } = calculateEMIAndPrincipal({
       calculationMode: input.calculationMode,
       monthlyRate,
-      tenureMonths: tenure,
-      principalAmount: parseFloatSafe(input.principal),
+      tenure: tenure,
+      principal: parseFloatSafe(input.principal),
       emiAmount: parseFloatSafe(input.emiAmount),
       totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
     });
@@ -312,8 +318,8 @@ export const emisRouter = createTRPCRouter({
       const { principal } = calculateEMIAndPrincipal({
         calculationMode: input.calculationMode,
         monthlyRate,
-        tenureMonths: tenure,
-        principalAmount: parseFloatSafe(input.principal),
+        tenure: tenure,
+        principal: parseFloatSafe(input.principal),
         emiAmount: parseFloatSafe(input.emiAmount),
         totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
       });
@@ -597,4 +603,34 @@ export const emisRouter = createTRPCRouter({
         )
         .orderBy(desc(statements.createdAt));
     }),
+  getPendingEMIs: protectedProcedure.query(async ({ ctx }) => {
+    return getPendingEMIs(ctx.db, ctx.session.user.id);
+  }),
+  getCreditCardsWithOutstandingBalance: protectedProcedure.query(async ({ ctx }) => {
+    const cards = await getCreditCards(ctx.db, ctx.session.user.id);
+    const pendingEMIs = await getPendingEMIs(ctx.db, ctx.session.user.id);
+    const usedLimits: Record<string, number> = cards.reduce<Record<string, number>>((acc, card) => {
+      const cardId = card.id;
+      const pendingEMI = pendingEMIs.filter((emi) => emi.emi.creditId === cardId);
+      if (pendingEMI.length === 0) {
+        return acc;
+      }
+      const outstandingBalance = pendingEMI.reduce((acc, emi) => {
+        const oB = getOutstandingBalanceOnInstallment(
+          emi.emi,
+          emi.maxInstallmentNo === null ? null : parseInt(emi.maxInstallmentNo),
+        );
+        return acc + oB;
+      }, 0);
+      return {
+        ...acc,
+        [cardId]: outstandingBalance,
+      };
+    }, {});
+    return {
+      cards,
+      pendingEMIs,
+      usedLimits,
+    };
+  }),
 });
