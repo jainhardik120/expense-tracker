@@ -11,12 +11,12 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
-import { type Emi } from '@/types';
 
 import EmiDetails from './EmiDetails';
 import { UpdateEmiForm } from './EmiForms';
 
 type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
+type Emi = RouterOutput['emis']['getEmis']['emis'][number];
 
 const EMIDetailsDialog = ({ emi }: { emi: Emi }) => {
   const [open, setOpen] = useState(false);
@@ -40,7 +40,7 @@ const EMIDetailsDialog = ({ emi }: { emi: Emi }) => {
 export const createEmiColumns = (
   refresh: () => void,
   creditCards: CreditCard[],
-): ColumnDef<Emi & { creditCardName: string }>[] => [
+): ColumnDef<Emi>[] => [
   {
     accessorKey: 'name',
     header: 'Name',
@@ -70,6 +70,14 @@ export const createEmiColumns = (
   {
     accessorKey: 'gst',
     header: 'GST (%)',
+  },
+  {
+    accessorKey: 'maxInstallmentNo',
+    header: 'Paid Upto',
+  },
+  {
+    accessorKey: 'totalPaid',
+    header: 'Total Paid',
   },
   {
     id: 'actions',

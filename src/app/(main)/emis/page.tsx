@@ -16,10 +16,5 @@ export default async function Page({
     completed: pageParams.completed ?? undefined,
   });
   const creditCards = await api.accounts.getCreditCards();
-  return (
-    <>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-      <Table creditCards={creditCards} data={data} />
-    </>
-  );
+  return <Table creditCards={creditCards} data={data} />;
 }
