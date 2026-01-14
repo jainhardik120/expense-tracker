@@ -8,7 +8,7 @@ import { Info, Trash } from 'lucide-react';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
@@ -52,32 +52,25 @@ export const createEmiColumns = (
   {
     accessorKey: 'principal',
     header: 'Principal',
-    cell: ({ row }) => formatCurrency(Number(row.original.principal)),
-  },
-  {
-    accessorKey: 'tenure',
-    header: 'Tenure (Months)',
-  },
-  {
-    accessorKey: 'annualInterestRate',
-    header: 'Interest Rate (%)',
+    cell: ({ row }) => formatCurrency(row.original.principal),
   },
   {
     accessorKey: 'processingFees',
     header: 'Processing Fees',
-    cell: ({ row }) => formatCurrency(Number(row.original.processingFees)),
+    cell: ({ row }) => formatCurrency(row.original.processingFees),
   },
   {
-    accessorKey: 'gst',
-    header: 'GST (%)',
+    accessorKey: 'monthlyEMI',
+    header: 'Monthly EMI',
+    cell: ({ row }) => formatCurrency(row.original.monthlyEMI),
+  },
+  {
+    accessorKey: 'tenure',
+    header: 'Tenure',
   },
   {
     accessorKey: 'maxInstallmentNo',
     header: 'Paid Upto',
-  },
-  {
-    accessorKey: 'totalPaid',
-    header: 'Total Paid',
   },
   {
     accessorKey: 'outstandingBalance',
@@ -85,9 +78,26 @@ export const createEmiColumns = (
     cell: ({ row }) => formatCurrency(row.original.outstandingBalance),
   },
   {
+    accessorKey: 'totalPaid',
+    header: 'Total Paid',
+    cell: ({ row }) => formatCurrency(row.original.totalPaid ?? '0'),
+  },
+  {
     accessorKey: 'amountLeftToBePaid',
-    header: 'Amount Left to be Paid',
+    header: 'Amount Left',
     cell: ({ row }) => formatCurrency(row.original.amountLeftToBePaid),
+  },
+  {
+    accessorKey: 'nextPaymentOn',
+    header: 'Next Date',
+    cell: ({ row }) =>
+      row.original.nextPaymentOn === null ? '' : formatDate(row.original.nextPaymentOn),
+  },
+  {
+    accessorKey: 'nextPaymentAmount',
+    header: 'Next Payment',
+    cell: ({ row }) =>
+      row.original.nextPaymentAmount === null ? '' : formatCurrency(row.original.nextPaymentAmount),
   },
   {
     id: 'actions',

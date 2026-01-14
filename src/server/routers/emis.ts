@@ -26,12 +26,12 @@ export const emisRouter = createTRPCRouter({
       .where(and(...conditions));
     const emisList = await getEMIs(ctx.db, ctx.session.user.id, input);
     const emisWithCalculations = emisList.map((emi) => {
-      const installmentNo = emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
-      const { outstandingBalance, amountLeftToBePaid } = getEMIBalances(emi, installmentNo);
+      const installmentNo =
+        emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
+      const balances = getEMIBalances(emi, installmentNo);
       return {
         ...emi,
-        outstandingBalance,
-        amountLeftToBePaid,
+        ...balances,
       };
     });
     const pageCount = Math.ceil(count / input.perPage);

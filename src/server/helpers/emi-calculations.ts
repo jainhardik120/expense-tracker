@@ -171,55 +171,71 @@ export const getOutstandingBalanceOnInstallment = (emi: Emi, installmentNo: numb
   return payment.balance;
 };
 
-export const getAmountLeftToBePaid = (emi: Emi, installmentNo: number | null) => {
-  const tenure = parseFloatSafe(emi.tenure);
-  if (installmentNo === null || installmentNo === 0) {
-    const { summary } = calculateSchedule(emi);
-    return summary.totalAmount;
-  }
-  if (installmentNo === tenure) {
-    return 0;
-  }
-  const { schedule } = calculateSchedule(emi);
-  let totalRemaining = 0;
-  for (const payment of schedule) {
-    if (payment.installment > installmentNo) {
-      totalRemaining += payment.totalPayment;
-    }
-  }
-  return totalRemaining;
-};
-
 export const getEMIBalances = (
   emi: Emi,
   installmentNo: number | null,
-): { outstandingBalance: number; amountLeftToBePaid: number } => {
+): {
+  outstandingBalance: number;
+  amountLeftToBePaid: number;
+  monthlyEMI: number;
+  nextPaymentOn: Date | null;
+  nextPaymentAmount: number | null;
+} => {
+  const installmentPaidTill = installmentNo ?? -1;
   const tenure = parseFloatSafe(emi.tenure);
-  if (installmentNo === null || installmentNo === 0) {
-    const { summary } = calculateSchedule(emi);
-    return {
-      outstandingBalance: parseFloatSafe(emi.principal),
-      amountLeftToBePaid: summary.totalAmount,
-    };
-  }
+  const { summary, schedule } = calculateSchedule(emi);
   if (installmentNo === tenure) {
     return {
       outstandingBalance: 0,
       amountLeftToBePaid: 0,
+      monthlyEMI: summary.totalEMI / tenure,
+      nextPaymentOn: null,
+      nextPaymentAmount: null,
     };
   }
-  const { schedule } = calculateSchedule(emi);
-  const payment = schedule.find((p) => p.installment === installmentNo);
-  const outstandingBalance = payment === undefined ? 0 : payment.balance;
+  if (installmentPaidTill === -1 && parseFloatSafe(emi.processingFees) > 0) {
+    const processingFeesPart = schedule[0];
+    return {
+      outstandingBalance: processingFeesPart.balance,
+      amountLeftToBePaid: summary.totalAmount,
+      monthlyEMI: summary.totalEMI / tenure,
+      nextPaymentOn: processingFeesPart.date ?? null,
+      nextPaymentAmount: processingFeesPart.totalPayment,
+    };
+  }
+  if (installmentPaidTill === -1 || installmentPaidTill === 0) {
+    const firstInstallment = schedule.find((p) => p.installment === 1);
+    if (firstInstallment === undefined) {
+      return {
+        outstandingBalance: 0,
+        amountLeftToBePaid: 0,
+        monthlyEMI: summary.totalEMI / tenure,
+        nextPaymentOn: null,
+        nextPaymentAmount: null,
+      };
+    }
+    return {
+      outstandingBalance: summary.effectivePrincipal,
+      amountLeftToBePaid: summary.totalAmount - summary.totalProcessingFees,
+      monthlyEMI: summary.totalEMI / tenure,
+      nextPaymentOn: firstInstallment.date ?? null,
+      nextPaymentAmount: firstInstallment.totalPayment,
+    };
+  }
+  const lastPayment = schedule.find((p) => p.installment === installmentPaidTill);
+  const nextPayment = schedule.find((p) => p.installment === installmentPaidTill + 1);
   let amountLeftToBePaid = 0;
   for (const p of schedule) {
-    if (p.installment > installmentNo) {
+    if (p.installment > installmentPaidTill) {
       amountLeftToBePaid += p.totalPayment;
     }
   }
   return {
-    outstandingBalance,
+    outstandingBalance: lastPayment?.balance ?? 0,
     amountLeftToBePaid,
+    monthlyEMI: summary.totalEMI / tenure,
+    nextPaymentOn: nextPayment?.date ?? null,
+    nextPaymentAmount: nextPayment?.totalPayment ?? null,
   };
 };
 
