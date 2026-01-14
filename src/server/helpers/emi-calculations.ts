@@ -163,8 +163,12 @@ export const getOutstandingBalanceOnInstallment = (emi: Emi, installmentNo: numb
   if (installmentNo === parseFloatSafe(emi.tenure)) {
     return 0;
   }
-  const schedule = calculateSchedule(emi);
-  return schedule.schedule[installmentNo - 1].balance;
+  const { schedule } = calculateSchedule(emi);
+  const payment = schedule.find((p) => p.installment === installmentNo);
+  if (payment === undefined) {
+    return 0;
+  }
+  return payment.balance;
 };
 
 export const getAmountLeftToBePaid = (emi: Emi, installmentNo: number | null) => {
@@ -178,8 +182,10 @@ export const getAmountLeftToBePaid = (emi: Emi, installmentNo: number | null) =>
   }
   const { schedule } = calculateSchedule(emi);
   let totalRemaining = 0;
-  for (let i = installmentNo; i < schedule.length; i++) {
-    totalRemaining += schedule[i].totalPayment;
+  for (const payment of schedule) {
+    if (payment.installment > installmentNo) {
+      totalRemaining += payment.totalPayment;
+    }
   }
   return totalRemaining;
 };
