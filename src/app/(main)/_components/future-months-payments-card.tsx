@@ -27,6 +27,7 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
       .map(([month, payments]) => ({
         month,
         total: payments.reduce((sum, p) => sum + p.amount, 0),
+        myTotal: payments.reduce((sum, p) => sum + p.myShare, 0),
         payments,
       }));
   }, [paymentsByMonth]);
@@ -46,15 +47,19 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
               <TableRow>
                 <TableHead>Month</TableHead>
                 <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">My Payment</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {futureMonthsData.map(({ month, total }) => (
+              {futureMonthsData.map(({ month, total, myTotal }) => (
                 <TableRow key={month}>
                   <TableCell className="font-medium">
                     {format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy')}
                   </TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatCurrency(myTotal)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

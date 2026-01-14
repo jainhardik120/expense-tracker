@@ -25,12 +25,17 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
     return currentMonthPayments.reduce((sum, p) => sum + p.amount, 0);
   }, [currentMonthPayments]);
 
+  const currentMonthMyTotal = useMemo(() => {
+    return currentMonthPayments.reduce((sum, p) => sum + p.myShare, 0);
+  }, [currentMonthPayments]);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>This Month</CardTitle>
         <CardDescription>
-          Upcoming payments • Total: {formatCurrency(currentMonthTotal)}
+          Upcoming payments • Total: {formatCurrency(currentMonthTotal)} • My Share:{' '}
+          {formatCurrency(currentMonthMyTotal)}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -44,6 +49,7 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
                 <TableHead>Card</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">My Payment</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -56,6 +62,9 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
                   <TableCell className="text-sm">{format(payment.date, 'MMM dd')}</TableCell>
                   <TableCell className="text-right font-medium">
                     {formatCurrency(payment.amount)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatCurrency(payment.myShare)}
                   </TableCell>
                 </TableRow>
               ))}

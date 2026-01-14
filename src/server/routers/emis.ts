@@ -345,6 +345,8 @@ export const emisRouter = createTRPCRouter({
       cardName: string;
       amount: number;
       date: Date;
+      myShare: number;
+      splitPercentage: number;
     }[] = [];
     const futurePayments: {
       emiId: string;
@@ -353,6 +355,8 @@ export const emisRouter = createTRPCRouter({
       amount: number;
       date: Date;
       month: string;
+      myShare: number;
+      splitPercentage: number;
     }[] = [];
     const monthEnd = endOfMonth(new Date());
 

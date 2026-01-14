@@ -281,6 +281,8 @@ type PaymentWithLocation = {
   cardName: string;
   amount: number;
   date: Date;
+  myShare: number; // Amount user has to pay after splits
+  splitPercentage: number; // Percentage user has to pay (100 - sum of friend splits)
 };
 
 type FuturePayment = PaymentWithLocation & {
@@ -304,9 +306,24 @@ export const categorizePaymentsByTimeframe = (
 
   const zonedMonthEnd = toZonedTime(monthEnd, timezone);
 
+  // Calculate split percentage (what percentage the user pays)
+  const attributes = emi.additionalAttributes as Record<string, unknown>;
+  const splits =
+    attributes.splits !== undefined
+      ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+      : [];
+
+  const friendSplitPercentage = splits.reduce((sum, split) => {
+    return sum + parseFloat(split.percentage);
+  }, 0);
+
+  const mySplitPercentage = 100 - friendSplitPercentage;
+
   for (const payment of remainingPayments) {
     if (payment.date !== null) {
       const zonedDate = toZonedTime(payment.date, timezone);
+      const myShare = (payment.amount * mySplitPercentage) / 100;
+
       if (zonedDate <= zonedMonthEnd) {
         currentMonthPayments.push({
           emiId: emi.id,
@@ -314,6 +331,8 @@ export const categorizePaymentsByTimeframe = (
           cardName,
           amount: payment.amount,
           date: zonedDate,
+          myShare,
+          splitPercentage: mySplitPercentage,
         });
       } else {
         const monthKey = format(zonedDate, 'yyyy-MM');
@@ -324,6 +343,8 @@ export const categorizePaymentsByTimeframe = (
           amount: payment.amount,
           date: zonedDate,
           month: monthKey,
+          myShare,
+          splitPercentage: mySplitPercentage,
         });
       }
     }
