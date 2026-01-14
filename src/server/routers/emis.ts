@@ -12,6 +12,7 @@ import {
   calculateSchedule,
   confirmMatch,
   getEMIBalances,
+  getRemainingPayments,
   parseFloatSafe,
 } from '@/server/helpers/emi-calculations';
 import { getCreditCards } from '@/server/helpers/summary';
@@ -372,37 +373,36 @@ export const emisRouter = createTRPCRouter({
       let currentStatement = 0;
 
       for (const emi of pendingEMI) {
-        const {
-          outstandingBalance: oB,
-          nextPaymentAmount,
-          nextPaymentOn,
-        } = getEMIBalances(
-          emi,
-          emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo),
-        );
-
+        const installmentNo = emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
+        const { outstandingBalance: oB } = getEMIBalances(emi, installmentNo);
+        
         outstandingBalance += oB;
-
-        if (nextPaymentAmount !== null && nextPaymentOn !== null) {
-          if (nextPaymentOn <= zonedMonthEnd) {
-            currentStatement += nextPaymentAmount;
-            currentMonthPayments.push({
-              emiId: emi.id,
-              emiName: emi.name,
-              cardName: card.accountName,
-              amount: nextPaymentAmount,
-              date: nextPaymentOn,
-            });
-          } else {
-            const monthKey = nextPaymentOn.toISOString().substring(0, 7);
-            futurePayments.push({
-              emiId: emi.id,
-              emiName: emi.name,
-              cardName: card.accountName,
-              amount: nextPaymentAmount,
-              date: nextPaymentOn,
-              month: monthKey,
-            });
+        
+        const remainingPayments = getRemainingPayments(emi, installmentNo);
+        
+        for (const payment of remainingPayments) {
+          if (payment.date !== null) {
+            const zonedDate = toZonedTime(payment.date, timezone);
+            if (zonedDate <= zonedMonthEnd) {
+              currentStatement += payment.amount;
+              currentMonthPayments.push({
+                emiId: emi.id,
+                emiName: emi.name,
+                cardName: card.accountName,
+                amount: payment.amount,
+                date: zonedDate,
+              });
+            } else {
+              const monthKey = zonedDate.toISOString().substring(0, 7);
+              futurePayments.push({
+                emiId: emi.id,
+                emiName: emi.name,
+                cardName: card.accountName,
+                amount: payment.amount,
+                date: zonedDate,
+                month: monthKey,
+              });
+            }
           }
         }
       }

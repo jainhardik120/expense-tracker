@@ -224,6 +224,27 @@ export const getEMIBalances = (
   };
 };
 
+export const getRemainingPayments = (
+  emi: Emi,
+  installmentNo: number | null,
+): { installment: number; amount: number; date: Date | null }[] => {
+  const installmentPaidTill = installmentNo ?? -1;
+  const { schedule } = calculateSchedule(emi);
+  const remainingPayments: { installment: number; amount: number; date: Date | null }[] = [];
+  
+  for (const payment of schedule) {
+    if (payment.installment > installmentPaidTill) {
+      remainingPayments.push({
+        installment: payment.installment,
+        amount: payment.totalPayment,
+        date: payment.date ?? null,
+      });
+    }
+  }
+  
+  return remainingPayments;
+};
+
 const isDateWithinRange = (date1: Date, date2: Date, daysTolerance = 3): boolean => {
   const diffMs = Math.abs(date1.getTime() - date2.getTime());
   const diffDays = diffMs / MS_PER_DAY;

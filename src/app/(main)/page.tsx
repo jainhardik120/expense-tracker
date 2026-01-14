@@ -68,8 +68,10 @@ export default async function Page({
           {(summaryData) => <SummaryCard data={summaryData} />}
         </AsyncComponent>
       </div>
-      <AsyncComponent promise={creditAccountsPromise}>
-        {(creditData) => <EMISummaryCards data={creditData} />}
+      <AsyncComponent promise={Promise.all([creditAccountsPromise, summaryPromise])}>
+        {([creditData, summaryData]) => (
+          <EMISummaryCards creditData={creditData} summaryData={summaryData} />
+        )}
       </AsyncComponent>
       <AsyncComponent
         loadingFallbackClassName="h-[400]"

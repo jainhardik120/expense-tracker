@@ -18,9 +18,16 @@ import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
+type SummaryData = RouterOutput['summary']['getSummary'];
 
-export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
-  const { cards, cardDetails, currentMonthPayments, paymentsByMonth } = data;
+export const EMISummaryCards = ({
+  creditData,
+  summaryData,
+}: {
+  creditData: CreditCardData;
+  summaryData: SummaryData;
+}) => {
+  const { cards, cardDetails, currentMonthPayments, paymentsByMonth } = creditData;
 
   const futureMonthsData = useMemo(() => {
     return Object.entries(paymentsByMonth)
@@ -56,7 +63,13 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
               if (details === undefined) {
                 return null;
               }
-              const limitUtilized = details.currentStatement + details.outstandingBalance;
+              
+              const accountSummary = summaryData.accountsSummaryData.find(
+                (acc) => acc.account.id === card.accountId,
+              );
+              const currentBalance = accountSummary?.finalBalance ?? 0;
+              
+              const limitUtilized = Math.abs(currentBalance) + details.outstandingBalance;
               const totalLimit = parseFloat(card.cardLimit);
               const availableLimit = totalLimit - limitUtilized;
 
@@ -95,13 +108,13 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
                       <h4 className="font-semibold">{card.accountName}</h4>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Current Statement:</span>
+                          <span className="text-muted-foreground">Current Balance:</span>
                           <span className="font-medium">
-                            {formatCurrency(details.currentStatement)}
+                            {formatCurrency(Math.abs(currentBalance))}
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Outstanding Balance:</span>
+                          <span className="text-muted-foreground">EMI Outstanding:</span>
                           <span className="font-medium">
                             {formatCurrency(details.outstandingBalance)}
                           </span>
@@ -181,31 +194,26 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
           {futureMonthsData.length === 0 ? (
             <p className="text-muted-foreground text-sm">No upcoming payments</p>
           ) : (
-            <div className="space-y-4">
-              {futureMonthsData.slice(0, 6).map(({ month, total, payments }) => (
-                <div key={month} className="rounded-lg border p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <span className="font-medium">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Month</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {futureMonthsData.map(({ month, total }) => (
+                  <TableRow key={month}>
+                    <TableCell className="font-medium">
                       {format(new Date(`${month}-01`), 'MMMM yyyy')}
-                    </span>
-                    <span className="font-semibold">{formatCurrency(total)}</span>
-                  </div>
-                  <div className="space-y-1">
-                    {payments.map((payment) => (
-                      <div
-                        key={payment.emiId}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <span className="text-muted-foreground">
-                          {payment.emiName} • {payment.cardName}
-                        </span>
-                        <span className="font-medium">{formatCurrency(payment.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency(total)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
