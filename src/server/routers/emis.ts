@@ -376,7 +376,6 @@ export const emisRouter = createTRPCRouter({
           outstandingBalance: oB,
           nextPaymentAmount,
           nextPaymentOn,
-          monthlyEMI,
         } = getEMIBalances(
           emi,
           emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo),
