@@ -7,8 +7,10 @@ import { aggregationParser } from '@/types';
 
 import AggregationTable from './_components/aggregation-table';
 import { CategoryExpensesPieChart, ExpensesLineChart, SummaryCard } from './_components/charts';
-import { EMISummaryCards } from './_components/emi-summary-cards';
+import { CreditCardsCard } from './_components/credit-cards-card';
+import { CurrentMonthPaymentsCard } from './_components/current-month-payments-card';
 import FilterPanel from './_components/filter-panel';
+import { FutureMonthsPaymentsCard } from './_components/future-months-payments-card';
 import SummaryTable from './_components/summary-table';
 
 const loader = createLoader(aggregationParser);
@@ -68,11 +70,19 @@ export default async function Page({
           {(summaryData) => <SummaryCard data={summaryData} />}
         </AsyncComponent>
       </div>
-      <AsyncComponent promise={Promise.all([creditAccountsPromise, summaryPromise])}>
-        {([creditData, summaryData]) => (
-          <EMISummaryCards creditData={creditData} summaryData={summaryData} />
-        )}
-      </AsyncComponent>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <AsyncComponent promise={Promise.all([creditAccountsPromise, summaryPromise])}>
+          {([creditData, summaryData]) => (
+            <CreditCardsCard creditData={creditData} summaryData={summaryData} />
+          )}
+        </AsyncComponent>
+        <AsyncComponent promise={creditAccountsPromise}>
+          {(creditData) => <CurrentMonthPaymentsCard creditData={creditData} />}
+        </AsyncComponent>
+        <AsyncComponent promise={creditAccountsPromise}>
+          {(creditData) => <FutureMonthsPaymentsCard creditData={creditData} />}
+        </AsyncComponent>
+      </div>
       <AsyncComponent
         loadingFallbackClassName="h-[400]"
         promise={Promise.all([summaryPromise, creditAccountsPromise])}
