@@ -63,12 +63,12 @@ export const EMISummaryCards = ({
               if (details === undefined) {
                 return null;
               }
-              
+
               const accountSummary = summaryData.accountsSummaryData.find(
                 (acc) => acc.account.id === card.accountId,
               );
               const currentBalance = accountSummary?.finalBalance ?? 0;
-              
+
               const limitUtilized = Math.abs(currentBalance) + details.outstandingBalance;
               const totalLimit = parseFloat(card.cardLimit);
               const availableLimit = totalLimit - limitUtilized;

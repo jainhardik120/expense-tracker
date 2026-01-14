@@ -1,3 +1,5 @@
+import { toZonedTime } from 'date-fns-tz';
+
 import {
   type Emi,
   MONTHS_PER_YEAR,
@@ -231,7 +233,7 @@ export const getRemainingPayments = (
   const installmentPaidTill = installmentNo ?? -1;
   const { schedule } = calculateSchedule(emi);
   const remainingPayments: { installment: number; amount: number; date: Date | null }[] = [];
-  
+
   for (const payment of schedule) {
     if (payment.installment > installmentPaidTill) {
       remainingPayments.push({
@@ -241,7 +243,7 @@ export const getRemainingPayments = (
       });
     }
   }
-  
+
   return remainingPayments;
 };
 
@@ -270,4 +272,119 @@ export const confirmMatch = (
   const dateMatches =
     hasDate && payment.date !== undefined ? isDateWithinRange(statementDate, payment.date) : false;
   return (hasDate && dateMatches && amountMatches) || (!hasDate && amountMatches);
+};
+
+type PaymentWithLocation = {
+  emiId: string;
+  emiName: string;
+  cardName: string;
+  amount: number;
+  date: Date;
+};
+
+type FuturePayment = PaymentWithLocation & {
+  month: string;
+};
+
+const MONTH_SUBSTRING_LENGTH = 7;
+
+export const categorizePaymentsByTimeframe = (
+  emi: Emi,
+  installmentNo: number | null,
+  monthEnd: Date,
+  timezone: string,
+  emiName: string,
+  cardName: string,
+): {
+  currentMonthPayments: PaymentWithLocation[];
+  futurePayments: FuturePayment[];
+} => {
+  const remainingPayments = getRemainingPayments(emi, installmentNo);
+  const currentMonthPayments: PaymentWithLocation[] = [];
+  const futurePayments: FuturePayment[] = [];
+
+  const zonedMonthEnd = toZonedTime(monthEnd, timezone);
+
+  for (const payment of remainingPayments) {
+    if (payment.date !== null) {
+      const zonedDate = toZonedTime(payment.date, timezone);
+      if (zonedDate <= zonedMonthEnd) {
+        currentMonthPayments.push({
+          emiId: emi.id,
+          emiName,
+          cardName,
+          amount: payment.amount,
+          date: zonedDate,
+        });
+      } else {
+        const monthKey = zonedDate.toISOString().substring(0, MONTH_SUBSTRING_LENGTH);
+        futurePayments.push({
+          emiId: emi.id,
+          emiName,
+          cardName,
+          amount: payment.amount,
+          date: zonedDate,
+          month: monthKey,
+        });
+      }
+    }
+  }
+
+  return { currentMonthPayments, futurePayments };
+};
+
+export const calculateCardBalances = (
+  pendingEMIs: Array<Emi & { maxInstallmentNo: string | null }>,
+  monthEnd: Date,
+  timezone: string,
+  cardName: string,
+): {
+  outstandingBalance: number;
+  currentStatement: number;
+  currentMonthPayments: PaymentWithLocation[];
+  futurePayments: FuturePayment[];
+} => {
+  let outstandingBalance = 0;
+  let currentStatement = 0;
+  const allCurrentMonthPayments: PaymentWithLocation[] = [];
+  const allFuturePayments: FuturePayment[] = [];
+
+  for (const emi of pendingEMIs) {
+    const installmentNo =
+      emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
+    const { outstandingBalance: oB } = getEMIBalances(emi, installmentNo);
+
+    outstandingBalance += oB;
+
+    const { currentMonthPayments, futurePayments } = categorizePaymentsByTimeframe(
+      emi,
+      installmentNo,
+      monthEnd,
+      timezone,
+      emi.name,
+      cardName,
+    );
+
+    currentStatement += currentMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+    allCurrentMonthPayments.push(...currentMonthPayments);
+    allFuturePayments.push(...futurePayments);
+  }
+
+  return {
+    outstandingBalance,
+    currentStatement,
+    currentMonthPayments: allCurrentMonthPayments,
+    futurePayments: allFuturePayments,
+  };
+};
+
+export const groupPaymentsByMonth = <T extends { month: string }>(
+  payments: T[],
+): Record<string, T[]> => {
+  const paymentsByMonth: Record<string, T[]> = {};
+  for (const payment of payments) {
+    paymentsByMonth[payment.month] ??= [];
+    paymentsByMonth[payment.month].push(payment);
+  }
+  return paymentsByMonth;
 };
