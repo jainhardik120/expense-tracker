@@ -7,7 +7,6 @@ import {
   calculateEMIAndPrincipal,
   calculateSchedule,
   confirmMatch,
-  getAmountLeftToBePaid,
   getEMIBalances,
   getOutstandingBalanceOnInstallment,
   parseFloatSafe,
@@ -338,7 +337,7 @@ export const emisRouter = createTRPCRouter({
       const outstandingBalance = pendingEMI.reduce((acc, emi) => {
         const oB = getOutstandingBalanceOnInstallment(
           emi,
-          emi.maxInstallmentNo === null ? null : parseInt(emi.maxInstallmentNo),
+          emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo),
         );
         return acc + oB;
       }, 0);
