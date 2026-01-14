@@ -355,7 +355,7 @@ export const emisRouter = createTRPCRouter({
     }[] = [];
     const monthEnd = endOfMonth(new Date());
     const zonedMonthEnd = toZonedTime(monthEnd, timezone);
-    
+
     const cardDetails: Record<
       string,
       {
@@ -363,14 +363,14 @@ export const emisRouter = createTRPCRouter({
         currentStatement: number;
       }
     > = {};
-    
+
     for (const card of cards) {
       const cardId = card.id;
       const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
-      
+
       let outstandingBalance = 0;
       let currentStatement = 0;
-      
+
       for (const emi of pendingEMI) {
         const {
           outstandingBalance: oB,
@@ -380,9 +380,9 @@ export const emisRouter = createTRPCRouter({
           emi,
           emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo),
         );
-        
+
         outstandingBalance += oB;
-        
+
         if (nextPaymentAmount !== null && nextPaymentOn !== null) {
           if (nextPaymentOn <= zonedMonthEnd) {
             currentStatement += nextPaymentAmount;
@@ -406,19 +406,19 @@ export const emisRouter = createTRPCRouter({
           }
         }
       }
-      
+
       cardDetails[cardId] = {
         outstandingBalance,
         currentStatement,
       };
     }
-    
+
     const paymentsByMonth: Record<string, typeof futurePayments> = {};
     for (const payment of futurePayments) {
       paymentsByMonth[payment.month] ??= [];
       paymentsByMonth[payment.month].push(payment);
     }
-    
+
     return {
       cards,
       cardDetails,

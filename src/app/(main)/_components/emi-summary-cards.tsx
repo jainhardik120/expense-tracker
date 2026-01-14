@@ -47,7 +47,12 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
         <CardContent>
           <div className="space-y-4">
             {cards.map((card) => {
-              const details = cardDetails[card.id];
+              const details = cardDetails[card.id] as
+                | {
+                    outstandingBalance: number;
+                    currentStatement: number;
+                  }
+                | undefined;
               if (details === undefined) {
                 return null;
               }
@@ -58,10 +63,10 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
               return (
                 <Popover key={card.id}>
                   <PopoverTrigger asChild>
-                    <div className="cursor-pointer rounded-lg border p-3 transition-colors hover:bg-muted/50">
+                    <div className="hover:bg-muted/50 cursor-pointer rounded-lg border p-3 transition-colors">
                       <div className="mb-2 flex items-center justify-between">
                         <span className="font-medium">{card.accountName}</span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-muted-foreground text-sm">
                           {((limitUtilized / totalLimit) * 100).toFixed(1)}% used
                         </span>
                       </div>
@@ -77,9 +82,9 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
                           </span>
                         </div>
                       </div>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
                         <div
-                          className="h-full bg-primary transition-all"
+                          className="bg-primary h-full transition-all"
                           style={{ width: `${Math.min((limitUtilized / totalLimit) * 100, 100)}%` }}
                         />
                       </div>
@@ -136,7 +141,7 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
         </CardHeader>
         <CardContent>
           {currentMonthPayments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No payments due this month</p>
+            <p className="text-muted-foreground text-sm">No payments due this month</p>
           ) : (
             <Table>
               <TableHeader>
@@ -151,7 +156,7 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
                 {currentMonthPayments.map((payment) => (
                   <TableRow key={payment.emiId}>
                     <TableCell className="font-medium">{payment.emiName}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    <TableCell className="text-muted-foreground text-sm">
                       {payment.cardName}
                     </TableCell>
                     <TableCell className="text-sm">{format(payment.date, 'MMM dd')}</TableCell>
@@ -174,13 +179,15 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
         </CardHeader>
         <CardContent>
           {futureMonthsData.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No upcoming payments</p>
+            <p className="text-muted-foreground text-sm">No upcoming payments</p>
           ) : (
             <div className="space-y-4">
               {futureMonthsData.slice(0, 6).map(({ month, total, payments }) => (
                 <div key={month} className="rounded-lg border p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="font-medium">{format(new Date(`${month}-01`), 'MMMM yyyy')}</span>
+                    <span className="font-medium">
+                      {format(new Date(`${month}-01`), 'MMMM yyyy')}
+                    </span>
                     <span className="font-semibold">{formatCurrency(total)}</span>
                   </div>
                   <div className="space-y-1">

@@ -75,7 +75,9 @@ export default async function Page({
         loadingFallbackClassName="h-[400]"
         promise={Promise.all([summaryPromise, creditAccountsPromise])}
       >
-        {([summaryData, creditData]) => <SummaryTable creditData={creditData.cards} data={summaryData} />}
+        {([summaryData, creditData]) => (
+          <SummaryTable creditData={creditData.cards} data={summaryData} />
+        )}
       </AsyncComponent>
       <AsyncComponent loadingFallbackClassName="h-[400]" promise={aggregationPromise}>
         {(aggregationData) => (
