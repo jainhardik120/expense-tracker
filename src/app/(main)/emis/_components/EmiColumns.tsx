@@ -80,6 +80,16 @@ export const createEmiColumns = (
     header: 'Total Paid',
   },
   {
+    accessorKey: 'outstandingBalance',
+    header: 'Outstanding Balance',
+    cell: ({ row }) => formatCurrency(row.original.outstandingBalance),
+  },
+  {
+    accessorKey: 'amountLeftToBePaid',
+    header: 'Amount Left to be Paid',
+    cell: ({ row }) => formatCurrency(row.original.amountLeftToBePaid),
+  },
+  {
     id: 'actions',
     cell: ({ row }) => {
       const deleteMutation = api.emis.deleteEmi.useMutation();

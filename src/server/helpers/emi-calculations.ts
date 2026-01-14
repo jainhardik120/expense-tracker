@@ -167,6 +167,23 @@ export const getOutstandingBalanceOnInstallment = (emi: Emi, installmentNo: numb
   return schedule.schedule[installmentNo - 1].balance;
 };
 
+export const getAmountLeftToBePaid = (emi: Emi, installmentNo: number | null) => {
+  const tenure = parseFloatSafe(emi.tenure);
+  if (installmentNo === null || installmentNo === 0) {
+    const { summary } = calculateSchedule(emi);
+    return summary.totalAmount;
+  }
+  if (installmentNo === tenure) {
+    return 0;
+  }
+  const { schedule } = calculateSchedule(emi);
+  let totalRemaining = 0;
+  for (let i = installmentNo; i < schedule.length; i++) {
+    totalRemaining += schedule[i].totalPayment;
+  }
+  return totalRemaining;
+};
+
 const isDateWithinRange = (date1: Date, date2: Date, daysTolerance = 3): boolean => {
   const diffMs = Math.abs(date1.getTime() - date2.getTime());
   const diffDays = diffMs / MS_PER_DAY;

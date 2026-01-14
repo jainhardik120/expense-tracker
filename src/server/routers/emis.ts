@@ -7,6 +7,7 @@ import {
   calculateEMIAndPrincipal,
   calculateSchedule,
   confirmMatch,
+  getAmountLeftToBePaid,
   getOutstandingBalanceOnInstallment,
   parseFloatSafe,
 } from '@/server/helpers/emi-calculations';
@@ -24,9 +25,19 @@ export const emisRouter = createTRPCRouter({
       .from(emis)
       .where(and(...conditions));
     const emisList = await getEMIs(ctx.db, ctx.session.user.id, input);
+    const emisWithCalculations = emisList.map((emi) => {
+      const installmentNo = emi.maxInstallmentNo === null ? null : parseInt(emi.maxInstallmentNo);
+      const outstandingBalance = getOutstandingBalanceOnInstallment(emi, installmentNo);
+      const amountLeftToBePaid = getAmountLeftToBePaid(emi, installmentNo);
+      return {
+        ...emi,
+        outstandingBalance,
+        amountLeftToBePaid,
+      };
+    });
     const pageCount = Math.ceil(count / input.perPage);
     return {
-      emis: emisList,
+      emis: emisWithCalculations,
       pageCount,
       rowsCount: count,
     };
