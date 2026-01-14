@@ -393,4 +393,189 @@ export const emisRouter = createTRPCRouter({
       paymentsByMonth,
     };
   }),
+  getEmiSplits: protectedProcedure
+    .input(z.object({ emiId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const emiData = await ctx.db
+        .select({
+          additionalAttributes: emis.additionalAttributes,
+        })
+        .from(emis)
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+
+      if (emiData.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+
+      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const splits =
+        attributes.splits !== undefined
+          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+          : [];
+
+      return splits;
+    }),
+  addEmiSplit: protectedProcedure
+    .input(
+      z.object({
+        emiId: z.string(),
+        friendId: z.string(),
+        percentage: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const emiData = await ctx.db
+        .select({
+          additionalAttributes: emis.additionalAttributes,
+        })
+        .from(emis)
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+
+      if (emiData.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+
+      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const currentSplits =
+        attributes.splits !== undefined
+          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+          : [];
+
+      const totalPercentage = currentSplits.reduce((sum, split) => {
+        return sum + parseFloat(split.percentage);
+      }, 0);
+
+      const newPercentage = parseFloat(input.percentage);
+
+      if (totalPercentage + newPercentage > 100) {
+        throw new Error(
+          `Cannot add split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
+        );
+      }
+
+      const updatedSplits = [
+        ...currentSplits,
+        { friendId: input.friendId, percentage: input.percentage },
+      ];
+
+      await ctx.db
+        .update(emis)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            splits: updatedSplits,
+          },
+        })
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+
+      return { success: true };
+    }),
+  updateEmiSplit: protectedProcedure
+    .input(
+      z.object({
+        emiId: z.string(),
+        splitIndex: z.number(),
+        friendId: z.string(),
+        percentage: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const emiData = await ctx.db
+        .select({
+          additionalAttributes: emis.additionalAttributes,
+        })
+        .from(emis)
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+
+      if (emiData.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+
+      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const currentSplits =
+        attributes.splits !== undefined
+          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+          : [];
+
+      if (input.splitIndex < 0 || input.splitIndex >= currentSplits.length) {
+        throw new Error('Invalid split index');
+      }
+
+      const totalPercentage = currentSplits.reduce((sum, split, index) => {
+        if (index === input.splitIndex) {
+          return sum;
+        }
+        return sum + parseFloat(split.percentage);
+      }, 0);
+
+      const newPercentage = parseFloat(input.percentage);
+
+      if (totalPercentage + newPercentage > 100) {
+        throw new Error(
+          `Cannot update split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
+        );
+      }
+
+      const updatedSplits = [...currentSplits];
+      updatedSplits[input.splitIndex] = { friendId: input.friendId, percentage: input.percentage };
+
+      await ctx.db
+        .update(emis)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            splits: updatedSplits,
+          },
+        })
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+
+      return { success: true };
+    }),
+  deleteEmiSplit: protectedProcedure
+    .input(
+      z.object({
+        emiId: z.string(),
+        splitIndex: z.number(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const emiData = await ctx.db
+        .select({
+          additionalAttributes: emis.additionalAttributes,
+        })
+        .from(emis)
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+
+      if (emiData.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+
+      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const currentSplits =
+        attributes.splits !== undefined
+          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+          : [];
+
+      if (input.splitIndex < 0 || input.splitIndex >= currentSplits.length) {
+        throw new Error('Invalid split index');
+      }
+
+      const updatedSplits = currentSplits.filter((_, index) => index !== input.splitIndex);
+
+      await ctx.db
+        .update(emis)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            splits: updatedSplits,
+          },
+        })
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+
+      return { success: true };
+    }),
 });

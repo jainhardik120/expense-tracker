@@ -14,6 +14,7 @@ import { type RouterOutput } from '@/server/routers';
 
 import EmiDetails from './EmiDetails';
 import { UpdateEmiForm } from './EmiForms';
+import { EmiSplitsDialog } from './EmiSplits';
 
 type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
 type Emi = RouterOutput['emis']['getEmis']['emis'][number];
@@ -113,6 +114,7 @@ export const createEmiColumns = (
             refresh={refresh}
           />
           <EMIDetailsDialog emi={row.original} />
+          <EmiSplitsDialog emiData={row.original} emiId={row.original.id} />
           <DeleteConfirmationDialog
             mutation={deleteMutation}
             mutationInput={{ id: row.original.id }}
