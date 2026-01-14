@@ -7,6 +7,7 @@ import { aggregationParser } from '@/types';
 
 import AggregationTable from './_components/aggregation-table';
 import { CategoryExpensesPieChart, ExpensesLineChart, SummaryCard } from './_components/charts';
+import { EMISummaryCards } from './_components/emi-summary-cards';
 import FilterPanel from './_components/filter-panel';
 import SummaryTable from './_components/summary-table';
 
@@ -67,17 +68,14 @@ export default async function Page({
           {(summaryData) => <SummaryCard data={summaryData} />}
         </AsyncComponent>
       </div>
+      <AsyncComponent promise={creditAccountsPromise}>
+        {(creditData) => <EMISummaryCards data={creditData} />}
+      </AsyncComponent>
       <AsyncComponent
         loadingFallbackClassName="h-[400]"
         promise={Promise.all([summaryPromise, creditAccountsPromise])}
       >
-        {([summaryData, creditData]) => (
-          <>
-            <SummaryTable creditData={creditData.cards} data={summaryData} />
-            <pre>{JSON.stringify(creditData.usedLimits, null, 2)}</pre>
-            <pre>{JSON.stringify(creditData.upcomingPayments, null, 2)}</pre>
-          </>
-        )}
+        {([summaryData, creditData]) => <SummaryTable creditData={creditData.cards} data={summaryData} />}
       </AsyncComponent>
       <AsyncComponent loadingFallbackClassName="h-[400]" promise={aggregationPromise}>
         {(aggregationData) => (

@@ -338,48 +338,95 @@ export const emisRouter = createTRPCRouter({
       creditId: [],
     });
     const timezone = (await cookies()).get(TIMEZONE_COOKIE)?.value ?? 'UTC';
-    const upcomingPayments: {
-      id: string;
+    const currentMonthPayments: {
+      emiId: string;
+      emiName: string;
+      cardName: string;
       amount: number;
       date: Date;
     }[] = [];
+    const futurePayments: {
+      emiId: string;
+      emiName: string;
+      cardName: string;
+      amount: number;
+      date: Date;
+      month: string;
+    }[] = [];
     const monthEnd = endOfMonth(new Date());
     const zonedMonthEnd = toZonedTime(monthEnd, timezone);
-    const usedLimits: Record<string, number> = cards.reduce<Record<string, number>>((acc, card) => {
+    
+    const cardDetails: Record<
+      string,
+      {
+        outstandingBalance: number;
+        currentStatement: number;
+      }
+    > = {};
+    
+    for (const card of cards) {
       const cardId = card.id;
       const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
-      if (pendingEMI.length === 0) {
-        return acc;
-      }
-      const outstandingBalance = pendingEMI.reduce((acc, emi) => {
+      
+      let outstandingBalance = 0;
+      let currentStatement = 0;
+      
+      for (const emi of pendingEMI) {
         const {
           outstandingBalance: oB,
           nextPaymentAmount,
           nextPaymentOn,
+          monthlyEMI,
         } = getEMIBalances(
           emi,
           emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo),
         );
-        if (nextPaymentAmount !== null && nextPaymentOn !== null && nextPaymentOn < zonedMonthEnd) {
-          upcomingPayments.push({
-            id: emi.id,
-            amount: nextPaymentAmount,
-            date: nextPaymentOn,
-          });
+        
+        outstandingBalance += oB;
+        
+        if (nextPaymentAmount !== null && nextPaymentOn !== null) {
+          if (nextPaymentOn <= zonedMonthEnd) {
+            currentStatement += nextPaymentAmount;
+            currentMonthPayments.push({
+              emiId: emi.id,
+              emiName: emi.name,
+              cardName: card.accountName,
+              amount: nextPaymentAmount,
+              date: nextPaymentOn,
+            });
+          } else {
+            const monthKey = nextPaymentOn.toISOString().substring(0, 7);
+            futurePayments.push({
+              emiId: emi.id,
+              emiName: emi.name,
+              cardName: card.accountName,
+              amount: nextPaymentAmount,
+              date: nextPaymentOn,
+              month: monthKey,
+            });
+          }
         }
-        return acc + oB;
-      }, 0);
-      return {
-        ...acc,
-        [cardId]: outstandingBalance,
+      }
+      
+      cardDetails[cardId] = {
+        outstandingBalance,
+        currentStatement,
       };
-    }, {});
+    }
+    
+    const paymentsByMonth: Record<string, typeof futurePayments> = {};
+    for (const payment of futurePayments) {
+      if (paymentsByMonth[payment.month] === undefined) {
+        paymentsByMonth[payment.month] = [];
+      }
+      paymentsByMonth[payment.month].push(payment);
+    }
+    
     return {
       cards,
-      pendingEMIs,
-      usedLimits,
-      upcomingPayments,
-      zonedMonthEnd,
+      cardDetails,
+      currentMonthPayments,
+      paymentsByMonth,
     };
   }),
 });
