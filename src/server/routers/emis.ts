@@ -409,12 +409,9 @@ export const emisRouter = createTRPCRouter({
       }
 
       const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
-      const splits =
-        attributes.splits !== undefined
-          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
-          : [];
-
-      return splits;
+      return attributes.splits !== undefined
+        ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+        : [];
     }),
   addEmiSplit: protectedProcedure
     .input(

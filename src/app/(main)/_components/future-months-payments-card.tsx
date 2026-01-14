@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -52,7 +52,7 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
               {futureMonthsData.map(({ month, total }) => (
                 <TableRow key={month}>
                   <TableCell className="font-medium">
-                    {format(new Date(`${month}-01`), 'MMMM yyyy')}
+                    {format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy')}
                   </TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
                 </TableRow>

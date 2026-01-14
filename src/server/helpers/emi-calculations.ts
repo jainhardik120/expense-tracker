@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 import {
@@ -286,8 +287,6 @@ type FuturePayment = PaymentWithLocation & {
   month: string;
 };
 
-const MONTH_SUBSTRING_LENGTH = 7;
-
 export const categorizePaymentsByTimeframe = (
   emi: Emi,
   installmentNo: number | null,
@@ -317,7 +316,7 @@ export const categorizePaymentsByTimeframe = (
           date: zonedDate,
         });
       } else {
-        const monthKey = zonedDate.toISOString().substring(0, MONTH_SUBSTRING_LENGTH);
+        const monthKey = format(zonedDate, 'yyyy-MM');
         futurePayments.push({
           emiId: emi.id,
           emiName,

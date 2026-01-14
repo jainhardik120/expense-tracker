@@ -48,7 +48,7 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
             </TableHeader>
             <TableBody>
               {currentMonthPayments.map((payment) => (
-                <TableRow key={payment.emiId}>
+                <TableRow key={`${payment.emiId}-${payment.date.toISOString()}`}>
                   <TableCell className="font-medium">{payment.emiName}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {payment.cardName}
