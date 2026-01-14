@@ -1,0 +1,1 @@
+ALTER TABLE "emis" ADD COLUMN "additional_attributes" jsonb DEFAULT '{}' NOT NULL;

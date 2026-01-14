@@ -179,4 +179,5 @@ export const emis = pgTable('emis', {
     .notNull()
     .$defaultFn(() => new Date()),
   iafe: numeric('iafe').notNull().default('0'),
+  additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
 });
