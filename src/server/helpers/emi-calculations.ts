@@ -1,3 +1,6 @@
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
+
 import {
   type Emi,
   MONTHS_PER_YEAR,
@@ -156,15 +159,93 @@ export const calculateSchedule = (
   };
 };
 
-export const getOutstandingBalanceOnInstallment = (emi: Emi, installmentNo: number | null) => {
-  if (installmentNo === null || installmentNo === 0) {
-    return parseFloatSafe(emi.principal);
+export const getEMIBalances = (
+  emi: Emi,
+  installmentNo: number | null,
+): {
+  outstandingBalance: number;
+  amountLeftToBePaid: number;
+  monthlyEMI: number;
+  nextPaymentOn: Date | null;
+  nextPaymentAmount: number | null;
+} => {
+  const installmentPaidTill = installmentNo ?? -1;
+  const tenure = parseFloatSafe(emi.tenure);
+  const { summary, schedule } = calculateSchedule(emi);
+  if (installmentNo === tenure) {
+    return {
+      outstandingBalance: 0,
+      amountLeftToBePaid: 0,
+      monthlyEMI: summary.totalEMI / tenure,
+      nextPaymentOn: null,
+      nextPaymentAmount: null,
+    };
   }
-  if (installmentNo === parseFloatSafe(emi.tenure)) {
-    return 0;
+  if (installmentPaidTill === -1 && parseFloatSafe(emi.processingFees) > 0) {
+    const processingFeesPart = schedule[0];
+    return {
+      outstandingBalance: processingFeesPart.balance,
+      amountLeftToBePaid: summary.totalAmount,
+      monthlyEMI: summary.totalEMI / tenure,
+      nextPaymentOn: processingFeesPart.date ?? null,
+      nextPaymentAmount: processingFeesPart.totalPayment,
+    };
   }
-  const schedule = calculateSchedule(emi);
-  return schedule.schedule[installmentNo - 1].balance;
+  if (installmentPaidTill === -1 || installmentPaidTill === 0) {
+    const firstInstallment = schedule.find((p) => p.installment === 1);
+    if (firstInstallment === undefined) {
+      return {
+        outstandingBalance: 0,
+        amountLeftToBePaid: 0,
+        monthlyEMI: summary.totalEMI / tenure,
+        nextPaymentOn: null,
+        nextPaymentAmount: null,
+      };
+    }
+    return {
+      outstandingBalance: summary.effectivePrincipal,
+      amountLeftToBePaid: summary.totalAmount - summary.totalProcessingFees,
+      monthlyEMI: summary.totalEMI / tenure,
+      nextPaymentOn: firstInstallment.date ?? null,
+      nextPaymentAmount: firstInstallment.totalPayment,
+    };
+  }
+  const lastPayment = schedule.find((p) => p.installment === installmentPaidTill);
+  const nextPayment = schedule.find((p) => p.installment === installmentPaidTill + 1);
+  let amountLeftToBePaid = 0;
+  for (const p of schedule) {
+    if (p.installment > installmentPaidTill) {
+      amountLeftToBePaid += p.totalPayment;
+    }
+  }
+  return {
+    outstandingBalance: lastPayment?.balance ?? 0,
+    amountLeftToBePaid,
+    monthlyEMI: summary.totalEMI / tenure,
+    nextPaymentOn: nextPayment?.date ?? null,
+    nextPaymentAmount: nextPayment?.totalPayment ?? null,
+  };
+};
+
+export const getRemainingPayments = (
+  emi: Emi,
+  installmentNo: number | null,
+): { installment: number; amount: number; date: Date | null }[] => {
+  const installmentPaidTill = installmentNo ?? -1;
+  const { schedule } = calculateSchedule(emi);
+  const remainingPayments: { installment: number; amount: number; date: Date | null }[] = [];
+
+  for (const payment of schedule) {
+    if (payment.installment > installmentPaidTill) {
+      remainingPayments.push({
+        installment: payment.installment,
+        amount: payment.totalPayment,
+        date: payment.date ?? null,
+      });
+    }
+  }
+
+  return remainingPayments;
 };
 
 const isDateWithinRange = (date1: Date, date2: Date, daysTolerance = 3): boolean => {
@@ -192,4 +273,138 @@ export const confirmMatch = (
   const dateMatches =
     hasDate && payment.date !== undefined ? isDateWithinRange(statementDate, payment.date) : false;
   return (hasDate && dateMatches && amountMatches) || (!hasDate && amountMatches);
+};
+
+type PaymentWithLocation = {
+  emiId: string;
+  emiName: string;
+  cardName: string;
+  amount: number;
+  date: Date;
+  myShare: number; // Amount user has to pay after splits
+  splitPercentage: number; // Percentage user has to pay (100 - sum of friend splits)
+};
+
+type FuturePayment = PaymentWithLocation & {
+  month: string;
+};
+
+export const categorizePaymentsByTimeframe = (
+  emi: Emi,
+  installmentNo: number | null,
+  monthEnd: Date,
+  timezone: string,
+  emiName: string,
+  cardName: string,
+): {
+  currentMonthPayments: PaymentWithLocation[];
+  futurePayments: FuturePayment[];
+} => {
+  const remainingPayments = getRemainingPayments(emi, installmentNo);
+  const currentMonthPayments: PaymentWithLocation[] = [];
+  const futurePayments: FuturePayment[] = [];
+
+  const zonedMonthEnd = toZonedTime(monthEnd, timezone);
+
+  // Calculate split percentage (what percentage the user pays)
+  const attributes = emi.additionalAttributes as Record<string, unknown>;
+  const splits =
+    attributes.splits !== undefined
+      ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+      : [];
+
+  const friendSplitPercentage = splits.reduce((sum, split) => {
+    return sum + parseFloat(split.percentage);
+  }, 0);
+
+  const mySplitPercentage = 100 - friendSplitPercentage;
+
+  for (const payment of remainingPayments) {
+    if (payment.date !== null) {
+      const zonedDate = toZonedTime(payment.date, timezone);
+      const myShare = (payment.amount * mySplitPercentage) / 100;
+
+      if (zonedDate <= zonedMonthEnd) {
+        currentMonthPayments.push({
+          emiId: emi.id,
+          emiName,
+          cardName,
+          amount: payment.amount,
+          date: zonedDate,
+          myShare,
+          splitPercentage: mySplitPercentage,
+        });
+      } else {
+        const monthKey = format(zonedDate, 'yyyy-MM');
+        futurePayments.push({
+          emiId: emi.id,
+          emiName,
+          cardName,
+          amount: payment.amount,
+          date: zonedDate,
+          month: monthKey,
+          myShare,
+          splitPercentage: mySplitPercentage,
+        });
+      }
+    }
+  }
+
+  return { currentMonthPayments, futurePayments };
+};
+
+export const calculateCardBalances = (
+  pendingEMIs: Array<Emi & { maxInstallmentNo: string | null }>,
+  monthEnd: Date,
+  timezone: string,
+  cardName: string,
+): {
+  outstandingBalance: number;
+  currentStatement: number;
+  currentMonthPayments: PaymentWithLocation[];
+  futurePayments: FuturePayment[];
+} => {
+  let outstandingBalance = 0;
+  let currentStatement = 0;
+  const allCurrentMonthPayments: PaymentWithLocation[] = [];
+  const allFuturePayments: FuturePayment[] = [];
+
+  for (const emi of pendingEMIs) {
+    const installmentNo =
+      emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
+    const { outstandingBalance: oB } = getEMIBalances(emi, installmentNo);
+
+    outstandingBalance += oB;
+
+    const { currentMonthPayments, futurePayments } = categorizePaymentsByTimeframe(
+      emi,
+      installmentNo,
+      monthEnd,
+      timezone,
+      emi.name,
+      cardName,
+    );
+
+    currentStatement += currentMonthPayments.reduce((sum, p) => sum + p.amount, 0);
+    allCurrentMonthPayments.push(...currentMonthPayments);
+    allFuturePayments.push(...futurePayments);
+  }
+
+  return {
+    outstandingBalance,
+    currentStatement,
+    currentMonthPayments: allCurrentMonthPayments,
+    futurePayments: allFuturePayments,
+  };
+};
+
+export const groupPaymentsByMonth = <T extends { month: string }>(
+  payments: T[],
+): Record<string, T[]> => {
+  const paymentsByMonth: Record<string, T[]> = {};
+  for (const payment of payments) {
+    paymentsByMonth[payment.month] ??= [];
+    paymentsByMonth[payment.month].push(payment);
+  }
+  return paymentsByMonth;
 };

@@ -1,3 +1,6 @@
+import { cookies } from 'next/headers';
+
+import { endOfMonth } from 'date-fns';
 import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -7,12 +10,20 @@ import {
   calculateEMIAndPrincipal,
   calculateSchedule,
   confirmMatch,
-  getOutstandingBalanceOnInstallment,
+  getEMIBalances,
   parseFloatSafe,
+  calculateCardBalances,
+  groupPaymentsByMonth,
 } from '@/server/helpers/emi-calculations';
 import { getCreditCards } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
+import {
+  createEmiSchema,
+  emiParserSchema,
+  MONTHS_PER_YEAR,
+  PERCENTAGE_DIVISOR,
+  TIMEZONE_COOKIE,
+} from '@/types';
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 const STATEMENT_NOT_LINKED = 'Statement is not linked to an EMI';
@@ -24,9 +35,18 @@ export const emisRouter = createTRPCRouter({
       .from(emis)
       .where(and(...conditions));
     const emisList = await getEMIs(ctx.db, ctx.session.user.id, input);
+    const emisWithCalculations = emisList.map((emi) => {
+      const installmentNo =
+        emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
+      const balances = getEMIBalances(emi, installmentNo);
+      return {
+        ...emi,
+        ...balances,
+      };
+    });
     const pageCount = Math.ceil(count / input.perPage);
     return {
-      emis: emisList,
+      emis: emisWithCalculations,
       pageCount,
       rowsCount: count,
     };
@@ -318,28 +338,245 @@ export const emisRouter = createTRPCRouter({
       accountId: [],
       creditId: [],
     });
-    const usedLimits: Record<string, number> = cards.reduce<Record<string, number>>((acc, card) => {
+    const timezone = (await cookies()).get(TIMEZONE_COOKIE)?.value ?? 'UTC';
+    const currentMonthPayments: {
+      emiId: string;
+      emiName: string;
+      cardName: string;
+      amount: number;
+      date: Date;
+      myShare: number;
+      splitPercentage: number;
+    }[] = [];
+    const futurePayments: {
+      emiId: string;
+      emiName: string;
+      cardName: string;
+      amount: number;
+      date: Date;
+      month: string;
+      myShare: number;
+      splitPercentage: number;
+    }[] = [];
+    const monthEnd = endOfMonth(new Date());
+
+    const cardDetails: Record<
+      string,
+      {
+        outstandingBalance: number;
+        currentStatement: number;
+      }
+    > = {};
+
+    for (const card of cards) {
       const cardId = card.id;
       const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
-      if (pendingEMI.length === 0) {
-        return acc;
-      }
-      const outstandingBalance = pendingEMI.reduce((acc, emi) => {
-        const oB = getOutstandingBalanceOnInstallment(
-          emi,
-          emi.maxInstallmentNo === null ? null : parseInt(emi.maxInstallmentNo),
-        );
-        return acc + oB;
-      }, 0);
-      return {
-        ...acc,
-        [cardId]: outstandingBalance,
+
+      const {
+        outstandingBalance,
+        currentStatement,
+        currentMonthPayments: cardCurrentPayments,
+        futurePayments: cardFuturePayments,
+      } = calculateCardBalances(pendingEMI, monthEnd, timezone, card.accountName);
+
+      cardDetails[cardId] = {
+        outstandingBalance,
+        currentStatement,
       };
-    }, {});
+
+      currentMonthPayments.push(...cardCurrentPayments);
+      futurePayments.push(...cardFuturePayments);
+    }
+
+    const paymentsByMonth = groupPaymentsByMonth(futurePayments);
+
     return {
       cards,
-      pendingEMIs,
-      usedLimits,
+      cardDetails,
+      currentMonthPayments,
+      paymentsByMonth,
     };
   }),
+  getEmiSplits: protectedProcedure
+    .input(z.object({ emiId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const emiData = await ctx.db
+        .select({
+          additionalAttributes: emis.additionalAttributes,
+        })
+        .from(emis)
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+
+      if (emiData.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+
+      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      return attributes.splits !== undefined
+        ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+        : [];
+    }),
+  addEmiSplit: protectedProcedure
+    .input(
+      z.object({
+        emiId: z.string(),
+        friendId: z.string(),
+        percentage: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const emiData = await ctx.db
+        .select({
+          additionalAttributes: emis.additionalAttributes,
+        })
+        .from(emis)
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+
+      if (emiData.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+
+      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const currentSplits =
+        attributes.splits !== undefined
+          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+          : [];
+
+      const totalPercentage = currentSplits.reduce((sum, split) => {
+        return sum + parseFloat(split.percentage);
+      }, 0);
+
+      const newPercentage = parseFloat(input.percentage);
+
+      if (totalPercentage + newPercentage > 100) {
+        throw new Error(
+          `Cannot add split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
+        );
+      }
+
+      const updatedSplits = [
+        ...currentSplits,
+        { friendId: input.friendId, percentage: input.percentage },
+      ];
+
+      await ctx.db
+        .update(emis)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            splits: updatedSplits,
+          },
+        })
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+
+      return { success: true };
+    }),
+  updateEmiSplit: protectedProcedure
+    .input(
+      z.object({
+        emiId: z.string(),
+        splitIndex: z.number(),
+        friendId: z.string(),
+        percentage: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const emiData = await ctx.db
+        .select({
+          additionalAttributes: emis.additionalAttributes,
+        })
+        .from(emis)
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+
+      if (emiData.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+
+      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const currentSplits =
+        attributes.splits !== undefined
+          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+          : [];
+
+      if (input.splitIndex < 0 || input.splitIndex >= currentSplits.length) {
+        throw new Error('Invalid split index');
+      }
+
+      const totalPercentage = currentSplits.reduce((sum, split, index) => {
+        if (index === input.splitIndex) {
+          return sum;
+        }
+        return sum + parseFloat(split.percentage);
+      }, 0);
+
+      const newPercentage = parseFloat(input.percentage);
+
+      if (totalPercentage + newPercentage > 100) {
+        throw new Error(
+          `Cannot update split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
+        );
+      }
+
+      const updatedSplits = [...currentSplits];
+      updatedSplits[input.splitIndex] = { friendId: input.friendId, percentage: input.percentage };
+
+      await ctx.db
+        .update(emis)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            splits: updatedSplits,
+          },
+        })
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+
+      return { success: true };
+    }),
+  deleteEmiSplit: protectedProcedure
+    .input(
+      z.object({
+        emiId: z.string(),
+        splitIndex: z.number(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const emiData = await ctx.db
+        .select({
+          additionalAttributes: emis.additionalAttributes,
+        })
+        .from(emis)
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
+        .limit(1);
+
+      if (emiData.length === 0) {
+        throw new Error(EMI_NOT_FOUND);
+      }
+
+      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const currentSplits =
+        attributes.splits !== undefined
+          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
+          : [];
+
+      if (input.splitIndex < 0 || input.splitIndex >= currentSplits.length) {
+        throw new Error('Invalid split index');
+      }
+
+      const updatedSplits = currentSplits.filter((_, index) => index !== input.splitIndex);
+
+      await ctx.db
+        .update(emis)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            splits: updatedSplits,
+          },
+        })
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+
+      return { success: true };
+    }),
 });

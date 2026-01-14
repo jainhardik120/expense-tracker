@@ -71,6 +71,11 @@ export const bulkSplitSchema = z.object({
   percentage: amount,
 });
 
+export const createEmiSplitSchema = z.object({
+  friendId: z.uuidv4(),
+  percentage: amount,
+});
+
 export const createSelfTransferSchema = z.object({
   fromAccountId: z.uuidv4(),
   toAccountId: z.uuidv4(),
