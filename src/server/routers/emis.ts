@@ -415,9 +415,7 @@ export const emisRouter = createTRPCRouter({
     
     const paymentsByMonth: Record<string, typeof futurePayments> = {};
     for (const payment of futurePayments) {
-      if (paymentsByMonth[payment.month] === undefined) {
-        paymentsByMonth[payment.month] = [];
-      }
+      paymentsByMonth[payment.month] ??= [];
       paymentsByMonth[payment.month].push(payment);
     }
     

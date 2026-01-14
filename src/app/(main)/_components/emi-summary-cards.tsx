@@ -180,7 +180,7 @@ export const EMISummaryCards = ({ data }: { data: CreditCardData }) => {
               {futureMonthsData.slice(0, 6).map(({ month, total, payments }) => (
                 <div key={month} className="rounded-lg border p-3">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="font-medium">{format(new Date(month), 'MMMM yyyy')}</span>
+                    <span className="font-medium">{format(new Date(`${month}-01`), 'MMMM yyyy')}</span>
                     <span className="font-semibold">{formatCurrency(total)}</span>
                   </div>
                   <div className="space-y-1">
