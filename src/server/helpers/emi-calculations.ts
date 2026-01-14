@@ -190,6 +190,39 @@ export const getAmountLeftToBePaid = (emi: Emi, installmentNo: number | null) =>
   return totalRemaining;
 };
 
+export const getEMIBalances = (
+  emi: Emi,
+  installmentNo: number | null,
+): { outstandingBalance: number; amountLeftToBePaid: number } => {
+  const tenure = parseFloatSafe(emi.tenure);
+  if (installmentNo === null || installmentNo === 0) {
+    const { summary } = calculateSchedule(emi);
+    return {
+      outstandingBalance: parseFloatSafe(emi.principal),
+      amountLeftToBePaid: summary.totalAmount,
+    };
+  }
+  if (installmentNo === tenure) {
+    return {
+      outstandingBalance: 0,
+      amountLeftToBePaid: 0,
+    };
+  }
+  const { schedule } = calculateSchedule(emi);
+  const payment = schedule.find((p) => p.installment === installmentNo);
+  const outstandingBalance = payment === undefined ? 0 : payment.balance;
+  let amountLeftToBePaid = 0;
+  for (const p of schedule) {
+    if (p.installment > installmentNo) {
+      amountLeftToBePaid += p.totalPayment;
+    }
+  }
+  return {
+    outstandingBalance,
+    amountLeftToBePaid,
+  };
+};
+
 const isDateWithinRange = (date1: Date, date2: Date, daysTolerance = 3): boolean => {
   const diffMs = Math.abs(date1.getTime() - date2.getTime());
   const diffDays = diffMs / MS_PER_DAY;

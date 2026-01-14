@@ -8,6 +8,7 @@ import {
   calculateSchedule,
   confirmMatch,
   getAmountLeftToBePaid,
+  getEMIBalances,
   getOutstandingBalanceOnInstallment,
   parseFloatSafe,
 } from '@/server/helpers/emi-calculations';
@@ -26,9 +27,8 @@ export const emisRouter = createTRPCRouter({
       .where(and(...conditions));
     const emisList = await getEMIs(ctx.db, ctx.session.user.id, input);
     const emisWithCalculations = emisList.map((emi) => {
-      const installmentNo = emi.maxInstallmentNo === null ? null : parseInt(emi.maxInstallmentNo);
-      const outstandingBalance = getOutstandingBalanceOnInstallment(emi, installmentNo);
-      const amountLeftToBePaid = getAmountLeftToBePaid(emi, installmentNo);
+      const installmentNo = emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
+      const { outstandingBalance, amountLeftToBePaid } = getEMIBalances(emi, installmentNo);
       return {
         ...emi,
         outstandingBalance,
