@@ -74,7 +74,8 @@ export default async function Page({
         {([summaryData, creditData]) => (
           <>
             <SummaryTable creditData={creditData.cards} data={summaryData} />
-            {JSON.stringify(creditData.usedLimits, null, 2)}
+            <pre>{JSON.stringify(creditData.usedLimits, null, 2)}</pre>
+            <pre>{JSON.stringify(creditData.upcomingPayments, null, 2)}</pre>
           </>
         )}
       </AsyncComponent>

@@ -156,21 +156,6 @@ export const calculateSchedule = (
   };
 };
 
-export const getOutstandingBalanceOnInstallment = (emi: Emi, installmentNo: number | null) => {
-  if (installmentNo === null || installmentNo === 0) {
-    return parseFloatSafe(emi.principal);
-  }
-  if (installmentNo === parseFloatSafe(emi.tenure)) {
-    return 0;
-  }
-  const { schedule } = calculateSchedule(emi);
-  const payment = schedule.find((p) => p.installment === installmentNo);
-  if (payment === undefined) {
-    return 0;
-  }
-  return payment.balance;
-};
-
 export const getEMIBalances = (
   emi: Emi,
   installmentNo: number | null,

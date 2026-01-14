@@ -1,3 +1,7 @@
+import { cookies } from 'next/headers';
+
+import { endOfMonth } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -8,12 +12,17 @@ import {
   calculateSchedule,
   confirmMatch,
   getEMIBalances,
-  getOutstandingBalanceOnInstallment,
   parseFloatSafe,
 } from '@/server/helpers/emi-calculations';
 import { getCreditCards } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
+import {
+  createEmiSchema,
+  emiParserSchema,
+  MONTHS_PER_YEAR,
+  PERCENTAGE_DIVISOR,
+  TIMEZONE_COOKIE,
+} from '@/types';
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 const STATEMENT_NOT_LINKED = 'Statement is not linked to an EMI';
@@ -328,6 +337,14 @@ export const emisRouter = createTRPCRouter({
       accountId: [],
       creditId: [],
     });
+    const timezone = (await cookies()).get(TIMEZONE_COOKIE)?.value ?? 'UTC';
+    const upcomingPayments: {
+      id: string;
+      amount: number;
+      date: Date;
+    }[] = [];
+    const monthEnd = endOfMonth(new Date());
+    const zonedMonthEnd = toZonedTime(monthEnd, timezone);
     const usedLimits: Record<string, number> = cards.reduce<Record<string, number>>((acc, card) => {
       const cardId = card.id;
       const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
@@ -335,10 +352,21 @@ export const emisRouter = createTRPCRouter({
         return acc;
       }
       const outstandingBalance = pendingEMI.reduce((acc, emi) => {
-        const oB = getOutstandingBalanceOnInstallment(
+        const {
+          outstandingBalance: oB,
+          nextPaymentAmount,
+          nextPaymentOn,
+        } = getEMIBalances(
           emi,
           emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo),
         );
+        if (nextPaymentAmount !== null && nextPaymentOn !== null && nextPaymentOn < zonedMonthEnd) {
+          upcomingPayments.push({
+            id: emi.id,
+            amount: nextPaymentAmount,
+            date: nextPaymentOn,
+          });
+        }
         return acc + oB;
       }, 0);
       return {
@@ -350,6 +378,8 @@ export const emisRouter = createTRPCRouter({
       cards,
       pendingEMIs,
       usedLimits,
+      upcomingPayments,
+      zonedMonthEnd,
     };
   }),
 });
