@@ -5,6 +5,7 @@ import {
   type EMICalculationResult,
   type EMICalculatorFormValues,
   type EMIScheduleRow,
+  MS_PER_DAY,
 } from '@/types';
 
 export const calculateEMI = (principal: number, monthlyRate: number, tenure: number): number => {
@@ -164,4 +165,31 @@ export const getOutstandingBalanceOnInstallment = (emi: Emi, installmentNo: numb
   }
   const schedule = calculateSchedule(emi);
   return schedule.schedule[installmentNo - 1].balance;
+};
+
+const isDateWithinRange = (date1: Date, date2: Date, daysTolerance = 3): boolean => {
+  const diffMs = Math.abs(date1.getTime() - date2.getTime());
+  const diffDays = diffMs / MS_PER_DAY;
+  return diffDays <= daysTolerance;
+};
+
+const isAmountWithinRange = (amount1: number, amount2: number, tolerance = 10): boolean => {
+  return Math.abs(amount1 - amount2) <= tolerance;
+};
+
+export const confirmMatch = (
+  payments: EMIScheduleRow[],
+  statementAmount: number,
+  statementDate: Date,
+  installment: number,
+): boolean => {
+  const payment = payments.find((p) => p.installment === installment);
+  if (payment === undefined) {
+    return false;
+  }
+  const amountMatches = isAmountWithinRange(statementAmount, payment.totalPayment);
+  const hasDate = payment.date !== undefined;
+  const dateMatches =
+    hasDate && payment.date !== undefined ? isDateWithinRange(statementDate, payment.date) : false;
+  return (hasDate && dateMatches && amountMatches) || (!hasDate && amountMatches);
 };

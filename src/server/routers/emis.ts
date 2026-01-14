@@ -1,10 +1,12 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { bankAccount, creditCardAccounts, emis, statements } from '@/db/schema';
-import { getEMIs } from '@/server/helpers/emi';
+import { getEMIs, getMaxInstallmentNoSubquery } from '@/server/helpers/emi';
 import {
   calculateEMIAndPrincipal,
+  calculateSchedule,
+  confirmMatch,
   getOutstandingBalanceOnInstallment,
   parseFloatSafe,
 } from '@/server/helpers/emi-calculations';
@@ -13,182 +15,7 @@ import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
-const MS_PER_SECOND = 1000;
-const SECONDS_PER_MINUTE = 60;
-const MINUTES_PER_HOUR = 60;
-const HOURS_PER_DAY = 24;
-const MS_PER_DAY = MS_PER_SECOND * SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
-
-interface EMIPayment {
-  installmentNo: number;
-  date: Date | null;
-  expectedAmount: number;
-  description: string;
-}
-
-interface EMIDataForCalculation {
-  principal: string;
-  tenure: string;
-  annualInterestRate: string;
-  gst: string;
-  processingFees: string;
-  processingFeesGst: string;
-  firstInstallmentDate: Date | null;
-  processingFeesDate: Date | null;
-  iafe: string;
-}
-
-// Helper to calculate individual EMI payment schedules
-const buildProcessingFeesPayment = (
-  processingFees: number,
-  processingFeesGst: number,
-  processingFeesDate: Date | null,
-): EMIPayment | null => {
-  if (processingFees <= 0) {
-    return null;
-  }
-  const processingFeesGSTAmount = (processingFees * processingFeesGst) / PERCENTAGE_DIVISOR;
-  return {
-    installmentNo: 0,
-    date: processingFeesDate,
-    expectedAmount: processingFees + processingFeesGSTAmount,
-    description: 'Processing Fees',
-  };
-};
-
-const calculateInstallmentDate = (
-  firstInstallmentDate: Date | null,
-  monthOffset: number,
-): Date | null => {
-  if (firstInstallmentDate === null) {
-    return null;
-  }
-  const installmentDate = new Date(firstInstallmentDate);
-  installmentDate.setMonth(installmentDate.getMonth() + monthOffset);
-  return installmentDate;
-};
-
-// Helper function to calculate EMI payment amounts including IAFE and GST
-const calculateEMIPayments = (emiData: EMIDataForCalculation): EMIPayment[] => {
-  const principal = parseFloatSafe(emiData.principal);
-  const tenure = parseFloatSafe(emiData.tenure);
-  const annualRate = parseFloatSafe(emiData.annualInterestRate);
-  const gstRate = parseFloatSafe(emiData.gst);
-  const iafe = parseFloatSafe(emiData.iafe);
-  const processingFees = parseFloatSafe(emiData.processingFees);
-  const processingFeesGst = parseFloatSafe(emiData.processingFeesGst);
-
-  const monthlyRate = annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
-
-  // Calculate base EMI
-  let emi: number;
-  if (monthlyRate === 0) {
-    emi = principal / tenure;
-  } else {
-    emi =
-      (principal * monthlyRate * Math.pow(1 + monthlyRate, tenure)) /
-      (Math.pow(1 + monthlyRate, tenure) - 1);
-  }
-
-  const payments: EMIPayment[] = [];
-
-  // Add processing fees if present
-  const processingFeesPayment = buildProcessingFeesPayment(
-    processingFees,
-    processingFeesGst,
-    emiData.processingFeesDate,
-  );
-  if (processingFeesPayment !== null) {
-    payments.push(processingFeesPayment);
-  }
-
-  // Calculate EMI payments with dates
-  let balance = principal;
-  for (let month = 1; month <= tenure; month++) {
-    const interest = balance * monthlyRate;
-    const principalComponent = emi - interest;
-    balance = Math.max(balance - principalComponent, 0);
-
-    const gst = (interest * gstRate) / PERCENTAGE_DIVISOR;
-    let totalPayment = emi + gst;
-
-    // Add IAFE to first EMI
-    if (month === 1 && iafe > 0) {
-      const iafeGST = (iafe * gstRate) / PERCENTAGE_DIVISOR;
-      totalPayment += iafe + iafeGST;
-    }
-
-    const installmentDate = calculateInstallmentDate(emiData.firstInstallmentDate, month - 1);
-
-    payments.push({
-      installmentNo: month,
-      date: installmentDate,
-      expectedAmount: totalPayment,
-      description: `EMI ${month}`,
-    });
-  }
-
-  return payments;
-};
-
-// Helper to check if dates are within range (±3 days)
-const isDateWithinRange = (date1: Date, date2: Date, daysTolerance = 3): boolean => {
-  const diffMs = Math.abs(date1.getTime() - date2.getTime());
-  const diffDays = diffMs / MS_PER_DAY;
-  return diffDays <= daysTolerance;
-};
-
-// Helper to check if amounts are within range (±10)
-const isAmountWithinRange = (amount1: number, amount2: number, tolerance = 10): boolean => {
-  return Math.abs(amount1 - amount2) <= tolerance;
-};
-
-// Helper to match statement with payment
-const findMatchingPayment = (
-  payments: EMIPayment[],
-  statementAmount: number,
-  statementDate: Date,
-  existingInstallments: number[],
-): number | null => {
-  for (const payment of payments) {
-    if (existingInstallments.includes(payment.installmentNo)) {
-      continue;
-    }
-
-    const amountMatches = isAmountWithinRange(statementAmount, payment.expectedAmount);
-    const hasDate = payment.date !== null;
-    const dateMatches =
-      hasDate && payment.date !== null ? isDateWithinRange(statementDate, payment.date) : false;
-
-    if ((hasDate && dateMatches && amountMatches) || (!hasDate && amountMatches)) {
-      return payment.installmentNo;
-    }
-  }
-  return null;
-};
-
-// Helper to validate installment sequence
-const validateInstallmentSequence = (
-  existingInstallments: number[],
-  newInstallmentNo: number,
-  startInstallment: number,
-): void => {
-  const newInstallments = [...existingInstallments, newInstallmentNo].sort((a, b) => a - b);
-
-  for (let i = 0; i < newInstallments.length; i++) {
-    const expectedInstallmentNo = startInstallment + i;
-    if (newInstallments[i] !== expectedInstallmentNo) {
-      throw new Error(
-        `Cannot link installment ${newInstallmentNo}. Missing previous installment ${expectedInstallmentNo}. Existing installments: [${existingInstallments.join(', ')}]`,
-      );
-    }
-  }
-
-  if (existingInstallments.includes(newInstallmentNo)) {
-    throw new Error(`Installment ${newInstallmentNo} is already linked to another statement`);
-  }
-};
-
+const STATEMENT_NOT_LINKED = 'Statement is not linked to an EMI';
 export const emisRouter = createTRPCRouter({
   getEmis: protectedProcedure.input(emiParserSchema).query(async ({ ctx, input }) => {
     const conditions = [eq(emis.userId, ctx.session.user.id)];
@@ -235,21 +62,16 @@ export const emisRouter = createTRPCRouter({
       .insert(emis)
       .values({
         userId: ctx.session.user.id,
-        name: input.name,
-        creditId: input.creditId,
+        ...{
+          ...input,
+          calculationMode: undefined,
+          emiAmount: undefined,
+          totalEmiAmount: undefined,
+        },
         principal: principal.toFixed(2).toString(),
-        tenure: input.tenure,
-        annualInterestRate: input.annualInterestRate,
-        processingFees: input.processingFees,
-        processingFeesGst: input.processingFeesGst,
-        gst: input.gst,
-        firstInstallmentDate: input.firstInstallmentDate,
-        processingFeesDate: input.processingFeesDate,
-        iafe: input.iafe,
       })
       .returning({ id: emis.id });
   }),
-
   updateEmi: protectedProcedure
     .input(
       z.object({
@@ -341,50 +163,33 @@ export const emisRouter = createTRPCRouter({
       }
       const attributes = statement[0].attributes as Partial<Record<string, unknown>>;
       if (attributes.emiId === undefined) {
-        throw new Error('Statement is not linked to an EMI');
+        throw new Error(STATEMENT_NOT_LINKED);
       }
-
       const currentInstallmentNo =
         typeof attributes.installmentNo === 'number' ? attributes.installmentNo : null;
-
       if (currentInstallmentNo === null) {
         throw new Error('Statement does not have a valid installment number');
       }
-
       const emiId = attributes.emiId as string;
-
-      // Get all linked statements for this EMI
-      const allLinkedStatements = await ctx.db
+      const maxInstallmentQuery = getMaxInstallmentNoSubquery(ctx.db, ctx.session.user.id);
+      const maxInstallment = await ctx.db
         .select({
-          id: statements.id,
-          attributes: statements.additionalAttributes,
+          maxInstallmentNo: maxInstallmentQuery.maxInstallmentNo,
         })
-        .from(statements)
-        .where(
-          and(
-            eq(statements.userId, ctx.session.user.id),
-            eq(sql`${statements.additionalAttributes}->>'emiId'`, emiId),
-          ),
-        );
-
-      // Extract all installment numbers
-      const allInstallmentNos = allLinkedStatements
-        .map((s) => {
-          const attrs = s.attributes as Partial<Record<string, unknown>>;
-          return typeof attrs.installmentNo === 'number' ? attrs.installmentNo : null;
-        })
-        .filter((no): no is number => no !== null)
-        .sort((a, b) => b - a); // Sort descending to get max first
-
-      const maxInstallmentNo = allInstallmentNos[0];
-
-      // Only allow unlinking if it's the last payment
-      if (currentInstallmentNo !== maxInstallmentNo) {
+        .from(maxInstallmentQuery)
+        .where(eq(maxInstallmentQuery.emiId, emiId));
+      if (maxInstallment.length === 0) {
+        throw new Error(STATEMENT_NOT_LINKED);
+      }
+      const { maxInstallmentNo } = maxInstallment[0];
+      if (maxInstallmentNo === null) {
+        throw new Error(STATEMENT_NOT_LINKED);
+      }
+      if (currentInstallmentNo !== parseFloatSafe(maxInstallmentNo)) {
         throw new Error(
           `Cannot unlink installment ${currentInstallmentNo}. Only the last payment (installment ${maxInstallmentNo}) can be unlinked.`,
         );
       }
-
       await ctx.db
         .update(statements)
         .set({
@@ -407,17 +212,8 @@ export const emisRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const emiData = await ctx.db
         .select({
-          id: emis.id,
           accountId: creditCardAccounts.accountId,
-          principal: emis.principal,
-          tenure: emis.tenure,
-          annualInterestRate: emis.annualInterestRate,
-          gst: emis.gst,
-          processingFees: emis.processingFees,
-          processingFeesGst: emis.processingFeesGst,
-          firstInstallmentDate: emis.firstInstallmentDate,
-          processingFeesDate: emis.processingFeesDate,
-          iafe: emis.iafe,
+          ...getTableColumns(emis),
         })
         .from(emis)
         .leftJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
@@ -427,10 +223,7 @@ export const emisRouter = createTRPCRouter({
       if (emiData.length === 0) {
         throw new Error(EMI_NOT_FOUND);
       }
-
       const emi = emiData[0];
-
-      // Fetch statement details
       const statementData = await ctx.db
         .select({
           id: statements.id,
@@ -445,92 +238,51 @@ export const emisRouter = createTRPCRouter({
           and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
         )
         .limit(1);
-
       if (statementData.length === 0) {
         throw new Error('Statement not found or access denied');
       }
-
       const statement = statementData[0];
       const attributes = statement.attributes as Partial<Record<string, unknown>>;
-
       if (attributes.emiId !== undefined) {
         throw new Error('Statement is already linked to an EMI');
       }
-
-      // Calculate EMI payment schedule
-      const payments = calculateEMIPayments(emi);
-
-      // Get existing linked statements
-      const existingStatements = await ctx.db
+      const { schedule: payments } = calculateSchedule(emi);
+      let lastInstallmentNo = -1;
+      const maxInstallmentQuery = getMaxInstallmentNoSubquery(ctx.db, ctx.session.user.id);
+      const maxInstallment = await ctx.db
         .select({
-          id: statements.id,
-          attributes: statements.additionalAttributes,
-          amount: statements.amount,
-          createdAt: statements.createdAt,
+          maxInstallmentNo: maxInstallmentQuery.maxInstallmentNo,
         })
-        .from(statements)
-        .where(
-          and(
-            eq(statements.userId, ctx.session.user.id),
-            eq(sql`${statements.additionalAttributes}->>'emiId'`, input.emiId),
-          ),
-        );
-
-      const existingInstallments = existingStatements
-        .map((s) => {
-          const attrs = s.attributes as Partial<Record<string, unknown>>;
-          return typeof attrs.installmentNo === 'number' ? attrs.installmentNo : null;
-        })
-        .filter((no): no is number => no !== null)
-        .sort((a, b) => a - b);
-
-      let statementAmount = parseFloatSafe(statement.amount);
-      const statementDate = new Date(statement.createdAt);
-      if (
-        statementAmount < 0 &&
-        (statement.statementKind === 'friend_transaction' ||
-          statement.statementKind === 'outside_transaction')
-      ) {
-        statementAmount = statementAmount * -1;
+        .from(maxInstallmentQuery)
+        .where(eq(maxInstallmentQuery.emiId, input.emiId));
+      if (maxInstallment.length !== 0) {
+        const { maxInstallmentNo } = maxInstallment[0];
+        if (maxInstallmentNo !== null) {
+          lastInstallmentNo = parseFloatSafe(maxInstallmentNo);
+        }
       }
-      const matchedInstallmentNo = findMatchingPayment(
+      const matchConfirmed = confirmMatch(
         payments,
-        statementAmount,
-        statementDate,
-        existingInstallments,
+        Math.abs(parseFloatSafe(statement.amount)),
+        statement.createdAt,
+        lastInstallmentNo + 1,
       );
-
-      if (matchedInstallmentNo === null) {
-        const paymentInfo = payments
-          .map((p) => {
-            const dateStr = p.date === null ? 'N/A' : p.date.toISOString();
-            return `[${p.installmentNo}] ${p.expectedAmount} on ${dateStr}`;
-          })
-          .join(', ');
-        throw new Error(
-          `Could not match statement to any EMI installment. Statement amount: ${statementAmount}, date: ${statementDate.toISOString()}. Expected amounts: ${paymentInfo}`,
-        );
+      if (!matchConfirmed) {
+        throw new Error('Statement does not match with the payments');
       }
-
-      // Validate installment order
-      const startInstallment = payments[0]?.installmentNo ?? 0;
-      validateInstallmentSequence(existingInstallments, matchedInstallmentNo, startInstallment);
-
-      // Update statement with EMI ID and installment number
       await ctx.db
         .update(statements)
         .set({
           additionalAttributes: {
             ...attributes,
             emiId: input.emiId,
-            installmentNo: matchedInstallmentNo,
+            installmentNo: lastInstallmentNo + 1,
           },
         })
         .where(eq(statements.id, input.statementId));
-
       return {
         success: true,
-        installmentNo: matchedInstallmentNo,
+        installmentNo: lastInstallmentNo + 1,
       };
     }),
   getLinkedStatements: protectedProcedure
