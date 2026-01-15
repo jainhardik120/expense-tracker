@@ -7,6 +7,7 @@ import { Toaster } from 'sonner';
 
 import { ThemeProvider } from '@/components/theme-provider';
 import NextTopLoader from '@/components/top-loader';
+import { PostHogProvider } from '@/providers/posthog-provider';
 import { TRPCReactProvider } from '@/server/react';
 
 import type { Metadata } from 'next';
@@ -37,18 +38,20 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <NuqsAdapter>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            disableTransitionOnChange
-            enableSystem
-          >
-            <NextTopLoader />
-            <TRPCReactProvider>{children}</TRPCReactProvider>
-            <Toaster />
-          </ThemeProvider>
-        </NuqsAdapter>
+        <PostHogProvider>
+          <NuqsAdapter>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              disableTransitionOnChange
+              enableSystem
+            >
+              <NextTopLoader />
+              <TRPCReactProvider>{children}</TRPCReactProvider>
+              <Toaster />
+            </ThemeProvider>
+          </NuqsAdapter>
+        </PostHogProvider>
       </body>
     </html>
   );

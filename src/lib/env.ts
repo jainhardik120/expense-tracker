@@ -15,6 +15,8 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL: z.string().optional(),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string(),
+    NEXT_PUBLIC_POSTHOG_HOST: z.string(),
   },
   runtimeEnv: {
     AWS_ACCESS_KEY_ID: process.env['AWS_ACCESS_KEY_ID'],
@@ -28,6 +30,8 @@ export const env = createEnv({
     NODE_ENV: process.env['NODE_ENV'],
     GITHUB_CLIENT_ID: process.env['GITHUB_CLIENT_ID'],
     GITHUB_CLIENT_SECRET: process.env['GITHUB_CLIENT_SECRET'],
+    NEXT_PUBLIC_POSTHOG_HOST: process.env['NEXT_PUBLIC_POSTHOG_HOST'],
+    NEXT_PUBLIC_POSTHOG_KEY: process.env['NEXT_PUBLIC_POSTHOG_KEY'],
   },
   skipValidation:
     process.env['SKIP_ENV_VALIDATION'] !== undefined &&
