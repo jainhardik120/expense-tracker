@@ -8,6 +8,7 @@ import TimeZoneSetter from '@/components/time-zone-setter';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
+import FloatingChatbot from './_components/floating-chatbot';
 import UserButton from './_components/UserButton';
 
 export default async function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -31,6 +32,7 @@ export default async function Layout({ children }: Readonly<{ children: React.Re
             </div>
           </header>
           <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+          <FloatingChatbot />
         </SidebarInset>
       </SidebarProvider>
       <TimeZoneSetter />
