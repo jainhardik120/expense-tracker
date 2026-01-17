@@ -66,7 +66,7 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
   return (
     <Form {...form}>
       <form className={cn('grid gap-4', props.className)} onSubmit={onFormSubmit}>
-        <div className={cn('grid max-h-[70vh] gap-4 overflow-y-auto', props.className)}>
+        <div className={cn('grid max-h-[70vh] gap-4 overflow-y-auto p-1', props.className)}>
           {props.fields.map((field) => {
             const { displayCondition = true } = field;
             if (
@@ -118,11 +118,15 @@ const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
         </div>
 
         {props.showSubmitButton === true && (
-          <Button disabled={props.submitButtonDisabled} type="submit">
+          <Button className="mx-1" disabled={props.submitButtonDisabled} type="submit">
             {props.submitButtonText ?? 'Submit'}
           </Button>
         )}
-        {props.FormFooter === undefined ? null : <props.FormFooter form={form} />}
+        {props.FormFooter === undefined ? null : (
+          <div className="mx-1 grid gap-4">
+            <props.FormFooter form={form} />
+          </div>
+        )}
       </form>
     </Form>
   );
