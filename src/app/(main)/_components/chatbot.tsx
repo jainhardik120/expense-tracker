@@ -32,15 +32,6 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources';
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from '@/components/ai-elements/tool';
-
-import type { ToolUIPart } from 'ai';
 
 const SOURCE_URL = 'source-url';
 
@@ -93,12 +84,10 @@ const ChatBotDemo = () => {
                     switch (true) {
                       case part.type === 'text':
                         return (
-                          <>
-                            <Message key={`${message.id}-${i}`} from={message.role}>
-                              <MessageContent>
-                                <MessageResponse>{part.text}</MessageResponse>
-                              </MessageContent>
-                            </Message>
+                          <Message key={`${message.id}-${i}`} from={message.role}>
+                            <MessageContent>
+                              <MessageResponse>{part.text}</MessageResponse>
+                            </MessageContent>
                             {message.role === 'assistant' && i === messages.length - 1 && (
                               <MessageActions>
                                 <MessageAction label="Retry" onClick={() => regenerate()}>
@@ -112,7 +101,7 @@ const ChatBotDemo = () => {
                                 </MessageAction>
                               </MessageActions>
                             )}
-                          </>
+                          </Message>
                         );
                       case part.type === 'reasoning':
                         return (
@@ -128,23 +117,6 @@ const ChatBotDemo = () => {
                             <ReasoningTrigger />
                             <ReasoningContent>{part.text}</ReasoningContent>
                           </Reasoning>
-                        );
-                      case part.type.startsWith('tool-'):
-                        const toolCall = part as ToolUIPart;
-                        return (
-                          <Tool>
-                            <ToolHeader
-                              state={toolCall.state}
-                              type={part.type as `tool-${string}`}
-                            />
-                            <ToolContent>
-                              <ToolInput input={toolCall.input} />
-                              <ToolOutput
-                                errorText={toolCall.errorText}
-                                output={JSON.stringify(toolCall.output, null, 2)}
-                              />
-                            </ToolContent>
-                          </Tool>
                         );
                       default:
                         return null;

@@ -13,10 +13,16 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
   return {
     'get-accounts-summary': tool({
       description: 'Get a summary of all accounts',
-      inputSchema: z.object({}),
-      execute: async () => {
-        const result = await caller.summary.getSummary({});
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+      inputSchema: z.object({
+        start: z.string().optional(),
+        end: z.string().optional(),
+      }),
+      execute: async (input) => {
+        const start =
+          input.start !== undefined && input.start.length > 0 ? new Date(input.start) : undefined;
+        const end =
+          input.end !== undefined && input.end.length > 0 ? new Date(input.end) : undefined;
+        const result = await caller.summary.getSummary({ start, end });
         return { accounts: result.accountsSummaryData, friends: result.friendsSummaryData };
       },
     }),
