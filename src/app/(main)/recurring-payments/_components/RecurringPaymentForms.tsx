@@ -79,7 +79,7 @@ export const CreateRecurringPaymentForm = () => {
         amount: '',
         frequency: 'monthly' as const,
         startDate: currentDate,
-        endDate: undefined,
+        endDate: currentDate,
         isActive: true,
       }}
       fields={recurringPaymentFormFields}

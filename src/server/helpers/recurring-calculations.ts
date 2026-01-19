@@ -5,13 +5,18 @@ import type { RecurringPayment, RecurringPaymentFrequency } from '@/types';
 
 const QUARTERLY_MONTHS = 3;
 
+type RecurringPaymentSchedule = {
+  id: string;
+  name: string;
+  category: string;
+  amount: number;
+  date: Date;
+};
+
 /**
  * Calculate the next payment date based on frequency
  */
-export const getNextPaymentDate = (
-  currentDate: Date,
-  frequency: RecurringPaymentFrequency,
-): Date => {
+const getNextPaymentDate = (currentDate: Date, frequency: RecurringPaymentFrequency): Date => {
   switch (frequency) {
     case 'daily':
       return addDays(currentDate, 1);
@@ -31,7 +36,7 @@ export const getNextPaymentDate = (
 /**
  * Generate all upcoming payment dates for a recurring payment up to a certain date
  */
-export const getUpcomingPaymentDates = (
+const getUpcomingPaymentDates = (
   recurringPayment: RecurringPayment,
   uptoDate: Date,
   timezone = 'UTC',
@@ -77,15 +82,10 @@ export const getUpcomingPaymentDates = (
 /**
  * Group recurring payments by month (yyyy-MM format)
  */
-export const groupRecurringPaymentsByMonth = (
-  payments: {
-    id: string;
-    name: string;
-    amount: number;
-    date: Date;
-  }[],
-): Record<string, { id: string; name: string; amount: number; date: Date }[]> => {
-  const grouped: Record<string, { id: string; name: string; amount: number; date: Date }[]> = {};
+const groupRecurringPaymentsByMonth = (
+  payments: RecurringPaymentSchedule[],
+): Record<string, RecurringPaymentSchedule[]> => {
+  const grouped: Record<string, RecurringPaymentSchedule[]> = {};
 
   for (const payment of payments) {
     const monthKey = format(payment.date, 'yyyy-MM');
@@ -105,20 +105,8 @@ export const getCurrentMonthRecurringPayments = (
   recurringPayments: RecurringPayment[],
   currentMonthEnd: Date,
   timezone = 'UTC',
-): {
-  id: string;
-  name: string;
-  category: string;
-  amount: number;
-  date: Date;
-}[] => {
-  const currentMonthPayments: {
-    id: string;
-    name: string;
-    category: string;
-    amount: number;
-    date: Date;
-  }[] = [];
+): RecurringPaymentSchedule[] => {
+  const currentMonthPayments: RecurringPaymentSchedule[] = [];
 
   for (const rp of recurringPayments) {
     const upcomingDates = getUpcomingPaymentDates(rp, currentMonthEnd, timezone);
@@ -143,23 +131,8 @@ export const getFutureRecurringPayments = (
   recurringPayments: RecurringPayment[],
   uptoDate: Date,
   timezone = 'UTC',
-): Record<
-  string,
-  {
-    id: string;
-    name: string;
-    category: string;
-    amount: number;
-    date: Date;
-  }[]
-> => {
-  const allPayments: {
-    id: string;
-    name: string;
-    category: string;
-    amount: number;
-    date: Date;
-  }[] = [];
+): Record<string, RecurringPaymentSchedule[]> => {
+  const allPayments: RecurringPaymentSchedule[] = [];
 
   for (const rp of recurringPayments) {
     const upcomingDates = getUpcomingPaymentDates(rp, uptoDate, timezone);

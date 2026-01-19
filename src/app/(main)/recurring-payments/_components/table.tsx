@@ -6,7 +6,6 @@ import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { useDataTable } from '@/hooks/use-data-table';
 import type { RouterOutput } from '@/server/routers';
-import { recurringPaymentParser } from '@/types';
 
 import { createRecurringPaymentColumns } from './RecurringPaymentColumns';
 import { CreateRecurringPaymentForm } from './RecurringPaymentForms';
@@ -26,12 +25,11 @@ export default function RecurringPaymentsTable({ data }: RecurringPaymentsTableP
     data: data.recurringPayments,
     columns,
     pageCount: data.pageCount,
-    defaultPerPage: 10,
-    parser: recurringPaymentParser,
+    shallow: false,
   });
 
   return (
-    <DataTable table={table}>
+    <DataTable getItemValue={(item) => item.id} table={table}>
       <DataTableToolbar table={table}>
         <CreateRecurringPaymentForm />
       </DataTableToolbar>
