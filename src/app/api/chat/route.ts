@@ -1,6 +1,6 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 import { headers } from 'next/headers';
 
-import { google } from '@ai-sdk/google';
 import { streamText, convertToModelMessages, type UIMessage, tool, stepCountIs } from 'ai';
 import { z } from 'zod';
 
@@ -70,8 +70,8 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
         const end =
           input.end !== undefined && input.end.length > 0 ? new Date(input.end) : undefined;
         const result = await caller.statements.getStatements({
-          page: input.page ?? 1,
-          perPage: input.perPage ?? 10,
+          page: input.page,
+          perPage: input.perPage,
           start,
           end,
           account: input.account ?? [],
@@ -169,7 +169,9 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
         amount: z
           .string()
           .min(1, 'Amount is required')
-          .describe('The amount for the statement as a numeric string (positive for expenses, negative for income). Example: "100.50" or "-50"'),
+          .describe(
+            'The amount for the statement as a numeric string (positive for expenses, negative for income). Example: "100.50" or "-50"',
+          ),
         category: z.string().describe('Category of the expense (e.g., Food, Transport, Shopping)'),
         tags: z.array(z.string()).optional().describe('Optional tags for the statement'),
         accountId: z
@@ -238,10 +240,10 @@ export const POST = async (req: Request) => {
   } = await req.json();
   const modelMessages = await convertToModelMessages(messages);
   const result = streamText({
-    model: google('gemini-3-flash-preview'),
+    model: 'google/gemini-3-flash',
     messages: modelMessages,
     tools: tools(caller),
-    stopWhen: stepCountIs(5),
+    stopWhen: stepCountIs(20),
     system: `You are an accounting expert. You are helpful and honest. You will answer questions about accounting and finance. You will also provide financial advice and guidance. Your answers should be helpful, honest, and informative. You should not provide any financial advice that is not related to the question. If you are unsure of the answer, you should say "I'm not sure" and not "I don't know". You can only answer questions related to accounting and finance. If you are asked about a topic that is not related to accounting or finance, you should say "I'm not sure" and not "I don't know". You should not answer questions that are not related to accounting or finance.`,
   });
   return result.toUIMessageStreamResponse({
