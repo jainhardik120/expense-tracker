@@ -5,9 +5,9 @@ import { bulkImportRouter } from './bulk-import';
 import { emisRouter } from './emis';
 import { friendsRouter } from './friends';
 import { investmentsRouter } from './investments';
+import { recurringPaymentsRouter } from './recurring-payments';
 import { statementsRouter } from './statements';
 import { summaryRouter } from './summary';
-import { recurringPaymentsRouter } from './recurring-payments';
 
 import type { inferRouterOutputs, inferRouterInputs } from '@trpc/server';
 

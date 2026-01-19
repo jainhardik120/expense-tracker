@@ -24,7 +24,7 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
 
   const recurringCurrentMonth = useMemo(() => {
     const monthEnd = endOfMonth(new Date());
-    return getCurrentMonthRecurringPayments(recurringPayments ?? [], monthEnd);
+    return getCurrentMonthRecurringPayments(recurringPayments, monthEnd);
   }, [recurringPayments]);
 
   const currentMonthTotal = useMemo(() => {
@@ -51,9 +51,7 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!hasPayments ? (
-          <p className="text-muted-foreground text-sm">No payments due this month</p>
-        ) : (
+        {hasPayments ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -100,6 +98,8 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
               ))}
             </TableBody>
           </Table>
+        ) : (
+          <p className="text-muted-foreground text-sm">No payments due this month</p>
         )}
       </CardContent>
     </Card>

@@ -12,7 +12,8 @@ import { type RouterOutput } from '@/server/routers';
 
 import { UpdateRecurringPaymentForm } from './RecurringPaymentForms';
 
-type RecurringPayment = RouterOutput['recurringPayments']['getRecurringPayments']['recurringPayments'][number];
+type RecurringPayment =
+  RouterOutput['recurringPayments']['getRecurringPayments']['recurringPayments'][number];
 
 const frequencyLabels: Record<string, string> = {
   daily: 'Daily',
@@ -22,7 +23,9 @@ const frequencyLabels: Record<string, string> = {
   yearly: 'Yearly',
 };
 
-export const createRecurringPaymentColumns = (refresh: () => void): ColumnDef<RecurringPayment>[] => [
+export const createRecurringPaymentColumns = (
+  refresh: () => void,
+): ColumnDef<RecurringPayment>[] => [
   {
     accessorKey: 'name',
     header: 'Name',
@@ -49,7 +52,12 @@ export const createRecurringPaymentColumns = (refresh: () => void): ColumnDef<Re
   {
     accessorKey: 'endDate',
     header: 'End Date',
-    cell: ({ row }) => (row.original.endDate ? formatDate(row.original.endDate) : 'N/A'),
+    cell: ({ row }) => {
+      if (row.original.endDate === null) {
+        return 'N/A';
+      }
+      return formatDate(row.original.endDate);
+    },
   },
   {
     accessorKey: 'isActive',

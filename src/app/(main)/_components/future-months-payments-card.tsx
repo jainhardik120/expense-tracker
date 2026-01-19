@@ -23,7 +23,12 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
   const { paymentsByMonth, recurringPayments, uptoDate } = creditData;
 
   const recurringPaymentsByMonth = useMemo(() => {
-    if (!recurringPayments || !uptoDate) return {};
+    if (recurringPayments === undefined) {
+      return {};
+    }
+    if (uptoDate === undefined) {
+      return {};
+    }
     return getFutureRecurringPayments(recurringPayments, uptoDate);
   }, [recurringPayments, uptoDate]);
 
@@ -87,7 +92,9 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
                     {formatCurrency(recurringTotal)}
                   </TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(myTotal)}</TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatCurrency(myTotal)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

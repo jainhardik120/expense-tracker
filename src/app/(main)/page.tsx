@@ -30,15 +30,27 @@ export default async function Page({
     ...dateParams,
   });
   const summaryPromise = api.summary.getSummary(dateParams);
-  
+
   // Calculate end of current year (December 31st at 23:59:59)
   const now = new Date();
-  const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
-  
+  const DECEMBER = 11;
+  const LAST_DAY = 31;
+  const LAST_HOUR = 23;
+  const LAST_MINUTE = 59;
+  const LAST_SECOND = 59;
+  const endOfYear = new Date(
+    now.getFullYear(),
+    DECEMBER,
+    LAST_DAY,
+    LAST_HOUR,
+    LAST_MINUTE,
+    LAST_SECOND,
+  );
+
   const creditAccountsPromise = api.emis.getCreditCardsWithOutstandingBalance({
     uptoDate: endOfYear,
   });
-  
+
   return (
     <div className="flex flex-col gap-4">
       <FilterPanel />

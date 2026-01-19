@@ -403,7 +403,10 @@ export const emisRouter = createTRPCRouter({
         .select()
         .from(recurringPayments)
         .where(
-          and(eq(recurringPayments.userId, ctx.session.user.id), eq(recurringPayments.isActive, true)),
+          and(
+            eq(recurringPayments.userId, ctx.session.user.id),
+            eq(recurringPayments.isActive, true),
+          ),
         )
         .orderBy(desc(recurringPayments.startDate));
 

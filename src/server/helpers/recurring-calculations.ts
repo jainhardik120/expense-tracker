@@ -44,11 +44,9 @@ export const getUpcomingPaymentDates = (
 
   const payments: { date: Date; amount: number }[] = [];
   const startDate = toZonedTime(recurringPayment.startDate, timezone);
-  const endDate = recurringPayment.endDate
-    ? toZonedTime(recurringPayment.endDate, timezone)
-    : null;
+  const endDate = recurringPayment.endDate ? toZonedTime(recurringPayment.endDate, timezone) : null;
   const uptoDateZoned = toZonedTime(uptoDate, timezone);
-  
+
   let currentDate = startDate;
   const now = startOfDay(toZonedTime(new Date(), timezone));
 
@@ -57,7 +55,11 @@ export const getUpcomingPaymentDates = (
     // Check if payment is in the future
     if (!isBefore(currentDate, now)) {
       // Check if payment is before end date (if set)
-      if (endDate === null || isBefore(currentDate, endDate) || currentDate.getTime() === endDate.getTime()) {
+      if (
+        endDate === null ||
+        isBefore(currentDate, endDate) ||
+        currentDate.getTime() === endDate.getTime()
+      ) {
         payments.push({
           date: currentDate,
           amount: parseFloat(recurringPayment.amount),

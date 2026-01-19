@@ -73,9 +73,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
       const result = await ctx.db
         .update(recurringPayments)
         .set(updateData)
-        .where(
-          and(eq(recurringPayments.id, id), eq(recurringPayments.userId, ctx.session.user.id)),
-        )
+        .where(and(eq(recurringPayments.id, id), eq(recurringPayments.userId, ctx.session.user.id)))
         .returning({ id: recurringPayments.id });
 
       if (result.length === 0) {
@@ -115,7 +113,12 @@ export const recurringPaymentsRouter = createTRPCRouter({
       const activeRecurringPayments = await ctx.db
         .select()
         .from(recurringPayments)
-        .where(and(eq(recurringPayments.userId, ctx.session.user.id), eq(recurringPayments.isActive, true)))
+        .where(
+          and(
+            eq(recurringPayments.userId, ctx.session.user.id),
+            eq(recurringPayments.isActive, true),
+          ),
+        )
         .orderBy(desc(recurringPayments.startDate));
 
       return {
