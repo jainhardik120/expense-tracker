@@ -3,10 +3,10 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
-import { Toaster } from 'sonner';
 
 import { ThemeProvider } from '@/components/theme-provider';
 import NextTopLoader from '@/components/top-loader';
+import { Toaster } from '@/components/ui/sonner';
 import { PostHogProvider } from '@/providers/posthog-provider';
 import { TRPCReactProvider } from '@/server/react';
 

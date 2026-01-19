@@ -7,7 +7,7 @@
     "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=./src/db/drizzle.config.ts",
     "dev": "next dev --turbopack",
-    "duplicate:check": "jscpd ./src",
+    "duplicate:check": "jscpd ./src --pattern \"**/*.{ts,tsx}\"",
     "email:dev": "email dev --dir src/emails --port 3001",
     "build": "next typegen && eslint \"src/**/*.{ts,tsx}\" && next build --turbopack",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
@@ -16,7 +16,12 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "update:check": "npm-check-updates",
-    "link:report": "ts-node ./src/scripts/eslint-out.ts"
+    "link:report": "ts-node ./src/scripts/eslint-out.ts",
+    "unused": "knip",
+    "unused:fix": "knip --fix",
+    "unused:exports": "knip --include exports,types",
+    "unused:files": "knip --include files",
+    "unused:deps": "knip --include dependencies,devDependencies"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.10",
@@ -131,6 +136,7 @@
     "eslint-plugin-security": "^3.0.1",
     "eslint-plugin-sonarjs": "^3.0.5",
     "jscpd": "^4.0.7",
+    "knip": "^5.82.1",
     "npm-check-updates": "^19.3.1",
     "prettier": "^3.8.0",
     "prettier-plugin-tailwindcss": "^0.7.2",
