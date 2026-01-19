@@ -224,6 +224,13 @@ type LinkedStatement = {
 };
 
 /**
+ * Linked statement with pre-computed zoned date
+ */
+type LinkedStatementWithZonedDate = LinkedStatement & {
+  zonedDate: Date;
+};
+
+/**
  * Payment schedule entry with status
  */
 export type PaymentScheduleEntry = {
@@ -258,10 +265,13 @@ export const generatePaymentSchedule = (
   const endOfYearZoned = toZonedTime(endOfYear, timezone);
   const now = startOfDay(toZonedTime(new Date(), timezone));
 
-  // Sort linked statements by date
-  const sortedStatements = [...linkedStatements].sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
+  // Pre-convert statement dates to zoned times and sort by date
+  const sortedStatements: LinkedStatementWithZonedDate[] = linkedStatements
+    .map((stmt) => ({
+      ...stmt,
+      zonedDate: toZonedTime(new Date(stmt.createdAt), timezone),
+    }))
+    .sort((a, b) => a.zonedDate.getTime() - b.zonedDate.getTime());
 
   // Track which statements have been used
   const usedStatementIds = new Set<string>();
@@ -283,13 +293,12 @@ export const generatePaymentSchedule = (
     }
 
     // Find a matching statement within tolerance
-    let matchedStatement: LinkedStatement | null = null;
+    let matchedStatement: LinkedStatementWithZonedDate | null = null;
     for (const stmt of sortedStatements) {
       if (usedStatementIds.has(stmt.id)) continue;
 
-      const stmtDate = toZonedTime(new Date(stmt.createdAt), timezone);
       if (
-        isPaymentWithinTolerance(stmtDate, currentDate, recurringPayment.frequency, multiplier)
+        isPaymentWithinTolerance(stmt.zonedDate, currentDate, recurringPayment.frequency, multiplier)
       ) {
         matchedStatement = stmt;
         usedStatementIds.add(stmt.id);
@@ -312,8 +321,7 @@ export const generatePaymentSchedule = (
       expectedAmount,
       status,
       linkedStatementId: matchedStatement?.id ?? null,
-      linkedStatementDate:
-        matchedStatement !== null ? new Date(matchedStatement.createdAt) : null,
+      linkedStatementDate: matchedStatement?.zonedDate ?? null,
       linkedStatementAmount:
         matchedStatement !== null ? parseFloat(matchedStatement.amount) : null,
     });

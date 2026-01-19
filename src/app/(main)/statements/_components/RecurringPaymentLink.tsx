@@ -12,6 +12,14 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
 import { type Statement } from '@/types';
 
+/**
+ * Check if a statement is linked to a recurring payment
+ */
+const hasLinkedRecurringPayment = (statement: Statement): boolean => {
+  const attributes = statement.additionalAttributes as Partial<Record<string, unknown>>;
+  return attributes['recurringPaymentId'] !== undefined;
+};
+
 export const LinkToRecurringPaymentDialog = ({
   statement,
   onRefresh,
@@ -19,14 +27,10 @@ export const LinkToRecurringPaymentDialog = ({
   statement: Statement;
   onRefresh: () => void;
 }) => {
-  const existingRecurringPayment =
-    (statement.additionalAttributes as Partial<Record<string, unknown>>)['recurringPaymentId'] !==
-    undefined;
-
-  if (!existingRecurringPayment) {
-    return <LinkDialog statement={statement} onRefresh={onRefresh} />;
+  if (hasLinkedRecurringPayment(statement)) {
+    return <UnlinkDialog statement={statement} onRefresh={onRefresh} />;
   }
-  return <UnlinkDialog statement={statement} onRefresh={onRefresh} />;
+  return <LinkDialog statement={statement} onRefresh={onRefresh} />;
 };
 
 const LinkDialog = ({
