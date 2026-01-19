@@ -44,3 +44,4 @@ sonar-project.properties
 .vscode
 .scannerwork
 .env*.local
+package-lock.json

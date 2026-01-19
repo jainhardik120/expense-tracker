@@ -28,7 +28,7 @@ export const isRecurringPaymentActive = (recurringPayment: RecurringPayment): bo
 /**
  * Calculate the next payment date based on frequency and multiplier
  */
-const getNextPaymentDate = (
+export const getNextPaymentDate = (
   currentDate: Date,
   frequency: RecurringPaymentFrequency,
   multiplier: number,
@@ -212,4 +212,150 @@ export const getFutureRecurringPayments = (
   }
 
   return groupRecurringPaymentsByMonth(allPayments);
+};
+
+/**
+ * Linked statement type for payment schedule matching
+ */
+type LinkedStatement = {
+  id: string;
+  amount: string;
+  createdAt: Date;
+};
+
+/**
+ * Linked statement with pre-computed zoned date
+ */
+type LinkedStatementWithZonedDate = LinkedStatement & {
+  zonedDate: Date;
+};
+
+/**
+ * Payment schedule entry with status
+ */
+export type PaymentScheduleEntry = {
+  scheduledDate: Date;
+  expectedAmount: number;
+  status: 'paid' | 'upcoming' | 'missed';
+  linkedStatementId: string | null;
+  linkedStatementDate: Date | null;
+  linkedStatementAmount: number | null;
+};
+
+/**
+ * Generate complete payment schedule for a recurring payment
+ * including past payments matched with linked statements and upcoming payments
+ */
+// eslint-disable-next-line max-statements
+export const generatePaymentSchedule = (
+  recurringPayment: RecurringPayment,
+  linkedStatements: LinkedStatement[],
+  timezone: string,
+  endOfYear: Date,
+): {
+  schedule: PaymentScheduleEntry[];
+  nextPaymentDate: Date | null;
+} => {
+  const schedule: PaymentScheduleEntry[] = [];
+  const multiplier = parseFloat(recurringPayment.frequencyMultiplier);
+  const expectedAmount = parseFloat(recurringPayment.amount);
+
+  const startDate = toZonedTime(recurringPayment.startDate, timezone);
+  const endDate =
+    recurringPayment.endDate === null ? null : toZonedTime(recurringPayment.endDate, timezone);
+  const endOfYearZoned = toZonedTime(endOfYear, timezone);
+  const now = startOfDay(toZonedTime(new Date(), timezone));
+
+  // Pre-convert statement dates to zoned times and sort by date
+  const sortedStatements: LinkedStatementWithZonedDate[] = linkedStatements
+    .map((stmt) => ({
+      ...stmt,
+      zonedDate: toZonedTime(new Date(stmt.createdAt), timezone),
+    }))
+    .sort((a, b) => a.zonedDate.getTime() - b.zonedDate.getTime());
+
+  // Track which statements have been used
+  const usedStatementIds = new Set<string>();
+
+  // Generate all scheduled payment dates from start to end of year
+  let currentDate = startDate;
+
+  while (
+    isBefore(currentDate, endOfYearZoned) ||
+    currentDate.getTime() === endOfYearZoned.getTime()
+  ) {
+    // Check if payment is within the active period
+    if (
+      endDate !== null &&
+      !isBefore(currentDate, endDate) &&
+      currentDate.getTime() !== endDate.getTime()
+    ) {
+      break;
+    }
+
+    // Find a matching statement within tolerance
+    let matchedStatement: LinkedStatementWithZonedDate | null = null;
+    for (const stmt of sortedStatements) {
+      if (usedStatementIds.has(stmt.id)) {
+        continue;
+      }
+
+      if (
+        isPaymentWithinTolerance(
+          stmt.zonedDate,
+          currentDate,
+          recurringPayment.frequency,
+          multiplier,
+        )
+      ) {
+        matchedStatement = stmt;
+        usedStatementIds.add(stmt.id);
+        break;
+      }
+    }
+
+    // Determine status
+    let status: 'paid' | 'upcoming' | 'missed';
+    if (matchedStatement !== null) {
+      status = 'paid';
+    } else if (isBefore(currentDate, now)) {
+      status = 'missed';
+    } else {
+      status = 'upcoming';
+    }
+
+    schedule.push({
+      scheduledDate: currentDate,
+      expectedAmount,
+      status,
+      linkedStatementId: matchedStatement?.id ?? null,
+      linkedStatementDate: matchedStatement?.zonedDate ?? null,
+      linkedStatementAmount: matchedStatement !== null ? parseFloat(matchedStatement.amount) : null,
+    });
+
+    currentDate = getNextPaymentDate(currentDate, recurringPayment.frequency, multiplier);
+  }
+
+  // Calculate next payment date
+  let nextPaymentDate: Date | null = null;
+  for (const entry of schedule) {
+    if (entry.status === 'upcoming') {
+      nextPaymentDate = entry.scheduledDate;
+      break;
+    }
+  }
+
+  // If no upcoming payment in current year schedule, calculate the next one
+  if (nextPaymentDate === null && isRecurringPaymentActive(recurringPayment)) {
+    // Find the last scheduled date
+    const lastScheduledDate =
+      schedule.length > 0 ? schedule[schedule.length - 1].scheduledDate : startDate;
+    const nextDate = getNextPaymentDate(lastScheduledDate, recurringPayment.frequency, multiplier);
+    // Only set if it's in the future
+    if (!isBefore(nextDate, now)) {
+      nextPaymentDate = nextDate;
+    }
+  }
+
+  return { schedule, nextPaymentDate };
 };

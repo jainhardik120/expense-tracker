@@ -22,6 +22,7 @@ import {
 } from '@/types';
 
 import { LinkToEMIDialog } from './EMIForms';
+import { LinkToRecurringPaymentDialog } from './RecurringPaymentLink';
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
 import { StatementSplitsDialog } from './StatementSplits';
@@ -59,6 +60,7 @@ const StatementActions = ({
           onRefresh={onRefresh}
         />
       ) : null}
+      <LinkToRecurringPaymentDialog statement={statement} onRefresh={onRefresh} />
       <UpdateStatementForm
         accountsData={accountsData}
         categories={categories}

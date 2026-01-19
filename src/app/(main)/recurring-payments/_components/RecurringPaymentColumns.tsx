@@ -11,6 +11,7 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
+import { RecurringPaymentDetailsDialog } from './RecurringPaymentDetailsDialog';
 import { UpdateRecurringPaymentForm } from './RecurringPaymentForms';
 
 type RecurringPayment =
@@ -92,6 +93,7 @@ export const createRecurringPaymentColumns = (
 
       return (
         <div className="flex items-center gap-2">
+          <RecurringPaymentDetailsDialog recurringPayment={row.original} />
           <UpdateRecurringPaymentForm
             initialData={row.original}
             recurringPaymentId={row.original.id}
