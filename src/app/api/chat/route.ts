@@ -168,17 +168,22 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
       inputSchema: z.object({
         amount: z
           .string()
-          .describe('The amount for the statement (positive for expenses, negative for income)'),
+          .min(1, 'Amount is required')
+          .describe('The amount for the statement as a numeric string (positive for expenses, negative for income). Example: "100.50" or "-50"'),
         category: z.string().describe('Category of the expense (e.g., Food, Transport, Shopping)'),
         tags: z.array(z.string()).optional().describe('Optional tags for the statement'),
         accountId: z
           .string()
           .optional()
-          .describe('Account ID to associate with the statement (required for expense type)'),
+          .describe(
+            'Account ID to associate with the statement. Required for expense and outside_transaction types. Optional for friend_transaction.',
+          ),
         friendId: z
           .string()
           .optional()
-          .describe('Friend ID to associate with the statement (for friend transactions)'),
+          .describe(
+            'Friend ID to associate with the statement. Required for friend_transaction type. Must be null for expense and outside_transaction types.',
+          ),
         statementKind: z
           .enum(statementKindEnum.enumValues)
           .describe(
@@ -202,6 +207,12 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
               ? new Date(input.createdAt)
               : new Date(),
         });
+        if (result.length === 0) {
+          return {
+            success: false,
+            message: 'Failed to add statement',
+          };
+        }
         return {
           success: true,
           statementId: result[0].id,
