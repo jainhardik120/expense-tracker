@@ -39,7 +39,7 @@ const getNextPaymentDate = (currentDate: Date, frequency: RecurringPaymentFreque
 const getUpcomingPaymentDates = (
   recurringPayment: RecurringPayment,
   uptoDate: Date,
-  timezone = 'UTC',
+  timezone: string,
 ): { date: Date; amount: number }[] => {
   if (!recurringPayment.isActive) {
     return [];
@@ -104,7 +104,7 @@ const groupRecurringPaymentsByMonth = (
 export const getCurrentMonthRecurringPayments = (
   recurringPayments: RecurringPayment[],
   currentMonthEnd: Date,
-  timezone = 'UTC',
+  timezone: string,
 ): RecurringPaymentSchedule[] => {
   const currentMonthPayments: RecurringPaymentSchedule[] = [];
 
@@ -130,7 +130,7 @@ export const getCurrentMonthRecurringPayments = (
 export const getFutureRecurringPayments = (
   recurringPayments: RecurringPayment[],
   uptoDate: Date,
-  timezone = 'UTC',
+  timezone: string,
 ): Record<string, RecurringPaymentSchedule[]> => {
   const allPayments: RecurringPaymentSchedule[] = [];
 

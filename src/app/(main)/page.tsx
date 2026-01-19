@@ -20,7 +20,7 @@ export default async function Page({
 }: Readonly<{ searchParams: Promise<SearchParams> }>) {
   const params = await loader(searchParams);
   const timezone = await getTimezone();
-  const { start: defaultStart, end: defaultEnd } = getDefaultDateRange(timezone);
+  const { start: defaultStart, end: defaultEnd, endOfYear } = getDefaultDateRange(timezone);
   const dateParams = {
     start: params.start ?? defaultStart,
     end: params.end ?? defaultEnd,
@@ -30,22 +30,6 @@ export default async function Page({
     ...dateParams,
   });
   const summaryPromise = api.summary.getSummary(dateParams);
-
-  // Calculate end of current year (December 31st at 23:59:59)
-  const now = new Date();
-  const DECEMBER = 11;
-  const LAST_DAY = 31;
-  const LAST_HOUR = 23;
-  const LAST_MINUTE = 59;
-  const LAST_SECOND = 59;
-  const endOfYear = new Date(
-    now.getFullYear(),
-    DECEMBER,
-    LAST_DAY,
-    LAST_HOUR,
-    LAST_MINUTE,
-    LAST_SECOND,
-  );
 
   const creditAccountsPromise = api.emis.getCreditCardsWithOutstandingBalance({
     uptoDate: endOfYear,

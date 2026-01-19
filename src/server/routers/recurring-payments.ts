@@ -2,6 +2,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { recurringPayments } from '@/db/schema';
+import { getTimezone, startOfDayLocal } from '@/lib/date';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createRecurringPaymentSchema, recurringPaymentParserSchema } from '@/types';
 
@@ -51,11 +52,18 @@ export const recurringPaymentsRouter = createTRPCRouter({
   addRecurringPayment: protectedProcedure
     .input(createRecurringPaymentSchema)
     .mutation(async ({ ctx, input }) => {
+      const timezone = await getTimezone();
+
+      const startDate = startOfDayLocal(input.startDate, timezone);
+      const endDate = input.endDate === null ? null : startOfDayLocal(input.endDate, timezone);
+
       return ctx.db
         .insert(recurringPayments)
         .values({
           userId: ctx.session.user.id,
           ...input,
+          startDate,
+          endDate,
         })
         .returning({ id: recurringPayments.id });
     }),
@@ -69,10 +77,13 @@ export const recurringPaymentsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...updateData } = input;
-
+      const timezone = await getTimezone();
+      const startDate = startOfDayLocal(updateData.startDate, timezone);
+      const endDate =
+        updateData.endDate === null ? null : startOfDayLocal(updateData.endDate, timezone);
       const result = await ctx.db
         .update(recurringPayments)
-        .set(updateData)
+        .set({ ...updateData, startDate, endDate })
         .where(and(eq(recurringPayments.id, id), eq(recurringPayments.userId, ctx.session.user.id)))
         .returning({ id: recurringPayments.id });
 
@@ -101,29 +112,5 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }
 
       return result;
-    }),
-
-  getUpcomingRecurringPayments: protectedProcedure
-    .input(
-      z.object({
-        uptoDate: z.date(),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const activeRecurringPayments = await ctx.db
-        .select()
-        .from(recurringPayments)
-        .where(
-          and(
-            eq(recurringPayments.userId, ctx.session.user.id),
-            eq(recurringPayments.isActive, true),
-          ),
-        )
-        .orderBy(desc(recurringPayments.startDate));
-
-      return {
-        recurringPayments: activeRecurringPayments,
-        uptoDate: input.uptoDate,
-      };
     }),
 });

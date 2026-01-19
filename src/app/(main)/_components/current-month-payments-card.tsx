@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import { endOfMonth, format } from 'date-fns';
 
+import { useTimezone } from '@/components/time-zone-setter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -21,11 +22,11 @@ type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance
 
 export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
   const { currentMonthPayments, recurringPayments } = creditData;
-
+  const timezone = useTimezone();
   const recurringCurrentMonth = useMemo(() => {
     const monthEnd = endOfMonth(new Date());
-    return getCurrentMonthRecurringPayments(recurringPayments, monthEnd);
-  }, [recurringPayments]);
+    return getCurrentMonthRecurringPayments(recurringPayments, monthEnd, timezone);
+  }, [recurringPayments, timezone]);
 
   const currentMonthTotal = useMemo(() => {
     const emiTotal = currentMonthPayments.reduce((sum, p) => sum + p.amount, 0);

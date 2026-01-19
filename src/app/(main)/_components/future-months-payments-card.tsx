@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 
 import { format, parse } from 'date-fns';
 
+import { useTimezone } from '@/components/time-zone-setter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -21,13 +22,13 @@ type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance
 
 export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
   const { paymentsByMonth, recurringPayments, uptoDate } = creditData;
-
+  const timezone = useTimezone();
   const recurringPaymentsByMonth = useMemo(() => {
     if (uptoDate === undefined) {
       return {};
     }
-    return getFutureRecurringPayments(recurringPayments, uptoDate);
-  }, [recurringPayments, uptoDate]);
+    return getFutureRecurringPayments(recurringPayments, uptoDate, timezone);
+  }, [recurringPayments, uptoDate, timezone]);
 
   const futureMonthsData = useMemo(() => {
     const allMonths = new Set([
