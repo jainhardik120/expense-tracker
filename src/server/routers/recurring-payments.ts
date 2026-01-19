@@ -2,8 +2,12 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { recurringPayments, statements } from '@/db/schema';
-import { getTimezone, startOfDayLocal } from '@/lib/date';
-import { isRecurringPaymentActive, getPeriodInDays } from '@/server/helpers/recurring-calculations';
+import { getDefaultDateRange, getTimezone, startOfDayLocal } from '@/lib/date';
+import {
+  isRecurringPaymentActive,
+  getPeriodInDays,
+  generatePaymentSchedule,
+} from '@/server/helpers/recurring-calculations';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createRecurringPaymentSchema, recurringPaymentParserSchema } from '@/types';
 
@@ -246,6 +250,9 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
+      const timezone = await getTimezone();
+      const { endOfYear } = getDefaultDateRange(timezone);
+
       // Get recurring payment
       const recurringPaymentData = await ctx.db
         .select()
@@ -270,6 +277,10 @@ export const recurringPaymentsRouter = createTRPCRouter({
           id: statements.id,
           amount: statements.amount,
           createdAt: statements.createdAt,
+          category: statements.category,
+          accountId: statements.accountId,
+          friendId: statements.friendId,
+          statementKind: statements.statementKind,
         })
         .from(statements)
         .where(
@@ -283,20 +294,25 @@ export const recurringPaymentsRouter = createTRPCRouter({
         )
         .orderBy(desc(statements.createdAt));
 
-      // Find last payment date
-      const lastPaymentDate = linkedStatements.length > 0 ? linkedStatements[0].createdAt : null;
+      // Generate payment schedule with status
+      const { schedule, nextPaymentDate } = generatePaymentSchedule(
+        recurringPayment,
+        linkedStatements,
+        timezone,
+        endOfYear,
+      );
 
-      // Calculate next payment date
+      // Calculate period in days
       const multiplier = parseFloat(recurringPayment.frequencyMultiplier);
       const periodDays = getPeriodInDays(recurringPayment.frequency, multiplier);
 
       return {
         recurringPayment,
         linkedStatements,
-        lastPaymentDate,
+        schedule,
+        nextPaymentDate,
         isActive: isRecurringPaymentActive(recurringPayment),
         periodDays,
-        upcomingPayments: [], // Will be calculated on frontend using helper
       };
     }),
 });
