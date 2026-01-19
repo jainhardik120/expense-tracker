@@ -414,9 +414,9 @@ export const createRecurringPaymentSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   amount: amount,
   frequency: z.enum(recurringPaymentFrequencyEnum.enumValues),
+  frequencyMultiplier: amount.default('1'),
   startDate: z.date(),
   endDate: z.date().nullable(),
-  isActive: z.boolean().default(true),
   category: z.string().min(1, 'Category is required'),
 });
 
@@ -427,12 +427,10 @@ export const recurringPaymentParser = {
     parseAsStringEnum(recurringPaymentFrequencyEnum.enumValues),
     ',',
   ).withDefault([]),
-  isActive: parseAsBoolean,
 };
 
 export const recurringPaymentParserSchema = z.object({
   ...pageSchema,
   category: z.string().array().optional().default([]),
   frequency: z.array(z.enum(recurringPaymentFrequencyEnum.enumValues)).optional().default([]),
-  isActive: z.boolean().optional(),
 });

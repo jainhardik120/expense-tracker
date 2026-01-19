@@ -1,12 +1,14 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { recurringPayments } from '@/db/schema';
+import { recurringPayments, statements } from '@/db/schema';
 import { getTimezone, startOfDayLocal } from '@/lib/date';
+import { isRecurringPaymentActive, getPeriodInDays } from '@/server/helpers/recurring-calculations';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createRecurringPaymentSchema, recurringPaymentParserSchema } from '@/types';
 
 const RECURRING_PAYMENT_NOT_FOUND = 'Recurring payment not found or access denied';
+const STATEMENT_NOT_FOUND = 'Statement not found or access denied';
 
 export const recurringPaymentsRouter = createTRPCRouter({
   getRecurringPayments: protectedProcedure
@@ -20,10 +22,6 @@ export const recurringPaymentsRouter = createTRPCRouter({
 
       if (input.frequency.length > 0) {
         conditions.push(inArray(recurringPayments.frequency, input.frequency));
-      }
-
-      if (input.isActive !== undefined) {
-        conditions.push(eq(recurringPayments.isActive, input.isActive));
       }
 
       const [{ count }] = await ctx.db
@@ -112,5 +110,193 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }
 
       return result;
+    }),
+
+  linkStatement: protectedProcedure
+    .input(
+      z.object({
+        recurringPaymentId: z.string(),
+        statementId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify recurring payment exists
+      const recurringPaymentData = await ctx.db
+        .select()
+        .from(recurringPayments)
+        .where(
+          and(
+            eq(recurringPayments.id, input.recurringPaymentId),
+            eq(recurringPayments.userId, ctx.session.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (recurringPaymentData.length === 0) {
+        throw new Error(RECURRING_PAYMENT_NOT_FOUND);
+      }
+
+      // Verify statement exists
+      const statementData = await ctx.db
+        .select({
+          id: statements.id,
+          attributes: statements.additionalAttributes,
+          createdAt: statements.createdAt,
+        })
+        .from(statements)
+        .where(
+          and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
+        )
+        .limit(1);
+
+      if (statementData.length === 0) {
+        throw new Error(STATEMENT_NOT_FOUND);
+      }
+
+      const statement = statementData[0];
+      const attributes = statement.attributes as Partial<Record<string, unknown>>;
+
+      // Link statement to recurring payment (no strict validation on amount/date)
+      await ctx.db
+        .update(statements)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            recurringPaymentId: input.recurringPaymentId,
+          },
+        })
+        .where(eq(statements.id, input.statementId));
+
+      return { success: true };
+    }),
+
+  unlinkStatement: protectedProcedure
+    .input(
+      z.object({
+        statementId: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const statement = await ctx.db
+        .select({
+          id: statements.id,
+          attributes: statements.additionalAttributes,
+        })
+        .from(statements)
+        .where(
+          and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
+        )
+        .limit(1);
+
+      if (statement.length === 0) {
+        throw new Error(STATEMENT_NOT_FOUND);
+      }
+
+      const attributes = statement[0].attributes as Partial<Record<string, unknown>>;
+
+      await ctx.db
+        .update(statements)
+        .set({
+          additionalAttributes: {
+            ...attributes,
+            recurringPaymentId: undefined,
+          },
+        })
+        .where(eq(statements.id, input.statementId));
+
+      return { success: true };
+    }),
+
+  getLinkedStatements: protectedProcedure
+    .input(
+      z.object({
+        recurringPaymentId: z.string(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      return ctx.db
+        .select({
+          id: statements.id,
+          accountId: statements.accountId,
+          friendId: statements.friendId,
+          amount: statements.amount,
+          category: statements.category,
+          tags: statements.tags,
+          statementKind: statements.statementKind,
+          createdAt: statements.createdAt,
+          attributes: statements.additionalAttributes,
+        })
+        .from(statements)
+        .where(
+          and(
+            eq(statements.userId, ctx.session.user.id),
+            eq(
+              sql`${statements.additionalAttributes}->>'recurringPaymentId'`,
+              input.recurringPaymentId,
+            ),
+          ),
+        )
+        .orderBy(desc(statements.createdAt));
+    }),
+
+  getRecurringPaymentDetails: protectedProcedure
+    .input(
+      z.object({
+        recurringPaymentId: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Get recurring payment
+      const recurringPaymentData = await ctx.db
+        .select()
+        .from(recurringPayments)
+        .where(
+          and(
+            eq(recurringPayments.id, input.recurringPaymentId),
+            eq(recurringPayments.userId, ctx.session.user.id),
+          ),
+        )
+        .limit(1);
+
+      if (recurringPaymentData.length === 0) {
+        throw new Error(RECURRING_PAYMENT_NOT_FOUND);
+      }
+
+      const recurringPayment = recurringPaymentData[0];
+
+      // Get linked statements
+      const linkedStatements = await ctx.db
+        .select({
+          id: statements.id,
+          amount: statements.amount,
+          createdAt: statements.createdAt,
+        })
+        .from(statements)
+        .where(
+          and(
+            eq(statements.userId, ctx.session.user.id),
+            eq(
+              sql`${statements.additionalAttributes}->>'recurringPaymentId'`,
+              input.recurringPaymentId,
+            ),
+          ),
+        )
+        .orderBy(desc(statements.createdAt));
+
+      // Find last payment date
+      const lastPaymentDate = linkedStatements.length > 0 ? linkedStatements[0].createdAt : null;
+
+      // Calculate next payment date
+      const multiplier = parseFloat(recurringPayment.frequencyMultiplier);
+      const periodDays = getPeriodInDays(recurringPayment.frequency, multiplier);
+
+      return {
+        recurringPayment,
+        linkedStatements,
+        lastPaymentDate,
+        isActive: isRecurringPaymentActive(recurringPayment),
+        periodDays,
+        upcomingPayments: [], // Will be calculated on frontend using helper
+      };
     }),
 });

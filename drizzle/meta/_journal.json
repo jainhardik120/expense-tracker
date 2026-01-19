@@ -190,6 +190,20 @@
       "when": 1768800507019,
       "tag": "0026_condemned_stephen_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1768818225445,
+      "tag": "0027_confused_virginia_dare",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1768818272846,
+      "tag": "0028_black_madame_masque",
+      "breakpoints": true
     }
   ]
 }

@@ -404,16 +404,13 @@ export const emisRouter = createTRPCRouter({
 
       const paymentsByMonth = groupPaymentsByMonth(futurePayments);
 
+      // Get all recurring payments (active status will be determined by endDate)
       const activeRecurringPayments = await ctx.db
         .select()
         .from(recurringPayments)
-        .where(
-          and(
-            eq(recurringPayments.userId, ctx.session.user.id),
-            eq(recurringPayments.isActive, true),
-          ),
-        )
+        .where(eq(recurringPayments.userId, ctx.session.user.id))
         .orderBy(desc(recurringPayments.startDate));
+
       return {
         cards,
         cardDetails,

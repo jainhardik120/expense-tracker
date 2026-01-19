@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
 import { createRecurringPaymentSchema, type RecurringPayment } from '@/types';
 
-const recurringPaymentFormFields: FormField<z.input<typeof createRecurringPaymentSchema>>[] = [
+const recurringPaymentFormFields: FormField<z.infer<typeof createRecurringPaymentSchema>>[] = [
   {
     name: 'name',
     label: 'Payment Name',
@@ -45,6 +45,12 @@ const recurringPaymentFormFields: FormField<z.input<typeof createRecurringPaymen
     ],
   },
   {
+    name: 'frequencyMultiplier',
+    label: 'Every (multiplier)',
+    type: 'number',
+    placeholder: '1',
+  },
+  {
     name: 'startDate',
     label: 'Start Date',
     type: 'date',
@@ -53,11 +59,6 @@ const recurringPaymentFormFields: FormField<z.input<typeof createRecurringPaymen
     name: 'endDate',
     label: 'End Date (Optional)',
     type: 'date',
-  },
-  {
-    name: 'isActive',
-    label: 'Is Active',
-    type: 'checkbox',
   },
 ];
 
@@ -78,9 +79,9 @@ export const CreateRecurringPaymentForm = () => {
         category: '',
         amount: '',
         frequency: 'monthly' as const,
+        frequencyMultiplier: '1',
         startDate: currentDate,
         endDate: null,
-        isActive: true,
       }}
       fields={recurringPaymentFormFields}
       mutation={mutation}

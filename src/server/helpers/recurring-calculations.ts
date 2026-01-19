@@ -4,6 +4,7 @@ import { toZonedTime } from 'date-fns-tz';
 import type { RecurringPayment, RecurringPaymentFrequency } from '@/types';
 
 const QUARTERLY_MONTHS = 3;
+const QUARTER_TOLERANCE = 0.25;
 
 type RecurringPaymentSchedule = {
   id: string;
@@ -14,23 +15,77 @@ type RecurringPaymentSchedule = {
 };
 
 /**
- * Calculate the next payment date based on frequency
+ * Check if a recurring payment is active based on endDate
  */
-const getNextPaymentDate = (currentDate: Date, frequency: RecurringPaymentFrequency): Date => {
+export const isRecurringPaymentActive = (recurringPayment: RecurringPayment): boolean => {
+  if (recurringPayment.endDate === null) {
+    return true;
+  }
+  const now = new Date();
+  return isBefore(now, recurringPayment.endDate);
+};
+
+/**
+ * Calculate the next payment date based on frequency and multiplier
+ */
+const getNextPaymentDate = (
+  currentDate: Date,
+  frequency: RecurringPaymentFrequency,
+  multiplier: number,
+): Date => {
   switch (frequency) {
     case 'daily':
-      return addDays(currentDate, 1);
+      return addDays(currentDate, multiplier);
     case 'weekly':
-      return addWeeks(currentDate, 1);
+      return addWeeks(currentDate, multiplier);
     case 'monthly':
-      return addMonths(currentDate, 1);
+      return addMonths(currentDate, multiplier);
     case 'quarterly':
-      return addMonths(currentDate, QUARTERLY_MONTHS);
+      return addMonths(currentDate, QUARTERLY_MONTHS * multiplier);
     case 'yearly':
-      return addYears(currentDate, 1);
+      return addYears(currentDate, multiplier);
     default:
       return currentDate;
   }
+};
+
+/**
+ * Get the period in days for a given frequency
+ */
+export const getPeriodInDays = (
+  frequency: RecurringPaymentFrequency,
+  multiplier: number,
+): number => {
+  switch (frequency) {
+    case 'daily':
+      return multiplier;
+    case 'weekly':
+      return 7 * multiplier;
+    case 'monthly':
+      return 30 * multiplier; // Approximate
+    case 'quarterly':
+      return 90 * multiplier; // Approximate
+    case 'yearly':
+      return 365 * multiplier; // Approximate
+    default:
+      return 30 * multiplier;
+  }
+};
+
+/**
+ * Check if a payment date is within tolerance of the expected date
+ */
+export const isPaymentWithinTolerance = (
+  paymentDate: Date,
+  expectedDate: Date,
+  frequency: RecurringPaymentFrequency,
+  multiplier: number,
+): boolean => {
+  const periodDays = getPeriodInDays(frequency, multiplier);
+  const toleranceDays = periodDays * QUARTER_TOLERANCE;
+  const diffMs = Math.abs(paymentDate.getTime() - expectedDate.getTime());
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  return diffDays <= toleranceDays;
 };
 
 /**
@@ -40,18 +95,27 @@ const getUpcomingPaymentDates = (
   recurringPayment: RecurringPayment,
   uptoDate: Date,
   timezone: string,
+  lastPaymentDate?: Date | null,
 ): { date: Date; amount: number }[] => {
-  if (!recurringPayment.isActive) {
+  if (!isRecurringPaymentActive(recurringPayment)) {
     return [];
   }
 
   const payments: { date: Date; amount: number }[] = [];
-  const startDate = toZonedTime(recurringPayment.startDate, timezone);
+  const multiplier = parseFloat(recurringPayment.frequencyMultiplier);
+
+  // Start from last payment date if provided, otherwise from start date
+  const startDate = lastPaymentDate
+    ? toZonedTime(lastPaymentDate, timezone)
+    : toZonedTime(recurringPayment.startDate, timezone);
+
   const endDate =
     recurringPayment.endDate === null ? null : toZonedTime(recurringPayment.endDate, timezone);
   const uptoDateZoned = toZonedTime(uptoDate, timezone);
 
-  let currentDate = startDate;
+  let currentDate = lastPaymentDate
+    ? getNextPaymentDate(startDate, recurringPayment.frequency, multiplier)
+    : startDate;
   const now = startOfDay(toZonedTime(new Date(), timezone));
 
   // Only include future payments (not past payments)
@@ -73,7 +137,7 @@ const getUpcomingPaymentDates = (
       }
     }
 
-    currentDate = getNextPaymentDate(currentDate, recurringPayment.frequency);
+    currentDate = getNextPaymentDate(currentDate, recurringPayment.frequency, multiplier);
   }
 
   return payments;

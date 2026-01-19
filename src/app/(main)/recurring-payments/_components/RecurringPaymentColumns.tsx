@@ -1,6 +1,7 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
+import { isBefore } from 'date-fns';
 import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
@@ -23,6 +24,14 @@ const frequencyLabels: Record<string, string> = {
   yearly: 'Yearly',
 };
 
+const isActive = (payment: RecurringPayment): boolean => {
+  if (payment.endDate === null) {
+    return true;
+  }
+  const now = new Date();
+  return isBefore(now, payment.endDate);
+};
+
 export const createRecurringPaymentColumns = (
   refresh: () => void,
 ): ColumnDef<RecurringPayment>[] => [
@@ -42,7 +51,14 @@ export const createRecurringPaymentColumns = (
   {
     accessorKey: 'frequency',
     header: 'Frequency',
-    cell: ({ row }) => frequencyLabels[row.original.frequency] ?? row.original.frequency,
+    cell: ({ row }) => {
+      const multiplier = parseFloat(row.original.frequencyMultiplier);
+      const freqLabel = frequencyLabels[row.original.frequency] ?? row.original.frequency;
+      if (multiplier === 1) {
+        return freqLabel;
+      }
+      return `Every ${multiplier} ${freqLabel.toLowerCase()}`;
+    },
   },
   {
     accessorKey: 'startDate',
@@ -60,13 +76,14 @@ export const createRecurringPaymentColumns = (
     },
   },
   {
-    accessorKey: 'isActive',
+    id: 'status',
     header: 'Status',
-    cell: ({ row }) => (
-      <Badge variant={row.original.isActive ? 'default' : 'secondary'}>
-        {row.original.isActive ? 'Active' : 'Inactive'}
-      </Badge>
-    ),
+    cell: ({ row }) => {
+      const active = isActive(row.original);
+      return (
+        <Badge variant={active ? 'default' : 'secondary'}>{active ? 'Active' : 'Inactive'}</Badge>
+      );
+    },
   },
   {
     id: 'actions',
