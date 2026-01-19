@@ -33,13 +33,7 @@ export const LinkToRecurringPaymentDialog = ({
   return <LinkDialog statement={statement} onRefresh={onRefresh} />;
 };
 
-const LinkDialog = ({
-  statement,
-  onRefresh,
-}: {
-  statement: Statement;
-  onRefresh: () => void;
-}) => {
+const LinkDialog = ({ statement, onRefresh }: { statement: Statement; onRefresh: () => void }) => {
   const [open, setOpen] = useState(false);
   return (
     <Modal

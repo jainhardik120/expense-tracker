@@ -246,6 +246,7 @@ export type PaymentScheduleEntry = {
  * Generate complete payment schedule for a recurring payment
  * including past payments matched with linked statements and upcoming payments
  */
+// eslint-disable-next-line max-statements
 export const generatePaymentSchedule = (
   recurringPayment: RecurringPayment,
   linkedStatements: LinkedStatement[],
@@ -295,10 +296,17 @@ export const generatePaymentSchedule = (
     // Find a matching statement within tolerance
     let matchedStatement: LinkedStatementWithZonedDate | null = null;
     for (const stmt of sortedStatements) {
-      if (usedStatementIds.has(stmt.id)) continue;
+      if (usedStatementIds.has(stmt.id)) {
+        continue;
+      }
 
       if (
-        isPaymentWithinTolerance(stmt.zonedDate, currentDate, recurringPayment.frequency, multiplier)
+        isPaymentWithinTolerance(
+          stmt.zonedDate,
+          currentDate,
+          recurringPayment.frequency,
+          multiplier,
+        )
       ) {
         matchedStatement = stmt;
         usedStatementIds.add(stmt.id);
@@ -322,8 +330,7 @@ export const generatePaymentSchedule = (
       status,
       linkedStatementId: matchedStatement?.id ?? null,
       linkedStatementDate: matchedStatement?.zonedDate ?? null,
-      linkedStatementAmount:
-        matchedStatement !== null ? parseFloat(matchedStatement.amount) : null,
+      linkedStatementAmount: matchedStatement !== null ? parseFloat(matchedStatement.amount) : null,
     });
 
     currentDate = getNextPaymentDate(currentDate, recurringPayment.frequency, multiplier);
@@ -343,11 +350,7 @@ export const generatePaymentSchedule = (
     // Find the last scheduled date
     const lastScheduledDate =
       schedule.length > 0 ? schedule[schedule.length - 1].scheduledDate : startDate;
-    const nextDate = getNextPaymentDate(
-      lastScheduledDate,
-      recurringPayment.frequency,
-      multiplier,
-    );
+    const nextDate = getNextPaymentDate(lastScheduledDate, recurringPayment.frequency, multiplier);
     // Only set if it's in the future
     if (!isBefore(nextDate, now)) {
       nextPaymentDate = nextDate;
