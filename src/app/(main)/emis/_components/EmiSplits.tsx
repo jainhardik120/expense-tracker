@@ -18,6 +18,26 @@ import {
 import { api } from '@/server/react';
 import { createEmiSplitSchema, type Emi } from '@/types';
 
+const createEmiSplitFields = (friends: Array<{ id: string; name: string }>) =>
+  [
+    {
+      name: 'percentage',
+      label: 'Percentage',
+      type: 'number',
+      placeholder: '0',
+    },
+    {
+      name: 'friendId',
+      label: 'Friend',
+      type: 'select',
+      placeholder: 'Select Friend',
+      options: friends.map((friend) => ({
+        label: friend.name,
+        value: friend.id,
+      })),
+    },
+  ] as const;
+
 export const EmiSplitsDialog = ({ emiId, emiData }: { emiId: string; emiData: Emi }) => {
   const [open, setOpen] = useState(false);
   const { data: friends = [] } = api.friends.getFriends.useQuery(undefined, { enabled: open });
@@ -134,24 +154,7 @@ export const EmiSplitsDialog = ({ emiId, emiData }: { emiId: string; emiData: Em
                         percentage: split.percentage,
                         friendId: split.friendId,
                       }}
-                      fields={[
-                        {
-                          name: 'percentage',
-                          label: 'Percentage',
-                          type: 'number',
-                          placeholder: '0',
-                        },
-                        {
-                          name: 'friendId',
-                          label: 'Friend',
-                          type: 'select',
-                          placeholder: 'Select Friend',
-                          options: friends.map((friend) => ({
-                            label: friend.name,
-                            value: friend.id,
-                          })),
-                        },
-                      ]}
+                      fields={createEmiSplitFields(friends)}
                       schema={createEmiSplitSchema}
                       showSubmitButton
                       submitButtonDisabled={updateSplitMutation.isPending}
@@ -174,24 +177,7 @@ export const EmiSplitsDialog = ({ emiId, emiData }: { emiId: string; emiData: Em
                 percentage: '0',
                 friendId: friends[0]?.id ?? '',
               }}
-              fields={[
-                {
-                  name: 'percentage',
-                  label: 'Percentage',
-                  type: 'number',
-                  placeholder: '0',
-                },
-                {
-                  name: 'friendId',
-                  label: 'Friend',
-                  type: 'select',
-                  placeholder: 'Select Friend',
-                  options: friends.map((friend) => ({
-                    label: friend.name,
-                    value: friend.id,
-                  })),
-                },
-              ]}
+              fields={createEmiSplitFields(friends)}
               schema={createEmiSplitSchema}
               showSubmitButton
               submitButtonDisabled={addSplitMutation.isPending || friends.length === 0}

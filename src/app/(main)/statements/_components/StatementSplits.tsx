@@ -24,6 +24,29 @@ import {
   bulkSplitSchema,
 } from '@/types';
 
+const createSplitFields = (
+  friends: Array<{ id: string; name: string }>,
+  fieldType: 'amount' | 'percentage',
+) =>
+  [
+    {
+      name: fieldType,
+      label: fieldType === 'amount' ? 'Amount' : 'Percentage',
+      type: 'number',
+      placeholder: fieldType === 'amount' ? 'Amount' : 'Percentage',
+    },
+    {
+      name: 'friendId',
+      label: 'Friend ID',
+      type: 'select',
+      placeholder: 'Select Friend',
+      options: friends.map((friend) => ({
+        label: friend.name,
+        value: friend.id,
+      })),
+    },
+  ] as const;
+
 export const StatementSplitsDialog = ({
   statementId,
   statementData,
@@ -85,24 +108,7 @@ export const StatementSplitsDialog = ({
                   amount: split.amount,
                   friendId: split.friendId,
                 }}
-                fields={[
-                  {
-                    name: 'amount',
-                    label: 'Amount',
-                    type: 'number',
-                    placeholder: 'Amount',
-                  },
-                  {
-                    name: 'friendId',
-                    label: 'Friend ID',
-                    type: 'select',
-                    placeholder: 'Select Friend',
-                    options: friends.map((friend) => ({
-                      label: friend.name,
-                      value: friend.id,
-                    })),
-                  },
-                ]}
+                fields={createSplitFields(friends, 'amount')}
                 schema={createSplitSchema}
                 showSubmitButton
                 submitButtonDisabled={updateSplitMutation.isPending}
@@ -168,24 +174,7 @@ export const BulkStatementSplitsDialog = ({
         percentage: '0',
         friendId: '',
       }}
-      fields={[
-        {
-          name: 'percentage',
-          label: 'Percentage',
-          type: 'number',
-          placeholder: 'Amount',
-        },
-        {
-          name: 'friendId',
-          label: 'Friend ID',
-          type: 'select',
-          placeholder: 'Select Friend',
-          options: friends.map((friend) => ({
-            label: friend.name,
-            value: friend.id,
-          })),
-        },
-      ]}
+      fields={createSplitFields(friends, 'percentage')}
       mutation={{
         mutateAsync: (values) => {
           return mutation.mutateAsync({

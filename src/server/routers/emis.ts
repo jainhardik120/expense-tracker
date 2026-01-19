@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { bankAccount, creditCardAccounts, emis, statements, recurringPayments } from '@/db/schema';
 import { getTimezone, startOfDayLocal } from '@/lib/date';
+import { type Database } from '@/lib/db';
 import { getEMIs, getMaxInstallmentNoSubquery } from '@/server/helpers/emi';
 import {
   calculateEMIAndPrincipal,
@@ -20,6 +21,22 @@ import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR }
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 const STATEMENT_NOT_LINKED = 'Statement is not linked to an EMI';
+
+const getMaxInstallment = async (
+  db: Database,
+  userId: string,
+  emiId: string,
+): Promise<string | null> => {
+  const maxInstallmentQuery = getMaxInstallmentNoSubquery(db, userId);
+  const maxInstallment = await db
+    .select({
+      maxInstallmentNo: maxInstallmentQuery.maxInstallmentNo,
+    })
+    .from(maxInstallmentQuery)
+    .where(eq(maxInstallmentQuery.emiId, emiId));
+  return maxInstallment.length === 0 ? null : maxInstallment[0].maxInstallmentNo;
+};
+
 export const emisRouter = createTRPCRouter({
   getEmis: protectedProcedure.input(emiParserSchema).query(async ({ ctx, input }) => {
     const conditions = [eq(emis.userId, ctx.session.user.id)];
@@ -197,17 +214,7 @@ export const emisRouter = createTRPCRouter({
         throw new Error('Statement does not have a valid installment number');
       }
       const emiId = attributes.emiId as string;
-      const maxInstallmentQuery = getMaxInstallmentNoSubquery(ctx.db, ctx.session.user.id);
-      const maxInstallment = await ctx.db
-        .select({
-          maxInstallmentNo: maxInstallmentQuery.maxInstallmentNo,
-        })
-        .from(maxInstallmentQuery)
-        .where(eq(maxInstallmentQuery.emiId, emiId));
-      if (maxInstallment.length === 0) {
-        throw new Error(STATEMENT_NOT_LINKED);
-      }
-      const { maxInstallmentNo } = maxInstallment[0];
+      const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.session.user.id, emiId);
       if (maxInstallmentNo === null) {
         throw new Error(STATEMENT_NOT_LINKED);
       }
@@ -274,18 +281,9 @@ export const emisRouter = createTRPCRouter({
       }
       const { schedule: payments } = calculateSchedule(emi);
       let lastInstallmentNo = -1;
-      const maxInstallmentQuery = getMaxInstallmentNoSubquery(ctx.db, ctx.session.user.id);
-      const maxInstallment = await ctx.db
-        .select({
-          maxInstallmentNo: maxInstallmentQuery.maxInstallmentNo,
-        })
-        .from(maxInstallmentQuery)
-        .where(eq(maxInstallmentQuery.emiId, input.emiId));
-      if (maxInstallment.length !== 0) {
-        const { maxInstallmentNo } = maxInstallment[0];
-        if (maxInstallmentNo !== null) {
-          lastInstallmentNo = parseFloatSafe(maxInstallmentNo);
-        }
+      const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.session.user.id, input.emiId);
+      if (maxInstallmentNo !== null) {
+        lastInstallmentNo = parseFloatSafe(maxInstallmentNo);
       }
       const matchConfirmed = confirmMatch(
         payments,

@@ -27,6 +27,22 @@ import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
 import { StatementSplitsDialog } from './StatementSplits';
 
+const DeleteButton = ({
+  mutation,
+  id,
+  onRefresh,
+}: {
+  mutation: ReturnType<typeof api.statements.deleteStatement.useMutation>;
+  id: string;
+  onRefresh: () => void;
+}) => (
+  <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
+    <Button className="size-8" size="icon" variant="ghost">
+      <Trash />
+    </Button>
+  </DeleteConfirmationDialog>
+);
+
 const StatementActions = ({
   statement,
   onRefresh,
@@ -69,11 +85,7 @@ const StatementActions = ({
         refresh={onRefresh}
         statementId={id}
       />
-      <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-        <Button className="size-8" size="icon" variant="ghost">
-          <Trash />
-        </Button>
-      </DeleteConfirmationDialog>
+      <DeleteButton id={id} mutation={mutation} onRefresh={onRefresh} />
     </div>
   );
 };
@@ -97,11 +109,7 @@ const SelfTransferStatementActions = ({
         refresh={onRefresh}
         statementId={id}
       />
-      <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-        <Button className="size-8" size="icon" variant="ghost">
-          <Trash />
-        </Button>
-      </DeleteConfirmationDialog>
+      <DeleteButton id={id} mutation={mutation} onRefresh={onRefresh} />
     </div>
   );
 };

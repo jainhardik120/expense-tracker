@@ -14,6 +14,22 @@ import { UpdateFriendForm } from './FriendsForms';
 
 type CreditCardAccount = { creditCardId?: string; creditAccountId?: string; cardLimit?: string };
 
+const DeleteButton = ({
+  mutation,
+  id,
+  onRefresh,
+}: {
+  mutation: ReturnType<typeof api.accounts.deleteAccount.useMutation>;
+  id: string;
+  onRefresh: () => void;
+}) => (
+  <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
+    <Button className="size-8" size="icon" variant="outline">
+      <Trash />
+    </Button>
+  </DeleteConfirmationDialog>
+);
+
 const AccountActions = ({
   row,
   onRefresh,
@@ -43,15 +59,7 @@ const AccountActions = ({
           initialData={row.account}
           refresh={onRefresh}
         />
-        <DeleteConfirmationDialog
-          mutation={mutation}
-          mutationInput={{ id: row.account.id }}
-          refresh={onRefresh}
-        >
-          <Button className="size-8" size="icon" variant="outline">
-            <Trash />
-          </Button>
-        </DeleteConfirmationDialog>
+        <DeleteButton id={row.account.id} mutation={mutation} onRefresh={onRefresh} />
       </div>
     </div>
   );
@@ -63,15 +71,7 @@ const FriendActions = ({ row, onRefresh }: { row: FriendSummary; onRefresh: () =
     <div className="flex w-full justify-end">
       <div className="flex flex-row gap-2">
         <UpdateFriendForm friendId={row.friend.id} initialData={row.friend} refresh={onRefresh} />
-        <DeleteConfirmationDialog
-          mutation={mutation}
-          mutationInput={{ id: row.friend.id }}
-          refresh={onRefresh}
-        >
-          <Button className="size-8" size="icon" variant="outline">
-            <Trash />
-          </Button>
-        </DeleteConfirmationDialog>
+        <DeleteButton id={row.friend.id} mutation={mutation} onRefresh={onRefresh} />
       </div>
     </div>
   );
