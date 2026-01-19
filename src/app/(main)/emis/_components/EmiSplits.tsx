@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { type z } from 'zod';
 
 import DynamicForm from '@/components/dynamic-form/dynamic-form';
+import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -18,25 +19,26 @@ import {
 import { api } from '@/server/react';
 import { createEmiSplitSchema, type Emi } from '@/types';
 
-const createEmiSplitFields = (friends: Array<{ id: string; name: string }>) =>
-  [
-    {
-      name: 'percentage',
-      label: 'Percentage',
-      type: 'number',
-      placeholder: '0',
-    },
-    {
-      name: 'friendId',
-      label: 'Friend',
-      type: 'select',
-      placeholder: 'Select Friend',
-      options: friends.map((friend) => ({
-        label: friend.name,
-        value: friend.id,
-      })),
-    },
-  ] as const;
+const createEmiSplitFields = (
+  friends: Array<{ id: string; name: string }>,
+): FormField<z.infer<typeof createEmiSplitSchema>>[] => [
+  {
+    name: 'percentage',
+    label: 'Percentage',
+    type: 'number',
+    placeholder: '0',
+  },
+  {
+    name: 'friendId',
+    label: 'Friend',
+    type: 'select',
+    placeholder: 'Select Friend',
+    options: friends.map((friend) => ({
+      label: friend.name,
+      value: friend.id,
+    })),
+  },
+];
 
 export const EmiSplitsDialog = ({ emiId, emiData }: { emiId: string; emiData: Emi }) => {
   const [open, setOpen] = useState(false);

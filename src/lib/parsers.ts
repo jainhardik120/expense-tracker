@@ -31,11 +31,12 @@ const createGenericParser = <T extends { id: string }>(
           return null;
         }
 
-        if (validKeys !== null && result.data.some((item: T) => !validKeys.has(item.id))) {
+        const data = result.data as T[];
+        if (validKeys !== null && data.some((item) => !validKeys.has(item.id))) {
           return null;
         }
 
-        return result.data as T[];
+        return data;
       } catch {
         return null;
       }
