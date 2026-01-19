@@ -1,11 +1,17 @@
 import { endOfMonth } from 'date-fns';
-import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { bankAccount, creditCardAccounts, emis, statements, recurringPayments } from '@/db/schema';
+import { emis, statements, recurringPayments } from '@/db/schema';
 import { getTimezone, startOfDayLocal } from '@/lib/date';
 import { type Database } from '@/lib/db';
-import { getEMIs, getMaxInstallmentNoSubquery } from '@/server/helpers/emi';
+import {
+  getEMIData,
+  getEMIs,
+  getMaxInstallmentNoSubquery,
+  getStatementAttributes,
+  verifyCreditCardAccount,
+} from '@/server/helpers/emi';
 import {
   calculateEMIAndPrincipal,
   calculateSchedule,
@@ -21,6 +27,34 @@ import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR }
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 const STATEMENT_NOT_LINKED = 'Statement is not linked to an EMI';
+
+const getEMIUpsertData = async (input: z.infer<typeof createEmiSchema>) => {
+  const tenure = parseFloatSafe(input.tenure);
+  const annualRate = parseFloatSafe(input.annualInterestRate);
+  const monthlyRate = annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
+  const { principal } = calculateEMIAndPrincipal({
+    calculationMode: input.calculationMode,
+    monthlyRate,
+    tenure: tenure,
+    principal: parseFloatSafe(input.principal),
+    emiAmount: parseFloatSafe(input.emiAmount),
+    totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
+  });
+  const timezone = await getTimezone();
+  const firstInstallmentDate = startOfDayLocal(input.firstInstallmentDate, timezone);
+  const processingFeesDate = startOfDayLocal(input.processingFeesDate, timezone);
+  return {
+    ...{
+      ...input,
+      calculationMode: undefined,
+      emiAmount: undefined,
+      totalEmiAmount: undefined,
+    },
+    principal: principal.toFixed(2).toString(),
+    firstInstallmentDate,
+    processingFeesDate,
+  };
+};
 
 const getMaxInstallment = async (
   db: Database,
@@ -62,50 +96,13 @@ export const emisRouter = createTRPCRouter({
     };
   }),
   addEmi: protectedProcedure.input(createEmiSchema).mutation(async ({ ctx, input }) => {
-    const creditCard = await ctx.db
-      .select({ id: creditCardAccounts.id })
-      .from(creditCardAccounts)
-      .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-      .where(
-        and(eq(creditCardAccounts.id, input.creditId), eq(bankAccount.userId, ctx.session.user.id)),
-      )
-      .limit(1);
-
-    if (creditCard.length === 0) {
-      throw new Error('Credit card not found or access denied');
-    }
-
-    const tenure = parseFloatSafe(input.tenure);
-    const annualRate = parseFloatSafe(input.annualInterestRate);
-    const monthlyRate = annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
-
-    const { principal } = calculateEMIAndPrincipal({
-      calculationMode: input.calculationMode,
-      monthlyRate,
-      tenure: tenure,
-      principal: parseFloatSafe(input.principal),
-      emiAmount: parseFloatSafe(input.emiAmount),
-      totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
-    });
-
-    const timezone = await getTimezone();
-
-    const firstInstallmentDate = startOfDayLocal(input.firstInstallmentDate, timezone);
-    const processingFeesDate = startOfDayLocal(input.processingFeesDate, timezone);
-
+    await verifyCreditCardAccount(ctx.db, ctx.session.user.id, input.creditId);
+    const data = await getEMIUpsertData(input);
     return ctx.db
       .insert(emis)
       .values({
         userId: ctx.session.user.id,
-        ...{
-          ...input,
-          calculationMode: undefined,
-          emiAmount: undefined,
-          totalEmiAmount: undefined,
-        },
-        principal: principal.toFixed(2).toString(),
-        firstInstallmentDate,
-        processingFeesDate,
+        ...data,
       })
       .returning({ id: emis.id });
   }),
@@ -117,53 +114,12 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const creditCard = await ctx.db
-        .select({ id: creditCardAccounts.id })
-        .from(creditCardAccounts)
-        .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-        .where(
-          and(
-            eq(creditCardAccounts.id, input.creditId),
-            eq(bankAccount.userId, ctx.session.user.id),
-          ),
-        )
-        .limit(1);
-      if (creditCard.length === 0) {
-        throw new Error('Credit card not found or access denied');
-      }
-      const tenure = parseFloatSafe(input.tenure);
-      const annualRate = parseFloatSafe(input.annualInterestRate);
-      const monthlyRate = annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
-      const { principal } = calculateEMIAndPrincipal({
-        calculationMode: input.calculationMode,
-        monthlyRate,
-        tenure: tenure,
-        principal: parseFloatSafe(input.principal),
-        emiAmount: parseFloatSafe(input.emiAmount),
-        totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
-      });
-      const { id, ...restInput } = input;
-
-      const timezone = await getTimezone();
-
-      const firstInstallmentDate = startOfDayLocal(restInput.firstInstallmentDate, timezone);
-      const processingFeesDate = startOfDayLocal(restInput.processingFeesDate, timezone);
-
+      await verifyCreditCardAccount(ctx.db, ctx.session.user.id, input.creditId);
+      const { id, ...inputData } = input;
+      const data = await getEMIUpsertData(inputData);
       const result = await ctx.db
         .update(emis)
-        .set({
-          name: restInput.name,
-          creditId: restInput.creditId,
-          principal: principal.toFixed(2).toString(),
-          tenure: restInput.tenure,
-          annualInterestRate: restInput.annualInterestRate,
-          processingFees: restInput.processingFees,
-          processingFeesGst: restInput.processingFeesGst,
-          gst: restInput.gst,
-          firstInstallmentDate,
-          processingFeesDate,
-          iafe: restInput.iafe,
-        })
+        .set(data)
         .where(and(eq(emis.id, id), eq(emis.userId, ctx.session.user.id)))
         .returning({ id: emis.id });
       if (result.length === 0) {
@@ -190,21 +146,9 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const statement = await ctx.db
-        .select({
-          id: statements.id,
-          accountId: statements.accountId,
-          attributes: statements.additionalAttributes,
-        })
-        .from(statements)
-        .where(
-          and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
-        )
-        .limit(1);
-      if (statement.length === 0) {
-        throw new Error('Statement not found or access denied');
-      }
-      const attributes = statement[0].attributes as Partial<Record<string, unknown>>;
+      const attributes = (
+        await getStatementAttributes(ctx.db, ctx.session.user.id, input.statementId)
+      ).attributes as Partial<Record<string, unknown>>;
       if (attributes.emiId === undefined) {
         throw new Error(STATEMENT_NOT_LINKED);
       }
@@ -243,20 +187,7 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const emiData = await ctx.db
-        .select({
-          accountId: creditCardAccounts.accountId,
-          ...getTableColumns(emis),
-        })
-        .from(emis)
-        .leftJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
-        .limit(1);
-
-      if (emiData.length === 0) {
-        throw new Error(EMI_NOT_FOUND);
-      }
-      const emi = emiData[0];
+      const emi = await getEMIData(ctx.db, ctx.session.user.id, input.emiId);
       const statementData = await ctx.db
         .select({
           id: statements.id,
@@ -383,32 +314,25 @@ export const emisRouter = createTRPCRouter({
       for (const card of cards) {
         const cardId = card.id;
         const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
-
         const {
           outstandingBalance,
           currentStatement,
           currentMonthPayments: cardCurrentPayments,
           futurePayments: cardFuturePayments,
         } = calculateCardBalances(pendingEMI, monthEnd, timezone, card.accountName);
-
         cardDetails[cardId] = {
           outstandingBalance,
           currentStatement,
         };
-
         currentMonthPayments.push(...cardCurrentPayments);
         futurePayments.push(...cardFuturePayments);
       }
-
       const paymentsByMonth = groupPaymentsByMonth(futurePayments);
-
-      // Get all recurring payments (active status will be determined by endDate)
       const activeRecurringPayments = await ctx.db
         .select()
         .from(recurringPayments)
         .where(eq(recurringPayments.userId, ctx.session.user.id))
         .orderBy(desc(recurringPayments.startDate));
-
       return {
         cards,
         cardDetails,
@@ -421,19 +345,8 @@ export const emisRouter = createTRPCRouter({
   getEmiSplits: protectedProcedure
     .input(z.object({ emiId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const emiData = await ctx.db
-        .select({
-          additionalAttributes: emis.additionalAttributes,
-        })
-        .from(emis)
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
-        .limit(1);
-
-      if (emiData.length === 0) {
-        throw new Error(EMI_NOT_FOUND);
-      }
-
-      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const attributes = (await getEMIData(ctx.db, ctx.session.user.id, input.emiId))
+        .additionalAttributes as Record<string, unknown>;
       return attributes.splits === undefined
         ? []
         : (attributes.splits as Array<{ friendId: string; percentage: string }>);
@@ -447,19 +360,8 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const emiData = await ctx.db
-        .select({
-          additionalAttributes: emis.additionalAttributes,
-        })
-        .from(emis)
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
-        .limit(1);
-
-      if (emiData.length === 0) {
-        throw new Error(EMI_NOT_FOUND);
-      }
-
-      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const attributes = (await getEMIData(ctx.db, ctx.session.user.id, input.emiId))
+        .additionalAttributes as Record<string, unknown>;
       const currentSplits =
         attributes.splits === undefined
           ? []
@@ -504,19 +406,8 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const emiData = await ctx.db
-        .select({
-          additionalAttributes: emis.additionalAttributes,
-        })
-        .from(emis)
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
-        .limit(1);
-
-      if (emiData.length === 0) {
-        throw new Error(EMI_NOT_FOUND);
-      }
-
-      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const attributes = (await getEMIData(ctx.db, ctx.session.user.id, input.emiId))
+        .additionalAttributes as Record<string, unknown>;
       const currentSplits =
         attributes.splits === undefined
           ? []
@@ -564,19 +455,8 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const emiData = await ctx.db
-        .select({
-          additionalAttributes: emis.additionalAttributes,
-        })
-        .from(emis)
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)))
-        .limit(1);
-
-      if (emiData.length === 0) {
-        throw new Error(EMI_NOT_FOUND);
-      }
-
-      const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
+      const attributes = (await getEMIData(ctx.db, ctx.session.user.id, input.emiId))
+        .additionalAttributes as Record<string, unknown>;
       const currentSplits =
         attributes.splits === undefined
           ? []

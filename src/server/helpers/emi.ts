@@ -12,7 +12,7 @@ import {
   type SQL,
 } from 'drizzle-orm';
 
-import { bankAccount, creditCardAccounts, emis, statements } from '@/db/schema';
+import { bankAccount, creditCardAccounts, emis, recurringPayments, statements } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import type { emiParserSchema } from '@/types';
 
@@ -78,4 +78,95 @@ export const getEMIs = async (
     .orderBy(desc(emis.createdAt))
     .limit(input.perPage)
     .offset((input.page - 1) * input.perPage);
+};
+
+export const getRecurringPayment = async (
+  db: Database,
+  userId: string,
+  recurringPaymentId: string,
+) => {
+  const recurringPaymentData = await db
+    .select()
+    .from(recurringPayments)
+    .where(and(eq(recurringPayments.id, recurringPaymentId), eq(recurringPayments.userId, userId)))
+    .limit(1);
+
+  if (recurringPaymentData.length === 0) {
+    throw new Error('Recurring payment not found or access denied');
+  }
+  return recurringPaymentData[0];
+};
+
+export const getLinkedStatementsRecurringPayment = async (
+  db: Database,
+  userId: string,
+  recurringPaymentId: string,
+) =>
+  db
+    .select({
+      id: statements.id,
+      accountId: statements.accountId,
+      friendId: statements.friendId,
+      amount: statements.amount,
+      category: statements.category,
+      tags: statements.tags,
+      statementKind: statements.statementKind,
+      createdAt: statements.createdAt,
+      attributes: statements.additionalAttributes,
+    })
+    .from(statements)
+    .where(
+      and(
+        eq(statements.userId, userId),
+        eq(sql`${statements.additionalAttributes}->>'recurringPaymentId'`, recurringPaymentId),
+      ),
+    )
+    .orderBy(desc(statements.createdAt));
+
+export const verifyCreditCardAccount = async (db: Database, userId: string, creditId: string) => {
+  const creditCard = await db
+    .select({ id: creditCardAccounts.id })
+    .from(creditCardAccounts)
+    .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
+    .where(and(eq(creditCardAccounts.id, creditId), eq(bankAccount.userId, userId)))
+    .limit(1);
+
+  if (creditCard.length === 0) {
+    throw new Error('Credit card not found or access denied');
+  }
+};
+
+export const getStatementAttributes = async (db: Database, userId: string, statementId: string) => {
+  const statement = await db
+    .select({
+      id: statements.id,
+      accountId: statements.accountId,
+      attributes: statements.additionalAttributes,
+      amount: statements.amount,
+      createdAt: statements.createdAt,
+      statementKind: statements.statementKind,
+    })
+    .from(statements)
+    .where(and(eq(statements.id, statementId), eq(statements.userId, userId)))
+    .limit(1);
+  if (statement.length === 0) {
+    throw new Error('Statement not found or access denied');
+  }
+  return statement[0];
+};
+
+export const getEMIData = async (db: Database, userId: string, emiId: string) => {
+  const emiData = await db
+    .select({
+      accountId: creditCardAccounts.accountId,
+      ...getTableColumns(emis),
+    })
+    .from(emis)
+    .leftJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
+    .where(and(eq(emis.id, emiId), eq(emis.userId, userId)))
+    .limit(1);
+  if (emiData.length === 0) {
+    throw new Error('EMI not found or access denied');
+  }
+  return emiData[0];
 };

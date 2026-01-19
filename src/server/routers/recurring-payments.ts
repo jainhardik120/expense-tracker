@@ -11,8 +11,13 @@ import {
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createRecurringPaymentSchema, recurringPaymentParserSchema } from '@/types';
 
-const RECURRING_PAYMENT_NOT_FOUND = 'Recurring payment not found or access denied';
-const STATEMENT_NOT_FOUND = 'Statement not found or access denied';
+import {
+  getLinkedStatementsRecurringPayment,
+  getRecurringPayment,
+  getStatementAttributes,
+} from '../helpers/emi';
+
+const RECURRING_PAYMENT_NOT_FOUND = 'Recurring payment not found';
 
 export const recurringPaymentsRouter = createTRPCRouter({
   getRecurringPayments: protectedProcedure
@@ -90,7 +95,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
         .returning({ id: recurringPayments.id });
 
       if (result.length === 0) {
-        throw new Error(RECURRING_PAYMENT_NOT_FOUND);
+        throw new Error('Recurring payment not found or access denied');
       }
 
       return result;
@@ -125,40 +130,11 @@ export const recurringPaymentsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify recurring payment exists
-      const recurringPaymentData = await ctx.db
-        .select()
-        .from(recurringPayments)
-        .where(
-          and(
-            eq(recurringPayments.id, input.recurringPaymentId),
-            eq(recurringPayments.userId, ctx.session.user.id),
-          ),
-        )
-        .limit(1);
-
-      if (recurringPaymentData.length === 0) {
-        throw new Error(RECURRING_PAYMENT_NOT_FOUND);
-      }
-
+      await getRecurringPayment(ctx.db, ctx.session.user.id, input.recurringPaymentId);
       // Verify statement exists
-      const statementData = await ctx.db
-        .select({
-          id: statements.id,
-          attributes: statements.additionalAttributes,
-          createdAt: statements.createdAt,
-        })
-        .from(statements)
-        .where(
-          and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
-        )
-        .limit(1);
-
-      if (statementData.length === 0) {
-        throw new Error(STATEMENT_NOT_FOUND);
-      }
-
-      const statement = statementData[0];
-      const attributes = statement.attributes as Partial<Record<string, unknown>>;
+      const attributes = (
+        await getStatementAttributes(ctx.db, ctx.session.user.id, input.statementId)
+      ).attributes as Partial<Record<string, unknown>>;
 
       // Link statement to recurring payment (no strict validation on amount/date)
       await ctx.db
@@ -181,22 +157,9 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const statement = await ctx.db
-        .select({
-          id: statements.id,
-          attributes: statements.additionalAttributes,
-        })
-        .from(statements)
-        .where(
-          and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
-        )
-        .limit(1);
-
-      if (statement.length === 0) {
-        throw new Error(STATEMENT_NOT_FOUND);
-      }
-
-      const attributes = statement[0].attributes as Partial<Record<string, unknown>>;
+      const attributes = (
+        await getStatementAttributes(ctx.db, ctx.session.user.id, input.statementId)
+      ).attributes as Partial<Record<string, unknown>>;
 
       await ctx.db
         .update(statements)
@@ -218,29 +181,11 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }),
     )
     .query(({ ctx, input }) => {
-      return ctx.db
-        .select({
-          id: statements.id,
-          accountId: statements.accountId,
-          friendId: statements.friendId,
-          amount: statements.amount,
-          category: statements.category,
-          tags: statements.tags,
-          statementKind: statements.statementKind,
-          createdAt: statements.createdAt,
-          attributes: statements.additionalAttributes,
-        })
-        .from(statements)
-        .where(
-          and(
-            eq(statements.userId, ctx.session.user.id),
-            eq(
-              sql`${statements.additionalAttributes}->>'recurringPaymentId'`,
-              input.recurringPaymentId,
-            ),
-          ),
-        )
-        .orderBy(desc(statements.createdAt));
+      return getLinkedStatementsRecurringPayment(
+        ctx.db,
+        ctx.session.user.id,
+        input.recurringPaymentId,
+      );
     }),
 
   getRecurringPaymentDetails: protectedProcedure
@@ -254,45 +199,18 @@ export const recurringPaymentsRouter = createTRPCRouter({
       const { endOfYear } = getDefaultDateRange(timezone);
 
       // Get recurring payment
-      const recurringPaymentData = await ctx.db
-        .select()
-        .from(recurringPayments)
-        .where(
-          and(
-            eq(recurringPayments.id, input.recurringPaymentId),
-            eq(recurringPayments.userId, ctx.session.user.id),
-          ),
-        )
-        .limit(1);
-
-      if (recurringPaymentData.length === 0) {
-        throw new Error(RECURRING_PAYMENT_NOT_FOUND);
-      }
-
-      const recurringPayment = recurringPaymentData[0];
+      const recurringPayment = await getRecurringPayment(
+        ctx.db,
+        ctx.session.user.id,
+        input.recurringPaymentId,
+      );
 
       // Get linked statements
-      const linkedStatements = await ctx.db
-        .select({
-          id: statements.id,
-          amount: statements.amount,
-          createdAt: statements.createdAt,
-          category: statements.category,
-          accountId: statements.accountId,
-          friendId: statements.friendId,
-          statementKind: statements.statementKind,
-        })
-        .from(statements)
-        .where(
-          and(
-            eq(statements.userId, ctx.session.user.id),
-            eq(
-              sql`${statements.additionalAttributes}->>'recurringPaymentId'`,
-              input.recurringPaymentId,
-            ),
-          ),
-        )
-        .orderBy(desc(statements.createdAt));
+      const linkedStatements = await getLinkedStatementsRecurringPayment(
+        ctx.db,
+        ctx.session.user.id,
+        input.recurringPaymentId,
+      );
 
       // Generate payment schedule with status
       const { schedule, nextPaymentDate } = generatePaymentSchedule(
