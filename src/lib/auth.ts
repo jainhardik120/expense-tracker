@@ -2,6 +2,7 @@ import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { apiKey, twoFactor } from 'better-auth/plugins';
+import { createClient } from 'redis';
 
 import * as schema from '@/db/auth-schema';
 import ResetPasswordEmail from '@/emails/reset-password';
@@ -9,7 +10,17 @@ import { db } from '@/lib/db';
 import { env } from '@/lib/env';
 import { sendSESEmail } from '@/lib/send-email';
 
+const redis = createClient({
+  url: env.REDIS_URL,
+});
+await redis.connect();
 export const auth = betterAuth({
+  rateLimit: {
+    window: 20,
+    max: 100,
+    enabled: true,
+    storage: 'secondary-storage',
+  },
   appName: 'Expense Tracker',
   plugins: [
     passkey({
@@ -28,6 +39,21 @@ export const auth = betterAuth({
     }),
     apiKey(),
   ],
+  secondaryStorage: {
+    get: (key) => {
+      return redis.get(key);
+    },
+    set: async (key, value, ttl) => {
+      if (ttl !== undefined) {
+        await redis.set(key, value, { EX: ttl });
+      } else {
+        await redis.set(key, value);
+      }
+    },
+    delete: async (key) => {
+      await redis.del(key);
+    },
+  },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,

@@ -272,7 +272,6 @@ const eslintConfig = [
         },
       ],
 
-      'no-negated-condition': 'warn',
       'no-nested-ternary': 'error',
       'no-unneeded-ternary': 'error',
       'prefer-arrow-callback': 'error',

@@ -11,6 +11,7 @@ export const env = createEnv({
     NODE_ENV: z.enum(['development', 'test', 'production']),
     GITHUB_CLIENT_ID: z.string(),
     GITHUB_CLIENT_SECRET: z.string(),
+    REDIS_URL: z.string(),
   },
   client: {
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
@@ -32,6 +33,7 @@ export const env = createEnv({
     GITHUB_CLIENT_SECRET: process.env['GITHUB_CLIENT_SECRET'],
     NEXT_PUBLIC_POSTHOG_HOST: process.env['NEXT_PUBLIC_POSTHOG_HOST'],
     NEXT_PUBLIC_POSTHOG_KEY: process.env['NEXT_PUBLIC_POSTHOG_KEY'],
+    REDIS_URL: process.env['REDIS_URL'],
   },
   skipValidation:
     process.env['SKIP_ENV_VALIDATION'] !== undefined &&
