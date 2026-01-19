@@ -13,7 +13,6 @@ export default async function RecurringPaymentsPage({
   const pageParams = await loader(searchParams);
   const data = await api.recurringPayments.getRecurringPayments({
     ...pageParams,
-    isActive: pageParams.isActive ?? undefined,
   });
   return <Table data={data} />;
 }
