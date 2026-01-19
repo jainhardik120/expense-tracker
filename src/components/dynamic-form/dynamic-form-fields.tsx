@@ -127,7 +127,7 @@ const RenderedTimeInput = <T extends FieldValues = FieldValues>(props: FieldProp
 );
 
 const RenderedDateInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
-  const fieldDate = props.field.value as Date;
+  const fieldDate = props.field.value;
   return (
     <DateInput
       date={fieldDate}

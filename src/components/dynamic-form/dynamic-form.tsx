@@ -4,7 +4,6 @@ import { type ReactNode, type Ref, useEffect, useId, useImperativeHandle, useRef
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, type UseFormReturn, type FieldValues, type DefaultValues } from 'react-hook-form';
-import { type z } from 'zod';
 
 import {
   type FormField,
@@ -25,25 +24,26 @@ import { cn } from '@/lib/utils';
 
 import type * as z4 from 'zod/v4/core';
 
-type Props<Input extends FieldValues, Output> = {
+export type DynamicFormProps<Input extends FieldValues, Output extends FieldValues> = {
   schema: z4.$ZodType<Output, Input>;
   onSubmit?: (values: Output) => Promise<void> | void;
-  defaultValues: DefaultValues<z.infer<z4.$ZodType<Output, Input>>>;
+  defaultValues: DefaultValues<Input>;
   fields: Array<FormField<Input>>;
   submitButtonText?: string;
   submitButtonDisabled?: boolean;
-  FormFooter?: ({ form }: { form: UseFormReturn<Input, unknown, Input> }) => ReactNode;
+  FormFooter?: ({ form }: { form: UseFormReturn<Input, unknown, Output> }) => ReactNode;
   showSubmitButton?: boolean;
   ref?: Ref<UseFormReturn<Input, unknown, Output>>;
   className?: string;
   submissionError?: string;
 };
 
-const DynamicForm = <T extends FieldValues>(props: Props<T, T>) => {
+const DynamicForm = <T extends FieldValues, U extends FieldValues>(
+  props: DynamicFormProps<T, U>,
+) => {
   const { defaultValues } = props;
-  type FormData = T;
 
-  const form = useForm<FormData>({
+  const form = useForm<T, unknown, U>({
     resolver: zodResolver(props.schema),
     defaultValues: props.defaultValues,
   });

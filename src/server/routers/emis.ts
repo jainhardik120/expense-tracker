@@ -1,10 +1,9 @@
-import { cookies } from 'next/headers';
-
 import { endOfMonth } from 'date-fns';
 import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { bankAccount, creditCardAccounts, emis, statements } from '@/db/schema';
+import { bankAccount, creditCardAccounts, emis, statements, recurringPayments } from '@/db/schema';
+import { getTimezone, startOfDayLocal } from '@/lib/date';
 import { getEMIs, getMaxInstallmentNoSubquery } from '@/server/helpers/emi';
 import {
   calculateEMIAndPrincipal,
@@ -17,13 +16,7 @@ import {
 } from '@/server/helpers/emi-calculations';
 import { getCreditCards } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import {
-  createEmiSchema,
-  emiParserSchema,
-  MONTHS_PER_YEAR,
-  PERCENTAGE_DIVISOR,
-  TIMEZONE_COOKIE,
-} from '@/types';
+import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 const STATEMENT_NOT_LINKED = 'Statement is not linked to an EMI';
@@ -78,6 +71,11 @@ export const emisRouter = createTRPCRouter({
       totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
     });
 
+    const timezone = await getTimezone();
+
+    const firstInstallmentDate = startOfDayLocal(input.firstInstallmentDate, timezone);
+    const processingFeesDate = startOfDayLocal(input.processingFeesDate, timezone);
+
     return ctx.db
       .insert(emis)
       .values({
@@ -89,6 +87,8 @@ export const emisRouter = createTRPCRouter({
           totalEmiAmount: undefined,
         },
         principal: principal.toFixed(2).toString(),
+        firstInstallmentDate,
+        processingFeesDate,
       })
       .returning({ id: emis.id });
   }),
@@ -126,6 +126,12 @@ export const emisRouter = createTRPCRouter({
         totalEmiAmount: parseFloatSafe(input.totalEmiAmount),
       });
       const { id, ...restInput } = input;
+
+      const timezone = await getTimezone();
+
+      const firstInstallmentDate = startOfDayLocal(restInput.firstInstallmentDate, timezone);
+      const processingFeesDate = startOfDayLocal(restInput.processingFeesDate, timezone);
+
       const result = await ctx.db
         .update(emis)
         .set({
@@ -137,8 +143,8 @@ export const emisRouter = createTRPCRouter({
           processingFees: restInput.processingFees,
           processingFeesGst: restInput.processingFeesGst,
           gst: restInput.gst,
-          firstInstallmentDate: restInput.firstInstallmentDate,
-          processingFeesDate: restInput.processingFeesDate,
+          firstInstallmentDate,
+          processingFeesDate,
           iafe: restInput.iafe,
         })
         .where(and(eq(emis.id, id), eq(emis.userId, ctx.session.user.id)))
@@ -329,74 +335,91 @@ export const emisRouter = createTRPCRouter({
         )
         .orderBy(desc(statements.createdAt));
     }),
-  getCreditCardsWithOutstandingBalance: protectedProcedure.query(async ({ ctx }) => {
-    const cards = await getCreditCards(ctx.db, ctx.session.user.id);
-    const pendingEMIs = await getEMIs(ctx.db, ctx.session.user.id, {
-      completed: false,
-      perPage: 100,
-      page: 1,
-      accountId: [],
-      creditId: [],
-    });
-    const timezone = (await cookies()).get(TIMEZONE_COOKIE)?.value ?? 'UTC';
-    const currentMonthPayments: {
-      emiId: string;
-      emiName: string;
-      cardName: string;
-      amount: number;
-      date: Date;
-      myShare: number;
-      splitPercentage: number;
-    }[] = [];
-    const futurePayments: {
-      emiId: string;
-      emiName: string;
-      cardName: string;
-      amount: number;
-      date: Date;
-      month: string;
-      myShare: number;
-      splitPercentage: number;
-    }[] = [];
-    const monthEnd = endOfMonth(new Date());
+  getCreditCardsWithOutstandingBalance: protectedProcedure
+    .input(
+      z
+        .object({
+          uptoDate: z.date().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const cards = await getCreditCards(ctx.db, ctx.session.user.id);
+      const pendingEMIs = await getEMIs(ctx.db, ctx.session.user.id, {
+        completed: false,
+        perPage: 100,
+        page: 1,
+        accountId: [],
+        creditId: [],
+      });
+      const timezone = await getTimezone();
+      const currentMonthPayments: {
+        emiId: string;
+        emiName: string;
+        cardName: string;
+        amount: number;
+        date: Date;
+        myShare: number;
+        splitPercentage: number;
+      }[] = [];
+      const futurePayments: {
+        emiId: string;
+        emiName: string;
+        cardName: string;
+        amount: number;
+        date: Date;
+        month: string;
+        myShare: number;
+        splitPercentage: number;
+      }[] = [];
+      const monthEnd = endOfMonth(new Date());
 
-    const cardDetails: Record<
-      string,
-      {
-        outstandingBalance: number;
-        currentStatement: number;
+      const cardDetails: Record<
+        string,
+        {
+          outstandingBalance: number;
+          currentStatement: number;
+        }
+      > = {};
+
+      for (const card of cards) {
+        const cardId = card.id;
+        const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
+
+        const {
+          outstandingBalance,
+          currentStatement,
+          currentMonthPayments: cardCurrentPayments,
+          futurePayments: cardFuturePayments,
+        } = calculateCardBalances(pendingEMI, monthEnd, timezone, card.accountName);
+
+        cardDetails[cardId] = {
+          outstandingBalance,
+          currentStatement,
+        };
+
+        currentMonthPayments.push(...cardCurrentPayments);
+        futurePayments.push(...cardFuturePayments);
       }
-    > = {};
 
-    for (const card of cards) {
-      const cardId = card.id;
-      const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
+      const paymentsByMonth = groupPaymentsByMonth(futurePayments);
 
-      const {
-        outstandingBalance,
-        currentStatement,
-        currentMonthPayments: cardCurrentPayments,
-        futurePayments: cardFuturePayments,
-      } = calculateCardBalances(pendingEMI, monthEnd, timezone, card.accountName);
+      // Get all recurring payments (active status will be determined by endDate)
+      const activeRecurringPayments = await ctx.db
+        .select()
+        .from(recurringPayments)
+        .where(eq(recurringPayments.userId, ctx.session.user.id))
+        .orderBy(desc(recurringPayments.startDate));
 
-      cardDetails[cardId] = {
-        outstandingBalance,
-        currentStatement,
+      return {
+        cards,
+        cardDetails,
+        currentMonthPayments,
+        paymentsByMonth,
+        recurringPayments: activeRecurringPayments,
+        uptoDate: input?.uptoDate,
       };
-
-      currentMonthPayments.push(...cardCurrentPayments);
-      futurePayments.push(...cardFuturePayments);
-    }
-
-    const paymentsByMonth = groupPaymentsByMonth(futurePayments);
-
-    return {
-      cards,
-      cardDetails,
-      currentMonthPayments,
-      paymentsByMonth,
-    };
-  }),
+    }),
   getEmiSplits: protectedProcedure
     .input(z.object({ emiId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -413,9 +436,9 @@ export const emisRouter = createTRPCRouter({
       }
 
       const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
-      return attributes.splits !== undefined
-        ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
-        : [];
+      return attributes.splits === undefined
+        ? []
+        : (attributes.splits as Array<{ friendId: string; percentage: string }>);
     }),
   addEmiSplit: protectedProcedure
     .input(
@@ -440,9 +463,9 @@ export const emisRouter = createTRPCRouter({
 
       const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
       const currentSplits =
-        attributes.splits !== undefined
-          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
-          : [];
+        attributes.splits === undefined
+          ? []
+          : (attributes.splits as Array<{ friendId: string; percentage: string }>);
 
       const totalPercentage = currentSplits.reduce((sum, split) => {
         return sum + parseFloat(split.percentage);
@@ -497,9 +520,9 @@ export const emisRouter = createTRPCRouter({
 
       const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
       const currentSplits =
-        attributes.splits !== undefined
-          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
-          : [];
+        attributes.splits === undefined
+          ? []
+          : (attributes.splits as Array<{ friendId: string; percentage: string }>);
 
       if (input.splitIndex < 0 || input.splitIndex >= currentSplits.length) {
         throw new Error('Invalid split index');
@@ -557,9 +580,9 @@ export const emisRouter = createTRPCRouter({
 
       const attributes = emiData[0].additionalAttributes as Record<string, unknown>;
       const currentSplits =
-        attributes.splits !== undefined
-          ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
-          : [];
+        attributes.splits === undefined
+          ? []
+          : (attributes.splits as Array<{ friendId: string; percentage: string }>);
 
       if (input.splitIndex < 0 || input.splitIndex >= currentSplits.length) {
         throw new Error('Invalid split index');

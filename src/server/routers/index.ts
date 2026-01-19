@@ -5,6 +5,7 @@ import { bulkImportRouter } from './bulk-import';
 import { emisRouter } from './emis';
 import { friendsRouter } from './friends';
 import { investmentsRouter } from './investments';
+import { recurringPaymentsRouter } from './recurring-payments';
 import { statementsRouter } from './statements';
 import { summaryRouter } from './summary';
 
@@ -18,6 +19,7 @@ export const appRouter = createTRPCRouter({
   bulkImport: bulkImportRouter,
   investments: investmentsRouter,
   emis: emisRouter,
+  recurringPayments: recurringPaymentsRouter,
 });
 
 export type AppRouter = typeof appRouter;

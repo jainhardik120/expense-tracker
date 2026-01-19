@@ -20,7 +20,7 @@ export default async function Page({
 }: Readonly<{ searchParams: Promise<SearchParams> }>) {
   const params = await loader(searchParams);
   const timezone = await getTimezone();
-  const { start: defaultStart, end: defaultEnd } = getDefaultDateRange(timezone);
+  const { start: defaultStart, end: defaultEnd, endOfYear } = getDefaultDateRange(timezone);
   const dateParams = {
     start: params.start ?? defaultStart,
     end: params.end ?? defaultEnd,
@@ -30,7 +30,11 @@ export default async function Page({
     ...dateParams,
   });
   const summaryPromise = api.summary.getSummary(dateParams);
-  const creditAccountsPromise = api.emis.getCreditCardsWithOutstandingBalance();
+
+  const creditAccountsPromise = api.emis.getCreditCardsWithOutstandingBalance({
+    uptoDate: endOfYear,
+  });
+
   return (
     <div className="flex flex-col gap-4">
       <FilterPanel />
