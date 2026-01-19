@@ -9,6 +9,7 @@ import {
   check,
   index,
   jsonb,
+  boolean,
 } from 'drizzle-orm/pg-core';
 
 import { user } from './auth-schema';
@@ -180,4 +181,29 @@ export const emis = pgTable('emis', {
     .$defaultFn(() => new Date()),
   iafe: numeric('iafe').notNull().default('0'),
   additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
+});
+
+export const recurringPaymentFrequencyEnum = pgEnum('recurring_payment_frequency', [
+  'daily',
+  'weekly',
+  'monthly',
+  'quarterly',
+  'yearly',
+]);
+
+export const recurringPayments = pgTable('recurring_payments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  amount: numeric('amount').notNull(),
+  frequency: recurringPaymentFrequencyEnum().notNull(),
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date'),
+  isActive: boolean('is_active').notNull().default(true),
+  category: text('category').notNull(),
+  createdAt: timestamp('created_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
 });

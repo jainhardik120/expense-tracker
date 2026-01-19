@@ -17,6 +17,8 @@ import {
   type selfTransferStatements,
   statementKindEnum,
   type statements,
+  type recurringPayments,
+  recurringPaymentFrequencyEnum,
 } from '@/db/schema';
 
 export const statementKindMap = {
@@ -403,3 +405,34 @@ const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
 const HOURS_PER_DAY = 24;
 export const MS_PER_DAY = MS_PER_SECOND * SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
+
+// Recurring Payments
+export type RecurringPayment = typeof recurringPayments.$inferSelect;
+export type RecurringPaymentFrequency = (typeof recurringPaymentFrequencyEnum.enumValues)[number];
+
+export const createRecurringPaymentSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  amount: amount,
+  frequency: z.enum(recurringPaymentFrequencyEnum.enumValues),
+  startDate: z.date(),
+  endDate: z.date().optional(),
+  isActive: z.boolean().default(true),
+  category: z.string().min(1, 'Category is required'),
+});
+
+export const recurringPaymentParser = {
+  ...pageParser,
+  category: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  frequency: parseAsArrayOf(
+    parseAsStringEnum(recurringPaymentFrequencyEnum.enumValues),
+    ',',
+  ).withDefault([]),
+  isActive: parseAsBoolean,
+};
+
+export const recurringPaymentParserSchema = z.object({
+  ...pageSchema,
+  category: z.string().array().optional().default([]),
+  frequency: z.array(z.enum(recurringPaymentFrequencyEnum.enumValues)).optional().default([]),
+  isActive: z.boolean().optional(),
+});
