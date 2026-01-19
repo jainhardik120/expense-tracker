@@ -14,23 +14,45 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
+import { getFutureRecurringPayments } from '@/server/helpers/recurring-calculations';
 import { type RouterOutput } from '@/server/routers';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
 
 export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
-  const { paymentsByMonth } = creditData;
+  const { paymentsByMonth, recurringPayments, uptoDate } = creditData;
+
+  const recurringPaymentsByMonth = useMemo(() => {
+    if (!recurringPayments || !uptoDate) return {};
+    return getFutureRecurringPayments(recurringPayments, uptoDate);
+  }, [recurringPayments, uptoDate]);
 
   const futureMonthsData = useMemo(() => {
-    return Object.entries(paymentsByMonth)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, payments]) => ({
-        month,
-        total: payments.reduce((sum, p) => sum + p.amount, 0),
-        myTotal: payments.reduce((sum, p) => sum + p.myShare, 0),
-        payments,
-      }));
-  }, [paymentsByMonth]);
+    const allMonths = new Set([
+      ...Object.keys(paymentsByMonth),
+      ...Object.keys(recurringPaymentsByMonth),
+    ]);
+
+    return Array.from(allMonths)
+      .sort((a, b) => a.localeCompare(b))
+      .map((month) => {
+        const emiPayments = paymentsByMonth[month] ?? [];
+        const recurringPaymentsList = recurringPaymentsByMonth[month] ?? [];
+
+        const emiTotal = emiPayments.reduce((sum, p) => sum + p.amount, 0);
+        const emiMyTotal = emiPayments.reduce((sum, p) => sum + p.myShare, 0);
+        const recurringTotal = recurringPaymentsList.reduce((sum, p) => sum + p.amount, 0);
+
+        return {
+          month,
+          emiTotal,
+          emiMyTotal,
+          recurringTotal,
+          total: emiTotal + recurringTotal,
+          myTotal: emiMyTotal + recurringTotal,
+        };
+      });
+  }, [paymentsByMonth, recurringPaymentsByMonth]);
 
   return (
     <Card>
@@ -46,20 +68,26 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
             <TableHeader>
               <TableRow>
                 <TableHead>Month</TableHead>
+                <TableHead className="text-right">EMI</TableHead>
+                <TableHead className="text-right">Recurring</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead className="text-right">My Payment</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {futureMonthsData.map(({ month, total, myTotal }) => (
+              {futureMonthsData.map(({ month, emiTotal, recurringTotal, total, myTotal }) => (
                 <TableRow key={month}>
                   <TableCell className="font-medium">
                     {format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy')}
                   </TableCell>
-                  <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
                   <TableCell className="text-right font-medium">
-                    {formatCurrency(myTotal)}
+                    {formatCurrency(emiTotal)}
                   </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatCurrency(recurringTotal)}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCurrency(myTotal)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

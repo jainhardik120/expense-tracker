@@ -4,7 +4,7 @@ import { endOfMonth } from 'date-fns';
 import { and, desc, eq, getTableColumns, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { bankAccount, creditCardAccounts, emis, statements } from '@/db/schema';
+import { bankAccount, creditCardAccounts, emis, statements, recurringPayments } from '@/db/schema';
 import { getEMIs, getMaxInstallmentNoSubquery } from '@/server/helpers/emi';
 import {
   calculateEMIAndPrincipal,
@@ -329,74 +329,93 @@ export const emisRouter = createTRPCRouter({
         )
         .orderBy(desc(statements.createdAt));
     }),
-  getCreditCardsWithOutstandingBalance: protectedProcedure.query(async ({ ctx }) => {
-    const cards = await getCreditCards(ctx.db, ctx.session.user.id);
-    const pendingEMIs = await getEMIs(ctx.db, ctx.session.user.id, {
-      completed: false,
-      perPage: 100,
-      page: 1,
-      accountId: [],
-      creditId: [],
-    });
-    const timezone = (await cookies()).get(TIMEZONE_COOKIE)?.value ?? 'UTC';
-    const currentMonthPayments: {
-      emiId: string;
-      emiName: string;
-      cardName: string;
-      amount: number;
-      date: Date;
-      myShare: number;
-      splitPercentage: number;
-    }[] = [];
-    const futurePayments: {
-      emiId: string;
-      emiName: string;
-      cardName: string;
-      amount: number;
-      date: Date;
-      month: string;
-      myShare: number;
-      splitPercentage: number;
-    }[] = [];
-    const monthEnd = endOfMonth(new Date());
+  getCreditCardsWithOutstandingBalance: protectedProcedure
+    .input(
+      z
+        .object({
+          uptoDate: z.date().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const cards = await getCreditCards(ctx.db, ctx.session.user.id);
+      const pendingEMIs = await getEMIs(ctx.db, ctx.session.user.id, {
+        completed: false,
+        perPage: 100,
+        page: 1,
+        accountId: [],
+        creditId: [],
+      });
+      const timezone = (await cookies()).get(TIMEZONE_COOKIE)?.value ?? 'UTC';
+      const currentMonthPayments: {
+        emiId: string;
+        emiName: string;
+        cardName: string;
+        amount: number;
+        date: Date;
+        myShare: number;
+        splitPercentage: number;
+      }[] = [];
+      const futurePayments: {
+        emiId: string;
+        emiName: string;
+        cardName: string;
+        amount: number;
+        date: Date;
+        month: string;
+        myShare: number;
+        splitPercentage: number;
+      }[] = [];
+      const monthEnd = endOfMonth(new Date());
 
-    const cardDetails: Record<
-      string,
-      {
-        outstandingBalance: number;
-        currentStatement: number;
+      const cardDetails: Record<
+        string,
+        {
+          outstandingBalance: number;
+          currentStatement: number;
+        }
+      > = {};
+
+      for (const card of cards) {
+        const cardId = card.id;
+        const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
+
+        const {
+          outstandingBalance,
+          currentStatement,
+          currentMonthPayments: cardCurrentPayments,
+          futurePayments: cardFuturePayments,
+        } = calculateCardBalances(pendingEMI, monthEnd, timezone, card.accountName);
+
+        cardDetails[cardId] = {
+          outstandingBalance,
+          currentStatement,
+        };
+
+        currentMonthPayments.push(...cardCurrentPayments);
+        futurePayments.push(...cardFuturePayments);
       }
-    > = {};
 
-    for (const card of cards) {
-      const cardId = card.id;
-      const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
+      const paymentsByMonth = groupPaymentsByMonth(futurePayments);
 
-      const {
-        outstandingBalance,
-        currentStatement,
-        currentMonthPayments: cardCurrentPayments,
-        futurePayments: cardFuturePayments,
-      } = calculateCardBalances(pendingEMI, monthEnd, timezone, card.accountName);
+      // Get recurring payments
+      const activeRecurringPayments = await ctx.db
+        .select()
+        .from(recurringPayments)
+        .where(
+          and(eq(recurringPayments.userId, ctx.session.user.id), eq(recurringPayments.isActive, true)),
+        )
+        .orderBy(desc(recurringPayments.startDate));
 
-      cardDetails[cardId] = {
-        outstandingBalance,
-        currentStatement,
+      return {
+        cards,
+        cardDetails,
+        currentMonthPayments,
+        paymentsByMonth,
+        recurringPayments: activeRecurringPayments,
+        uptoDate: input?.uptoDate,
       };
-
-      currentMonthPayments.push(...cardCurrentPayments);
-      futurePayments.push(...cardFuturePayments);
-    }
-
-    const paymentsByMonth = groupPaymentsByMonth(futurePayments);
-
-    return {
-      cards,
-      cardDetails,
-      currentMonthPayments,
-      paymentsByMonth,
-    };
-  }),
+    }),
   getEmiSplits: protectedProcedure
     .input(z.object({ emiId: z.string() }))
     .query(async ({ ctx, input }) => {

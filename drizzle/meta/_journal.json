@@ -183,6 +183,13 @@
       "when": 1768399854795,
       "tag": "0025_crazy_mephisto",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1768800507019,
+      "tag": "0026_condemned_stephen_strange",
+      "breakpoints": true
     }
   ]
 }
