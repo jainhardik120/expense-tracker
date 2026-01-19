@@ -9,6 +9,12 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
 import { type Account, createAccountSchema } from '@/types';
 
+const EditIconButton = () => (
+  <Button className="size-8" size="icon" variant="outline">
+    <SquarePen />
+  </Button>
+);
+
 const fields: FormField<z.infer<typeof createAccountSchema>>[] = [
   {
     name: 'accountName',
@@ -53,11 +59,7 @@ export const UpdateAccountForm = ({
   const mutation = api.accounts.updateAccount.useMutation();
   return (
     <MutationModal
-      button={
-        <Button className="size-8" size="icon" variant="outline">
-          <SquarePen />
-        </Button>
-      }
+      button={<EditIconButton />}
       defaultValues={initialData}
       fields={fields}
       mutation={{

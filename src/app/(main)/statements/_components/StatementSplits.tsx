@@ -6,6 +6,7 @@ import { type z } from 'zod';
 
 import { DataTableActionBarAction } from '@/components/data-table/data-table-action-bar';
 import DynamicForm from '@/components/dynamic-form/dynamic-form';
+import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,6 +24,48 @@ import {
   type Statement,
   bulkSplitSchema,
 } from '@/types';
+
+const createAmountSplitFields = (
+  friends: Array<{ id: string; name: string }>,
+): FormField<z.infer<typeof createSplitSchema>>[] => [
+  {
+    name: 'amount',
+    label: 'Amount',
+    type: 'number',
+    placeholder: 'Amount',
+  },
+  {
+    name: 'friendId',
+    label: 'Friend ID',
+    type: 'select',
+    placeholder: 'Select Friend',
+    options: friends.map((friend) => ({
+      label: friend.name,
+      value: friend.id,
+    })),
+  },
+];
+
+const createPercentageSplitFields = (
+  friends: Array<{ id: string; name: string }>,
+): FormField<z.infer<typeof bulkSplitSchema>>[] => [
+  {
+    name: 'percentage',
+    label: 'Percentage',
+    type: 'number',
+    placeholder: 'Percentage',
+  },
+  {
+    name: 'friendId',
+    label: 'Friend ID',
+    type: 'select',
+    placeholder: 'Select Friend',
+    options: friends.map((friend) => ({
+      label: friend.name,
+      value: friend.id,
+    })),
+  },
+];
 
 export const StatementSplitsDialog = ({
   statementId,
@@ -85,24 +128,7 @@ export const StatementSplitsDialog = ({
                   amount: split.amount,
                   friendId: split.friendId,
                 }}
-                fields={[
-                  {
-                    name: 'amount',
-                    label: 'Amount',
-                    type: 'number',
-                    placeholder: 'Amount',
-                  },
-                  {
-                    name: 'friendId',
-                    label: 'Friend ID',
-                    type: 'select',
-                    placeholder: 'Select Friend',
-                    options: friends.map((friend) => ({
-                      label: friend.name,
-                      value: friend.id,
-                    })),
-                  },
-                ]}
+                fields={createAmountSplitFields(friends)}
                 schema={createSplitSchema}
                 showSubmitButton
                 submitButtonDisabled={updateSplitMutation.isPending}
@@ -168,24 +194,7 @@ export const BulkStatementSplitsDialog = ({
         percentage: '0',
         friendId: '',
       }}
-      fields={[
-        {
-          name: 'percentage',
-          label: 'Percentage',
-          type: 'number',
-          placeholder: 'Amount',
-        },
-        {
-          name: 'friendId',
-          label: 'Friend ID',
-          type: 'select',
-          placeholder: 'Select Friend',
-          options: friends.map((friend) => ({
-            label: friend.name,
-            value: friend.id,
-          })),
-        },
-      ]}
+      fields={createPercentageSplitFields(friends)}
       mutation={{
         mutateAsync: (values) => {
           return mutation.mutateAsync({
