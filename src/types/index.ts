@@ -415,7 +415,7 @@ export const createRecurringPaymentSchema = z.object({
   amount: amount,
   frequency: z.enum(recurringPaymentFrequencyEnum.enumValues),
   startDate: z.date(),
-  endDate: z.date().optional(),
+  endDate: z.date().nullable(),
   isActive: z.boolean().default(true),
   category: z.string().min(1, 'Category is required'),
 });

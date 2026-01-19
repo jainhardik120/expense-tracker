@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
 import { createRecurringPaymentSchema, type RecurringPayment } from '@/types';
 
-const recurringPaymentFormFields: FormField<z.infer<typeof createRecurringPaymentSchema>>[] = [
+const recurringPaymentFormFields: FormField<z.input<typeof createRecurringPaymentSchema>>[] = [
   {
     name: 'name',
     label: 'Payment Name',
@@ -79,7 +79,7 @@ export const CreateRecurringPaymentForm = () => {
         amount: '',
         frequency: 'monthly' as const,
         startDate: currentDate,
-        endDate: currentDate,
+        endDate: null,
         isActive: true,
       }}
       fields={recurringPaymentFormFields}
