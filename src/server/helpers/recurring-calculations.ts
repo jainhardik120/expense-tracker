@@ -3,9 +3,7 @@ import { toZonedTime } from 'date-fns-tz';
 
 import type { RecurringPayment, RecurringPaymentFrequency } from '@/types';
 
-type RecurringPaymentWithDetails = RecurringPayment & {
-  upcomingPayments?: { date: Date; amount: number }[];
-};
+const QUARTERLY_MONTHS = 3;
 
 /**
  * Calculate the next payment date based on frequency
@@ -22,7 +20,7 @@ export const getNextPaymentDate = (
     case 'monthly':
       return addMonths(currentDate, 1);
     case 'quarterly':
-      return addMonths(currentDate, 3);
+      return addMonths(currentDate, QUARTERLY_MONTHS);
     case 'yearly':
       return addYears(currentDate, 1);
     default:
@@ -44,7 +42,8 @@ export const getUpcomingPaymentDates = (
 
   const payments: { date: Date; amount: number }[] = [];
   const startDate = toZonedTime(recurringPayment.startDate, timezone);
-  const endDate = recurringPayment.endDate ? toZonedTime(recurringPayment.endDate, timezone) : null;
+  const endDate =
+    recurringPayment.endDate === null ? null : toZonedTime(recurringPayment.endDate, timezone);
   const uptoDateZoned = toZonedTime(uptoDate, timezone);
 
   let currentDate = startDate;
@@ -90,7 +89,7 @@ export const groupRecurringPaymentsByMonth = (
 
   for (const payment of payments) {
     const monthKey = format(payment.date, 'yyyy-MM');
-    if (grouped[monthKey] === undefined) {
+    if (!(monthKey in grouped)) {
       grouped[monthKey] = [];
     }
     grouped[monthKey].push(payment);

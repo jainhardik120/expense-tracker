@@ -23,9 +23,6 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
   const { paymentsByMonth, recurringPayments, uptoDate } = creditData;
 
   const recurringPaymentsByMonth = useMemo(() => {
-    if (recurringPayments === undefined) {
-      return {};
-    }
     if (uptoDate === undefined) {
       return {};
     }
