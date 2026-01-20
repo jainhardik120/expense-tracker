@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/naming-convention */
 import { headers } from 'next/headers';
 
 import { streamText, convertToModelMessages, type UIMessage, tool, stepCountIs } from 'ai';

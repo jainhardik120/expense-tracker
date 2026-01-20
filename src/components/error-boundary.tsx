@@ -1,4 +1,3 @@
-/* eslint-disable react-prefer-function-component/react-prefer-function-component */
 'use client';
 
 import { Component, type ReactNode } from 'react';

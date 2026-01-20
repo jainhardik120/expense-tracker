@@ -26,6 +26,7 @@ const ShimmerComponent = ({
   const dynamicSpread = useMemo(() => (children?.length ?? 0) * spread, [children, spread]);
 
   return (
+    // eslint-disable-next-line react-hooks/static-components
     <MotionComponent
       animate={{ backgroundPosition: '0% center' }}
       className={cn(

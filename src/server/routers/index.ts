@@ -9,7 +9,7 @@ import { recurringPaymentsRouter } from './recurring-payments';
 import { statementsRouter } from './statements';
 import { summaryRouter } from './summary';
 
-import type { inferRouterOutputs, inferRouterInputs } from '@trpc/server';
+import type { inferRouterOutputs } from '@trpc/server';
 
 export const appRouter = createTRPCRouter({
   accounts: accountsRouter,
@@ -23,7 +23,6 @@ export const appRouter = createTRPCRouter({
 });
 
 export type AppRouter = typeof appRouter;
-export type RouterInput = inferRouterInputs<AppRouter>;
 export type RouterOutput = inferRouterOutputs<AppRouter>;
 
 export const createCaller = createCallerFactory(appRouter);

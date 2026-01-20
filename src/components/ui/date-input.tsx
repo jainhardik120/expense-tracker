@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { format, parse } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
@@ -12,11 +12,7 @@ const DATE_FORMAT = 'dd-MM-yyyy';
 
 const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
   const [open, setOpen] = useState(false);
-  const [dateString, setDateString] = useState('');
-
-  useEffect(() => {
-    setDateString(format(props.date, DATE_FORMAT));
-  }, [props.date]);
+  const [dateString, setDateString] = useState(format(props.date, DATE_FORMAT));
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setDateString(e.target.value);

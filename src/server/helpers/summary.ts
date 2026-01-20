@@ -970,7 +970,6 @@ export const getFriendSplitsLimited = async (
   account: string,
   start?: Date,
   end?: Date,
-  // eslint-disable-next-line max-params
 ) => {
   const union = generateStatementUnionOverviewQuery(db);
   const conditions = [];

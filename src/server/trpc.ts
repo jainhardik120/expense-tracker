@@ -45,7 +45,6 @@ type Context = Awaited<ReturnType<typeof createTRPCContext>>;
 
 export const createTRPCContextNext = async ({
   req,
-  // eslint-disable-next-line @typescript-eslint/require-await
 }: FetchCreateContextFnOptions): Promise<Context> => {
   return {
     db: db,

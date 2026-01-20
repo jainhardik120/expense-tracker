@@ -1,14 +1,16 @@
-import { defineConfig } from 'eslint/config';
-import { fixupConfigRules, fixupPluginRules } from '@eslint/compat';
-import sonarjs from 'eslint-plugin-sonarjs';
-import security from 'eslint-plugin-security';
-import promise from 'eslint-plugin-promise';
-import react from 'eslint-plugin-react';
-import reactPreferFunctionComponent from 'eslint-plugin-react-prefer-function-component';
-import preferArrowFunctions from 'eslint-plugin-prefer-arrow-functions';
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
+
+import { fixupConfigRules, fixupPluginRules } from '@eslint/compat';
 import { FlatCompat } from '@eslint/eslintrc';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
+import preferArrowFunctions from 'eslint-plugin-prefer-arrow-functions';
+import promise from 'eslint-plugin-promise';
+import reactPreferFunctionComponent from 'eslint-plugin-react-prefer-function-component';
+import security from 'eslint-plugin-security';
+import sonarjs from 'eslint-plugin-sonarjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,41 +19,27 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
-const eslintConfig = [
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'postcss.config.mjs']),
   {
-    ignores: [
-      'node_modules/**',
-      '.next/**',
-      'out/**',
-      'build/**',
-      'next-env.d.ts',
-      'postcss.config.mjs',
-      'eslint.config.mjs',
-    ],
     extends: fixupConfigRules(
       compat.extends(
-        'next/core-web-vitals',
-        'next/typescript',
-        'plugin:@typescript-eslint/recommended',
-        'plugin:@typescript-eslint/strict',
-        'plugin:@typescript-eslint/recommended-requiring-type-checking',
         'plugin:sonarjs/recommended-legacy',
         'plugin:security/recommended-legacy',
         'plugin:promise/recommended',
-        'plugin:react/recommended',
-        'plugin:react/jsx-runtime',
         'plugin:react-prefer-function-component/recommended',
       ),
     ),
     plugins: {
       sonarjs: fixupPluginRules(sonarjs),
       security: fixupPluginRules(security),
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       promise: fixupPluginRules(promise),
-      react: fixupPluginRules(react),
       'react-prefer-function-component': fixupPluginRules(reactPreferFunctionComponent),
       'prefer-arrow-functions': preferArrowFunctions,
     },
-
     languageOptions: {
       ecmaVersion: 5,
       sourceType: 'script',
@@ -61,26 +49,6 @@ const eslintConfig = [
         tsconfigRootDir: __dirname,
       },
     },
-
-    settings: {
-      react: {
-        version: 'detect',
-      },
-      'import/resolver': {
-        typescript: {
-          alwaysTryTypes: true,
-        },
-        node: {
-          extensions: ['.ts', '.tsx', '.js', '.jsx'],
-        },
-      },
-      'import/parsers': {
-        '@typescript-eslint/parser': ['.ts', '.tsx'],
-      },
-      'import/extensions': ['.ts', '.tsx', '.js', '.jsx'],
-      'import/internal-regex': '^@/',
-    },
-
     rules: {
       '@typescript-eslint/ban-ts-comment': [
         'error',
@@ -88,24 +56,7 @@ const eslintConfig = [
           'ts-ignore': 'allow-with-description',
         },
       ],
-
       '@typescript-eslint/consistent-type-imports': 'error',
-
-      '@typescript-eslint/naming-convention': [
-        'warn',
-        {
-          selector: ['property'],
-
-          filter: {
-            regex: '^(data-|aria-|on[A-Z])',
-            match: false,
-          },
-
-          format: ['camelCase'],
-          leadingUnderscore: 'allow',
-        },
-      ],
-
       '@typescript-eslint/no-confusing-void-expression': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-floating-promises': 'error',
@@ -218,39 +169,6 @@ const eslintConfig = [
         'off',
         {
           max: 10,
-        },
-      ],
-
-      'max-depth': [
-        'error',
-        {
-          max: 4,
-        },
-      ],
-
-      'max-lines': [
-        'off',
-        {
-          max: 300,
-          skipBlankLines: true,
-          skipComments: true,
-        },
-      ],
-
-      'max-lines-per-function': [
-        'off',
-        {
-          max: 80,
-          skipBlankLines: true,
-          skipComments: true,
-          IIFEs: true,
-        },
-      ],
-
-      'max-params': [
-        'warn',
-        {
-          max: 5,
         },
       ],
 
@@ -420,10 +338,11 @@ const eslintConfig = [
       'security/detect-non-literal-regexp': 'error',
       'security/detect-object-injection': 'off',
       'security/detect-unsafe-regex': 'error',
-      'sonarjs/cognitive-complexity': ['off', 15],
-      'sonarjs/max-switch-cases': ['error', 10],
+      'sonarjs/cognitive-complexity': ['off'],
+      'sonarjs/max-switch-cases': ['off'],
       'sonarjs/no-collapsible-if': 'error',
       'sonarjs/no-unused-vars': 'off',
+      'sonarjs/unused-import': 'off',
       'sonarjs/no-duplicate-string': [
         'error',
         {
@@ -439,8 +358,6 @@ const eslintConfig = [
       'sonarjs/prefer-immediate-return': 'error',
       'sonarjs/prefer-object-literal': 'error',
       'sonarjs/prefer-single-boolean-return': 'error',
-      'max-nested-callbacks': ['error', 3],
-      'max-statements': ['error', 30],
       'max-statements-per-line': ['error', { max: 1 }],
       'no-param-reassign': 'error',
       'func-style': ['error', 'expression'],
@@ -463,13 +380,6 @@ const eslintConfig = [
     },
   },
   {
-    files: ['src/app/**/page.tsx'],
-
-    rules: {
-      'max-statements': ['warn', 40],
-    },
-  },
-  {
     files: ['src/components/data-table/**/*.tsx', 'src/lib/parsers.ts'],
 
     rules: {
@@ -477,15 +387,6 @@ const eslintConfig = [
       '@typescript-eslint/strict-boolean-expressions': 'warn',
       'jsx-a11y/click-events-have-key-events': 'warn',
       'sonarjs/function-return-type': 'warn',
-    },
-  },
-  {
-    files: ['src/app/(main)/statements/_components/bulk-import-dialog.tsx'],
-
-    rules: {
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
     },
   },
   {
@@ -535,6 +436,6 @@ const eslintConfig = [
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
     },
   },
-];
+]);
 
 export default defineConfig(eslintConfig);

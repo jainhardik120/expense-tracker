@@ -246,7 +246,7 @@ export type PaymentScheduleEntry = {
  * Generate complete payment schedule for a recurring payment
  * including past payments matched with linked statements and upcoming payments
  */
-// eslint-disable-next-line max-statements
+
 export const generatePaymentSchedule = (
   recurringPayment: RecurringPayment,
   linkedStatements: LinkedStatement[],
