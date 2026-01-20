@@ -119,8 +119,8 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
       }),
       execute: async (input) => {
         const result = await caller.emis.getEmis({
-          page: input.page ?? 1,
-          perPage: input.perPage ?? 10,
+          page: input.page,
+          perPage: input.perPage,
           creditId: input.creditId ?? [],
           accountId: input.accountId ?? [],
           completed: input.completed,
