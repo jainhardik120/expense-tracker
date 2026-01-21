@@ -2,18 +2,14 @@ import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { apiKey, twoFactor } from 'better-auth/plugins';
-import { createClient } from 'redis';
 
 import * as schema from '@/db/auth-schema';
 import ResetPasswordEmail from '@/emails/reset-password';
 import { db } from '@/lib/db';
 import { env } from '@/lib/env';
+import { redis } from '@/lib/redis';
 import { sendSESEmail } from '@/lib/send-email';
 
-const redis = createClient({
-  url: env.REDIS_URL,
-});
-await redis.connect();
 export const auth = betterAuth({
   rateLimit: {
     window: 20,
@@ -40,12 +36,12 @@ export const auth = betterAuth({
     apiKey(),
   ],
   secondaryStorage: {
-    get: (key) => {
+    get: async (key) => {
       return redis.get(key);
     },
     set: async (key, value, ttl) => {
       if (ttl !== undefined) {
-        await redis.set(key, value, { EX: ttl });
+        await redis.setex(key, ttl, value);
       } else {
         await redis.set(key, value);
       }
@@ -63,6 +59,7 @@ export const auth = betterAuth({
       enabled: true,
       maxAge: 5 * 60,
     },
+    storeSessionInDatabase: true,
   },
   emailVerification: {
     sendOnSignIn: true,
