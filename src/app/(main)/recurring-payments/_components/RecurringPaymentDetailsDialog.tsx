@@ -5,19 +5,13 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { Calendar, Eye } from 'lucide-react';
 
+import { DataTable } from '@/components/data-table/data-table';
 import Modal from '@/components/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RecurringPayment } from '@/types';
@@ -26,6 +20,22 @@ const DATE_FORMAT = 'dd MMM yyyy';
 
 type RecurringPaymentDetailsDialogProps = {
   recurringPayment: RecurringPayment;
+};
+
+type ScheduleEntry = {
+  scheduledDate: Date;
+  expectedAmount: number;
+  status: 'paid' | 'upcoming' | 'missed';
+  linkedStatementDate: Date | null;
+  linkedStatementAmount: number | null;
+};
+
+type LinkedStatement = {
+  id: string;
+  createdAt: Date;
+  amount: string;
+  category: string;
+  statementKind: string;
 };
 
 const StatusBadge = ({ status }: { status: 'paid' | 'upcoming' | 'missed' }) => {
@@ -51,6 +61,93 @@ const LoadingState = () => (
 const ErrorState = ({ message }: { message: string }) => (
   <div className="py-8 text-center text-sm text-red-500">Error loading details: {message}</div>
 );
+
+const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
+  const { table } = useDataTable({
+    data: schedule,
+    columns: [
+      {
+        id: 'scheduledDate',
+        header: 'Scheduled Date',
+        accessorFn: (row: ScheduleEntry) => format(row.scheduledDate, DATE_FORMAT),
+      },
+      {
+        id: 'expectedAmount',
+        header: 'Expected Amount',
+        accessorFn: (row: ScheduleEntry) => formatCurrency(row.expectedAmount),
+      },
+      {
+        id: 'status',
+        header: 'Status',
+        // eslint-disable-next-line react/no-unstable-nested-components
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: 'linkedStatementDate',
+        header: 'Actual Payment',
+        accessorFn: (row: ScheduleEntry) =>
+          row.linkedStatementDate !== null ? format(row.linkedStatementDate, DATE_FORMAT) : '-',
+      },
+      {
+        id: 'linkedStatementAmount',
+        header: 'Amount Paid',
+        accessorFn: (row: ScheduleEntry) =>
+          row.linkedStatementAmount !== null ? formatCurrency(row.linkedStatementAmount) : '-',
+      },
+    ],
+    pageCount: -1,
+  });
+
+  return (
+    <DataTable
+      background={false}
+      enablePagination={false}
+      getItemValue={(r) => r.scheduledDate.toISOString()}
+      showBorder={false}
+      table={table}
+    />
+  );
+};
+
+const LinkedStatementsTable = ({ statements }: { statements: LinkedStatement[] }) => {
+  const { table } = useDataTable({
+    data: statements,
+    columns: [
+      {
+        id: 'createdAt',
+        header: 'Date',
+        accessorFn: (row: LinkedStatement) => format(row.createdAt, DATE_FORMAT),
+      },
+      {
+        id: 'amount',
+        header: 'Amount',
+        accessorFn: (row: LinkedStatement) => formatCurrency(Number(row.amount)),
+      },
+      {
+        id: 'category',
+        header: 'Category',
+        accessorFn: (row: LinkedStatement) => row.category,
+      },
+      {
+        id: 'statementKind',
+        header: 'Type',
+        // eslint-disable-next-line react/no-unstable-nested-components
+        cell: ({ row }) => <Badge variant="secondary">{row.original.statementKind}</Badge>,
+      },
+    ],
+    pageCount: -1,
+  });
+
+  return (
+    <DataTable
+      background={false}
+      enablePagination={false}
+      getItemValue={(r) => r.id}
+      showBorder={false}
+      table={table}
+    />
+  );
+};
 
 export const RecurringPaymentDetailsDialog = ({
   recurringPayment,
@@ -130,38 +227,7 @@ export const RecurringPaymentDetailsDialog = ({
                   No scheduled payments for the current year.
                 </p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Scheduled Date</TableHead>
-                      <TableHead>Expected Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actual Payment</TableHead>
-                      <TableHead>Amount Paid</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.schedule.map((entry) => (
-                      <TableRow key={entry.scheduledDate.toString()}>
-                        <TableCell>{format(entry.scheduledDate, DATE_FORMAT)}</TableCell>
-                        <TableCell>{formatCurrency(entry.expectedAmount)}</TableCell>
-                        <TableCell>
-                          <StatusBadge status={entry.status} />
-                        </TableCell>
-                        <TableCell>
-                          {entry.linkedStatementDate !== null
-                            ? format(entry.linkedStatementDate, DATE_FORMAT)
-                            : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {entry.linkedStatementAmount !== null
-                            ? formatCurrency(entry.linkedStatementAmount)
-                            : '-'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <ScheduleTable schedule={data.schedule} />
               )}
             </CardContent>
           </Card>
@@ -178,28 +244,7 @@ export const RecurringPaymentDetailsDialog = ({
                   No statements linked yet. Link statements from the statements page.
                 </p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Type</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.linkedStatements.map((stmt) => (
-                      <TableRow key={stmt.id}>
-                        <TableCell>{format(stmt.createdAt, DATE_FORMAT)}</TableCell>
-                        <TableCell>{formatCurrency(stmt.amount)}</TableCell>
-                        <TableCell>{stmt.category}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{stmt.statementKind}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <LinkedStatementsTable statements={data.linkedStatements} />
               )}
             </CardContent>
           </Card>

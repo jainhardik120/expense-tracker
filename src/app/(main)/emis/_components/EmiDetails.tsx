@@ -8,7 +8,7 @@ import { api } from '@/server/react';
 import { type Emi } from '@/types';
 
 const EmiDetails = ({ emi }: { emi: Emi }) => {
-  const { data = [] } = api.emis.getLinkedStatements.useQuery({
+  const { data: linkedStatements = [] } = api.emis.getLinkedStatements.useQuery({
     emiId: emi.id,
   });
   const schedule = useMemo(() => {
@@ -16,8 +16,7 @@ const EmiDetails = ({ emi }: { emi: Emi }) => {
   }, [emi]);
   return (
     <div className="flex flex-col gap-4">
-      <p>{JSON.stringify(data)}</p>
-      <PaymentScheduleTable result={schedule} />
+      <PaymentScheduleTable linkedStatements={linkedStatements} result={schedule} />
     </div>
   );
 };
