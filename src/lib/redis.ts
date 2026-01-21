@@ -43,8 +43,4 @@ redis.on('error', (err: Error) => {
   logger.error('Redis error', { error: err.message, stack: err.stack });
 });
 
-redis.on('connect', () => {
-  logger.info('Redis connected');
-});
-
 export { redis };
