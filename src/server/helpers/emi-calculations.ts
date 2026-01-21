@@ -275,7 +275,7 @@ export const confirmMatch = (
   return (hasDate && dateMatches && amountMatches) || (!hasDate && amountMatches);
 };
 
-type PaymentWithLocation = {
+export type PaymentWithLocation = {
   emiId: string;
   emiName: string;
   cardName: string;

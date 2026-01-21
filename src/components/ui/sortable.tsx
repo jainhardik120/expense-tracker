@@ -314,15 +314,15 @@ const SortableRoot = <T,>(props: SortableRootProps<T>) => {
         modifiers={modifiers ?? config.modifiers}
         sensors={sensors}
         {...sortableProps}
-        id={id}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onDragCancel={onDragCancel}
         accessibility={{
           announcements,
           screenReaderInstructions,
           ...accessibility,
         }}
+        id={id}
+        onDragCancel={onDragCancel}
+        onDragEnd={onDragEnd}
+        onDragStart={onDragStart}
       />
     </SortableRootContext.Provider>
   );
@@ -453,15 +453,14 @@ const SortableItem = React.forwardRef<HTMLDivElement, SortableItemProps>((props,
   return (
     <SortableItemContext.Provider value={itemContext}>
       <ItemPrimitive
-        id={id}
         data-disabled={disabled}
         data-dragging={isDragging ? '' : undefined}
         data-slot="sortable-item"
+        id={id}
         {...itemProps}
         {...((asHandle ?? false) && !(disabled ?? false) ? attributes : {})}
         {...((asHandle ?? false) && !(disabled ?? false) ? listeners : {})}
         ref={composedRef}
-        style={composedStyle}
         className={cn(
           'focus-visible:ring-ring focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden',
           {
@@ -474,6 +473,7 @@ const SortableItem = React.forwardRef<HTMLDivElement, SortableItemProps>((props,
           },
           className,
         )}
+        style={composedStyle}
       />
     </SortableItemContext.Provider>
   );
@@ -504,11 +504,11 @@ const SortableItemHandle = React.forwardRef<HTMLButtonElement, SortableItemHandl
 
     return (
       <HandlePrimitive
-        type="button"
         aria-controls={itemContext.id}
         data-disabled={isDisabled}
         data-dragging={(itemContext.isDragging ?? false) ? '' : undefined}
         data-slot="sortable-item-handle"
+        type="button"
         {...itemHandleProps}
         {...((isDisabled ?? false) ? {} : itemContext.attributes)}
         {...((isDisabled ?? false) ? {} : itemContext.listeners)}
@@ -564,9 +564,9 @@ const SortableOverlay = (props: SortableOverlayProps) => {
 
   return ReactDOM.createPortal(
     <DragOverlay
+      className={cn(!context.flatCursor && 'cursor-grabbing')}
       dropAnimation={dropAnimation}
       modifiers={context.modifiers}
-      className={cn(!context.flatCursor && 'cursor-grabbing')}
       {...overlayProps}
     >
       <SortableOverlayContext.Provider value>

@@ -21,6 +21,8 @@ type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
   onValueChange?: (items: Row<TData>[]) => void;
   getItemValue: (item: TData) => string;
   enablePagination?: boolean;
+  showBorder?: boolean;
+  background?: boolean;
 };
 
 export const DataTable = <TData extends object>({
@@ -31,6 +33,8 @@ export const DataTable = <TData extends object>({
   onValueChange,
   getItemValue,
   enablePagination = true,
+  showBorder = true,
+  background = true,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -40,7 +44,7 @@ export const DataTable = <TData extends object>({
   return (
     <div className={cn('flex w-full flex-col gap-2.5 overflow-auto', className)} {...props}>
       {children}
-      <div className="overflow-hidden rounded-md border">
+      <div className={cn('overflow-hidden', showBorder && 'rounded-md border')}>
         <Sortable
           getItemValue={(item) => getItemValue(item.original)}
           value={rows}
@@ -53,9 +57,10 @@ export const DataTable = <TData extends object>({
                   {headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
+                      className={cn(background && 'bg-background')}
                       colSpan={header.colSpan}
                       style={{
-                        ...getCommonPinningStyles({ column: header.column }),
+                        ...getCommonPinningStyles({ column: header.column, withBorder: true }),
                       }}
                     >
                       {header.isPlaceholder
@@ -79,9 +84,9 @@ export const DataTable = <TData extends object>({
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
-                            className="py-1"
+                            className={cn('h-10 py-1', background && 'bg-background')}
                             style={{
-                              ...getCommonPinningStyles({ column: cell.column }),
+                              ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
                             }}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}

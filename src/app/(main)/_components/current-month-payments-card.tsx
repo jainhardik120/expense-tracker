@@ -4,21 +4,23 @@ import { useMemo } from 'react';
 
 import { endOfMonth, format } from 'date-fns';
 
+import { DataTable } from '@/components/data-table/data-table';
 import { useTimezone } from '@/components/time-zone-setter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
-import { getCurrentMonthRecurringPayments } from '@/server/helpers/recurring-calculations';
+import type { PaymentWithLocation } from '@/server/helpers/emi-calculations';
+import {
+  getCurrentMonthRecurringPayments,
+  type RecurringPaymentSchedule,
+} from '@/server/helpers/recurring-calculations';
 import { type RouterOutput } from '@/server/routers';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
+
+const isRecurring = (
+  payment: RecurringPaymentSchedule | PaymentWithLocation,
+): payment is RecurringPaymentSchedule => 'category' in payment;
 
 export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
   const { currentMonthPayments, recurringPayments } = creditData;
@@ -40,7 +42,43 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
     return emiTotal + recurringTotal;
   }, [currentMonthPayments, recurringCurrentMonth]);
 
-  const hasPayments = currentMonthPayments.length > 0 || recurringCurrentMonth.length > 0;
+  const { table } = useDataTable({
+    data: [...currentMonthPayments, ...recurringCurrentMonth],
+    columns: [
+      {
+        id: 'type',
+        header: 'Type',
+        accessorFn: (row) => (isRecurring(row) ? 'Recurring' : 'EMI'),
+      },
+      {
+        id: 'name',
+        header: 'Name',
+        accessorFn: (row) => (isRecurring(row) ? row.name : row.emiName),
+      },
+      {
+        id: 'category-card',
+        header: 'Card/Category',
+        accessorFn: (row) => (isRecurring(row) ? row.category : row.cardName),
+      },
+      {
+        id: 'date',
+        header: 'Date',
+        accessorFn: (row) => format(row.date, 'MMM dd'),
+      },
+      {
+        id: 'amount',
+        header: 'Amount',
+        accessorFn: (row) => formatCurrency(row.amount),
+      },
+      {
+        id: 'my-payment',
+        header: 'My Payment',
+        accessorFn: (row) =>
+          isRecurring(row) ? formatCurrency(row.amount) : formatCurrency(row.myShare),
+      },
+    ],
+    pageCount: -1,
+  });
 
   return (
     <Card>
@@ -52,56 +90,13 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {hasPayments ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Card/Category</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">My Payment</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {currentMonthPayments.map((payment) => (
-                <TableRow key={`emi-${payment.emiId}-${payment.date.toISOString()}`}>
-                  <TableCell className="font-medium">EMI</TableCell>
-                  <TableCell className="font-medium">{payment.emiName}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {payment.cardName}
-                  </TableCell>
-                  <TableCell className="text-sm">{format(payment.date, 'MMM dd')}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(payment.amount)}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(payment.myShare)}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {recurringCurrentMonth.map((payment) => (
-                <TableRow key={`recurring-${payment.id}-${payment.date.toISOString()}`}>
-                  <TableCell className="font-medium">Recurring</TableCell>
-                  <TableCell className="font-medium">{payment.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {payment.category}
-                  </TableCell>
-                  <TableCell className="text-sm">{format(payment.date, 'MMM dd')}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(payment.amount)}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {formatCurrency(payment.amount)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        ) : (
-          <p className="text-muted-foreground text-sm">No payments due this month</p>
-        )}
+        <DataTable
+          background={false}
+          enablePagination={false}
+          getItemValue={(r) => r.date.toISOString()}
+          showBorder={false}
+          table={table}
+        />
       </CardContent>
     </Card>
   );

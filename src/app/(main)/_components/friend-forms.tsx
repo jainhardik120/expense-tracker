@@ -8,7 +8,7 @@ import { api } from '@/server/react';
 import { createFriendSchema, type Friend } from '@/types';
 
 const EditIconButton = () => (
-  <Button className="size-8" size="icon" variant="outline">
+  <Button className="size-8" size="icon" variant="ghost">
     <SquarePen />
   </Button>
 );
@@ -26,7 +26,11 @@ export const CreateFriendForm = ({ refresh }: { refresh?: () => void }) => {
   const mutation = api.friends.createFriend.useMutation();
   return (
     <MutationModal
-      button={<Button variant="outline">New Friend</Button>}
+      button={
+        <Button size="sm" variant="outline">
+          New Friend
+        </Button>
+      }
       defaultValues={{
         name: '',
       }}

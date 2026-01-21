@@ -164,14 +164,6 @@ const eslintConfig = defineConfig([
       'no-return-await': 'error',
       'no-unused-vars': 'off',
       'no-var': 'error',
-
-      complexity: [
-        'off',
-        {
-          max: 10,
-        },
-      ],
-
       'no-else-return': [
         'error',
         {
@@ -364,24 +356,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ['src/components/ui/*.tsx'],
-
-    rules: {
-      'react/jsx-sort-props': 'off',
-      '@typescript-eslint/naming-convention': 'off',
-      'max-statements': 'off',
-    },
-  },
-  {
-    files: ['src/lib/env.ts'],
-
-    rules: {
-      '@typescript-eslint/naming-convention': 'off',
-    },
-  },
-  {
     files: ['src/components/data-table/**/*.tsx', 'src/lib/parsers.ts'],
-
     rules: {
       '@typescript-eslint/no-unnecessary-condition': 'warn',
       '@typescript-eslint/strict-boolean-expressions': 'warn',
@@ -425,34 +400,19 @@ const eslintConfig = defineConfig([
       'no-duplicate-imports': 'warn',
       '@typescript-eslint/prefer-nullish-coalescing': 'warn',
       '@typescript-eslint/no-unused-vars': 'warn',
-      'react/prop-types': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
       'promise/always-return': 'warn',
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
-      'jsx-a11y/click-events-have-key-events': 'warn',
       '@typescript-eslint/no-floating-promises': 'warn',
-      'react/jsx-sort-props': 'warn',
-      'react/no-danger': 'warn',
       'sonarjs/redundant-type-aliases': 'warn',
-      'sonarjs/deprecation': 'warn',
       'sonarjs/no-identical-functions': 'warn',
       'promise/no-nesting': 'warn',
-      'no-return-await': 'warn',
-      'promise/catch-or-return': 'warn',
-      'sonarjs/no-duplicate-string': 'warn',
-      '@typescript-eslint/restrict-template-expressions': 'warn',
       'react-hooks/exhaustive-deps': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
       '@typescript-eslint/no-unsafe-assignment': 'warn',
       '@typescript-eslint/no-unsafe-member-access': 'warn',
-      'sonarjs/no-useless-intersection': 'warn',
       '@typescript-eslint/prefer-optional-chain': 'warn',
       'no-console': 'warn',
-      '@typescript-eslint/unbound-method': 'warn',
       'sonarjs/no-selector-parameter': 'warn',
-      'react/no-array-index-key': 'warn',
-      'jsx-a11y/no-noninteractive-element-interactions': 'warn',
     },
   },
   {

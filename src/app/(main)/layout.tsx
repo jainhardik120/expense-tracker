@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 import FloatingChatbot from './_components/floating-chatbot';
-import UserButton from './_components/UserButton';
+import UserButton from './_components/user-button';
 
 export default async function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   const cookieStore = await cookies();

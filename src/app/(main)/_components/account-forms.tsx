@@ -10,7 +10,7 @@ import { api } from '@/server/react';
 import { type Account, createAccountSchema } from '@/types';
 
 const EditIconButton = () => (
-  <Button className="size-8" size="icon" variant="outline">
+  <Button className="size-8" size="icon" variant="ghost">
     <SquarePen />
   </Button>
 );
@@ -33,7 +33,11 @@ export const CreateAccountForm = ({ refresh }: { refresh?: () => void }) => {
   const mutation = api.accounts.createAccount.useMutation();
   return (
     <MutationModal
-      button={<Button variant="outline">New Account</Button>}
+      button={
+        <Button size="sm" variant="outline">
+          New Account
+        </Button>
+      }
       defaultValues={{
         startingBalance: '',
         accountName: '',

@@ -105,22 +105,22 @@ const Autocomplete = ({
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
-          role="combobox"
           aria-expanded={open}
-          disabled={disabled}
-          onClick={handleButtonClick}
           className={cn(
             'w-full justify-between font-normal',
             internalValue === '' && 'text-muted-foreground',
             className,
           )}
+          disabled={disabled}
+          role="combobox"
+          variant="outline"
+          onClick={handleButtonClick}
         >
           <span className="truncate">{internalValue === '' ? placeholder : displayLabel}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent align="start" className="w-full p-0">
         <Command shouldFilter={false} onKeyDown={handleKeyDown}>
           <CommandInput
             ref={inputRef}

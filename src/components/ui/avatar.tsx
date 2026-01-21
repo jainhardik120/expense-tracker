@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 
 const Avatar = ({ className, ...props }: React.ComponentProps<typeof AvatarPrimitive.Root>) => (
   <AvatarPrimitive.Root
-    data-slot="avatar"
     className={cn('relative flex size-8 shrink-0 overflow-hidden rounded-full', className)}
+    data-slot="avatar"
     {...props}
   />
 );
@@ -19,8 +19,8 @@ const AvatarImage = ({
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) => (
   <AvatarPrimitive.Image
-    data-slot="avatar-image"
     className={cn('aspect-square size-full', className)}
+    data-slot="avatar-image"
     {...props}
   />
 );
@@ -30,8 +30,8 @@ const AvatarFallback = ({
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) => (
   <AvatarPrimitive.Fallback
-    data-slot="avatar-fallback"
     className={cn('bg-muted flex size-full items-center justify-center rounded-full', className)}
+    data-slot="avatar-fallback"
     {...props}
   />
 );

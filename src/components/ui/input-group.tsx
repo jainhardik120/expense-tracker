@@ -11,8 +11,6 @@ import { cn } from '@/lib/utils';
 
 const InputGroup = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
-    data-slot="input-group"
-    role="group"
     className={cn(
       'group/input-group border-input dark:bg-input/30 relative flex w-full items-center rounded-md border shadow-xs transition-[color,box-shadow] outline-none',
       'h-9 min-w-0 has-[>textarea]:h-auto',
@@ -31,6 +29,8 @@ const InputGroup = ({ className, ...props }: React.ComponentProps<'div'>) => (
 
       className,
     )}
+    data-slot="input-group"
+    role="group"
     {...props}
   />
 );
@@ -60,10 +60,10 @@ const InputGroupAddon = ({
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof inputGroupAddonVariants>) => (
   <div
-    role="group"
-    data-slot="input-group-addon"
-    data-align={align}
     className={cn(inputGroupAddonVariants({ align }), className)}
+    data-align={align}
+    data-slot="input-group-addon"
+    role="group"
     onClick={(e) => {
       if ((e.target as HTMLElement).closest('button')) {
         return;
@@ -97,10 +97,10 @@ const InputGroupButton = ({
 }: Omit<React.ComponentProps<typeof Button>, 'size'> &
   VariantProps<typeof inputGroupButtonVariants>) => (
   <Button
-    type={type}
-    data-size={size}
-    variant={variant}
     className={cn(inputGroupButtonVariants({ size }), className)}
+    data-size={size}
+    type={type}
+    variant={variant}
     {...props}
   />
 );
@@ -117,22 +117,22 @@ const InputGroupText = ({ className, ...props }: React.ComponentProps<'span'>) =
 
 const InputGroupInput = ({ className, ...props }: React.ComponentProps<'input'>) => (
   <Input
-    data-slot="input-group-control"
     className={cn(
       'flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent',
       className,
     )}
+    data-slot="input-group-control"
     {...props}
   />
 );
 
 const InputGroupTextarea = ({ className, ...props }: React.ComponentProps<'textarea'>) => (
   <Textarea
-    data-slot="input-group-control"
     className={cn(
       'flex-1 resize-none rounded-none border-0 bg-transparent py-3 shadow-none focus-visible:ring-0 dark:bg-transparent',
       className,
     )}
+    data-slot="input-group-control"
     {...props}
   />
 );

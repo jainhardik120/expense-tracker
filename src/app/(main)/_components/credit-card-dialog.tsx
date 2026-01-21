@@ -123,11 +123,7 @@ export const CreditCardDialog = ({
       setOpen={handleOpenChange}
       title={isExistingCreditCard ? 'Manage Credit Card' : 'Convert to Credit Card'}
       trigger={
-        <Button
-          className="size-8"
-          size="icon"
-          variant={isExistingCreditCard ? 'default' : 'outline'}
-        >
+        <Button className="size-8" size="icon" variant={isExistingCreditCard ? 'default' : 'ghost'}>
           <CreditCard className="size-4" />
         </Button>
       }

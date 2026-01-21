@@ -10,9 +10,9 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { type RouterOutput } from '@/server/routers';
 import { isFriendSummary } from '@/types';
 
-import { createAccountColumns } from './AccountColumns';
-import { CreateAccountForm } from './AccountForms';
-import { CreateFriendForm } from './FriendsForms';
+import { createAccountColumns } from './account-columns';
+import { CreateAccountForm } from './account-forms';
+import { CreateFriendForm } from './friend-forms';
 
 type SummaryData = RouterOutput['summary']['getSummary'];
 type CreditData = RouterOutput['accounts']['getCreditCards'];
@@ -39,6 +39,11 @@ const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData
     columns: accountColumns,
     pageCount: -1,
     shallow: false,
+    initialState: {
+      columnPinning: {
+        left: ['name'],
+      },
+    },
   });
   return (
     <DataTable

@@ -38,16 +38,16 @@ const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
         </PopoverTrigger>
         <Input
           className="w-full pr-10"
+          placeholder="dd-mm-yyyy"
           type="text"
           value={dateString}
-          onChange={handleInputChange}
           onBlur={handleInputBlur}
-          placeholder="dd-mm-yyyy"
+          onChange={handleInputChange}
         />
         <Button
+          className="absolute top-1/2 right-2 size-6 -translate-y-1/2 p-0"
           type="button"
           variant="ghost"
-          className="absolute top-1/2 right-2 size-6 -translate-y-1/2 p-0"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -60,6 +60,7 @@ const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
       <PopoverContent align="start" className="w-auto overflow-hidden p-0">
         <Calendar
           captionLayout="dropdown"
+          defaultMonth={props.date}
           mode="single"
           selected={props.date}
           onSelect={(changedDate) => {
@@ -69,7 +70,6 @@ const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
             }
             setOpen(false);
           }}
-          defaultMonth={props.date}
         />
       </PopoverContent>
     </Popover>

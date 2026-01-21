@@ -232,9 +232,6 @@ export const DateTruncEnum = z.enum(DateTruncValues);
 export type DateTruncUnit = z.infer<typeof DateTruncEnum>;
 export const MONTHS_PER_YEAR = 12;
 export const PERCENTAGE_DIVISOR = 100;
-export const MAX_PERCENTAGE = 100;
-export const MIN_PERCENTAGE = 0;
-
 export const SECONDS = 1000;
 export const MINUTES = 60 * SECONDS;
 export const HOURS = 60 * MINUTES;

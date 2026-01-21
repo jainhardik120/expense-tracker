@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
 import { type FriendSummary, type AccountSummary, isFriendSummary } from '@/types';
 
-import { UpdateAccountForm } from './AccountForms';
-import { CreditCardDialog } from './CreditCardDialog';
-import { UpdateFriendForm } from './FriendsForms';
+import { UpdateAccountForm } from './account-forms';
+import { CreditCardDialog } from './credit-card-dialog';
+import { UpdateFriendForm } from './friend-forms';
 
 type CreditCardAccount = { creditCardId?: string; creditAccountId?: string; cardLimit?: string };
 
@@ -24,7 +24,7 @@ const DeleteButton = ({
   onRefresh: () => void;
 }) => (
   <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-    <Button className="size-8" size="icon" variant="outline">
+    <Button className="size-8" size="icon" variant="ghost">
       <Trash />
     </Button>
   </DeleteConfirmationDialog>

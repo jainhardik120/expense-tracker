@@ -6,7 +6,7 @@ import type { RecurringPayment, RecurringPaymentFrequency } from '@/types';
 const QUARTERLY_MONTHS = 3;
 const QUARTER_TOLERANCE = 0.25;
 
-type RecurringPaymentSchedule = {
+export type RecurringPaymentSchedule = {
   id: string;
   name: string;
   category: string;
