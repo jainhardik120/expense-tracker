@@ -1,5 +1,5 @@
-import { attachDatabasePool } from '@vercel/functions';
-import Redis from 'ioredis';
+import { waitUntil } from '@vercel/functions';
+import { Redis } from 'ioredis';
 
 import { env } from '@/lib/env';
 import logger from '@/lib/logger';
@@ -19,7 +19,25 @@ const redis = new Redis(env.REDIS_URL, {
   },
 });
 
-attachDatabasePool(redis);
+let idleTimeout: NodeJS.Timeout | null = null;
+let idleTimeoutResolve: (value: void | PromiseLike<void>) => void = () => {};
+const bootTime = Date.now();
+const maximumDuration = 15 * 60 * 1000 - 1000;
+redis.on('end', () => {
+  if (idleTimeout !== null) {
+    clearTimeout(idleTimeout);
+    idleTimeoutResolve();
+  }
+  const promise = new Promise((resolve) => {
+    idleTimeoutResolve = resolve;
+  });
+  const waitTime = Math.min(5100, Math.max(100, maximumDuration - (Date.now() - bootTime)));
+  idleTimeout = setTimeout(() => {
+    idleTimeoutResolve();
+    logger.info('Database pool idle timeout reached. Releasing connections.');
+  }, waitTime);
+  waitUntil(promise);
+});
 
 redis.on('error', (err: Error) => {
   logger.error('Redis error', { error: err.message, stack: err.stack });
