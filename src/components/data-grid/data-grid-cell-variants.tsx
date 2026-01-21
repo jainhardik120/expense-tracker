@@ -918,12 +918,11 @@ export const SelectCell = <TData,>({
             )}
           </SelectTrigger>
           <SelectContent
+            align="start"
             alignOffset={-8}
             className="min-w-[calc(var(--radix-select-trigger-width)+16px)]"
-            sideOffset={-8}
             data-grid-cell-editor=""
-            // compensate for the wrapper padding
-            align="start"
+            sideOffset={-8}
           >
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
