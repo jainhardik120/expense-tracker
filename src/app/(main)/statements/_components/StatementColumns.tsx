@@ -21,7 +21,6 @@ import {
   type CreditCardAccount,
 } from '@/types';
 
-import { LinkToEMIDialog } from './EMIForms';
 import { LinkToRecurringPaymentDialog } from './RecurringPaymentLink';
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import { UpdateStatementForm } from './StatementForms';
@@ -60,23 +59,17 @@ const StatementActions = ({
 }) => {
   const mutation = api.statements.deleteStatement.useMutation();
   const { id } = statement;
-  const isCreditCardAccount =
-    statement.accountId !== null &&
-    creditAccounts.some((cc) => cc.accountId === statement.accountId);
 
   return (
     <div className="flex flex-row gap-2">
       {statement.statementKind === 'expense' && (
         <StatementSplitsDialog statementData={statement} statementId={id} />
       )}
-      {isCreditCardAccount ? (
-        <LinkToEMIDialog
-          creditAccounts={creditAccounts}
-          statement={statement}
-          onRefresh={onRefresh}
-        />
-      ) : null}
-      <LinkToRecurringPaymentDialog statement={statement} onRefresh={onRefresh} />
+      <LinkToRecurringPaymentDialog
+        creditAccounts={creditAccounts}
+        statement={statement}
+        onRefresh={onRefresh}
+      />
       <UpdateStatementForm
         accountsData={accountsData}
         categories={categories}
