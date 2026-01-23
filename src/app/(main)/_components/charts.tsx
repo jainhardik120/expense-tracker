@@ -219,13 +219,16 @@ const constructOverlayBarData = (data: SummaryData) => {
     },
     {
       label: 'Outside Transactions',
-      change: data.aggregatedAccountsSummaryData.outsideTransactions,
+      change:
+        data.aggregatedAccountsSummaryData.outsideTransactions +
+        (data.aggregatedAccountsSummaryData.friendTransactions -
+          data.aggregatedFriendsSummaryData.friendTransactions),
       name: 'outside-transactions',
     },
     {
       label: 'Friend Transactions',
       change:
-        data.aggregatedAccountsSummaryData.friendTransactions -
+        data.aggregatedFriendsSummaryData.friendTransactions -
         data.aggregatedFriendsSummaryData.splits +
         data.aggregatedFriendsSummaryData.paidByFriend,
       name: 'friend-transactions',

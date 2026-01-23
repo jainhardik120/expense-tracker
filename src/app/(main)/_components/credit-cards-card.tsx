@@ -6,7 +6,7 @@ import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
-type SummaryData = RouterOutput['summary']['getSummary'];
+type SummaryData = RouterOutput['summary']['getAggregatedData'];
 
 export const CreditCardsCard = ({
   creditData,
@@ -36,7 +36,7 @@ export const CreditCardsCard = ({
               return [];
             }
 
-            const accountSummary = summaryData.accountsSummaryData.find(
+            const accountSummary = summaryData.accountsSummary.find(
               (acc) => acc.account.id === card.accountId,
             );
             const currentBalance = accountSummary?.finalBalance ?? 0;

@@ -14,7 +14,7 @@ import { createAccountColumns } from './account-columns';
 import { CreateAccountForm } from './account-forms';
 import { CreateFriendForm } from './friend-forms';
 
-type SummaryData = RouterOutput['summary']['getSummary'];
+type SummaryData = RouterOutput['summary']['getAggregatedData'];
 type CreditData = RouterOutput['accounts']['getCreditCards'];
 
 const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData }) => {
@@ -24,7 +24,7 @@ const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData
   };
   const accountColumns = createAccountColumns(refetch);
   const accountsDataWithCreditData = useMemo(() => {
-    return data.accountsSummaryData.map((account) => {
+    return data.accountsSummary.map((account) => {
       const creditAccount = creditData.find((credit) => credit.accountId === account.account.id);
       return {
         ...account,
@@ -35,7 +35,7 @@ const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData
     });
   }, [data, creditData]);
   const { table } = useDataTable({
-    data: [...accountsDataWithCreditData, ...data.friendsSummaryData],
+    data: [...accountsDataWithCreditData, ...data.friendsSummary],
     columns: accountColumns,
     pageCount: -1,
     shallow: false,

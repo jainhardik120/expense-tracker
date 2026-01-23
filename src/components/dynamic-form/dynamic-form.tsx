@@ -65,7 +65,7 @@ const DynamicForm = <T extends FieldValues, U extends FieldValues>(
   const formId = useId();
   return (
     <Form {...form}>
-      <form className={cn('grid gap-4', props.className)} onSubmit={onFormSubmit}>
+      <form className={cn('grid gap-4')} onSubmit={onFormSubmit}>
         <div className={cn('grid max-h-[70vh] gap-4 overflow-y-auto p-1', props.className)}>
           {props.fields.map((field) => {
             const { displayCondition = true } = field;

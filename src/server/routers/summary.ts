@@ -82,10 +82,19 @@ export const summaryRouter = createTRPCRouter({
         input.end,
       );
       const processedAggregations = processAggregatedData(rawData);
+      const aggregatedAccountsSummaryData = addAccountsSummary(rawData.accountsSummary);
+      const aggregatedFriendsSummaryData = addFriendsSummary(rawData.friendsSummary);
+      const myExpensesTotal =
+        aggregatedAccountsSummaryData.expenses +
+        aggregatedFriendsSummaryData.paidByFriend -
+        aggregatedFriendsSummaryData.splits;
       return {
         accountsSummary: rawData.accountsSummary,
         friendsSummary: rawData.friendsSummary,
         ...processedAggregations,
+        myExpensesTotal,
+        aggregatedAccountsSummaryData,
+        aggregatedFriendsSummaryData,
       };
     }),
 });

@@ -123,7 +123,7 @@ export const StatementSplitsDialog = ({
             return (
               <DynamicForm
                 key={split.id}
-                className="grid-cols-3 items-end"
+                className="w-full grid-cols-2 items-end"
                 defaultValues={{
                   amount: split.amount,
                   friendId: split.friendId,

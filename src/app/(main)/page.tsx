@@ -25,12 +25,11 @@ export default async function Page({
     start: params.start ?? defaultStart,
     end: params.end ?? defaultEnd,
   };
+
   const aggregationPromise = api.summary.getAggregatedData({
     aggregateBy: params.period,
     ...dateParams,
   });
-  const summaryPromise = api.summary.getSummary(dateParams);
-
   const creditAccountsPromise = api.emis.getCreditCardsWithOutstandingBalance({
     uptoDate: endOfYear,
   });
@@ -69,13 +68,21 @@ export default async function Page({
         </AsyncComponent>
         <AsyncComponent
           loadingFallbackClassName="col-span-1 md:col-span-2 xl:col-span-1"
-          promise={summaryPromise}
+          promise={aggregationPromise}
         >
           {(summaryData) => <SummaryCard data={summaryData} />}
         </AsyncComponent>
       </div>
+      <AsyncComponent
+        loadingFallbackClassName="h-[400]"
+        promise={Promise.all([aggregationPromise, creditAccountsPromise])}
+      >
+        {([summaryData, creditData]) => (
+          <SummaryTable creditData={creditData.cards} data={summaryData} />
+        )}
+      </AsyncComponent>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <AsyncComponent promise={Promise.all([creditAccountsPromise, summaryPromise])}>
+        <AsyncComponent promise={Promise.all([creditAccountsPromise, aggregationPromise])}>
           {([creditData, summaryData]) => (
             <CreditCardsCard creditData={creditData} summaryData={summaryData} />
           )}
@@ -87,14 +94,6 @@ export default async function Page({
           {(creditData) => <FutureMonthsPaymentsCard creditData={creditData} />}
         </AsyncComponent>
       </div>
-      <AsyncComponent
-        loadingFallbackClassName="h-[400]"
-        promise={Promise.all([summaryPromise, creditAccountsPromise])}
-      >
-        {([summaryData, creditData]) => (
-          <SummaryTable creditData={creditData.cards} data={summaryData} />
-        )}
-      </AsyncComponent>
       <AsyncComponent loadingFallbackClassName="h-[400]" promise={aggregationPromise}>
         {(aggregationData) => (
           <AggregationTable data={aggregationData.periodAggregations} unit={params.period} />

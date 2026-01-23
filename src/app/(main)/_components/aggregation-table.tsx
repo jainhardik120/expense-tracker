@@ -40,7 +40,12 @@ const Table = ({ data, unit }: { data: ProcessedAggregationData[]; unit: DateTru
       {
         accessorKey: 'totalAccountsSummary.outsideTransactions',
         header: 'Outside Transactions',
-        cell: ({ row }) => row.original.totalAccountsSummary.outsideTransactions.toFixed(2),
+        cell: ({ row }) =>
+          (
+            row.original.totalAccountsSummary.outsideTransactions +
+            row.original.totalAccountsSummary.friendTransactions -
+            row.original.totalFriendsSummary.friendTransactions
+          ).toFixed(2),
       },
       {
         accessorKey: 'totalExpenses',
