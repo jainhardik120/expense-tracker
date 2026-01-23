@@ -1,0 +1,67 @@
+name: Generated APK AAB (Upload - Create Artifact To Github Action)
+
+env:
+  main_project_module: android/app
+  playstore_name: Expense Tracker
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set current date as env variable
+        run: echo "date_today=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+      - name: Set repository name as env variable
+        run: echo "repository_name=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV
+
+      - name: Set Up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Change wrapper permissions
+        run: chmod +x android/gradlew
+
+      - name: Run gradle tests
+        run: android/gradlew -p android test
+
+      - name: Build gradle project
+        run: android/gradlew -p android build
+
+      - name: Build APK debug
+        run: android/gradlew -p android assembleDebug
+
+      - name: Build APK release
+        run: android/gradlew -p android assemble
+
+      - name: Build AAB release
+        run: android/gradlew -p android app:bundleRelease
+
+      - name: Upload APK Debug
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - APK(s) debug generated
+          path: android/app/build/outputs/apk/debug/
+
+      - name: Upload APK Release
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - APK(s) release generated
+          path: android/app/build/outputs/apk/release/
+
+      - name: Upload AAB Release
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - App bundle(s) AAB release generated
+          path: android/app/build/outputs/bundle/release/
