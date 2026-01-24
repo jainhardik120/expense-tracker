@@ -205,7 +205,7 @@ export const bulkImportRouter = createTRPCRouter({
   }),
 
   importStatements: protectedProcedure.input(bulkImportSchema).mutation(async ({ ctx, input }) => {
-    const userId = ctx.session.user.id;
+    const userId = ctx.user.id;
     const timezone = await getTimezone();
 
     const userAccounts = await ctx.db

@@ -1,9 +1,13 @@
 import { initTRPC, TRPCError } from '@trpc/server';
+import { verifyJwsAccessToken } from 'better-auth';
+import { eq } from 'drizzle-orm';
 import superjson from 'superjson';
 import { treeifyError, ZodError } from 'zod';
 
+import { user } from '@/db/auth-schema';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
+import { getBaseUrl } from '@/lib/getBaseUrl';
 import logger from '@/lib/logger';
 
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
@@ -64,28 +68,59 @@ export const publicProcedure = t.procedure.use(timingMiddleware).use(async ({ ct
   });
 });
 
-export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
-  const session = await auth.api.getSession({ headers: ctx.headers });
+const getUser = async (ctx: Context) => {
+  const { headers } = ctx;
+  const authHeader = headers.get('Authorization');
+  if (authHeader !== null) {
+    const accessToken = authHeader.startsWith('Bearer ')
+      ? authHeader.replace('Bearer ', '')
+      : authHeader;
+    const payload = await verifyJwsAccessToken(accessToken, {
+      verifyOptions: {
+        issuer: `${getBaseUrl()}/api/auth`,
+        audience: `${getBaseUrl()}/api/external`,
+      },
+      jwksFetch: `${getBaseUrl()}/api/auth/jwks`,
+    });
+    const userId = payload.sub;
+    if (userId === undefined) {
+      return;
+    }
+    const dbUsers = await ctx.db.select().from(user).where(eq(user.id, userId)).limit(1);
+    if (dbUsers.length === 0) {
+      return;
+    }
+    return dbUsers[0];
+  }
+  const session = await auth.api.getSession({ headers });
   if (session === null) {
+    return;
+  }
+  return session.user;
+};
+
+export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
+  const user = await getUser(ctx);
+  if (user === undefined) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
   return next({
     ctx: {
       ...ctx,
-      session,
+      user,
     },
   });
 });
 
 export const adminProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
-  const session = await auth.api.getSession({ headers: ctx.headers });
-  if (session?.user.role?.includes('admin') !== true) {
+  const user = await getUser(ctx);
+  if (user === undefined) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
   return next({
     ctx: {
       ...ctx,
-      session,
+      user,
     },
   });
 });

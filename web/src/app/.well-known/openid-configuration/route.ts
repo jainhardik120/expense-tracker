@@ -1,5 +1,5 @@
-import { oauthProviderOpenIdConfigMetadata } from "@better-auth/oauth-provider";
+import { oauthProviderOpenIdConfigMetadata } from '@better-auth/oauth-provider';
 
-import { auth } from "@/lib/auth";
+import { auth } from '@/lib/auth';
 
 export const GET = oauthProviderOpenIdConfigMetadata(auth);

@@ -40,13 +40,13 @@ export const summaryRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const accountsSummaryData = await getAccountsSummaryBetweenDates(
         ctx.db,
-        ctx.session.user.id,
+        ctx.user.id,
         input.start,
         input.end,
       );
       const friendsSummaryData = await getFriendsSummaryBetweenDates(
         ctx.db,
-        ctx.session.user.id,
+        ctx.user.id,
         input.start,
         input.end,
       );
@@ -75,7 +75,7 @@ export const summaryRouter = createTRPCRouter({
       const tz = await getTimezone();
       const rawData = await getRawDataForAggregation(
         ctx.db,
-        ctx.session.user.id,
+        ctx.user.id,
         input.aggregateBy,
         tz,
         input.start,

@@ -26,11 +26,11 @@ const validateAccountOwnership = async (
 
 export const accountsRouter = createTRPCRouter({
   getAccounts: protectedProcedure.query(({ ctx }) => {
-    return getAccounts(ctx.db, ctx.session.user.id);
+    return getAccounts(ctx.db, ctx.user.id);
   }),
   createAccount: protectedProcedure.input(createAccountSchema).mutation(({ ctx, input }) => {
     return ctx.db.insert(bankAccount).values({
-      userId: ctx.session.user.id,
+      userId: ctx.user.id,
       ...input,
     });
   }),
@@ -39,7 +39,7 @@ export const accountsRouter = createTRPCRouter({
     .mutation(({ ctx, input }) => {
       return ctx.db
         .delete(bankAccount)
-        .where(and(eq(bankAccount.id, input.id), eq(bankAccount.userId, ctx.session.user.id)));
+        .where(and(eq(bankAccount.id, input.id), eq(bankAccount.userId, ctx.user.id)));
     }),
   updateAccount: protectedProcedure
     .input(
@@ -52,16 +52,16 @@ export const accountsRouter = createTRPCRouter({
       return ctx.db
         .update(bankAccount)
         .set(input.createAccountSchema)
-        .where(and(eq(bankAccount.id, input.id), eq(bankAccount.userId, ctx.session.user.id)))
+        .where(and(eq(bankAccount.id, input.id), eq(bankAccount.userId, ctx.user.id)))
         .returning({ id: bankAccount.id });
     }),
   getCreditCards: protectedProcedure.query(async ({ ctx }) => {
-    return getCreditCards(ctx.db, ctx.session.user.id);
+    return getCreditCards(ctx.db, ctx.user.id);
   }),
   createCreditCard: protectedProcedure
     .input(createCreditCardAccountSchema)
     .mutation(async ({ ctx, input }) => {
-      await validateAccountOwnership(ctx.db, input.accountId, ctx.session.user.id);
+      await validateAccountOwnership(ctx.db, input.accountId, ctx.user.id);
       return ctx.db
         .insert(creditCardAccounts)
         .values({
@@ -79,7 +79,7 @@ export const accountsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await validateAccountOwnership(ctx.db, input.accountId, ctx.session.user.id);
+      await validateAccountOwnership(ctx.db, input.accountId, ctx.user.id);
       const result = await ctx.db
         .update(creditCardAccounts)
         .set({
@@ -100,9 +100,7 @@ export const accountsRouter = createTRPCRouter({
         .select({ accountId: creditCardAccounts.accountId })
         .from(creditCardAccounts)
         .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-        .where(
-          and(eq(creditCardAccounts.id, input.id), eq(bankAccount.userId, ctx.session.user.id)),
-        )
+        .where(and(eq(creditCardAccounts.id, input.id), eq(bankAccount.userId, ctx.user.id)))
         .limit(1);
       if (creditCard.length === 0) {
         throw new Error(CREDIT_CARD_NOT_FOUND);

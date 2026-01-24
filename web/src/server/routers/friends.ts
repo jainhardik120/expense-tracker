@@ -8,13 +8,13 @@ import { createFriendSchema } from '@/types';
 
 export const friendsRouter = createTRPCRouter({
   getFriends: protectedProcedure.query(({ ctx }) => {
-    return getFriends(ctx.db, ctx.session.user.id);
+    return getFriends(ctx.db, ctx.user.id);
   }),
   createFriend: protectedProcedure.input(createFriendSchema).mutation(({ ctx, input }) => {
     return ctx.db
       .insert(friendsProfiles)
       .values({
-        userId: ctx.session.user.id,
+        userId: ctx.user.id,
         ...input,
       })
       .returning({ id: friendsProfiles.id });
@@ -24,9 +24,7 @@ export const friendsRouter = createTRPCRouter({
     .mutation(({ ctx, input }) => {
       return ctx.db
         .delete(friendsProfiles)
-        .where(
-          and(eq(friendsProfiles.id, input.id), eq(friendsProfiles.userId, ctx.session.user.id)),
-        );
+        .where(and(eq(friendsProfiles.id, input.id), eq(friendsProfiles.userId, ctx.user.id)));
     }),
   updateFriend: protectedProcedure
     .input(
@@ -39,9 +37,7 @@ export const friendsRouter = createTRPCRouter({
       return ctx.db
         .update(friendsProfiles)
         .set(input.createFriendSchema)
-        .where(
-          and(eq(friendsProfiles.id, input.id), eq(friendsProfiles.userId, ctx.session.user.id)),
-        )
+        .where(and(eq(friendsProfiles.id, input.id), eq(friendsProfiles.userId, ctx.user.id)))
         .returning({ id: friendsProfiles.id });
     }),
 });

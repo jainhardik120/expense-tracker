@@ -11,6 +11,8 @@ import { env } from '@/lib/env';
 import { redis } from '@/lib/redis';
 import { sendSESEmail } from '@/lib/send-email';
 
+import { getBaseUrl } from './getBaseUrl';
+
 export const auth = betterAuth({
   rateLimit: {
     window: 20,
@@ -40,6 +42,7 @@ export const auth = betterAuth({
     oauthProvider({
       loginPage: '/auth/login',
       consentPage: '/auth/consent',
+      validAudiences: [`${getBaseUrl()}/api/external`, `${getBaseUrl()}`],
     }),
   ],
   secondaryStorage: {

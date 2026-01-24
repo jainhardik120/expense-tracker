@@ -11,12 +11,12 @@ export const investmentsRouter = createTRPCRouter({
       await ctx.db
         .selectDistinct({ investmentKind: investments.investmentKind })
         .from(investments)
-        .where(eq(investments.userId, ctx.session.user.id))
+        .where(eq(investments.userId, ctx.user.id))
     ).map((c) => c.investmentKind);
   }),
 
   getInvestments: protectedProcedure.input(investmentParserSchema).query(async ({ ctx, input }) => {
-    const conditions = [eq(investments.userId, ctx.session.user.id)];
+    const conditions = [eq(investments.userId, ctx.user.id)];
 
     if (input.start !== undefined) {
       conditions.push(gte(investments.investmentDate, input.start));
@@ -56,7 +56,7 @@ export const investmentsRouter = createTRPCRouter({
       return ctx.db
         .insert(investments)
         .values({
-          userId: ctx.session.user.id,
+          userId: ctx.user.id,
           ...input,
           maturityDate: input.maturityDate ?? null,
           maturityAmount: input.maturityAmount ?? null,
@@ -85,7 +85,7 @@ export const investmentsRouter = createTRPCRouter({
           units: input.createInvestmentSchema.units ?? null,
           purchaseRate: input.createInvestmentSchema.purchaseRate ?? null,
         })
-        .where(and(eq(investments.id, input.id), eq(investments.userId, ctx.session.user.id)))
+        .where(and(eq(investments.id, input.id), eq(investments.userId, ctx.user.id)))
         .returning({ id: investments.id });
     }),
 
@@ -94,7 +94,7 @@ export const investmentsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       return ctx.db
         .delete(investments)
-        .where(and(eq(investments.id, input.id), eq(investments.userId, ctx.session.user.id)))
+        .where(and(eq(investments.id, input.id), eq(investments.userId, ctx.user.id)))
         .returning({ id: investments.id });
     }),
 });

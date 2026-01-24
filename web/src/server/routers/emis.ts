@@ -73,12 +73,12 @@ const getMaxInstallment = async (
 
 export const emisRouter = createTRPCRouter({
   getEmis: protectedProcedure.input(emiParserSchema).query(async ({ ctx, input }) => {
-    const conditions = [eq(emis.userId, ctx.session.user.id)];
+    const conditions = [eq(emis.userId, ctx.user.id)];
     const [{ count }] = await ctx.db
       .select({ count: sql<number>`count(*)::int` })
       .from(emis)
       .where(and(...conditions));
-    const emisList = await getEMIs(ctx.db, ctx.session.user.id, input);
+    const emisList = await getEMIs(ctx.db, ctx.user.id, input);
     const emisWithCalculations = emisList.map((emi) => {
       const installmentNo =
         emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
@@ -96,12 +96,12 @@ export const emisRouter = createTRPCRouter({
     };
   }),
   addEmi: protectedProcedure.input(createEmiSchema).mutation(async ({ ctx, input }) => {
-    await verifyCreditCardAccount(ctx.db, ctx.session.user.id, input.creditId);
+    await verifyCreditCardAccount(ctx.db, ctx.user.id, input.creditId);
     const data = await getEMIUpsertData(input);
     return ctx.db
       .insert(emis)
       .values({
-        userId: ctx.session.user.id,
+        userId: ctx.user.id,
         ...data,
       })
       .returning({ id: emis.id });
@@ -114,13 +114,13 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await verifyCreditCardAccount(ctx.db, ctx.session.user.id, input.creditId);
+      await verifyCreditCardAccount(ctx.db, ctx.user.id, input.creditId);
       const { id, ...inputData } = input;
       const data = await getEMIUpsertData(inputData);
       const result = await ctx.db
         .update(emis)
         .set(data)
-        .where(and(eq(emis.id, id), eq(emis.userId, ctx.session.user.id)))
+        .where(and(eq(emis.id, id), eq(emis.userId, ctx.user.id)))
         .returning({ id: emis.id });
       if (result.length === 0) {
         throw new Error(EMI_NOT_FOUND);
@@ -132,7 +132,7 @@ export const emisRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db
         .delete(emis)
-        .where(and(eq(emis.id, input.id), eq(emis.userId, ctx.session.user.id)))
+        .where(and(eq(emis.id, input.id), eq(emis.userId, ctx.user.id)))
         .returning({ id: emis.id });
       if (result.length === 0) {
         throw new Error(EMI_NOT_FOUND);
@@ -146,9 +146,8 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const attributes = (
-        await getStatementAttributes(ctx.db, ctx.session.user.id, input.statementId)
-      ).attributes as Partial<Record<string, unknown>>;
+      const attributes = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
+        .attributes as Partial<Record<string, unknown>>;
       if (attributes.emiId === undefined) {
         throw new Error(STATEMENT_NOT_LINKED);
       }
@@ -158,7 +157,7 @@ export const emisRouter = createTRPCRouter({
         throw new Error('Statement does not have a valid installment number');
       }
       const emiId = attributes.emiId as string;
-      const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.session.user.id, emiId);
+      const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.user.id, emiId);
       if (maxInstallmentNo === null) {
         throw new Error(STATEMENT_NOT_LINKED);
       }
@@ -187,7 +186,7 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const emi = await getEMIData(ctx.db, ctx.session.user.id, input.emiId);
+      const emi = await getEMIData(ctx.db, ctx.user.id, input.emiId);
       const statementData = await ctx.db
         .select({
           id: statements.id,
@@ -198,9 +197,7 @@ export const emisRouter = createTRPCRouter({
           statementKind: statements.statementKind,
         })
         .from(statements)
-        .where(
-          and(eq(statements.id, input.statementId), eq(statements.userId, ctx.session.user.id)),
-        )
+        .where(and(eq(statements.id, input.statementId), eq(statements.userId, ctx.user.id)))
         .limit(1);
       if (statementData.length === 0) {
         throw new Error('Statement not found or access denied');
@@ -212,7 +209,7 @@ export const emisRouter = createTRPCRouter({
       }
       const { schedule: payments } = calculateSchedule(emi);
       let lastInstallmentNo = -1;
-      const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.session.user.id, input.emiId);
+      const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.user.id, input.emiId);
       if (maxInstallmentNo !== null) {
         lastInstallmentNo = parseFloatSafe(maxInstallmentNo);
       }
@@ -258,7 +255,7 @@ export const emisRouter = createTRPCRouter({
         .from(statements)
         .where(
           and(
-            eq(statements.userId, ctx.session.user.id),
+            eq(statements.userId, ctx.user.id),
             eq(sql`${statements.additionalAttributes}->>'emiId'`, input.emiId),
           ),
         )
@@ -273,8 +270,8 @@ export const emisRouter = createTRPCRouter({
         .optional(),
     )
     .query(async ({ ctx, input }) => {
-      const cards = await getCreditCards(ctx.db, ctx.session.user.id);
-      const pendingEMIs = await getEMIs(ctx.db, ctx.session.user.id, {
+      const cards = await getCreditCards(ctx.db, ctx.user.id);
+      const pendingEMIs = await getEMIs(ctx.db, ctx.user.id, {
         completed: false,
         perPage: 100,
         page: 1,
@@ -331,7 +328,7 @@ export const emisRouter = createTRPCRouter({
       const activeRecurringPayments = await ctx.db
         .select()
         .from(recurringPayments)
-        .where(eq(recurringPayments.userId, ctx.session.user.id))
+        .where(eq(recurringPayments.userId, ctx.user.id))
         .orderBy(desc(recurringPayments.startDate));
       return {
         cards,
@@ -345,7 +342,7 @@ export const emisRouter = createTRPCRouter({
   getEmiSplits: protectedProcedure
     .input(z.object({ emiId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const attributes = (await getEMIData(ctx.db, ctx.session.user.id, input.emiId))
+      const attributes = (await getEMIData(ctx.db, ctx.user.id, input.emiId))
         .additionalAttributes as Record<string, unknown>;
       return attributes.splits === undefined
         ? []
@@ -360,7 +357,7 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const attributes = (await getEMIData(ctx.db, ctx.session.user.id, input.emiId))
+      const attributes = (await getEMIData(ctx.db, ctx.user.id, input.emiId))
         .additionalAttributes as Record<string, unknown>;
       const currentSplits =
         attributes.splits === undefined
@@ -392,7 +389,7 @@ export const emisRouter = createTRPCRouter({
             splits: updatedSplits,
           },
         })
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.user.id)));
 
       return { success: true };
     }),
@@ -406,7 +403,7 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const attributes = (await getEMIData(ctx.db, ctx.session.user.id, input.emiId))
+      const attributes = (await getEMIData(ctx.db, ctx.user.id, input.emiId))
         .additionalAttributes as Record<string, unknown>;
       const currentSplits =
         attributes.splits === undefined
@@ -443,7 +440,7 @@ export const emisRouter = createTRPCRouter({
             splits: updatedSplits,
           },
         })
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.user.id)));
 
       return { success: true };
     }),
@@ -455,7 +452,7 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const attributes = (await getEMIData(ctx.db, ctx.session.user.id, input.emiId))
+      const attributes = (await getEMIData(ctx.db, ctx.user.id, input.emiId))
         .additionalAttributes as Record<string, unknown>;
       const currentSplits =
         attributes.splits === undefined
@@ -476,7 +473,7 @@ export const emisRouter = createTRPCRouter({
             splits: updatedSplits,
           },
         })
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.session.user.id)));
+        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.user.id)));
 
       return { success: true };
     }),

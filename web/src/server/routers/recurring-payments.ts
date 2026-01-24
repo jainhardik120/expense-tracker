@@ -23,7 +23,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
   getRecurringPayments: protectedProcedure
     .input(recurringPaymentParserSchema)
     .query(async ({ ctx, input }) => {
-      const conditions = [eq(recurringPayments.userId, ctx.session.user.id)];
+      const conditions = [eq(recurringPayments.userId, ctx.user.id)];
 
       if (input.category.length > 0) {
         conditions.push(inArray(recurringPayments.category, input.category));
@@ -67,7 +67,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
       return ctx.db
         .insert(recurringPayments)
         .values({
-          userId: ctx.session.user.id,
+          userId: ctx.user.id,
           ...input,
           startDate,
           endDate,
@@ -91,7 +91,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
       const result = await ctx.db
         .update(recurringPayments)
         .set({ ...updateData, startDate, endDate })
-        .where(and(eq(recurringPayments.id, id), eq(recurringPayments.userId, ctx.session.user.id)))
+        .where(and(eq(recurringPayments.id, id), eq(recurringPayments.userId, ctx.user.id)))
         .returning({ id: recurringPayments.id });
 
       if (result.length === 0) {
@@ -106,12 +106,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const result = await ctx.db
         .delete(recurringPayments)
-        .where(
-          and(
-            eq(recurringPayments.id, input.id),
-            eq(recurringPayments.userId, ctx.session.user.id),
-          ),
-        )
+        .where(and(eq(recurringPayments.id, input.id), eq(recurringPayments.userId, ctx.user.id)))
         .returning({ id: recurringPayments.id });
 
       if (result.length === 0) {
@@ -130,11 +125,10 @@ export const recurringPaymentsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Verify recurring payment exists
-      await getRecurringPayment(ctx.db, ctx.session.user.id, input.recurringPaymentId);
+      await getRecurringPayment(ctx.db, ctx.user.id, input.recurringPaymentId);
       // Verify statement exists
-      const attributes = (
-        await getStatementAttributes(ctx.db, ctx.session.user.id, input.statementId)
-      ).attributes as Partial<Record<string, unknown>>;
+      const attributes = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
+        .attributes as Partial<Record<string, unknown>>;
 
       // Link statement to recurring payment (no strict validation on amount/date)
       await ctx.db
@@ -157,9 +151,8 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const attributes = (
-        await getStatementAttributes(ctx.db, ctx.session.user.id, input.statementId)
-      ).attributes as Partial<Record<string, unknown>>;
+      const attributes = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
+        .attributes as Partial<Record<string, unknown>>;
 
       await ctx.db
         .update(statements)
@@ -181,11 +174,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }),
     )
     .query(({ ctx, input }) => {
-      return getLinkedStatementsRecurringPayment(
-        ctx.db,
-        ctx.session.user.id,
-        input.recurringPaymentId,
-      );
+      return getLinkedStatementsRecurringPayment(ctx.db, ctx.user.id, input.recurringPaymentId);
     }),
 
   getRecurringPaymentDetails: protectedProcedure
@@ -201,14 +190,14 @@ export const recurringPaymentsRouter = createTRPCRouter({
       // Get recurring payment
       const recurringPayment = await getRecurringPayment(
         ctx.db,
-        ctx.session.user.id,
+        ctx.user.id,
         input.recurringPaymentId,
       );
 
       // Get linked statements
       const linkedStatements = await getLinkedStatementsRecurringPayment(
         ctx.db,
-        ctx.session.user.id,
+        ctx.user.id,
         input.recurringPaymentId,
       );
 

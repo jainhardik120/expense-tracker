@@ -29,7 +29,7 @@ export const statementsRouter = createTRPCRouter({
       await ctx.db
         .selectDistinct({ category: statements.category })
         .from(statements)
-        .where(eq(statements.userId, ctx.session.user.id))
+        .where(eq(statements.userId, ctx.user.id))
     )
       .map((c) => c.category)
       .sort((a, b) => a.localeCompare(b));
@@ -38,12 +38,12 @@ export const statementsRouter = createTRPCRouter({
     const result = await ctx.db
       .selectDistinct({ tag: sql<string>`unnest(${statements.tags})`.as('tag') })
       .from(statements)
-      .where(eq(statements.userId, ctx.session.user.id))
+      .where(eq(statements.userId, ctx.user.id))
       .orderBy(sql<string>`tag`);
     return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
   }),
   getStatements: protectedProcedure.input(statementParserSchema).query(async ({ ctx, input }) => {
-    let statements = await getMergedStatements(ctx.db, ctx.session.user.id, input);
+    let statements = await getMergedStatements(ctx.db, ctx.user.id, input);
     let summary = null;
     if (
       input.account.length === 1 &&
@@ -53,17 +53,11 @@ export const statementsRouter = createTRPCRouter({
     ) {
       const accountId = input.account[0];
       const { summary: accountSummary, statements: accountStatements } =
-        await mergeRawStatementsWithSummary(
-          ctx.db,
-          ctx.session.user.id,
-          accountId,
-          statements,
-          input,
-        );
+        await mergeRawStatementsWithSummary(ctx.db, ctx.user.id, accountId, statements, input);
       summary = accountSummary;
       statements = accountStatements;
     }
-    const rowsCount = await getRowsCount(ctx.db, ctx.session.user.id, input);
+    const rowsCount = await getRowsCount(ctx.db, ctx.user.id, input);
     const pageCount = Math.ceil(
       (rowsCount.statementCount + rowsCount.selfTransferStatementCount) / input.perPage,
     );
@@ -78,21 +72,21 @@ export const statementsRouter = createTRPCRouter({
     if (
       input.accountId !== undefined &&
       input.accountId !== '' &&
-      !(await accountBelongToUser(input.accountId, ctx.session.user.id, ctx.db))
+      !(await accountBelongToUser(input.accountId, ctx.user.id, ctx.db))
     ) {
       throw new Error(ACCOUNT_NOT_FOUND_ERROR);
     }
     if (
       input.friendId !== undefined &&
       input.friendId !== '' &&
-      !(await friendBelongToUser(input.friendId, ctx.session.user.id, ctx.db))
+      !(await friendBelongToUser(input.friendId, ctx.user.id, ctx.db))
     ) {
       throw new Error(FRIEND_NOT_FOUND_ERROR);
     }
     return ctx.db
       .insert(statements)
       .values({
-        userId: ctx.session.user.id,
+        userId: ctx.user.id,
         ...input,
         accountId: input.accountId === undefined || input.accountId === '' ? null : input.accountId,
         friendId: input.friendId === undefined || input.friendId === '' ? null : input.friendId,
@@ -110,22 +104,14 @@ export const statementsRouter = createTRPCRouter({
       if (
         input.createStatementSchema.accountId !== undefined &&
         input.createStatementSchema.accountId !== '' &&
-        !(await accountBelongToUser(
-          input.createStatementSchema.accountId,
-          ctx.session.user.id,
-          ctx.db,
-        ))
+        !(await accountBelongToUser(input.createStatementSchema.accountId, ctx.user.id, ctx.db))
       ) {
         throw new Error(ACCOUNT_NOT_FOUND_ERROR);
       }
       if (
         input.createStatementSchema.friendId !== undefined &&
         input.createStatementSchema.friendId !== '' &&
-        !(await friendBelongToUser(
-          input.createStatementSchema.friendId,
-          ctx.session.user.id,
-          ctx.db,
-        ))
+        !(await friendBelongToUser(input.createStatementSchema.friendId, ctx.user.id, ctx.db))
       ) {
         throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
@@ -144,7 +130,7 @@ export const statementsRouter = createTRPCRouter({
               ? null
               : input.createStatementSchema.friendId,
         })
-        .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.session.user.id)))
+        .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)))
         .returning({ id: statements.id });
     }),
   deleteStatement: protectedProcedure
@@ -152,21 +138,21 @@ export const statementsRouter = createTRPCRouter({
     .mutation(({ ctx, input }) => {
       return ctx.db
         .delete(statements)
-        .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.session.user.id)));
+        .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)));
     }),
   addSelfTransferStatement: protectedProcedure
     .input(createSelfTransferSchema)
     .mutation(async ({ ctx, input }) => {
       if (
-        !(await accountBelongToUser(input.fromAccountId, ctx.session.user.id, ctx.db)) ||
-        !(await accountBelongToUser(input.toAccountId, ctx.session.user.id, ctx.db))
+        !(await accountBelongToUser(input.fromAccountId, ctx.user.id, ctx.db)) ||
+        !(await accountBelongToUser(input.toAccountId, ctx.user.id, ctx.db))
       ) {
         throw new Error(ACCOUNT_NOT_FOUND_ERROR);
       }
       return ctx.db
         .insert(selfTransferStatements)
         .values({
-          userId: ctx.session.user.id,
+          userId: ctx.user.id,
           ...input,
         })
         .returning({ id: statements.id });
@@ -182,12 +168,12 @@ export const statementsRouter = createTRPCRouter({
       if (
         !(await accountBelongToUser(
           input.createSelfTransferSchema.fromAccountId,
-          ctx.session.user.id,
+          ctx.user.id,
           ctx.db,
         )) ||
         !(await accountBelongToUser(
           input.createSelfTransferSchema.toAccountId,
-          ctx.session.user.id,
+          ctx.user.id,
           ctx.db,
         ))
       ) {
@@ -199,7 +185,7 @@ export const statementsRouter = createTRPCRouter({
         .where(
           and(
             eq(selfTransferStatements.id, input.id),
-            eq(selfTransferStatements.userId, ctx.session.user.id),
+            eq(selfTransferStatements.userId, ctx.user.id),
           ),
         )
         .returning({ id: selfTransferStatements.id });
@@ -212,7 +198,7 @@ export const statementsRouter = createTRPCRouter({
         .where(
           and(
             eq(selfTransferStatements.id, input.id),
-            eq(selfTransferStatements.userId, ctx.session.user.id),
+            eq(selfTransferStatements.userId, ctx.user.id),
           ),
         );
     }),
@@ -222,7 +208,7 @@ export const statementsRouter = createTRPCRouter({
       return ctx.db
         .select()
         .from(splits)
-        .where(and(eq(splits.statementId, input.id), eq(splits.userId, ctx.session.user.id)));
+        .where(and(eq(splits.statementId, input.id), eq(splits.userId, ctx.user.id)));
     }),
   addBulkStatementSplits: protectedProcedure
     .input(
@@ -252,7 +238,7 @@ export const statementsRouter = createTRPCRouter({
         .from(statements)
         .where(
           and(
-            eq(statements.userId, ctx.session.user.id),
+            eq(statements.userId, ctx.user.id),
             inArray(statements.id, input.statementIds),
             eq(statements.statementKind, 'expense'),
           ),
@@ -279,7 +265,7 @@ export const statementsRouter = createTRPCRouter({
         .where(
           and(
             inArray(splits.statementId, input.statementIds),
-            eq(splits.userId, ctx.session.user.id),
+            eq(splits.userId, ctx.user.id),
             eq(splits.friendId, input.bulkSplitSchema.friendId),
           ),
         );
@@ -293,7 +279,7 @@ export const statementsRouter = createTRPCRouter({
           amount
         ).toFixed(2);
         return {
-          userId: ctx.session.user.id,
+          userId: ctx.user.id,
           statementId: stmt.id,
           friendId: input.bulkSplitSchema.friendId,
           amount: splitAmount,
@@ -309,9 +295,7 @@ export const statementsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (
-        !(await friendBelongToUser(input.createSplitSchema.friendId, ctx.session.user.id, ctx.db))
-      ) {
+      if (!(await friendBelongToUser(input.createSplitSchema.friendId, ctx.user.id, ctx.db))) {
         throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
       const { statementAmount, totalAllocated, kind } = await getStatementAmountAndSplits(
@@ -331,7 +315,7 @@ export const statementsRouter = createTRPCRouter({
       return ctx.db
         .insert(splits)
         .values({
-          userId: ctx.session.user.id,
+          userId: ctx.user.id,
           statementId: input.statementId,
           ...input.createSplitSchema,
         })
@@ -346,7 +330,7 @@ export const statementsRouter = createTRPCRouter({
     .mutation(({ ctx, input }) => {
       return ctx.db
         .delete(splits)
-        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.session.user.id)));
+        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
     }),
   updateStatementSplit: protectedProcedure
     .input(
@@ -359,13 +343,11 @@ export const statementsRouter = createTRPCRouter({
       const currentSplit = await ctx.db
         .select()
         .from(splits)
-        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.session.user.id)));
+        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
       if (currentSplit.length === 0) {
         throw new Error('Split not found');
       }
-      if (
-        !(await friendBelongToUser(input.createSplitSchema.friendId, ctx.session.user.id, ctx.db))
-      ) {
+      if (!(await friendBelongToUser(input.createSplitSchema.friendId, ctx.user.id, ctx.db))) {
         throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
       const currentSplitAmount = Number.parseFloat(currentSplit[0].amount);
@@ -385,6 +367,6 @@ export const statementsRouter = createTRPCRouter({
         .set({
           ...input.createSplitSchema,
         })
-        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.session.user.id)));
+        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
     }),
 });
