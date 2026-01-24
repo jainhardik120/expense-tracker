@@ -25,7 +25,7 @@ jobs:
 
       - name: Create local.properties
         run: |
-          cat > local.properties <<'EOF'
+          cat > android/local.properties <<'EOF'
           AUTH_BASE_URL=${{ secrets.AUTH_BASE_URL }}
           AUTH_AUTHORIZE_PATH=${{ secrets.AUTH_AUTHORIZE_PATH }}
           AUTH_TOKEN_PATH=${{ secrets.AUTH_TOKEN_PATH }}
