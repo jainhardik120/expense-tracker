@@ -76,3 +76,16 @@ export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({
     },
   });
 });
+
+export const adminProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
+  const session = await auth.api.getSession({ headers: ctx.headers });
+  if (session?.user.role?.includes('admin') !== true) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' });
+  }
+  return next({
+    ctx: {
+      ...ctx,
+      session,
+    },
+  });
+});

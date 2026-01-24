@@ -1,6 +1,7 @@
 import { createCallerFactory, createTRPCRouter } from '@/server/trpc';
 
 import { accountsRouter } from './accounts';
+import { adminRouter } from './admin';
 import { bulkImportRouter } from './bulk-import';
 import { emisRouter } from './emis';
 import { friendsRouter } from './friends';
@@ -13,6 +14,7 @@ import type { inferRouterOutputs } from '@trpc/server';
 
 export const appRouter = createTRPCRouter({
   accounts: accountsRouter,
+  admin: adminRouter,
   friends: friendsRouter,
   statements: statementsRouter,
   summary: summaryRouter,

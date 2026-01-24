@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "auth:generate": "pnpm dlx @better-auth/cli generate --output src/db/auth-schema.ts -y",
     "build": "next typegen && eslint && next build --turbopack",
     "db:generate": "drizzle-kit generate --config=./src/db/drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=./src/db/drizzle.config.ts",
@@ -21,6 +22,7 @@
   "dependencies": {
     "@ai-sdk/react": "^3.0.44",
     "@aws-sdk/client-ses": "^3.971.0",
+    "@better-auth/oauth-provider": "^1.4.17",
     "@better-auth/passkey": "^1.4.16",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/modifiers": "^9.0.0",

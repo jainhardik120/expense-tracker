@@ -1,7 +1,8 @@
+import { oauthProvider } from '@better-auth/oauth-provider';
 import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { admin, apiKey, twoFactor } from 'better-auth/plugins';
+import { admin, apiKey, twoFactor, jwt } from 'better-auth/plugins';
 
 import * as schema from '@/db/auth-schema';
 import ResetPasswordEmail from '@/emails/reset-password';
@@ -19,6 +20,7 @@ export const auth = betterAuth({
   },
   appName: 'Expense Tracker',
   plugins: [
+    jwt(),
     passkey({
       rpID: env.NODE_ENV === 'development' ? 'localhost' : undefined,
     }),
@@ -35,6 +37,10 @@ export const auth = betterAuth({
     }),
     apiKey(),
     admin(),
+    oauthProvider({
+      loginPage: '/auth/login',
+      consentPage: '/auth/consent',
+    }),
   ],
   secondaryStorage: {
     get: async (key) => {
