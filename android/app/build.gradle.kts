@@ -1,7 +1,20 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+
+    id("com.google.devtools.ksp")
+    id("com.google.dagger.hilt.android")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
+fun lp(key: String): String =
+    localProps.getProperty(key) ?: System.getenv(key) ?: ""
 
 android {
     namespace = "com.jainhardik120.expensetracker"
@@ -17,6 +30,24 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appAuthRedirectScheme"] = "expense-tracker"
+
+        buildConfigField("String", "AUTH_BASE_URL", "\"${lp("AUTH_BASE_URL")}\"")
+        buildConfigField("String", "AUTH_CLIENT_ID", "\"${lp("AUTH_CLIENT_ID")}\"")
+        buildConfigField("String", "AUTH_RESOURCE", "\"${lp("AUTH_RESOURCE")}\"")
+        buildConfigField("String", "AUTH_REDIRECT_URI", "\"${lp("AUTH_REDIRECT_URI")}\"")
+
+        // if you want full endpoints derived
+        buildConfigField(
+            "String",
+            "AUTH_AUTHORIZE_URL",
+            "\"${lp("AUTH_BASE_URL")}${lp("AUTH_AUTHORIZE_PATH")}\""
+        )
+        buildConfigField(
+            "String",
+            "AUTH_TOKEN_URL",
+            "\"${lp("AUTH_BASE_URL")}${lp("AUTH_TOKEN_PATH")}\""
+        )
     }
 
     buildTypes {
@@ -34,6 +65,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -53,4 +85,22 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    implementation(libs.appauth)
+
+    implementation("com.google.dagger:hilt-android:2.59")
+    ksp("com.google.dagger:hilt-android-compiler:2.59")
+
+    implementation("io.ktor:ktor-client-core:3.4.0")
+    implementation("io.ktor:ktor-client-okhttp:3.4.0")
+    implementation("io.ktor:ktor-client-content-negotiation:3.4.0")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:3.4.0")
+    implementation("io.ktor:ktor-client-logging:3.4.0")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+    implementation("androidx.security:security-crypto:1.1.0")
+    implementation("io.ktor:ktor-client-auth:3.4.0")
+    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
 }
