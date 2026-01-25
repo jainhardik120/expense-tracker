@@ -5,7 +5,7 @@ import type * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { Calculator, CreditCard, DollarSign, LineChart, RefreshCw, Sheet } from 'lucide-react';
+import { Calculator, CreditCard, DollarSign, LineChart, RefreshCw, Sheet, MessageSquareMore } from 'lucide-react';
 
 import {
   Sidebar,
@@ -48,6 +48,11 @@ const links = [
     label: 'EMI Calculator',
     href: '/emi-calculator',
     icon: Calculator,
+  },
+  {
+    label: 'SMS Notifications',
+    href: '/sms-notifications',
+    icon: MessageSquareMore,
   },
 ];
 

@@ -11,6 +11,7 @@ import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { smsTransactionStatusEnum } from '@/db/schema';
 import { useIsMounted } from '@/hooks/use-is-mounted';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
@@ -205,18 +206,13 @@ const ConvertToStatementButton = ({
           <FileText />
         </Button>
       }
-      customDescription={
-        <p className="text-muted-foreground mb-4 text-sm">
-          Convert this SMS notification to a statement. The notification will be marked as inserted.
-        </p>
-      }
       defaultValues={{
         amount: notification.amount,
-        category: notification.merchant ?? '',
+        category: '',
         statementKind: 'expense',
         accountId: '',
         friendId: '',
-        tags: [],
+        tags: [notification.merchant ?? ''],
         createdAt: new Date(notification.timestamp),
       }}
       fields={formFields}
@@ -255,12 +251,6 @@ const ConvertToSelfTransferButton = ({
         <Button className="size-8" size="icon" title="Convert to self transfer" variant="ghost">
           <RefreshCw />
         </Button>
-      }
-      customDescription={
-        <p className="text-muted-foreground mb-4 text-sm">
-          Convert this SMS notification to a self transfer. The notification will be marked as
-          inserted.
-        </p>
       }
       defaultValues={{
         toAccountId: '',
@@ -372,6 +362,7 @@ export const createSmsNotificationColumns = ({
     header: 'Sender',
   },
   {
+    id: 'status',
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => {
@@ -382,6 +373,15 @@ export const createSmsNotificationColumns = ({
         </Badge>
       );
     },
+    meta: {
+      label: 'Status',
+      variant: 'multiSelect',
+      options: smsTransactionStatusEnum.enumValues.map((status) => ({
+        label: status,
+        value: status,
+      })),
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'actions',
