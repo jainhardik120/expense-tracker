@@ -1,4 +1,4 @@
-package com.jainhardik120.expensetracker.ui.auth
+package com.jainhardik120.expensetracker.ui
 
 sealed class UiEvent {
     data class ShowSnackBar(

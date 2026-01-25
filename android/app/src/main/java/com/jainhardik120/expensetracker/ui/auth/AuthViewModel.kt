@@ -2,24 +2,15 @@ package com.jainhardik120.expensetracker.ui.auth
 
 import android.content.Intent
 import android.util.Log
-import androidx.compose.runtime.mutableDoubleStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jainhardik120.expensetracker.auth.AuthRepository
 import com.jainhardik120.expensetracker.auth.AuthState
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
-import com.jainhardik120.expensetracker.data.remote.SMSNotificationBody
-import com.jainhardik120.expensetracker.parser.core.TransactionType
+import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
+import com.jainhardik120.expensetracker.ui.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.get
-import io.ktor.client.request.request
-import io.ktor.http.HttpMethod
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
 import javax.inject.Inject
 
 @HiltViewModel
@@ -58,6 +49,12 @@ class AuthViewModel @Inject constructor(
                 )
             }) {
             Log.d("TAG", "createDummyRequest: $it")
+        }
+    }
+
+    fun refresh(){
+        viewModelScope.launch {
+            repo.refresh()
         }
     }
 }

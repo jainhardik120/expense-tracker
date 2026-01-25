@@ -1,5 +1,6 @@
-package com.jainhardik120.expensetracker.auth
+package com.jainhardik120.expensetracker.data.remote
 
+import com.jainhardik120.expensetracker.auth.AuthRepository
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.auth.Auth

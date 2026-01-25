@@ -7,5 +7,3 @@ enum class TransactionType {
     TRANSFER,
     INVESTMENT
 }
-
-

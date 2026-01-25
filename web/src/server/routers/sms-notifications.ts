@@ -20,7 +20,7 @@ const createSmsNotificationSchema = z.object({
   sender: z.string(),
   timestamp: z.date(),
   bankName: z.string(),
-  isFromCard: z.string().default('false'),
+  isFromCard: z.boolean().default(false),
   currency: z.string().default('INR'),
   fromAccount: z.string().nullish(),
   toAccount: z.string().nullish(),

@@ -1,6 +1,5 @@
-package com.jainhardik120.expensetracker.data.remote
+package com.jainhardik120.expensetracker.data.entity
 
-import com.jainhardik120.expensetracker.parser.core.TransactionType
 import kotlinx.serialization.Serializable
 
 @Serializable
