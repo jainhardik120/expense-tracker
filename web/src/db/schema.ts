@@ -9,6 +9,7 @@ import {
   check,
   index,
   jsonb,
+  boolean,
 } from 'drizzle-orm/pg-core';
 
 import { user } from './auth-schema';
@@ -235,7 +236,7 @@ export const smsNotifications = pgTable('sms_notifications', {
   sender: text('sender').notNull(),
   timestamp: timestamp('timestamp').notNull(),
   bankName: text('bank_name').notNull(),
-  isFromCard: text('is_from_card').notNull().default('false'),
+  isFromCard: boolean('is_from_card').notNull().default(false),
   currency: text('currency').notNull().default('INR'),
   fromAccount: text('from_account'),
   toAccount: text('to_account'),

@@ -59,5 +59,8 @@ fun HomeScreen(onLogout: () -> Unit, vm: AuthViewModel) {
         Button(onClick = vm::createDummyRequest) {
             Text("Send Dummy Data")
         }
+        Button(onClick = vm::refresh) {
+            Text("Refresh Auth Token")
+        }
     }
 }

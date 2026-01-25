@@ -1,5 +1,9 @@
 package com.jainhardik120.expensetracker.data.remote
 
+import com.jainhardik120.expensetracker.data.entity.IDResult
+import com.jainhardik120.expensetracker.data.entity.MessageError
+import com.jainhardik120.expensetracker.data.entity.Result
+import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
@@ -29,10 +33,9 @@ class ExpenseTrackerAPIImpl(
             Result.Exception(e.message)
         }
     }
+
     private suspend inline fun <reified T, reified R> requestBuilder(
-        url: String,
-        method: HttpMethod,
-        body: T
+        url: String, method: HttpMethod, body: T
     ): R {
         return client.request(url) {
             this.method = method
@@ -42,8 +45,7 @@ class ExpenseTrackerAPIImpl(
     }
 
     private suspend inline fun <reified T> requestBuilder(
-        url: String,
-        method: HttpMethod
+        url: String, method: HttpMethod
     ): T {
         return client.request(url) {
             this.method = method
@@ -53,9 +55,7 @@ class ExpenseTrackerAPIImpl(
     override suspend fun sendNotification(body: SMSNotificationBody): Result<IDResult, MessageError> {
         return performApiRequest {
             requestBuilder<SMSNotificationBody, IDResult>(
-                url = "https://expense-tracker.hardikja.in/api/external/sms-notifications",
-                method = HttpMethod.Post,
-                body = body
+                url = APIRoutes.SEND_NOTIFICATION, method = HttpMethod.Post, body = body
             )
         }
     }

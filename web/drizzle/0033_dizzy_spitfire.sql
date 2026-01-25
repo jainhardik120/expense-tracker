@@ -1,0 +1,1 @@
+ALTER TABLE "sms_notifications" ADD COLUMN "is_from_card" boolean DEFAULT false NOT NULL;

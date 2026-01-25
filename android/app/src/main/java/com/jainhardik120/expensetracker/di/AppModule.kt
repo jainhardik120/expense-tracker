@@ -1,7 +1,7 @@
 package com.jainhardik120.expensetracker.di
 
 import com.jainhardik120.expensetracker.auth.AuthRepository
-import com.jainhardik120.expensetracker.auth.createHttpClient
+import com.jainhardik120.expensetracker.data.remote.createHttpClient
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPIImpl
 import dagger.Module

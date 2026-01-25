@@ -1,0 +1,1 @@
+ALTER TABLE "sms_notifications" DROP COLUMN "is_from_card";

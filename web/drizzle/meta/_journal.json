@@ -225,6 +225,20 @@
       "when": 1769319050655,
       "tag": "0031_exotic_nicolaos",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1769330796653,
+      "tag": "0032_exotic_praxagora",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1769330800900,
+      "tag": "0033_dizzy_spitfire",
+      "breakpoints": true
     }
   ]
 }

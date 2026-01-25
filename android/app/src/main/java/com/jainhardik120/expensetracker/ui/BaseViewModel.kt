@@ -1,14 +1,14 @@
-package com.jainhardik120.expensetracker.ui.auth
+package com.jainhardik120.expensetracker.ui
 
-import com.jainhardik120.expensetracker.data.remote.MessageError
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jainhardik120.expensetracker.data.entity.MessageError
+import com.jainhardik120.expensetracker.data.entity.Result
+import com.jainhardik120.expensetracker.ui.UiEvent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import com.jainhardik120.expensetracker.data.remote.Result
-
 
 abstract class BaseViewModel : ViewModel() {
 

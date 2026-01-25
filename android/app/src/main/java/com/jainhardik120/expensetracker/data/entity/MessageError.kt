@@ -1,4 +1,4 @@
-package com.jainhardik120.expensetracker.data.remote
+package com.jainhardik120.expensetracker.data.entity
 
 import kotlinx.serialization.Serializable
 

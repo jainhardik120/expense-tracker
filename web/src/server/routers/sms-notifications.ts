@@ -1,8 +1,10 @@
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { smsNotifications } from '@/db/schema';
+import { selfTransferStatements, smsNotifications, statements } from '@/db/schema';
+import { accountBelongToUser, friendBelongToUser } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
+import { createSelfTransferSchema, createStatementSchema } from '@/types';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PER_PAGE = 10;
@@ -18,7 +20,7 @@ const createSmsNotificationSchema = z.object({
   sender: z.string(),
   timestamp: z.date(),
   bankName: z.string(),
-  isFromCard: z.string().default('false'),
+  isFromCard: z.boolean().default(false),
   currency: z.string().default('INR'),
   fromAccount: z.string().nullish(),
   toAccount: z.string().nullish(),
@@ -104,4 +106,85 @@ export const smsNotificationsRouter = createTRPCRouter({
       rowsCount: count,
     };
   }),
+  junk: protectedProcedure.input(z.object({ id: z.string() })).mutation(async ({ ctx, input }) => {
+    const result = await ctx.db
+      .update(smsNotifications)
+      .set({ status: 'junked' })
+      .where(and(eq(smsNotifications.id, input.id), eq(smsNotifications.userId, ctx.user.id)))
+      .returning({ id: smsNotifications.id });
+    if (result.length === 0) {
+      throw new Error('SMS notification not found');
+    }
+    return result[0];
+  }),
+  convertToStatement: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        statement: createStatementSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (
+        input.statement.accountId !== undefined &&
+        input.statement.accountId !== '' &&
+        !(await accountBelongToUser(input.statement.accountId, ctx.user.id, ctx.db))
+      ) {
+        throw new Error('Account not found');
+      }
+      if (
+        input.statement.friendId !== undefined &&
+        input.statement.friendId !== '' &&
+        !(await friendBelongToUser(input.statement.friendId, ctx.user.id, ctx.db))
+      ) {
+        throw new Error('Friend not found');
+      }
+      const statementResult = await ctx.db
+        .insert(statements)
+        .values({
+          userId: ctx.user.id,
+          ...input.statement,
+          accountId:
+            input.statement.accountId === undefined || input.statement.accountId === ''
+              ? null
+              : input.statement.accountId,
+          friendId:
+            input.statement.friendId === undefined || input.statement.friendId === ''
+              ? null
+              : input.statement.friendId,
+        })
+        .returning({ id: statements.id });
+      await ctx.db
+        .update(smsNotifications)
+        .set({ status: 'inserted' })
+        .where(and(eq(smsNotifications.id, input.id), eq(smsNotifications.userId, ctx.user.id)));
+      return statementResult;
+    }),
+  convertToSelfTransfer: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        selfTransfer: createSelfTransferSchema,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (
+        !(await accountBelongToUser(input.selfTransfer.fromAccountId, ctx.user.id, ctx.db)) ||
+        !(await accountBelongToUser(input.selfTransfer.toAccountId, ctx.user.id, ctx.db))
+      ) {
+        throw new Error('Account not found');
+      }
+      const statementResult = await ctx.db
+        .insert(selfTransferStatements)
+        .values({
+          userId: ctx.user.id,
+          ...input.selfTransfer,
+        })
+        .returning({ id: selfTransferStatements.id });
+      await ctx.db
+        .update(smsNotifications)
+        .set({ status: 'inserted' })
+        .where(and(eq(smsNotifications.id, input.id), eq(smsNotifications.userId, ctx.user.id)));
+      return statementResult;
+    }),
 });
