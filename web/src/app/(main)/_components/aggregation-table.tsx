@@ -18,24 +18,23 @@ const Table = ({ data, unit }: { data: ProcessedAggregationData[]; unit: DateTru
         cell: ({ row }) => formatTruncatedDate(row.original.date, unit, timezone),
       },
       {
-        accessorKey: 'totalAccountsSummary.startingBalance',
-        header: 'Starting Account Balance',
-        cell: ({ row }) => row.original.totalAccountsSummary.startingBalance.toFixed(2),
-      },
-      {
-        accessorKey: 'totalAccountsSummary.finalBalance',
-        header: 'Final Account Balance',
-        cell: ({ row }) => row.original.totalAccountsSummary.finalBalance.toFixed(2),
-      },
-      {
-        accessorKey: 'totalFriendsSummary.startingBalance',
-        header: 'Starting Friends Balance',
-        cell: ({ row }) => row.original.totalFriendsSummary.startingBalance.toFixed(2),
+        accessorFn: (row) => {
+          return (
+            row.totalAccountsSummary.finalBalance - row.totalFriendsSummary.finalBalance
+          ).toFixed(2);
+        },
+        id: 'finalBalance',
+        header: 'My Balance',
       },
       {
         accessorKey: 'totalFriendsSummary.finalBalance',
-        header: 'Final Friends Balance',
+        header: 'Friends Balance',
         cell: ({ row }) => row.original.totalFriendsSummary.finalBalance.toFixed(2),
+      },
+      {
+        accessorKey: 'totalAccountsSummary.finalBalance',
+        header: 'Total Balance',
+        cell: ({ row }) => row.original.totalAccountsSummary.finalBalance.toFixed(2),
       },
       {
         accessorKey: 'totalAccountsSummary.outsideTransactions',
@@ -51,15 +50,6 @@ const Table = ({ data, unit }: { data: ProcessedAggregationData[]; unit: DateTru
         accessorKey: 'totalExpenses',
         header: 'Total Expenses',
         cell: ({ row }) => row.original.totalExpenses.toFixed(2),
-      },
-      {
-        accessorFn: (row) => {
-          return (
-            row.totalAccountsSummary.finalBalance - row.totalFriendsSummary.finalBalance
-          ).toFixed(2);
-        },
-        id: 'finalBalance',
-        header: 'Final Balance',
       },
     ],
   });
