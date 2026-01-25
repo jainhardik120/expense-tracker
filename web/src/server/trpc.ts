@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { verifyJwsAccessToken } from 'better-auth';
+import { verifyJwsAccessToken, type JWTPayload } from 'better-auth';
 import { eq } from 'drizzle-orm';
 import superjson from 'superjson';
 import { treeifyError, ZodError } from 'zod';
@@ -75,13 +75,18 @@ const getUser = async (ctx: Context) => {
     const accessToken = authHeader.startsWith('Bearer ')
       ? authHeader.replace('Bearer ', '')
       : authHeader;
-    const payload = await verifyJwsAccessToken(accessToken, {
-      verifyOptions: {
-        issuer: `${getBaseUrl()}/api/auth`,
-        audience: `${getBaseUrl()}/api/external`,
-      },
-      jwksFetch: `${getBaseUrl()}/api/auth/jwks`,
-    });
+    let payload: JWTPayload | undefined;
+    try {
+      payload = await verifyJwsAccessToken(accessToken, {
+        verifyOptions: {
+          issuer: `${getBaseUrl()}/api/auth`,
+          audience: `${getBaseUrl()}/api/external`,
+        },
+        jwksFetch: `${getBaseUrl()}/api/auth/jwks`,
+      });
+    } catch {
+      return;
+    }
     const userId = payload.sub;
     if (userId === undefined) {
       return;
