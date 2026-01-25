@@ -89,7 +89,7 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
       description: 'Get list of all unique categories used in statements',
       inputSchema: z.object({}),
       execute: async () => {
-        const categories = await caller.statements.getCategories();
+        const categories = await caller.statements.getCategories({});
         return { categories };
       },
     }),
@@ -97,7 +97,7 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
       description: 'Get list of all unique tags used in statements',
       inputSchema: z.object({}),
       execute: async () => {
-        const tags = await caller.statements.getTags();
+        const tags = await caller.statements.getTags({});
         return { tags };
       },
     }),

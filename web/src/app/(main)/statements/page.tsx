@@ -11,15 +11,16 @@ export default async function Page({
   searchParams,
 }: Readonly<{ searchParams: Promise<SearchParams> }>) {
   const pageParams = await loader(searchParams);
-  const data = await api.statements.getStatements({
+  const queryParams = {
     ...pageParams,
     start: pageParams.date[0],
     end: pageParams.date[1],
-  });
+  };
+  const data = await api.statements.getStatements(queryParams);
   const friends = await api.friends.getFriends();
   const accounts = await api.accounts.getAccounts();
-  const categories = await api.statements.getCategories();
-  const tags = await api.statements.getTags();
+  const categories = await api.statements.getCategories(queryParams);
+  const tags = await api.statements.getTags(queryParams);
   const creditAccounts = await api.accounts.getCreditCards();
   return (
     <Table

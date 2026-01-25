@@ -55,7 +55,7 @@ type AggregationArguments = {
   end?: Date;
 };
 
-const buildQueryConditions = <T extends TableConfig>(
+export const buildQueryConditions = <T extends TableConfig>(
   table: PgTableWithColumns<T>,
   userId: string,
   start?: Date,

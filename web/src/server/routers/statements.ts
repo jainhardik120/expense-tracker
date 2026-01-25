@@ -1,9 +1,10 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { selfTransferStatements, splits, statements } from '@/db/schema';
+import { selfTransferStatements, splits, statementKindEnum, statements } from '@/db/schema';
 import {
   accountBelongToUser,
+  buildQueryConditions,
   friendBelongToUser,
   getMergedStatements,
   getRowsCount,
@@ -16,6 +17,7 @@ import {
   createSelfTransferSchema,
   createSplitSchema,
   createStatementSchema,
+  dateSchema,
   ONE_HUNDRED_PERCENTAGE,
   statementParserSchema,
 } from '@/types';
@@ -24,24 +26,50 @@ const ACCOUNT_NOT_FOUND_ERROR = 'Account not found';
 const FRIEND_NOT_FOUND_ERROR = 'Friend not found';
 
 export const statementsRouter = createTRPCRouter({
-  getCategories: protectedProcedure.query(async ({ ctx }) => {
-    return (
-      await ctx.db
-        .selectDistinct({ category: statements.category })
-        .from(statements)
-        .where(eq(statements.userId, ctx.user.id))
+  getCategories: protectedProcedure
+    .input(
+      z.object({
+        ...dateSchema,
+        statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional().default([]),
+      }),
     )
-      .map((c) => c.category)
-      .sort((a, b) => a.localeCompare(b));
-  }),
-  getTags: protectedProcedure.query(async ({ ctx }) => {
-    const result = await ctx.db
-      .selectDistinct({ tag: sql<string>`unnest(${statements.tags})`.as('tag') })
-      .from(statements)
-      .where(eq(statements.userId, ctx.user.id))
-      .orderBy(sql<string>`tag`);
-    return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
-  }),
+    .query(async ({ ctx, input }) => {
+      const conditions = buildQueryConditions(statements, ctx.user.id, input.start, input.end);
+      if (input.statementKind.length > 0) {
+        conditions.push(inArray(statements.statementKind, input.statementKind));
+      }
+      return (
+        await ctx.db
+          .selectDistinct({ category: statements.category })
+          .from(statements)
+          .where(and(...conditions))
+      )
+        .map((c) => c.category)
+        .sort((a, b) => a.localeCompare(b));
+    }),
+  getTags: protectedProcedure
+    .input(
+      z.object({
+        ...dateSchema,
+        statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional().default([]),
+        category: z.string().array().optional().default([]),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const conditions = buildQueryConditions(statements, ctx.user.id, input.start, input.end);
+      if (input.statementKind.length > 0) {
+        conditions.push(inArray(statements.statementKind, input.statementKind));
+      }
+      if (input.category.length > 0) {
+        conditions.push(inArray(statements.category, input.category));
+      }
+      const result = await ctx.db
+        .selectDistinct({ tag: sql<string>`unnest(${statements.tags})`.as('tag') })
+        .from(statements)
+        .where(and(...conditions))
+        .orderBy(sql<string>`tag`);
+      return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
+    }),
   getStatements: protectedProcedure.input(statementParserSchema).query(async ({ ctx, input }) => {
     let statements = await getMergedStatements(ctx.db, ctx.user.id, input);
     let summary = null;

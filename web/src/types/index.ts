@@ -294,9 +294,9 @@ export const emiParser = {
 
 export const smsNotificationParser = {
   ...pageParser,
-  status: parseAsArrayOf(parseAsStringEnum(smsTransactionStatusEnum.enumValues), ',').withDefault(
-    ['pending'],
-  ),
+  status: parseAsArrayOf(parseAsStringEnum(smsTransactionStatusEnum.enumValues), ',').withDefault([
+    'pending',
+  ]),
   timestampFrom: parseAsTimestamp,
   timestampTo: parseAsTimestamp,
 };

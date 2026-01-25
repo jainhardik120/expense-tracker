@@ -18,7 +18,7 @@ export default async function SmsNotificationsPage({
   });
   const accounts = await api.accounts.getAccounts();
   const friends = await api.friends.getFriends();
-  const categories = await api.statements.getCategories();
+  const categories = await api.statements.getCategories({});
   return (
     <Table accountsData={accounts} categories={categories} data={data} friendsData={friends} />
   );
