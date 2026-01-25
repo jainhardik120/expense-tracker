@@ -54,11 +54,10 @@ fun HomeScreen(onLogout: () -> Unit, vm: AuthViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Logged in ✅")
-        Text("My Expenses Total: $${vm.myExpensesTotal.doubleValue}")
         Spacer(Modifier.height(12.dp))
         Button(onClick = onLogout) { Text("Logout") }
-        Button(onClick = vm::getSummaryData) {
-            Text("Refresh Summary Data")
+        Button(onClick = vm::createDummyRequest) {
+            Text("Send Dummy Data")
         }
     }
 }

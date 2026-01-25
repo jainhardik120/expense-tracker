@@ -15,7 +15,7 @@ fun createHttpClient(
     authRepo: AuthRepository
 ): HttpClient {
     return HttpClient(OkHttp) {
-
+        expectSuccess = true
         install(ContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })
         }

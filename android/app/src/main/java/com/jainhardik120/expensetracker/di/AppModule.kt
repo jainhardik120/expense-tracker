@@ -2,6 +2,8 @@ package com.jainhardik120.expensetracker.di
 
 import com.jainhardik120.expensetracker.auth.AuthRepository
 import com.jainhardik120.expensetracker.auth.createHttpClient
+import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
+import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPIImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,5 +19,13 @@ object AppModule {
     @Singleton
     fun provideHttpClient(authRepo: AuthRepository): HttpClient {
         return createHttpClient(authRepo)
+    }
+
+    @Provides
+    @Singleton
+    fun provideExpenseTrackerAPI(
+        client: HttpClient
+    ): ExpenseTrackerAPI {
+        return ExpenseTrackerAPIImpl(client)
     }
 }

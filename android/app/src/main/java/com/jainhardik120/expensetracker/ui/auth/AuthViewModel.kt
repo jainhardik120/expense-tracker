@@ -1,12 +1,16 @@
 package com.jainhardik120.expensetracker.ui.auth
 
 import android.content.Intent
+import android.util.Log
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jainhardik120.expensetracker.auth.AuthRepository
 import com.jainhardik120.expensetracker.auth.AuthState
+import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
+import com.jainhardik120.expensetracker.data.remote.SMSNotificationBody
+import com.jainhardik120.expensetracker.parser.core.TransactionType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -20,13 +24,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val repo: AuthRepository,
-    private val apiClient: HttpClient
-) : ViewModel() {
+    private val repo: AuthRepository, private val api: ExpenseTrackerAPI
+) : BaseViewModel() {
 
     val state: StateFlow<AuthState> = repo.state
-
-    val myExpensesTotal = mutableDoubleStateOf(0.0)
 
     fun onAuthEvent(intent: Intent) {
         viewModelScope.launch {
@@ -38,21 +39,25 @@ class AuthViewModel @Inject constructor(
 
     fun logout() = repo.logout()
 
-    fun refresh() {
-        viewModelScope.launch { repo.refresh() }
-    }
-
-    fun getSummaryData() {
-        viewModelScope.launch {
-            val res = apiClient.request("https://expense-tracker.hardikja.in/api/external/summary") {
-                method = HttpMethod.Get
-            }.body<SummaryResponse>()
-            myExpensesTotal.doubleValue = res.myExpensesTotal
+    fun createDummyRequest() {
+        makeApiCall(
+            call = {
+                api.sendNotification(
+                    SMSNotificationBody(
+                        amount = 1500.0f.toString(),
+                        type = "transfer",
+                        merchant = "Dummy Merchant",
+                        reference = "Dummy Reference",
+                        accountLast4 = "1234",
+                        smsBody = "Dummy SMS Body",
+                        sender = "Dummy Sender",
+                        timestamp = System.currentTimeMillis(),
+                        bankName = "Dummy Bank",
+                        isFromCard = false
+                    )
+                )
+            }) {
+            Log.d("TAG", "createDummyRequest: $it")
         }
     }
 }
-
-@Serializable
-data class SummaryResponse(
-    val myExpensesTotal: Double
-)
