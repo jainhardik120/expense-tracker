@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jainhardik120.expensetracker.auth.AuthEventBus
 import com.jainhardik120.expensetracker.auth.AuthRepository
 import com.jainhardik120.expensetracker.auth.AuthState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,7 +21,6 @@ import javax.inject.Inject
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val repo: AuthRepository,
-    authEventBus: AuthEventBus,
     private val apiClient: HttpClient
 ) : ViewModel() {
 
@@ -30,11 +28,9 @@ class AuthViewModel @Inject constructor(
 
     val myExpensesTotal = mutableDoubleStateOf(0.0)
 
-    init {
+    fun onAuthEvent(intent: Intent) {
         viewModelScope.launch {
-            authEventBus.events.collect { intent ->
-                repo.onAuthCallback(intent)
-            }
+            repo.onAuthCallback(intent)
         }
     }
 

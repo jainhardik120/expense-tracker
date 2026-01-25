@@ -190,6 +190,20 @@ export const recurringPaymentFrequencyEnum = pgEnum('recurring_payment_frequency
   'yearly',
 ]);
 
+export const smsTransactionTypeEnum = pgEnum('sms_transaction_type', [
+  'income',
+  'expense',
+  'credit',
+  'transfer',
+  'investment',
+]);
+
+export const smsTransactionStatusEnum = pgEnum('sms_transaction_status', [
+  'pending',
+  'inserted',
+  'junked',
+]);
+
 export const recurringPayments = pgTable('recurring_payments', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id')
@@ -205,4 +219,26 @@ export const recurringPayments = pgTable('recurring_payments', {
   createdAt: timestamp('created_at')
     .notNull()
     .$defaultFn(() => new Date()),
+});
+
+export const smsNotifications = pgTable('sms_notifications', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  amount: numeric('amount').notNull(),
+  type: smsTransactionTypeEnum().notNull(),
+  merchant: text('merchant'),
+  reference: text('reference'),
+  accountLast4: text('account_last_4'),
+  smsBody: text('sms_body').notNull(),
+  sender: text('sender').notNull(),
+  timestamp: timestamp('timestamp').notNull(),
+  bankName: text('bank_name').notNull(),
+  isFromCard: text('is_from_card').notNull().default('false'),
+  currency: text('currency').notNull().default('INR'),
+  fromAccount: text('from_account'),
+  toAccount: text('to_account'),
+  status: smsTransactionStatusEnum().notNull().default('pending'),
+  additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
 });

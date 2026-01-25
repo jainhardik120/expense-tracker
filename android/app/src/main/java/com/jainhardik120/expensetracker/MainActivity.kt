@@ -13,7 +13,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.jainhardik120.expensetracker.auth.AuthEventBus
 import com.jainhardik120.expensetracker.auth.AuthState
 import com.jainhardik120.expensetracker.ui.auth.AuthViewModel
 import com.jainhardik120.expensetracker.ui.auth.ErrorScreen
@@ -26,8 +25,6 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    @Inject
-    lateinit var authEventBus: AuthEventBus
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -41,7 +38,7 @@ class MainActivity : ComponentActivity() {
                             contract = ActivityResultContracts.StartActivityForResult()
                         ) { result ->
                             result.data?.let {
-                                authEventBus.emit(it)
+                                vm.onAuthEvent(it)
                             }
                         }
 

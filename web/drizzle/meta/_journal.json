@@ -211,6 +211,20 @@
       "when": 1769234112148,
       "tag": "0029_cheerful_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1769318962835,
+      "tag": "0030_chemical_malice",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1769319050655,
+      "tag": "0031_exotic_nicolaos",
+      "breakpoints": true
     }
   ]
 }

@@ -19,6 +19,7 @@ import {
   type statements,
   type recurringPayments,
   recurringPaymentFrequencyEnum,
+  smsTransactionStatusEnum,
 } from '@/db/schema';
 
 export const statementKindMap = {
@@ -291,6 +292,15 @@ export const emiParser = {
   completed: parseAsBoolean,
 };
 
+export const smsNotificationParser = {
+  ...pageParser,
+  status: parseAsArrayOf(parseAsStringEnum(smsTransactionStatusEnum.enumValues), ',').withDefault(
+    [],
+  ),
+  timestampFrom: parseAsTimestamp,
+  timestampTo: parseAsTimestamp,
+};
+
 export const summaryParser = {
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
@@ -315,6 +325,13 @@ export const emiParserSchema = z.object({
   creditId: z.string().array().optional().default([]),
   accountId: z.string().array().optional().default([]),
   completed: z.boolean().optional(),
+});
+
+export const smsNotificationParserSchema = z.object({
+  ...pageSchema,
+  status: z.array(z.enum(smsTransactionStatusEnum.enumValues)).optional().default([]),
+  timestampFrom: z.date().optional(),
+  timestampTo: z.date().optional(),
 });
 
 export const accountFriendStatementsParserSchema = z.object({

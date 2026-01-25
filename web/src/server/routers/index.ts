@@ -7,6 +7,7 @@ import { emisRouter } from './emis';
 import { friendsRouter } from './friends';
 import { investmentsRouter } from './investments';
 import { recurringPaymentsRouter } from './recurring-payments';
+import { smsNotificationsRouter } from './sms-notifications';
 import { statementsRouter } from './statements';
 import { summaryRouter } from './summary';
 
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
   investments: investmentsRouter,
   emis: emisRouter,
   recurringPayments: recurringPaymentsRouter,
+  smsNotifications: smsNotificationsRouter,
 });
 
 export type AppRouter = typeof appRouter;

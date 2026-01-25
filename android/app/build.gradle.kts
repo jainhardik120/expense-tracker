@@ -88,19 +88,19 @@ dependencies {
 
     implementation(libs.appauth)
 
-    implementation("com.google.dagger:hilt-android:2.59")
-    ksp("com.google.dagger:hilt-android-compiler:2.59")
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
 
-    implementation("io.ktor:ktor-client-core:3.4.0")
-    implementation("io.ktor:ktor-client-okhttp:3.4.0")
-    implementation("io.ktor:ktor-client-content-negotiation:3.4.0")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:3.4.0")
-    implementation("io.ktor:ktor-client-logging:3.4.0")
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.client.logging)
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation(libs.kotlinx.coroutines.android)
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
-    implementation("androidx.security:security-crypto:1.1.0")
-    implementation("io.ktor:ktor-client-auth:3.4.0")
-    implementation("androidx.hilt:hilt-navigation-compose:1.3.0")
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.ktor.client.auth)
+    implementation(libs.androidx.hilt.navigation.compose)
 }
