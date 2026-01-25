@@ -114,7 +114,7 @@ export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({
 
 export const adminProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
   const user = await getUser(ctx);
-  if (user === undefined) {
+  if (user?.role !== 'admin') {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
   return next({
