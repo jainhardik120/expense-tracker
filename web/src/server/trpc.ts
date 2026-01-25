@@ -1,3 +1,4 @@
+import { trace } from '@opentelemetry/api';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { verifyJwsAccessToken, type JWTPayload } from 'better-auth';
 import { eq } from 'drizzle-orm';
@@ -8,6 +9,7 @@ import { user } from '@/db/auth-schema';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { getBaseUrl } from '@/lib/getBaseUrl';
+import { instrumentedFunction } from '@/lib/instrumentation';
 import logger from '@/lib/logger';
 
 import type { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch';
@@ -29,7 +31,11 @@ const t = initTRPC
 
 const timingMiddleware = t.middleware(async ({ next, path }) => {
   const start = Date.now();
-  const result = await next();
+  const result = await trace.getTracer('expense-tracker').startActiveSpan(path, async (span) => {
+    const result = await next();
+    span.end();
+    return result;
+  });
   const end = Date.now();
   logger.info(`TRPC ${path} took ${end - start}ms to execute`, {
     path,
@@ -68,7 +74,7 @@ export const publicProcedure = t.procedure.use(timingMiddleware).use(async ({ ct
   });
 });
 
-const getUser = async (ctx: Context) => {
+const getUser = instrumentedFunction('getUser', async (ctx: Context) => {
   const { headers } = ctx;
   const authHeader = headers.get('Authorization');
   if (authHeader !== null) {
@@ -102,7 +108,7 @@ const getUser = async (ctx: Context) => {
     return;
   }
   return session.user;
-};
+});
 
 export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
   const user = await getUser(ctx);

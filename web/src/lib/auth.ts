@@ -8,21 +8,16 @@ import * as schema from '@/db/auth-schema';
 import ResetPasswordEmail from '@/emails/reset-password';
 import { db } from '@/lib/db';
 import { env } from '@/lib/env';
-import { redis } from '@/lib/redis';
 import { sendSESEmail } from '@/lib/send-email';
 
 import { getBaseUrl } from './getBaseUrl';
 
 export const auth = betterAuth({
-  rateLimit: {
-    window: 20,
-    max: 100,
-    enabled: true,
-    storage: 'secondary-storage',
-  },
   appName: 'Expense Tracker',
   plugins: [
-    jwt(),
+    jwt({
+      disableSettingJwtHeader: true,
+    }),
     passkey({
       rpID: env.NODE_ENV === 'development' ? 'localhost' : undefined,
     }),
@@ -45,21 +40,6 @@ export const auth = betterAuth({
       validAudiences: [`${getBaseUrl()}/api/external`, `${getBaseUrl()}`],
     }),
   ],
-  secondaryStorage: {
-    get: async (key) => {
-      return redis.get(key);
-    },
-    set: async (key, value, ttl) => {
-      if (ttl !== undefined) {
-        await redis.setex(key, ttl, value);
-      } else {
-        await redis.set(key, value);
-      }
-    },
-    delete: async (key) => {
-      await redis.del(key);
-    },
-  },
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema,

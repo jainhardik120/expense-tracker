@@ -35,6 +35,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.71.1(react@19.2.3))
+      '@kubiks/otel-better-auth':
+        specifier: ^2.0.2
+        version: 2.0.2(@opentelemetry/api@1.9.0)(better-auth@1.4.16(@prisma/client@5.22.0)(better-sqlite3@12.6.2)(drizzle-kit@0.31.8)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@prisma/client@5.22.0)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(kysely@0.28.5)(pg@8.17.1))(next@16.1.4(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.17.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))
       '@kubiks/otel-drizzle':
         specifier: ^2.1.0
         version: 2.1.0(@opentelemetry/api@1.9.0)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@prisma/client@5.22.0)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(kysely@0.28.5)(pg@8.17.1))
@@ -1254,6 +1257,13 @@ packages:
 
   '@jscpd/tokenizer@4.0.3':
     resolution: {integrity: sha512-EosztK2+i2TPnLZuroC5jfvSPVuSDRsPtrAOL2UhwNttcK3L8F0/ERih6zRySMNUgL77OOhch5QX0I3YE8HLcQ==}
+
+  '@kubiks/otel-better-auth@2.0.2':
+    resolution: {integrity: sha512-xNRTlAu/y1X/9ff9z6ehAZ9txIeOH5u4mYBGSqEuFyUNH/K3KVEIOZqAkUYPAyY057LJAdXaM9abZyBsPWZBOw==}
+    engines: {node: ^18.19.0 || >=20.6.0}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.9.0 <2.0.0'
+      better-auth: '>=0.1.0'
 
   '@kubiks/otel-drizzle@2.1.0':
     resolution: {integrity: sha512-9UHb0od3jwa6zTWMyEYPIZcUq5PDaziCmQLMLakSK2zeqy12SFZ3SAGWXJTgEr8valn/Wa+DKVs+Z3aqKQUpvg==}
@@ -7545,6 +7555,11 @@ snapshots:
       '@jscpd/core': 4.0.3
       reprism: 0.0.11
       spark-md5: 3.0.2
+
+  '@kubiks/otel-better-auth@2.0.2(@opentelemetry/api@1.9.0)(better-auth@1.4.16(@prisma/client@5.22.0)(better-sqlite3@12.6.2)(drizzle-kit@0.31.8)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@prisma/client@5.22.0)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(kysely@0.28.5)(pg@8.17.1))(next@16.1.4(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.17.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      better-auth: 1.4.16(@prisma/client@5.22.0)(better-sqlite3@12.6.2)(drizzle-kit@0.31.8)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@prisma/client@5.22.0)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(kysely@0.28.5)(pg@8.17.1))(next@16.1.4(@babel/core@7.28.6)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(pg@8.17.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
 
   '@kubiks/otel-drizzle@2.1.0(@opentelemetry/api@1.9.0)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.0)(@prisma/client@5.22.0)(@types/pg@8.16.0)(better-sqlite3@12.6.2)(kysely@0.28.5)(pg@8.17.1))':
     dependencies:
