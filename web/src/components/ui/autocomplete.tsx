@@ -120,7 +120,13 @@ const Autocomplete = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-full p-0">
+      <PopoverContent
+        align="start"
+        className="w-full p-0"
+        onWheel={(e) => {
+          e.stopPropagation();
+        }}
+      >
         <Command shouldFilter={false} onKeyDown={handleKeyDown}>
           <CommandInput
             ref={inputRef}
@@ -128,16 +134,12 @@ const Autocomplete = ({
             value={searchValue}
             onValueChange={handleSearchChange}
           />
-          <CommandList>
+          <CommandList className="max-h-full">
             <CommandEmpty>
-              {searchValue !== '' && (
-                <div className="px-2 py-1.5 text-sm">
-                  Press Enter to use &quot;{searchValue}&quot;
-                </div>
-              )}
+              {searchValue !== '' && <>Press Enter to use &quot;{searchValue}&quot;</>}
             </CommandEmpty>
             {filteredOptions.length > 0 && (
-              <CommandGroup>
+              <CommandGroup className="max-h-[18.75rem] overflow-x-hidden overflow-y-auto">
                 {filteredOptions.map((option) => (
                   <CommandItem
                     key={option.value}
