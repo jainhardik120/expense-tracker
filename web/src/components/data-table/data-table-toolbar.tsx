@@ -16,12 +16,14 @@ import type { Column, Table } from '@tanstack/react-table';
 
 interface DataTableToolbarProps<TData> extends React.ComponentProps<'div'> {
   table: Table<TData>;
+  viewOptions?: boolean;
 }
 
 export const DataTableToolbar = <TData,>({
   table,
   children,
   className,
+  viewOptions = true,
   ...props
 }: DataTableToolbarProps<TData>) => {
   const isFiltered = table.getState().columnFilters.length > 0;
@@ -61,7 +63,7 @@ export const DataTableToolbar = <TData,>({
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
         {children}
-        <DataTableViewOptions table={table} />
+        {viewOptions === true && <DataTableViewOptions table={table} />}
       </div>
     </div>
   );

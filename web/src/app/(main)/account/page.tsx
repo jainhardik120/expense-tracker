@@ -20,7 +20,6 @@ export default async function SecurityPage() {
   });
   return (
     <>
-      <h1>Security</h1>
       <Passkeys />
       <TwoFactor session={session} />
       <Sessions activeSessions={activeSessions} session={session} />
