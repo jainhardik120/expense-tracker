@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Wallet } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FieldDescription } from '@/components/ui/field';
 
 import {
   EmailOTPForm,
@@ -80,10 +79,6 @@ export default async function Page(props: Readonly<PageProps<'/auth/[...path]'>>
               <AuthComponent.Component {...props} />
             </CardContent>
           </Card>
-          <FieldDescription className="px-6 text-center">
-            By clicking continue, you agree to our <Link href="/">Terms of Service</Link> and{' '}
-            <Link href="/">Privacy Policy</Link>.
-          </FieldDescription>
         </div>
       </div>
     </div>

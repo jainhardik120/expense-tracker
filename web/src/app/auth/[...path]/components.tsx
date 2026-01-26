@@ -46,8 +46,7 @@ const otpSchema = z.object({
 
 const ENTER_THE_CODE = 'Enter the code';
 
-export const LoginForm = () => {
-  const [loading, setLoading] = useState(false);
+const SignInWithPasskeyButton = () => {
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [searchParams] = useQueryStates({
     redirect: parseAsString.withDefault('/'),
@@ -84,6 +83,42 @@ export const LoginForm = () => {
   }, [signInUsingPasskey]);
 
   return (
+    <Button
+      disabled={!passkeyAvailable}
+      type="button"
+      variant="outline"
+      onClick={() => {
+        void signInUsingPasskey();
+      }}
+    >
+      <Fingerprint />
+      Login with Passkey
+    </Button>
+  );
+};
+
+const SignInWithGitHubButton = () => {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={async () => {
+        await signIn.social({ provider: 'github' });
+      }}
+    >
+      <GitHubLogoIcon />
+      Login with GitHub
+    </Button>
+  );
+};
+export const LoginForm = () => {
+  const [loading, setLoading] = useState(false);
+  const [searchParams] = useQueryStates({
+    redirect: parseAsString.withDefault('/'),
+  });
+  const router = useRouter();
+
+  return (
     <DynamicForm
       // eslint-disable-next-line react/no-unstable-nested-components
       FormFooter={() => {
@@ -93,27 +128,8 @@ export const LoginForm = () => {
               Or continue with
             </FieldSeparator>
             <Field>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={async () => {
-                  await signIn.social({ provider: 'github' });
-                }}
-              >
-                <GitHubLogoIcon />
-                Login with GitHub
-              </Button>
-              <Button
-                disabled={!passkeyAvailable}
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  void signInUsingPasskey();
-                }}
-              >
-                <Fingerprint />
-                Login with Passkey
-              </Button>
+              <SignInWithPasskeyButton />
+              <SignInWithGitHubButton />
               <FieldDescription className="text-center">
                 Don&apos;t have an account?{' '}
                 <Link
