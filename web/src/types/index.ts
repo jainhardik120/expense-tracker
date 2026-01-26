@@ -20,6 +20,7 @@ import {
   type recurringPayments,
   recurringPaymentFrequencyEnum,
   smsTransactionStatusEnum,
+  type smsNotifications,
 } from '@/db/schema';
 
 export const statementKindMap = {
@@ -105,6 +106,7 @@ export const createCreditCardAccountSchema = z.object({
 export type StatementKind = (typeof statementKindEnum.enumValues)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
+export type SMSNotification = typeof smsNotifications.$inferSelect;
 export type Statement = typeof statements.$inferSelect & {
   splitAmount: number;
   accountName: string | null;

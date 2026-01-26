@@ -18,14 +18,6 @@ import { CreateStatementForm } from '../../statements/_components/StatementForms
 
 type SmsNotification = RouterOutput['smsNotifications']['list']['notifications'][number];
 
-const typeLabels: Record<string, string> = {
-  income: 'Income',
-  expense: 'Expense',
-  credit: 'Credit',
-  transfer: 'Transfer',
-  investment: 'Investment',
-};
-
 const statusVariants: Record<string, 'default' | 'secondary' | 'destructive'> = {
   pending: 'secondary',
   inserted: 'default',
@@ -81,6 +73,10 @@ const ConvertToStatementButton = ({
   categories: string[];
 }) => {
   const mutation = api.smsNotifications.update.useMutation();
+  const { data: hints, refetch } = api.smsNotifications.getInsertHints.useQuery(
+    { id: notification.id },
+    { enabled: false },
+  );
   return (
     <CreateStatementForm
       accountsData={accountsData}
@@ -88,10 +84,20 @@ const ConvertToStatementButton = ({
       defaultValues={{
         amount: notification.amount,
         createdAt: notification.createdAt,
+        accountId: (hints?.bankIdHint.length ?? 0) > 0 ? hints?.bankIdHint[0] : '',
+        category: (hints?.categoryHint.length ?? 0) > 0 ? hints?.categoryHint[0] : '',
+        tags: (hints?.tagsHint.length ?? 0) > 0 ? [hints?.tagsHint[0] ?? ''] : [],
       }}
       friendsData={friendsData}
       trigger={
-        <Button className="size-8" size="icon" variant="ghost">
+        <Button
+          className="size-8"
+          size="icon"
+          variant="ghost"
+          onClick={() => {
+            void refetch();
+          }}
+        >
           <FileText />
         </Button>
       }
@@ -194,13 +200,6 @@ export const createSmsNotificationColumns = ({
     enableColumnFilter: true,
   },
   {
-    accessorKey: 'type',
-    header: 'Type',
-    cell: ({ row }) => (
-      <Badge variant="outline">{typeLabels[row.original.type] ?? row.original.type}</Badge>
-    ),
-  },
-  {
     accessorKey: 'amount',
     header: 'Amount',
     cell: ({ row }) => formatCurrency(row.original.amount, row.original.currency),
@@ -219,12 +218,8 @@ export const createSmsNotificationColumns = ({
     header: 'Account',
     cell: ({ row }) =>
       row.original.accountLast4 !== null && row.original.accountLast4 !== ''
-        ? `****${row.original.accountLast4}`
+        ? row.original.accountLast4
         : '-',
-  },
-  {
-    accessorKey: 'sender',
-    header: 'Sender',
   },
   {
     id: 'status',

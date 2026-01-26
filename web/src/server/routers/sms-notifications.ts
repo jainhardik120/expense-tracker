@@ -1,9 +1,14 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { smsNotifications } from '@/db/schema';
+import { smsNotifications, statements } from '@/db/schema';
+import type { Database } from '@/lib/db';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createSmsNotificationSchema, smsNotificationListSchema } from '@/types';
+import {
+  createSmsNotificationSchema,
+  smsNotificationListSchema,
+  type SMSNotification,
+} from '@/types';
 
 import { buildQueryConditions } from '../helpers/summary';
 
@@ -22,17 +27,11 @@ export const smsNotificationsRouter = createTRPCRouter({
         .insert(smsNotifications)
         .values({
           userId: ctx.user.id,
-          amount: input.amount,
-          type: input.type,
+          ...{ ...input, timestamp: undefined },
+          createdAt: input.timestamp,
           merchant: input.merchant ?? null,
           reference: input.reference ?? null,
           accountLast4: input.accountLast4 ?? null,
-          smsBody: input.smsBody,
-          sender: input.sender,
-          createdAt: input.timestamp,
-          bankName: input.bankName,
-          isFromCard: input.isFromCard,
-          currency: input.currency,
           fromAccount: input.fromAccount ?? null,
           toAccount: input.toAccount ?? null,
         })
@@ -95,4 +94,96 @@ export const smsNotificationsRouter = createTRPCRouter({
       }
       return result[0];
     }),
+  getInsertHints: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const smsNotification = await getSMSNotification(ctx.db, ctx.user.id, input.id);
+      return getHints(ctx.db, smsNotification, ctx.user.id);
+    }),
 });
+
+const getSMSNotification = async (db: Database, userId: string, id: string) => {
+  const smsNotification = await db
+    .select()
+    .from(smsNotifications)
+    .where(and(eq(smsNotifications.id, id), eq(smsNotifications.userId, userId)))
+    .limit(1);
+  if (smsNotification.length === 0) {
+    throw new Error('SMS notification not found');
+  }
+  return smsNotification[0];
+};
+
+const recentStatementsQuery = (db: Database, userId: string, where: SQL[]) =>
+  db
+    .select({
+      accountId: statements.accountId,
+      category: statements.category,
+      tags: statements.tags,
+    })
+    .from(smsNotifications)
+    .innerJoin(
+      statements,
+      eq(
+        sql`CAST(${smsNotifications.additionalAttributes}->>'statementId' AS uuid)`,
+        statements.id,
+      ),
+    )
+    .where(and(...where, eq(smsNotifications.userId, userId)))
+    .orderBy(desc(smsNotifications.createdAt))
+    .limit(10)
+    .as('recent_statements');
+
+const getHints = async (db: Database, smsNotification: SMSNotification, userId: string) => {
+  const recentBankNameStatements = recentStatementsQuery(db, userId, [
+    eq(smsNotifications.bankName, smsNotification.bankName),
+  ]);
+  const bankIdHint = (
+    await db
+      .select({
+        accountId: recentBankNameStatements.accountId,
+        cnt: sql<number>`count(*)`,
+      })
+      .from(recentBankNameStatements)
+      .where(sql`${recentBankNameStatements.accountId} is not null`)
+      .groupBy(recentBankNameStatements.accountId)
+      .orderBy(desc(sql`count(*)`))
+  )
+    .map((row) => row.accountId)
+    .filter((id) => id !== null);
+
+  let categoryHint: string[] = [];
+  let tagsHint: string[] = [];
+
+  if (smsNotification.merchant !== null) {
+    const recentMerchantStatements = recentStatementsQuery(db, userId, [
+      eq(smsNotifications.merchant, smsNotification.merchant),
+    ]);
+    const categoryHintValues = await db
+      .select({
+        category: recentMerchantStatements.category,
+        cnt: sql<number>`count(*)`,
+      })
+      .from(recentMerchantStatements)
+      .where(sql`${recentMerchantStatements.category} is not null`)
+      .groupBy(recentMerchantStatements.category)
+      .orderBy(desc(sql`count(*)`));
+    categoryHint = categoryHintValues.map((row) => row.category);
+    const tagsHintValues = await db
+      .select({
+        tag: sql<string>`t.tag`,
+        cnt: sql<number>`count(*)`,
+      })
+      .from(recentMerchantStatements)
+      .innerJoin(sql`LATERAL unnest(${recentMerchantStatements.tags}) AS t(tag)`, sql`true`)
+      .groupBy(sql`t.tag`)
+      .orderBy(desc(sql`count(*)`));
+    tagsHint = tagsHintValues.map((row) => row.tag);
+  }
+
+  return {
+    categoryHint,
+    tagsHint,
+    bankIdHint,
+  };
+};
