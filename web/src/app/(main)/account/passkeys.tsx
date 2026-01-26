@@ -132,7 +132,9 @@ const Passkeys = () => {
               mutateAsync: handleAddPasskey,
               isPending: isLoading,
             }}
-            refresh={refetch}
+            refresh={async () => {
+              await refetch();
+            }}
             schema={z.object({
               name: z.string(),
             })}

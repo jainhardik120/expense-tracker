@@ -297,8 +297,7 @@ export const smsNotificationParser = {
   status: parseAsArrayOf(parseAsStringEnum(smsTransactionStatusEnum.enumValues), ',').withDefault([
     'pending',
   ]),
-  timestampFrom: parseAsTimestamp,
-  timestampTo: parseAsTimestamp,
+  date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
 
 export const summaryParser = {
@@ -325,13 +324,6 @@ export const emiParserSchema = z.object({
   creditId: z.string().array().optional().default([]),
   accountId: z.string().array().optional().default([]),
   completed: z.boolean().optional(),
-});
-
-export const smsNotificationParserSchema = z.object({
-  ...pageSchema,
-  status: z.array(z.enum(smsTransactionStatusEnum.enumValues)).optional().default([]),
-  timestampFrom: z.date().optional(),
-  timestampTo: z.date().optional(),
 });
 
 export const accountFriendStatementsParserSchema = z.object({
@@ -447,4 +439,26 @@ export const recurringPaymentParserSchema = z.object({
   ...pageSchema,
   category: z.string().array().optional().default([]),
   frequency: z.array(z.enum(recurringPaymentFrequencyEnum.enumValues)).optional().default([]),
+});
+
+export const createSmsNotificationSchema = z.object({
+  amount: z.string(),
+  type: z.enum(['income', 'expense', 'credit', 'transfer', 'investment']),
+  merchant: z.string().nullish(),
+  reference: z.string().nullish(),
+  accountLast4: z.string().nullish(),
+  smsBody: z.string(),
+  sender: z.string(),
+  timestamp: z.date(),
+  bankName: z.string(),
+  isFromCard: z.boolean().default(false),
+  currency: z.string().default('INR'),
+  fromAccount: z.string().nullish(),
+  toAccount: z.string().nullish(),
+});
+
+export const smsNotificationListSchema = z.object({
+  ...pageSchema,
+  ...dateSchema,
+  status: z.array(z.enum(['pending', 'inserted', 'junked'])).default([]),
 });

@@ -88,10 +88,16 @@ export const CreateStatementForm = ({
   accountsData,
   friendsData,
   categories,
+  defaultValues,
+  onSuccess,
+  trigger,
 }: {
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
+  trigger?: React.ReactNode;
+  defaultValues?: Partial<z.infer<typeof createStatementSchema>>;
+  onSuccess?: (id: string) => Promise<void> | void;
 }) => {
   const [searchParams] = useQueryStates(statementParser);
   const selectedAccount =
@@ -108,9 +114,13 @@ export const CreateStatementForm = ({
   return (
     <MutationModal
       button={
-        <Button className="h-8" variant="outline">
-          New Statement
-        </Button>
+        trigger !== undefined ? (
+          trigger
+        ) : (
+          <Button className="h-8" variant="outline">
+            New Statement
+          </Button>
+        )
       }
       defaultValues={{
         amount: '',
@@ -120,10 +130,12 @@ export const CreateStatementForm = ({
         friendId: '',
         tags: [],
         createdAt: new Date(),
+        ...defaultValues,
       }}
       fields={formFields}
       mutation={mutation}
-      refresh={() => {
+      refresh={async (result) => {
+        await onSuccess?.(result[0].id);
         router.refresh();
       }}
       schema={createStatementSchema}

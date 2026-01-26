@@ -234,7 +234,7 @@ export const smsNotifications = pgTable('sms_notifications', {
   accountLast4: text('account_last_4'),
   smsBody: text('sms_body').notNull(),
   sender: text('sender').notNull(),
-  timestamp: timestamp('timestamp').notNull(),
+  createdAt: timestamp('timestamp').notNull(),
   bankName: text('bank_name').notNull(),
   isFromCard: boolean('is_from_card').notNull().default(false),
   currency: text('currency').notNull().default('INR'),

@@ -17,7 +17,7 @@ type Props<Input extends FieldValues, Output extends FieldValues, MutationResult
   mutation: { mutateAsync: (values: Output) => Promise<MutationResult>; isPending: boolean };
   button: React.ReactNode;
   titleText?: string;
-  refresh?: () => void;
+  refresh?: (values: MutationResult) => Promise<void> | void;
   successToast: (mutationResult: MutationResult) => string;
   customDescription?: React.ReactNode;
 };
@@ -32,7 +32,7 @@ const MutationModal = <T extends FieldValues, U extends FieldValues, MutationRes
       .then((result) => {
         toast(props.successToast(result));
         setOpen(false);
-        return props.refresh?.();
+        return props.refresh?.(result);
       })
       .catch((err) => {
         setOpen(false);

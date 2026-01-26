@@ -11,11 +11,12 @@ export default async function SmsNotificationsPage({
   searchParams,
 }: Readonly<{ searchParams: Promise<SearchParams> }>) {
   const pageParams = await loader(searchParams);
-  const data = await api.smsNotifications.list({
+  const queryParams = {
     ...pageParams,
-    timestampFrom: pageParams.timestampFrom ?? undefined,
-    timestampTo: pageParams.timestampTo ?? undefined,
-  });
+    start: pageParams.date[0],
+    end: pageParams.date[1],
+  };
+  const data = await api.smsNotifications.list(queryParams);
   const accounts = await api.accounts.getAccounts();
   const friends = await api.friends.getFriends();
   const categories = await api.statements.getCategories({});

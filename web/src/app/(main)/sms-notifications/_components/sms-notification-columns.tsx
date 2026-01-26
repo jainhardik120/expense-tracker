@@ -1,14 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
-
 import { type ColumnDef } from '@tanstack/react-table';
-import { Ban, FileText, RefreshCw } from 'lucide-react';
-import { type z } from 'zod';
+import { FileText, RefreshCw, Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
-import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
-import MutationModal from '@/components/mutation-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { smsTransactionStatusEnum } from '@/db/schema';
@@ -16,13 +11,10 @@ import { useIsMounted } from '@/hooks/use-is-mounted';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
-import {
-  type Account,
-  createSelfTransferSchema,
-  createStatementSchema,
-  type Friend,
-  statementKindMap,
-} from '@/types';
+import type { Account, Friend } from '@/types';
+
+import { CreateSelfTransferStatementForm } from '../../statements/_components/SelfTransferStatementForms';
+import { CreateStatementForm } from '../../statements/_components/StatementForms';
 
 type SmsNotification = RouterOutput['smsNotifications']['list']['notifications'][number];
 
@@ -53,109 +45,6 @@ const DateCell = ({ date }: { date: Date }) => {
     : '-';
 };
 
-const SELECT_ACCOUNT_PLACEHOLDER = 'Select Account';
-
-const statementFormFields = (
-  accountsData: Account[],
-  friendsData: Friend[],
-  categories: string[],
-): FormField<z.infer<typeof createStatementSchema>>[] => {
-  return [
-    {
-      name: 'statementKind',
-      label: 'Statement Kind',
-      type: 'select',
-      placeholder: 'Select Statement Kind',
-      options: Object.entries(statementKindMap).map(([value, label]) => ({
-        label,
-        value,
-      })),
-    },
-    {
-      name: 'accountId',
-      label: 'Account ID',
-      type: 'select',
-      placeholder: SELECT_ACCOUNT_PLACEHOLDER,
-      options: accountsData.map((account) => ({
-        label: account.accountName,
-        value: account.id,
-      })),
-    },
-    {
-      name: 'friendId',
-      label: 'Friend ID',
-      type: 'select',
-      placeholder: 'Select Friend',
-      options: friendsData.map((account) => ({
-        label: account.name,
-        value: account.id,
-      })),
-    },
-    {
-      name: 'category',
-      label: 'Category',
-      type: 'autocompleteInput',
-      placeholder: 'Category',
-      options: categories.map((category) => ({ label: category, value: category })),
-    },
-    {
-      name: 'amount',
-      label: 'Amount',
-      type: 'number',
-      placeholder: 'Amount',
-    },
-    {
-      name: 'tags',
-      label: 'Tags',
-      type: 'stringArray',
-      placeholder: 'Tags',
-    },
-    {
-      name: 'createdAt',
-      label: 'Datetime',
-      type: 'datetime',
-    },
-  ];
-};
-
-const selfTransferFormFields = (
-  accountsData: Account[],
-): FormField<z.infer<typeof createSelfTransferSchema>>[] => {
-  return [
-    {
-      name: 'fromAccountId',
-      label: 'From Account',
-      type: 'select',
-      placeholder: SELECT_ACCOUNT_PLACEHOLDER,
-      options: accountsData.map((account) => ({
-        label: account.accountName,
-        value: account.id,
-      })),
-    },
-    {
-      name: 'toAccountId',
-      label: 'To Account',
-      type: 'select',
-      placeholder: SELECT_ACCOUNT_PLACEHOLDER,
-      options: accountsData.map((account) => ({
-        label: account.accountName,
-        value: account.id,
-      })),
-    },
-    {
-      name: 'amount',
-      label: 'Amount',
-      type: 'number',
-      placeholder: 'Amount',
-    },
-    {
-      name: 'createdAt',
-      label: 'Datetime',
-      type: 'datetime',
-    },
-  ];
-};
-
 const JunkNotificationButton = ({
   notificationId,
   onRefresh,
@@ -163,18 +52,18 @@ const JunkNotificationButton = ({
   notificationId: string;
   onRefresh: () => void;
 }) => {
-  const mutation = api.smsNotifications.junk.useMutation();
+  const mutation = api.smsNotifications.update.useMutation();
   return (
     <DeleteConfirmationDialog
       description="This will mark the notification as junked. You can still view it in the list with status filter."
       mutation={mutation}
-      mutationInput={{ id: notificationId }}
+      mutationInput={{ id: notificationId, status: 'junked' }}
       refresh={onRefresh}
       successToast={() => 'Notification junked successfully'}
       title="Junk this notification?"
     >
       <Button className="size-8" size="icon" title="Junk notification" variant="ghost">
-        <Ban />
+        <Trash />
       </Button>
     </DeleteConfirmationDialog>
   );
@@ -182,96 +71,68 @@ const JunkNotificationButton = ({
 
 const ConvertToStatementButton = ({
   notification,
-  onRefresh,
   accountsData,
   friendsData,
   categories,
 }: {
   notification: SmsNotification;
-  onRefresh: () => void;
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
 }) => {
-  const mutation = api.smsNotifications.convertToStatement.useMutation();
-  const formFields = useMemo(
-    () => statementFormFields(accountsData, friendsData, categories),
-    [accountsData, friendsData, categories],
-  );
-
+  const mutation = api.smsNotifications.update.useMutation();
   return (
-    <MutationModal
-      button={
-        <Button className="size-8" size="icon" title="Convert to statement" variant="ghost">
+    <CreateStatementForm
+      accountsData={accountsData}
+      categories={categories}
+      defaultValues={{
+        amount: notification.amount,
+        createdAt: notification.createdAt,
+      }}
+      friendsData={friendsData}
+      trigger={
+        <Button className="size-8" size="icon" variant="ghost">
           <FileText />
         </Button>
       }
-      defaultValues={{
-        amount: notification.amount,
-        category: '',
-        statementKind: 'expense',
-        accountId: '',
-        friendId: '',
-        tags: [notification.merchant ?? ''],
-        createdAt: new Date(notification.timestamp),
+      onSuccess={async (id) => {
+        await mutation.mutateAsync({
+          id: notification.id,
+          statementId: id,
+          status: 'inserted',
+        });
       }}
-      fields={formFields}
-      mutation={{
-        ...mutation,
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            id: notification.id,
-            statement: values,
-          });
-        },
-      }}
-      refresh={onRefresh}
-      schema={createStatementSchema}
-      successToast={(result) => `${result.length} statement(s) created`}
-      titleText="Convert to Statement"
     />
   );
 };
 
 const ConvertToSelfTransferButton = ({
   notification,
-  onRefresh,
   accountsData,
 }: {
   notification: SmsNotification;
-  onRefresh: () => void;
   accountsData: Account[];
 }) => {
-  const mutation = api.smsNotifications.convertToSelfTransfer.useMutation();
-  const formFields = useMemo(() => selfTransferFormFields(accountsData), [accountsData]);
-
+  const mutation = api.smsNotifications.update.useMutation();
   return (
-    <MutationModal
-      button={
-        <Button className="size-8" size="icon" title="Convert to self transfer" variant="ghost">
+    <CreateSelfTransferStatementForm
+      accountsData={accountsData}
+      defaultValues={{
+        amount: notification.amount,
+        createdAt: notification.createdAt,
+      }}
+      trigger={
+        <Button className="size-8" size="icon" variant="ghost">
           <RefreshCw />
         </Button>
       }
-      defaultValues={{
-        toAccountId: '',
-        fromAccountId: '',
-        amount: notification.amount,
-        createdAt: new Date(notification.timestamp),
+      onSuccess={async (id) => {
+        await mutation.mutateAsync({
+          id: notification.id,
+          statementId: id,
+          status: 'inserted',
+        });
       }}
-      fields={formFields}
-      mutation={{
-        ...mutation,
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            id: notification.id,
-            selfTransfer: values,
-          });
-        },
-      }}
-      refresh={onRefresh}
-      schema={createSelfTransferSchema}
-      successToast={(result) => `${result.length} self transfer(s) created`}
-      titleText="Convert to Self Transfer"
     />
   );
 };
@@ -300,13 +161,8 @@ const SmsNotificationActions = ({
         categories={categories}
         friendsData={friendsData}
         notification={notification}
-        onRefresh={onRefresh}
       />
-      <ConvertToSelfTransferButton
-        accountsData={accountsData}
-        notification={notification}
-        onRefresh={onRefresh}
-      />
+      <ConvertToSelfTransferButton accountsData={accountsData} notification={notification} />
       <JunkNotificationButton notificationId={notification.id} onRefresh={onRefresh} />
     </div>
   );
@@ -324,9 +180,18 @@ export const createSmsNotificationColumns = ({
   categories: string[];
 }): ColumnDef<SmsNotification>[] => [
   {
-    accessorKey: 'timestamp',
+    accessorKey: 'createdAt',
     header: 'Date',
-    cell: ({ row }) => <DateCell date={row.original.timestamp} />,
+    cell: ({ row }) => {
+      const date = row.original.createdAt;
+      return <DateCell date={date} />;
+    },
+    id: 'date',
+    meta: {
+      label: 'Date',
+      variant: 'dateRange',
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'type',

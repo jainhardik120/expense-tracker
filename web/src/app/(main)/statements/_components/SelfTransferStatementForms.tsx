@@ -51,26 +51,42 @@ const statementFormFields = (
   ];
 };
 
-export const CreateSelfTransferStatementForm = ({ accountsData }: { accountsData: Account[] }) => {
+export const CreateSelfTransferStatementForm = ({
+  accountsData,
+  defaultValues,
+  onSuccess,
+  trigger,
+}: {
+  accountsData: Account[];
+  trigger?: React.ReactNode;
+  defaultValues?: Partial<z.infer<typeof createSelfTransferSchema>>;
+  onSuccess?: (id: string) => Promise<void> | void;
+}) => {
   const mutation = api.statements.addSelfTransferStatement.useMutation();
   const formFields = useMemo(() => statementFormFields(accountsData), [accountsData]);
   const router = useRouter();
   return (
     <MutationModal
       button={
-        <Button className="h-8" variant="outline">
-          New Self Transfer
-        </Button>
+        trigger !== undefined ? (
+          trigger
+        ) : (
+          <Button className="h-8" variant="outline">
+            New Self Transfer
+          </Button>
+        )
       }
       defaultValues={{
         toAccountId: '',
         fromAccountId: '',
         amount: '',
         createdAt: new Date(),
+        ...defaultValues,
       }}
       fields={formFields}
       mutation={mutation}
-      refresh={() => {
+      refresh={async (result) => {
+        await onSuccess?.(result[0].id);
         router.refresh();
       }}
       schema={createSelfTransferSchema}
