@@ -272,6 +272,7 @@ export const getColumnVariant = (
       return { label: 'Date', icon: CalendarIcon };
     case 'file':
       return { label: 'File', icon: FileIcon };
+    case undefined:
     default:
       return null;
   }
