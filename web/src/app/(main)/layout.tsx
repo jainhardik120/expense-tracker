@@ -1,4 +1,5 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 import { CookiesProvider } from 'next-client-cookies/server';
 
@@ -6,14 +7,27 @@ import { AppSidebar } from '@/components/app-sidebar';
 import ThemeToggle from '@/components/theme-toggle';
 import TimeZoneSetter from '@/components/time-zone-setter';
 import { Separator } from '@/components/ui/separator';
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import {
+  SIDEBAR_COOKIE_NAME,
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { auth } from '@/lib/auth';
 
+import AdminSession from './_components/admin-session';
 import FloatingChatbot from './_components/floating-chatbot';
 import UserButton from './_components/user-button';
 
 export default async function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get('sidebar_state')?.value === 'true';
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (session === null) {
+    return redirect('/403');
+  }
+  const defaultOpen = cookieStore.get(SIDEBAR_COOKIE_NAME)?.value === 'true';
 
   return (
     <CookiesProvider>
@@ -26,8 +40,9 @@ export default async function Layout({ children }: Readonly<{ children: React.Re
             <div className="flex w-full items-center justify-between gap-2">
               <h1 className="text-lg font-bold">Expense Tracker</h1>
               <div className="flex items-center gap-2">
+                <AdminSession session={session} />
                 <ThemeToggle />
-                <UserButton />
+                <UserButton session={session} />
               </div>
             </div>
           </header>

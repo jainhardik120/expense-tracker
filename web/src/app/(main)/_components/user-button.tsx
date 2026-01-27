@@ -14,7 +14,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { signOut, useSession } from '@/lib/auth-client';
+import type { Session } from '@/lib/auth';
+import { signOut } from '@/lib/auth-client';
 
 const getUserInitials = (name: string) => {
   return name
@@ -24,26 +25,23 @@ const getUserInitials = (name: string) => {
     .join('');
 };
 
-const UserLabel = ({ user }: { user: Awaited<ReturnType<typeof useSession>> }) => {
-  const { data: userData } = user;
+const UserLabel = ({ session }: { session: Session }) => {
+  const { user } = session;
   return (
     <Avatar className="h-8 w-8 rounded-lg grayscale">
-      <AvatarImage alt={userData?.user.name} src={userData?.user.image ?? ''} />
-      <AvatarFallback className="rounded-lg">
-        {getUserInitials(userData?.user.name ?? '')}
-      </AvatarFallback>
+      <AvatarImage alt={user.name} src={user.image ?? ''} />
+      <AvatarFallback className="rounded-lg">{getUserInitials(user.name)}</AvatarFallback>
     </Avatar>
   );
 };
 
-const UserButton = () => {
-  const user = useSession();
-  const { data: userData } = user;
+const UserButton = ({ session }: { session: Session }) => {
+  const { user } = session;
   const router = useRouter();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
-        <UserLabel user={user} />
+        <UserLabel session={session} />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
@@ -54,12 +52,10 @@ const UserButton = () => {
         <Link href="/account">
           <DropdownMenuLabel className="p-0 font-normal">
             <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-              <UserLabel user={user} />
+              <UserLabel session={session} />
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{userData?.user.name}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {userData?.user.email}
-                </span>
+                <span className="truncate font-medium">{user.name}</span>
+                <span className="text-muted-foreground truncate text-xs">{user.email}</span>
               </div>
             </div>
           </DropdownMenuLabel>

@@ -96,11 +96,6 @@ const printResults = (counts: Partial<Record<string, RuleCount>>): void => {
       }
     }
   }
-  for (const { rule, errors } of sorted) {
-    if (errors !== undefined && errors > 0) {
-      console.log(`'${rule}': 'warn',`);
-    }
-  }
 };
 
 const main = async () => {

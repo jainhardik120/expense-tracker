@@ -284,6 +284,9 @@ export const RegisterForm = () => {
             onError: (ctx) => {
               toast.error(ctx.error.message);
             },
+            onSuccess: () => {
+              toast.success('Check your email for verification link');
+            },
           },
         );
       }}

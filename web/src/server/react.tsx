@@ -2,11 +2,24 @@
 
 import { useState } from 'react';
 
-import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
+import {
+  QueryClientProvider,
+  type QueryKey,
+  useQueryClient,
+  type QueryClient,
+  useMutation,
+  type UseMutationOptions,
+  type DefaultError,
+  type UndefinedInitialDataOptions,
+  useQuery,
+} from '@tanstack/react-query';
 import { createTRPCReact } from '@trpc/react-query';
+import { createTRPCContext } from '@trpc/tanstack-react-query';
 
 import { createQueryClient, links } from '@/server';
 import { type AppRouter } from '@/server/routers';
+
+const { TRPCProvider, useTRPC } = createTRPCContext<AppRouter>();
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;
 const getQueryClient = (): QueryClient => {
@@ -16,23 +29,69 @@ const getQueryClient = (): QueryClient => {
   clientQueryClientSingleton ??= createQueryClient();
   return clientQueryClientSingleton;
 };
-
-const config = {
-  links: links,
-};
-
 export const api = createTRPCReact<AppRouter>();
 
 export const TRPCReactProvider = (props: { readonly children: React.ReactNode }) => {
   const queryClient = getQueryClient();
 
-  const [trpcClient] = useState(() => api.createClient(config));
+  const [trpcClient] = useState(() =>
+    api.createClient({
+      links,
+    }),
+  );
 
   return (
     <QueryClientProvider client={queryClient}>
-      <api.Provider client={trpcClient} queryClient={queryClient}>
-        {props.children}
-      </api.Provider>
+      <TRPCProvider queryClient={queryClient} trpcClient={trpcClient}>
+        <api.Provider client={trpcClient} queryClient={queryClient}>
+          {props.children}
+        </api.Provider>
+      </TRPCProvider>
     </QueryClientProvider>
   );
+};
+
+export const useInvalidateQuery = () => {
+  const queryClient = useQueryClient();
+  const trpc = useTRPC();
+  return async (
+    queryFn: (apiInstance: typeof trpc) => {
+      queryKey: () => QueryKey;
+    },
+  ) => {
+    const queryKey = queryFn(trpc).queryKey();
+    await queryClient.invalidateQueries({
+      queryKey,
+    });
+  };
+};
+
+export const useTRPCMutation = <
+  TData = unknown,
+  TError = DefaultError,
+  TVariables = void,
+  TOnMutateResult = unknown,
+>(
+  options: (
+    api: ReturnType<typeof useTRPC>,
+  ) => UseMutationOptions<TData, TError, TVariables, TOnMutateResult>,
+) => {
+  const trpc = useTRPC();
+  const mutationOptions = options(trpc);
+  return useMutation(mutationOptions);
+};
+
+export const useTRPCQuery = <
+  TQueryFnData = unknown,
+  TError = DefaultError,
+  TData = TQueryFnData,
+  TQueryKey extends QueryKey = QueryKey,
+>(
+  options: (
+    api: ReturnType<typeof useTRPC>,
+  ) => UndefinedInitialDataOptions<TQueryFnData, TError, TData, TQueryKey>,
+) => {
+  const trpc = useTRPC();
+  const queryOptions = options(trpc);
+  return useQuery(queryOptions);
 };

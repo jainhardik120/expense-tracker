@@ -2,10 +2,40 @@ import { z } from 'zod';
 
 import { auth } from '@/lib/auth';
 import logger from '@/lib/logger';
+import { pageSchema, userSchema } from '@/types';
 
 import { adminProcedure, createTRPCRouter } from '../trpc';
 
 export const adminRouter = createTRPCRouter({
+  getUsers: adminProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/admin/users',
+      },
+    })
+    .input(
+      z.object({
+        ...pageSchema,
+      }),
+    )
+    .output(
+      z.object({
+        users: z.array(z.union([userSchema, z.never()])),
+        total: z.number(),
+        limit: z.number().optional(),
+        offset: z.number().optional(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      return auth.api.listUsers({
+        headers: ctx.headers,
+        query: {
+          limit: input.perPage,
+          offset: (input.page - 1) * input.perPage,
+        },
+      });
+    }),
   createTrustedOAuthClient: adminProcedure
     .meta({
       openapi: {

@@ -1,3 +1,4 @@
+import { createSelectSchema } from 'drizzle-zod';
 import {
   parseAsArrayOf,
   parseAsInteger,
@@ -8,6 +9,7 @@ import {
 } from 'nuqs/server';
 import { z } from 'zod';
 
+import { user } from '@/db/auth-schema';
 import {
   type bankAccount,
   type creditCardAccounts,
@@ -250,7 +252,15 @@ export type DateRange = {
   end: Date;
 };
 
-const pageParser = {
+export const userSchema = createSelectSchema(user).extend({
+  twoFactorEnabled: z.boolean().optional(),
+  image: z.string().nullish(),
+  role: z.string().nullish(),
+  banReason: z.string().nullish(),
+  banExpires: z.date().nullish(),
+});
+
+export const pageParser = {
   page: parseAsInteger.withDefault(1),
   perPage: parseAsInteger.withDefault(10),
 };
@@ -260,7 +270,7 @@ export const dateSchema = {
   end: z.date().optional(),
 };
 
-const pageSchema = {
+export const pageSchema = {
   page: z.number().optional().default(1),
   perPage: z.number().optional().default(10),
 };
