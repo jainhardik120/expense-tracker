@@ -41,7 +41,7 @@ export const flexRender = <TProps extends object>(
 };
 
 export const getIsFileCellData = (item: unknown): item is FileCellData =>
-  !!item &&
+  item != null &&
   typeof item === 'object' &&
   'id' in item &&
   'name' in item &&
@@ -113,7 +113,7 @@ export const getColumnBorderVisibility = <TData>(params: {
   const nextIsPinned = nextColumn?.getIsPinned();
   const isBeforeRightPinned = nextIsPinned === 'right' && nextColumn?.getIsFirstColumn('right');
 
-  const showEndBorder = !isBeforeRightPinned && (isLastColumn || !isLastRightPinnedColumn);
+  const showEndBorder = isBeforeRightPinned !== true && (isLastColumn || !isLastRightPinnedColumn);
 
   const showStartBorder = isFirstRightPinnedColumn;
 
@@ -139,25 +139,28 @@ export const getColumnPinningStyle = <TData>(params: {
   const leftPosition = isPinned === 'left' ? `${column.getStart('left')}px` : undefined;
   const rightPosition = isPinned === 'right' ? `${column.getAfter('right')}px` : undefined;
 
+  const PINNED_OPACITY = 0.97;
+
+  let boxShadow: string | undefined;
+  if (withBorder && isLastLeftPinnedColumn) {
+    boxShadow = isRtl
+      ? '4px 0 4px -4px var(--border) inset'
+      : '-4px 0 4px -4px var(--border) inset';
+  } else if (withBorder && isFirstRightPinnedColumn) {
+    boxShadow = isRtl
+      ? '-4px 0 4px -4px var(--border) inset'
+      : '4px 0 4px -4px var(--border) inset';
+  }
+
   return {
-    boxShadow: withBorder
-      ? isLastLeftPinnedColumn
-        ? isRtl
-          ? '4px 0 4px -4px var(--border) inset'
-          : '-4px 0 4px -4px var(--border) inset'
-        : isFirstRightPinnedColumn
-          ? isRtl
-            ? '-4px 0 4px -4px var(--border) inset'
-            : '4px 0 4px -4px var(--border) inset'
-          : undefined
-      : undefined,
+    boxShadow,
     left: isRtl ? rightPosition : leftPosition,
     right: isRtl ? leftPosition : rightPosition,
-    opacity: isPinned ? 0.97 : 1,
-    position: isPinned ? 'sticky' : 'relative',
-    background: isPinned ? 'var(--background)' : 'var(--background)',
+    opacity: isPinned !== false ? PINNED_OPACITY : 1,
+    position: isPinned !== false ? 'sticky' : 'relative',
+    background: 'var(--background)',
     width: column.getSize(),
-    zIndex: isPinned ? 1 : undefined,
+    zIndex: isPinned !== false ? 1 : undefined,
   };
 };
 
@@ -195,7 +198,7 @@ export const scrollCellIntoView = <TData>(params: {
   const cellRect = targetCell.getBoundingClientRect();
 
   const hasNegativeScroll = container.scrollLeft < 0;
-  const isActuallyRtl = isRtl || hasNegativeScroll;
+  const isActuallyRtl = isRtl === true || hasNegativeScroll;
 
   const currentTable = tableRef.current;
   const leftPinnedColumns = currentTable?.getLeftVisibleLeafColumns() ?? [];
@@ -222,7 +225,7 @@ export const scrollCellIntoView = <TData>(params: {
 
   let scrollDelta = 0;
 
-  if (!direction) {
+  if (direction === undefined) {
     if (isClippedRight) {
       scrollDelta = cellRect.right - viewportRight;
     } else if (isClippedLeft) {
@@ -245,7 +248,7 @@ export const scrollCellIntoView = <TData>(params: {
 
 export const getIsInPopover = (element: unknown): boolean =>
   element instanceof Element &&
-  (element.closest('[data-grid-cell-editor]') || element.closest('[data-grid-popover]')) !== null;
+  (element.closest('[data-grid-cell-editor]') ?? element.closest('[data-grid-popover]')) !== null;
 
 export const getColumnVariant = (
   variant?: CellOpts['variant'],
@@ -279,7 +282,7 @@ export const getColumnVariant = (
 };
 
 export const getUrlHref = (urlString: string): string => {
-  if (!urlString || urlString.trim() === '') {
+  if (urlString.length === 0 || urlString.trim() === '') {
     return '';
   }
 
@@ -298,7 +301,7 @@ export const getUrlHref = (urlString: string): string => {
 };
 
 export const parseLocalDate = (dateStr: unknown): Date | null => {
-  if (!dateStr) {
+  if (dateStr == null || dateStr === '') {
     return null;
   }
   if (dateStr instanceof Date) {
@@ -308,7 +311,14 @@ export const parseLocalDate = (dateStr: unknown): Date | null => {
     return null;
   }
   const [year, month, day] = dateStr.split('-').map(Number);
-  if (!year || !month || !day) {
+  if (
+    year === 0 ||
+    month === 0 ||
+    day === 0 ||
+    Number.isNaN(year) ||
+    Number.isNaN(month) ||
+    Number.isNaN(day)
+  ) {
     return null;
   }
   const date = new Date(year, month - 1, day);
@@ -327,11 +337,11 @@ export const formatDateToString = (date: Date): string => {
 };
 
 export const formatDateForDisplay = (dateStr: unknown): string => {
-  if (!dateStr) {
+  if (dateStr == null || dateStr === '') {
     return '';
   }
   const date = parseLocalDate(dateStr);
-  if (!date) {
+  if (date == null) {
     return typeof dateStr === 'string' ? dateStr : '';
   }
   return date.toLocaleDateString();

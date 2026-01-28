@@ -1,5 +1,7 @@
 import { env } from '@/lib/env';
 
+const DEFAULT_PORT = 3000;
+
 export const getBaseUrl = () => {
   if (typeof window !== 'undefined') {
     return window.location.origin;
@@ -11,5 +13,5 @@ export const getBaseUrl = () => {
     return env.NEXT_PUBLIC_BASE_URL;
   }
 
-  return `http://localhost:${process.env.PORT ?? 3000}`;
+  return `http://localhost:${process.env.PORT ?? DEFAULT_PORT}`;
 };

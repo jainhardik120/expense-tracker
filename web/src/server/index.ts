@@ -5,11 +5,13 @@ import { SuperJSON } from 'superjson';
 import { getBaseUrl } from '@/lib/getBaseUrl';
 import { SECONDS } from '@/types';
 
+const STALE_TIME_SECONDS = 30;
+
 export const createQueryClient = (): QueryClient =>
   new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 30 * SECONDS,
+        staleTime: STALE_TIME_SECONDS * SECONDS,
       },
       dehydrate: {
         serializeData: SuperJSON.serialize,

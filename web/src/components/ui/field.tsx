@@ -167,28 +167,29 @@ const FieldError = ({
 }) => {
   // eslint-disable-next-line sonarjs/function-return-type
   const content = useMemo(() => {
-    if (children) {
+    if (children !== undefined) {
       return children;
     }
 
-    if (!errors) {
+    if (errors == null) {
       return null;
     }
 
-    if (errors.length === 1 && errors[0]?.message) {
+    if (errors.length === 1 && errors[0]?.message != null) {
       return errors[0].message;
     }
 
     return (
       <ul className="ml-4 flex list-disc flex-col gap-1">
         {errors.map(
-          (error) => error?.message && <li key={`error-${error.message}`}>{error.message}</li>,
+          (error) =>
+            error?.message != null && <li key={`error-${error.message}`}>{error.message}</li>,
         )}
       </ul>
     );
   }, [children, errors]);
 
-  if (!content) {
+  if (content == null) {
     return null;
   }
 

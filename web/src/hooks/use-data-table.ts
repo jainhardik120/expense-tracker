@@ -40,6 +40,7 @@ const SORT_KEY = 'sort';
 const ARRAY_SEPARATOR = ',';
 const DEBOUNCE_MS = 300;
 const THROTTLE_MS = 50;
+const DEFAULT_PAGE_SIZE = 10;
 
 interface UseDataTableProps<TData>
   extends
@@ -109,7 +110,7 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
     PER_PAGE_KEY,
     parseAsInteger
       .withOptions(queryStateOptions)
-      .withDefault(initialState?.pagination?.pageSize ?? 10),
+      .withDefault(initialState?.pagination?.pageSize ?? DEFAULT_PAGE_SIZE),
   );
 
   const pagination: PaginationState = React.useMemo(() => {

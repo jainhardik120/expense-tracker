@@ -12,6 +12,9 @@ import { sendSESEmail } from '@/lib/send-email';
 
 import { getBaseUrl } from './getBaseUrl';
 
+const COOKIE_CACHE_MAX_AGE_MINUTES = 5;
+const SECONDS_PER_MINUTE = 60;
+
 export const auth = betterAuth({
   appName: 'Expense Tracker',
   plugins: [
@@ -47,7 +50,7 @@ export const auth = betterAuth({
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 5 * 60,
+      maxAge: COOKIE_CACHE_MAX_AGE_MINUTES * SECONDS_PER_MINUTE,
     },
     storeSessionInDatabase: true,
   },
