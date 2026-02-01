@@ -239,6 +239,13 @@
       "when": 1769330800900,
       "tag": "0033_dizzy_spitfire",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1769953657250,
+      "tag": "0034_giant_living_tribunal",
+      "breakpoints": true
     }
   ]
 }

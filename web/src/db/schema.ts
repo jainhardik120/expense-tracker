@@ -131,6 +131,21 @@ export const splits = pgTable('splits', {
     .$defaultFn(() => new Date()),
 });
 
+export const reportBoundaries = pgTable(
+  'report_boundaries',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    boundaryDate: timestamp('boundary_date').notNull(),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [index('report_boundaries_user_date_idx').on(table.userId, table.boundaryDate)],
+);
+
 export const investments = pgTable('investments', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id')

@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Sheet,
   MessageSquareMore,
+  FileBarChart,
 } from 'lucide-react';
 
 import {
@@ -36,6 +37,11 @@ const links = [
     label: 'Statements',
     href: '/statements',
     icon: Sheet,
+  },
+  {
+    label: 'Reports',
+    href: '/reports',
+    icon: FileBarChart,
   },
   {
     label: 'Investments',
