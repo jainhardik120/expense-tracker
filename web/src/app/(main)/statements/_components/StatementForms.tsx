@@ -102,7 +102,7 @@ export const CreateStatementForm = ({
   const [searchParams] = useQueryStates(statementParser);
   const selectedAccount =
     searchParams.account.length === 1 &&
-    accountsData.findIndex((account) => account.id === searchParams.account[0]) > 0
+    accountsData.findIndex((account) => account.id === searchParams.account[0]) >= 0
       ? searchParams.account[0]
       : '';
   const mutation = api.statements.addStatement.useMutation();
