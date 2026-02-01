@@ -1,7 +1,7 @@
 # 💰 Expense Tracker
 
 A modern, full-stack expense tracking application built with Next.js 15, tRPC, and PostgreSQL. Track your expenses, manage shared costs with friends, and gain insights into your spending patterns with beautiful analytics.
-
+  
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![tRPC](https://img.shields.io/badge/tRPC-11-2596be?style=flat-square&logo=trpc)](https://trpc.io/)
