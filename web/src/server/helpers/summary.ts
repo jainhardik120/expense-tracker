@@ -1,7 +1,8 @@
 import { fromZonedTime } from 'date-fns-tz';
 import { Decimal } from 'decimal.js';
-import { and, eq, sql, inArray, isNotNull, type SQL, gte, lt } from 'drizzle-orm';
-import { unionAll } from 'drizzle-orm/pg-core';
+import { and, eq, sql, inArray, isNotNull, type SQL, gte, lt, type Subquery } from 'drizzle-orm';
+import { type PgTable, unionAll } from 'drizzle-orm/pg-core';
+import { type PgViewBase } from 'drizzle-orm/pg-core/view-base';
 
 import { reportBoundaries, selfTransferStatements, splits, statements } from '@/db/schema';
 import { type Database } from '@/lib/db';
@@ -25,12 +26,16 @@ import { buildQueryConditions } from '.';
 import { getAccounts, getFriends } from './account';
 
 type AggregationArguments = {
-  db: Database;
+  db: Pick<Database, 'select'>;
   userId: string;
   selectColumns?: Record<string, SQL>;
   aggregationBy?: SQL[];
   start?: Date;
   end?: Date;
+  extraJoin?: {
+    table: PgTable | Subquery | PgViewBase | SQL;
+    on: SQL | undefined;
+  };
 };
 
 type AggregatedStatementResult = {
@@ -100,7 +105,7 @@ export const getFinalBalancesFromFriendStatements = (
   };
 };
 
-const selfTransfersUnionQuery = (db: Database, conditions: SQL[]) =>
+const selfTransfersUnionQuery = (db: Pick<Database, 'select'>, conditions: SQL[]) =>
   unionAll(
     db
       .select({
@@ -121,32 +126,58 @@ const selfTransfersUnionQuery = (db: Database, conditions: SQL[]) =>
   ).as('union_query');
 
 const aggregatedStatementsSummary = (aggregationArguments: AggregationArguments) => {
-  const { db, userId, selectColumns = {}, aggregationBy = [], start, end } = aggregationArguments;
+  const {
+    db,
+    userId,
+    selectColumns = {},
+    aggregationBy = [],
+    start,
+    end,
+    extraJoin,
+  } = aggregationArguments;
   const conditions = buildQueryConditions(statements, userId, start, end);
-  return db
+  let x = db
     .select({
       ...selectColumns,
       accountId: statements.accountId,
       statementKind: statements.statementKind,
       totalAmount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
     })
-    .from(statements)
+    .from(statements);
+  if (extraJoin !== undefined) {
+    // @ts-ignore don't know why ts is complaining here
+    x = x.innerJoin(extraJoin.table, extraJoin.on);
+  }
+  return x
     .where(and(...conditions))
     .groupBy(...aggregationBy, statements.accountId, statements.statementKind)
     .orderBy(...aggregationBy, statements.accountId, statements.statementKind);
 };
 
 const aggregatedFriendsData = (aggregationArguments: AggregationArguments) => {
-  const { db, userId, selectColumns = {}, aggregationBy = [], start, end } = aggregationArguments;
+  const {
+    db,
+    userId,
+    selectColumns = {},
+    aggregationBy = [],
+    start,
+    end,
+    extraJoin,
+  } = aggregationArguments;
   const conditions = buildQueryConditions(statements, userId, start, end);
-  return db
+  let x = db
     .select({
       ...selectColumns,
       friendId: statements.friendId,
       statementKind: statements.statementKind,
       totalAmount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
     })
-    .from(statements)
+    .from(statements);
+  if (extraJoin !== undefined) {
+    // @ts-ignore don't know why ts is complaining here
+    x = x.innerJoin(extraJoin.table, extraJoin.on);
+  }
+  return x
     .where(
       and(
         ...conditions,
@@ -159,31 +190,55 @@ const aggregatedFriendsData = (aggregationArguments: AggregationArguments) => {
 };
 
 const aggregatedSplitsData = (aggregationArguments: AggregationArguments) => {
-  const { db, userId, selectColumns = {}, aggregationBy = [], start, end } = aggregationArguments;
+  const {
+    db,
+    userId,
+    selectColumns = {},
+    aggregationBy = [],
+    start,
+    end,
+    extraJoin,
+  } = aggregationArguments;
   const conditions = buildQueryConditions(statements, userId, start, end);
-  return db
+  let x = db
     .select({
       ...selectColumns,
       friendId: splits.friendId,
       totalAmount: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number),
     })
     .from(splits)
-    .innerJoin(statements, eq(splits.statementId, statements.id))
-    .where(and(...conditions))
-    .groupBy(...aggregationBy, splits.friendId);
+    .innerJoin(statements, eq(splits.statementId, statements.id));
+  if (extraJoin !== undefined) {
+    // @ts-ignore don't know why ts is complaining here
+    x = x.innerJoin(extraJoin.table, extraJoin.on);
+  }
+  return x.where(and(...conditions)).groupBy(...aggregationBy, splits.friendId);
 };
 
 const aggregatedSelfTransfersData = (aggregationArguments: AggregationArguments) => {
-  const { db, userId, selectColumns = {}, aggregationBy = [], start, end } = aggregationArguments;
+  const {
+    db,
+    userId,
+    selectColumns = {},
+    aggregationBy = [],
+    start,
+    end,
+    extraJoin,
+  } = aggregationArguments;
   const conditions = buildQueryConditions(selfTransferStatements, userId, start, end);
   const unionQuery = selfTransfersUnionQuery(db, conditions);
-  return db
+  let x = db
     .select({
       ...selectColumns,
       accountId: unionQuery.accountId,
       totalAmount: sql<number>`COALESCE(SUM(${unionQuery.amount}), 0)`.mapWith(Number),
     })
-    .from(unionQuery)
+    .from(unionQuery);
+  if (extraJoin !== undefined) {
+    // @ts-ignore don't know why ts is complaining here
+    x = x.innerJoin(extraJoin.table, extraJoin.on);
+  }
+  return x
     .groupBy(...aggregationBy, unionQuery.accountId)
     .orderBy(...aggregationBy, unionQuery.accountId);
 };
@@ -626,16 +681,17 @@ export const getRawDataForCustomAggregation = instrumentedFunction(
   async (db: Database, userId: string) => {
     // @ts-ignore This is not working in drizzle
     const one = db.$with('one').as(sql`select 1 as x`);
+    const mapFn = (value: string | Date): Date => {
+      if (value instanceof Date) {
+        return value;
+      }
+      return new Date(`${value}`);
+    };
     const boundariesCte = db.$with('boundaries').as(
       db
         .select({
           boundary: sql<Date>`(${reportBoundaries.boundaryDate})::timestamptz`
-            .mapWith((value: string | Date) => {
-              if (value instanceof Date) {
-                return value;
-              }
-              return new Date(`${value}`);
-            })
+            .mapWith(mapFn)
             .as('boundary'),
         })
         .from(reportBoundaries)
@@ -643,14 +699,7 @@ export const getRawDataForCustomAggregation = instrumentedFunction(
         .unionAll(
           db
             .select({
-              boundary: sql<Date>`to_timestamp(0)::timestamptz`
-                .mapWith((value: string | Date) => {
-                  if (value instanceof Date) {
-                    return value;
-                  }
-                  return new Date(`${value}`);
-                })
-                .as('boundary'),
+              boundary: sql<Date>`to_timestamp(0)::timestamptz`.mapWith(mapFn).as('boundary'),
             })
             .from(one),
         )
@@ -683,120 +732,51 @@ export const getRawDataForCustomAggregation = instrumentedFunction(
           endDate: sql`
           lead(${dedupCte.boundary}) over (order by ${dedupCte.boundary})
         `
-            .mapWith((value: string | Date) => {
-              if (value instanceof Date) {
-                return value;
-              }
-              return new Date(`${value}`);
-            })
+            .mapWith(mapFn)
             .as('end_date'),
         })
         .from(dedupCte),
     );
     const dbWithExtras = db.with(one, boundariesCte, dedupCte, bucketsCte);
-    const statementConditions = buildQueryConditions(statements, userId);
-    const selfTransferConditions = buildQueryConditions(selfTransferStatements, userId);
-    const statementData = await dbWithExtras
-      .select({
-        accountId: statements.accountId,
-        statementKind: statements.statementKind,
-        totalAmount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
-        periodStart: bucketsCte.startDate,
-        category: statements.category,
-      })
-      .from(statements)
-      .innerJoin(
-        bucketsCte,
-        and(
+    const statementParams = {
+      db: dbWithExtras,
+      userId,
+      selectColumns: {
+        periodStart: sql<Date>`${bucketsCte.startDate}`.mapWith(mapFn),
+        category: sql<string>`${statements.category}`,
+      },
+      aggregationBy: [sql<Date>`${bucketsCte.startDate}`, sql<string>`${statements.category}`],
+      extraJoin: {
+        table: bucketsCte,
+        on: and(
           gte(statements.createdAt, bucketsCte.startDate),
           lt(statements.createdAt, bucketsCte.endDate),
         ),
-      )
-      .where(and(...statementConditions))
-      .groupBy(
-        bucketsCte.startDate,
-        statements.accountId,
-        statements.statementKind,
-        statements.category,
-      )
-      .orderBy(
-        bucketsCte.startDate,
-        statements.accountId,
-        statements.statementKind,
-        statements.category,
-      );
-
-    const unionQuery = selfTransfersUnionQuery(db, selfTransferConditions);
-    const selfTransferData = await dbWithExtras
-      .select({
-        accountId: unionQuery.accountId,
-        totalAmount: sql<number>`COALESCE(SUM(${unionQuery.amount}), 0)`.mapWith(Number),
-        periodStart: bucketsCte.startDate,
-      })
-      .from(unionQuery)
-      .innerJoin(
-        bucketsCte,
-        and(
-          gte(unionQuery.createdAt, bucketsCte.startDate),
-          lt(unionQuery.createdAt, bucketsCte.endDate),
+      },
+    };
+    const selfTransferParams = {
+      db: dbWithExtras,
+      userId,
+      selectColumns: {
+        periodStart: sql<Date>`${bucketsCte.startDate}`.mapWith(mapFn),
+      },
+      aggregationBy: [sql<Date>`${bucketsCte.startDate}`],
+      extraJoin: {
+        table: bucketsCte,
+        on: and(
+          gte(sql`union_query.created_at`, bucketsCte.startDate),
+          lt(sql`union_query.created_at`, bucketsCte.endDate),
         ),
-      )
-      .groupBy(bucketsCte.startDate, unionQuery.accountId)
-      .orderBy(bucketsCte.startDate, unionQuery.accountId);
-    const friendsData = await dbWithExtras
-      .select({
-        periodStart: bucketsCte.startDate,
-        category: statements.category,
-        friendId: statements.friendId,
-        statementKind: statements.statementKind,
-        totalAmount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
-      })
-      .from(statements)
-      .innerJoin(
-        bucketsCte,
-        and(
-          gte(statements.createdAt, bucketsCte.startDate),
-          lt(statements.createdAt, bucketsCte.endDate),
-        ),
-      )
-      .where(
-        and(
-          ...statementConditions,
-          inArray(statements.statementKind, ['friend_transaction', 'expense']),
-          isNotNull(statements.friendId),
-        ),
-      )
-      .groupBy(
-        bucketsCte.startDate,
-        statements.friendId,
-        statements.statementKind,
-        statements.category,
-      )
-      .orderBy(
-        bucketsCte.startDate,
-        statements.friendId,
-        statements.statementKind,
-        statements.category,
-      );
-    const splitsData = await dbWithExtras
-      .select({
-        periodStart: bucketsCte.startDate,
-        category: statements.category,
-        friendId: splits.friendId,
-        totalAmount: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number),
-      })
-      .from(splits)
-      .innerJoin(statements, eq(splits.statementId, statements.id))
-      .innerJoin(
-        bucketsCte,
-        and(
-          gte(statements.createdAt, bucketsCte.startDate),
-          lt(statements.createdAt, bucketsCte.endDate),
-        ),
-      )
-      .where(and(...statementConditions))
-      .groupBy(bucketsCte.startDate, splits.friendId, statements.category)
-      .orderBy(bucketsCte.startDate, splits.friendId, statements.category);
+      },
+    };
+    const statementData = (await aggregatedStatementsSummary(
+      statementParams,
+    )) as StatementAggregatedData[];
+    const selfTransferData = (await aggregatedSelfTransfersData(
+      selfTransferParams,
+    )) as SelfTransferAggregatedData[];
+    const friendsData = (await aggregatedFriendsData(statementParams)) as FriendsAggregatedData[];
+    const splitsData = (await aggregatedSplitsData(statementParams)) as SplitsAggregatedData[];
     return {
       statementData,
       selfTransferData,
