@@ -136,19 +136,19 @@ const aggregatedStatementsSummary = (aggregationArguments: AggregationArguments)
     extraJoin,
   } = aggregationArguments;
   const conditions = buildQueryConditions(statements, userId, start, end);
-  let x = db
+  const query = db
     .select({
       ...selectColumns,
       accountId: statements.accountId,
       statementKind: statements.statementKind,
       totalAmount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
     })
-    .from(statements);
+    .from(statements)
+    .$dynamic();
   if (extraJoin !== undefined) {
-    // @ts-ignore don't know why ts is complaining here
-    x = x.innerJoin(extraJoin.table, extraJoin.on);
+    query.innerJoin(extraJoin.table, extraJoin.on);
   }
-  return x
+  return query
     .where(and(...conditions))
     .groupBy(...aggregationBy, statements.accountId, statements.statementKind)
     .orderBy(...aggregationBy, statements.accountId, statements.statementKind);
@@ -165,19 +165,19 @@ const aggregatedFriendsData = (aggregationArguments: AggregationArguments) => {
     extraJoin,
   } = aggregationArguments;
   const conditions = buildQueryConditions(statements, userId, start, end);
-  let x = db
+  const query = db
     .select({
       ...selectColumns,
       friendId: statements.friendId,
       statementKind: statements.statementKind,
       totalAmount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
     })
-    .from(statements);
+    .from(statements)
+    .$dynamic();
   if (extraJoin !== undefined) {
-    // @ts-ignore don't know why ts is complaining here
-    x = x.innerJoin(extraJoin.table, extraJoin.on);
+    query.innerJoin(extraJoin.table, extraJoin.on);
   }
-  return x
+  return query
     .where(
       and(
         ...conditions,
@@ -200,19 +200,19 @@ const aggregatedSplitsData = (aggregationArguments: AggregationArguments) => {
     extraJoin,
   } = aggregationArguments;
   const conditions = buildQueryConditions(statements, userId, start, end);
-  let x = db
+  const query = db
     .select({
       ...selectColumns,
       friendId: splits.friendId,
       totalAmount: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number),
     })
     .from(splits)
-    .innerJoin(statements, eq(splits.statementId, statements.id));
+    .innerJoin(statements, eq(splits.statementId, statements.id))
+    .$dynamic();
   if (extraJoin !== undefined) {
-    // @ts-ignore don't know why ts is complaining here
-    x = x.innerJoin(extraJoin.table, extraJoin.on);
+    query.innerJoin(extraJoin.table, extraJoin.on);
   }
-  return x.where(and(...conditions)).groupBy(...aggregationBy, splits.friendId);
+  return query.where(and(...conditions)).groupBy(...aggregationBy, splits.friendId);
 };
 
 const aggregatedSelfTransfersData = (aggregationArguments: AggregationArguments) => {
@@ -227,18 +227,18 @@ const aggregatedSelfTransfersData = (aggregationArguments: AggregationArguments)
   } = aggregationArguments;
   const conditions = buildQueryConditions(selfTransferStatements, userId, start, end);
   const unionQuery = selfTransfersUnionQuery(db, conditions);
-  let x = db
+  const query = db
     .select({
       ...selectColumns,
       accountId: unionQuery.accountId,
       totalAmount: sql<number>`COALESCE(SUM(${unionQuery.amount}), 0)`.mapWith(Number),
     })
-    .from(unionQuery);
+    .from(unionQuery)
+    .$dynamic();
   if (extraJoin !== undefined) {
-    // @ts-ignore don't know why ts is complaining here
-    x = x.innerJoin(extraJoin.table, extraJoin.on);
+    query.innerJoin(extraJoin.table, extraJoin.on);
   }
-  return x
+  return query
     .groupBy(...aggregationBy, unionQuery.accountId)
     .orderBy(...aggregationBy, unionQuery.accountId);
 };
