@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { emis, statements, recurringPayments } from '@/db/schema';
 import { getTimezone, startOfDayLocal } from '@/lib/date';
 import { type Database } from '@/lib/db';
+import { getCreditCards } from '@/server/helpers/account';
 import {
   getEMIData,
   getEMIs,
@@ -21,7 +22,6 @@ import {
   calculateCardBalances,
   groupPaymentsByMonth,
 } from '@/server/helpers/emi-calculations';
-import { getCreditCards } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
 

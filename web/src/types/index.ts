@@ -1,3 +1,4 @@
+import { Decimal } from 'decimal.js';
 import { createSelectSchema } from 'drizzle-zod';
 import {
   parseAsArrayOf,
@@ -161,14 +162,14 @@ export const accountSummarySchema = z
 
 export type AccountSummary = z.infer<typeof accountSummarySchema>;
 
-export const defaultAccountSummary: AggregatedAccountTransferSummary = {
-  startingBalance: 0,
-  expenses: 0,
-  selfTransfers: 0,
-  outsideTransactions: 0,
-  friendTransactions: 0,
-  totalTransfers: 0,
-  finalBalance: 0,
+export const defaultAccountSummary = {
+  startingBalance: new Decimal(0),
+  expenses: new Decimal(0),
+  selfTransfers: new Decimal(0),
+  outsideTransactions: new Decimal(0),
+  friendTransactions: new Decimal(0),
+  totalTransfers: new Decimal(0),
+  finalBalance: new Decimal(0),
 };
 
 export const friendTransferSummarySchema = z.object({
@@ -204,13 +205,13 @@ export const friendSummarySchema = z
 
 export type FriendSummary = z.infer<typeof friendSummarySchema>;
 
-export const defaultFriendSummary: AggregatedFriendTransferSummary = {
-  startingBalance: 0,
-  paidByFriend: 0,
-  splits: 0,
-  friendTransactions: 0,
-  totalTransfers: 0,
-  finalBalance: 0,
+export const defaultFriendSummary = {
+  startingBalance: new Decimal(0),
+  paidByFriend: new Decimal(0),
+  splits: new Decimal(0),
+  friendTransactions: new Decimal(0),
+  totalTransfers: new Decimal(0),
+  finalBalance: new Decimal(0),
 };
 
 export type ProcessedAggregationData = {

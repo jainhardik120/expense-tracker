@@ -7,6 +7,7 @@ export default async function ReportsPage() {
     api.reports.getAggregatedReport(),
     api.reports.getBoundaries(),
   ]);
-
-  return <ReportsTable initialBoundaries={boundaries} initialReport={reportData} />;
+  return (
+    <ReportsTable initialBoundaries={boundaries} initialReport={reportData.periodAggregations} />
+  );
 }

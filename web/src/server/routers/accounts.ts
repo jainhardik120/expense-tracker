@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { bankAccount, creditCardAccounts } from '@/db/schema';
 import { type Database } from '@/lib/db';
-import { getAccounts, getCreditCards } from '@/server/helpers/summary';
+import { getAccounts, getCreditCards } from '@/server/helpers/account';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createAccountSchema, createCreditCardAccountSchema } from '@/types';
 

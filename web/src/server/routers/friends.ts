@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { friendsProfiles } from '@/db/schema';
-import { getFriends } from '@/server/helpers/summary';
+import { getFriends } from '@/server/helpers/account';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createFriendSchema } from '@/types';
 

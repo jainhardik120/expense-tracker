@@ -2,10 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 
-import { format } from 'date-fns';
+import { format, toZonedTime } from 'date-fns-tz';
 import { Settings } from 'lucide-react';
 
+import { aggregationTableColumns } from '@/components/aggregation-table-columns';
 import { DataTable } from '@/components/data-table/data-table';
+import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
+import { useTimezone } from '@/components/time-zone-setter';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -16,22 +19,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useDataTable } from '@/hooks/use-data-table';
-import { api } from '@/server/react';
-import {
-  type AggregatedAccountTransferSummary,
-  type AggregatedFriendTransferSummary,
-  MS_PER_DAY,
-} from '@/types';
+import type { ProcessedAggregationData } from '@/types';
 
 import { BoundaryListItem, CreateBoundaryForm } from './boundary-forms';
-
-interface BucketSummary {
-  startDate: Date;
-  endDate: Date;
-  accountsSummary: AggregatedAccountTransferSummary;
-  friendsSummary: AggregatedFriendTransferSummary;
-  myExpensesTotal: number;
-}
 
 interface Boundary {
   id: string;
@@ -41,113 +31,37 @@ interface Boundary {
 }
 
 interface ReportsTableProps {
-  initialReport: BucketSummary[];
+  initialReport: ProcessedAggregationData[];
   initialBoundaries: Boundary[];
 }
 
 const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) => {
-  const router = useRouter();
-  const utils = api.useUtils();
-
-  const { data: boundaries = initialBoundaries } = api.reports.getBoundaries.useQuery(undefined, {
-    initialData: initialBoundaries,
-  });
-
-  const { data: reportData = initialReport } = api.reports.getAggregatedReport.useQuery(undefined, {
-    initialData: initialReport,
-  });
-
-  const refresh = () => {
-    void utils.reports.getBoundaries.invalidate();
-    void utils.reports.getAggregatedReport.invalidate();
-    router.refresh();
-  };
-
-  const { table } = useDataTable<BucketSummary>({
-    data: reportData,
+  const timezone = useTimezone();
+  const [, ...columns] = aggregationTableColumns('day', timezone);
+  const { table } = useDataTable({
+    data: initialReport,
     pageCount: 1,
     columns: [
       {
-        accessorKey: 'startDate',
-        header: 'Start Date',
-        cell: ({ row }) => format(row.original.startDate, 'MMM dd, yyyy'),
-      },
-      {
-        accessorKey: 'endDate',
-        header: 'End Date',
-        cell: ({ row }) => format(row.original.endDate, 'MMM dd, yyyy'),
-      },
-      {
-        id: 'duration',
-        header: 'Duration',
+        id: 'date',
+        header: 'Date',
+        // eslint-disable-next-line react/no-unstable-nested-components
         cell: ({ row }) => {
-          const start = row.original.startDate;
-          const end = row.original.endDate;
-          const diffTime = Math.abs(end.getTime() - start.getTime());
-          const diffDays = Math.ceil(diffTime / MS_PER_DAY);
-          return `${diffDays} days`;
+          const { date } = row.original;
+          const d = typeof date === 'string' ? new Date(date) : date;
+          const zonedDate = toZonedTime(d, timezone);
+          const formatStr = 'MMM dd, yyyy';
+          const string = format(zonedDate, formatStr);
+          return <p>{string}</p>;
         },
       },
-      {
-        accessorKey: 'myExpensesTotal',
-        header: 'My Expenses',
-        cell: ({ row }) => row.original.myExpensesTotal.toFixed(2),
-      },
-      {
-        id: 'myBalance',
-        header: 'My Balance',
-        cell: ({ row }) =>
-          (
-            row.original.accountsSummary.finalBalance - row.original.friendsSummary.finalBalance
-          ).toFixed(2),
-      },
-      {
-        accessorKey: 'friendsSummary.finalBalance',
-        header: 'Friends Balance',
-        cell: ({ row }) => row.original.friendsSummary.finalBalance.toFixed(2),
-      },
-      {
-        accessorKey: 'accountsSummary.finalBalance',
-        header: 'Total Balance',
-        cell: ({ row }) => row.original.accountsSummary.finalBalance.toFixed(2),
-      },
-      {
-        id: 'outsideTransactions',
-        header: 'Outside Transactions',
-        cell: ({ row }) =>
-          (
-            row.original.accountsSummary.outsideTransactions +
-            row.original.accountsSummary.friendTransactions -
-            row.original.friendsSummary.friendTransactions
-          ).toFixed(2),
-      },
-      {
-        accessorKey: 'accountsSummary.expenses',
-        header: 'Account Expenses',
-        cell: ({ row }) => row.original.accountsSummary.expenses.toFixed(2),
-      },
-      {
-        accessorKey: 'friendsSummary.paidByFriend',
-        header: 'Paid By Friends',
-        cell: ({ row }) => row.original.friendsSummary.paidByFriend.toFixed(2),
-      },
-      {
-        accessorKey: 'friendsSummary.splits',
-        header: 'Splits',
-        cell: ({ row }) => row.original.friendsSummary.splits.toFixed(2),
-      },
+      ...columns,
     ],
   });
-
+  const router = useRouter();
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Custom Date Range Reports</h2>
-          <p className="text-muted-foreground text-sm">
-            View aggregated expense data between your custom date boundaries
-          </p>
-        </div>
+    <DataTable enablePagination={false} getItemValue={(i) => i.date.toISOString()} table={table}>
+      <DataTableToolbar table={table}>
         <Dialog>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline">
@@ -164,19 +78,23 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-4">
-              <CreateBoundaryForm refresh={refresh} />
+              <CreateBoundaryForm refresh={router.refresh} />
               <div className="flex max-h-[300px] flex-col gap-2 overflow-y-auto">
-                {boundaries.length === 0 ? (
+                {initialBoundaries.length === 0 ? (
                   <p className="text-muted-foreground py-4 text-center text-sm">
                     No boundaries defined. Add at least 2 boundaries to create report periods.
                   </p>
                 ) : (
-                  boundaries.map((boundary) => (
-                    <BoundaryListItem key={boundary.id} boundary={boundary} refresh={refresh} />
+                  initialBoundaries.map((boundary) => (
+                    <BoundaryListItem
+                      key={boundary.id}
+                      boundary={boundary}
+                      refresh={router.refresh}
+                    />
                   ))
                 )}
               </div>
-              {boundaries.length > 0 && boundaries.length < 2 && (
+              {initialBoundaries.length > 0 && initialBoundaries.length < 2 && (
                 <p className="text-muted-foreground text-center text-sm">
                   Add at least one more boundary to create a report period.
                 </p>
@@ -184,22 +102,8 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-
-      {reportData.length === 0 ? (
-        <div className="rounded-md border p-8 text-center">
-          <p className="text-muted-foreground">
-            No report data available. Define at least 2 date boundaries to generate reports.
-          </p>
-        </div>
-      ) : (
-        <DataTable
-          enablePagination={false}
-          getItemValue={(i) => `${i.startDate.toISOString()}-${i.endDate.toISOString()}`}
-          table={table}
-        />
-      )}
-    </div>
+      </DataTableToolbar>
+    </DataTable>
   );
 };
 

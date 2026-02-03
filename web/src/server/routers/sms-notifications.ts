@@ -10,7 +10,7 @@ import {
   type SMSNotification,
 } from '@/types';
 
-import { buildQueryConditions } from '../helpers/summary';
+import { buildQueryConditions } from '../helpers';
 
 export const smsNotificationsRouter = createTRPCRouter({
   create: protectedProcedure

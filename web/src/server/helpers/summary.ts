@@ -1,29 +1,9 @@
 import { fromZonedTime } from 'date-fns-tz';
-import {
-  and,
-  eq,
-  sql,
-  inArray,
-  isNotNull,
-  type SQL,
-  gte,
-  lt,
-  ne,
-  asc,
-  desc,
-  or,
-} from 'drizzle-orm';
-import { type PgTableWithColumns, type TableConfig, unionAll, alias } from 'drizzle-orm/pg-core';
-import { type z } from 'zod';
+import { Decimal } from 'decimal.js';
+import { and, eq, sql, inArray, isNotNull, type SQL, gte, lt } from 'drizzle-orm';
+import { unionAll } from 'drizzle-orm/pg-core';
 
-import {
-  bankAccount,
-  creditCardAccounts,
-  friendsProfiles,
-  selfTransferStatements,
-  splits,
-  statements,
-} from '@/db/schema';
+import { reportBoundaries, selfTransferStatements, splits, statements } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
@@ -39,12 +19,10 @@ import {
   type FriendSummary,
   type Account,
   type Friend,
-  type accountFriendStatementsParserSchema,
-  type SelfTransferStatement,
-  type Statement,
-  type statementParserSchema,
-  isSelfTransfer,
 } from '@/types';
+
+import { buildQueryConditions } from '.';
+import { getAccounts, getFriends } from './account';
 
 type AggregationArguments = {
   db: Database;
@@ -55,83 +33,70 @@ type AggregationArguments = {
   end?: Date;
 };
 
-export const buildQueryConditions = <T extends TableConfig>(
-  table: PgTableWithColumns<T>,
-  userId: string,
-  start?: Date,
-  end?: Date,
-) => {
-  const conditions = [];
-  conditions.push(eq(table.userId, userId));
-  if (start !== undefined) {
-    conditions.push(gte(table.createdAt, start));
-  }
-  if (end !== undefined) {
-    conditions.push(lt(table.createdAt, end));
-  }
-  return conditions;
-};
-
 type AggregatedStatementResult = {
   statementKind?: StatementKind;
   totalAmount: number;
 };
 
-const getFinalBalanceFromStatements = (
+export const getFinalBalanceFromStatements = (
   ...statements: AggregatedStatementResult[]
 ): AccountTransferSummary => {
   const expenses = statements
     .filter((statement) => statement.statementKind === 'expense')
     .reduce((acc, cur) => {
-      return acc + cur.totalAmount;
-    }, 0);
+      return acc.plus(cur.totalAmount);
+    }, new Decimal(0));
   const outsideTransactions = statements
     .filter((statement) => statement.statementKind === 'outside_transaction')
     .reduce((acc, cur) => {
-      return acc + cur.totalAmount;
-    }, 0);
+      return acc.plus(cur.totalAmount);
+    }, new Decimal(0));
   const friendTransactions = statements
     .filter((statement) => statement.statementKind === 'friend_transaction')
     .reduce((acc, cur) => {
-      return acc + cur.totalAmount;
-    }, 0);
+      return acc.plus(cur.totalAmount);
+    }, new Decimal(0));
   const selfTransfers = statements
     .filter((statement) => statement.statementKind === undefined)
     .reduce((acc, cur) => {
-      return acc + cur.totalAmount;
-    }, 0);
+      return acc.plus(cur.totalAmount);
+    }, new Decimal(0));
   return {
-    expenses,
-    selfTransfers,
-    outsideTransactions,
-    friendTransactions,
-    totalTransfers: selfTransfers + outsideTransactions + friendTransactions - expenses,
+    expenses: expenses.toNumber(),
+    selfTransfers: selfTransfers.toNumber(),
+    outsideTransactions: outsideTransactions.toNumber(),
+    friendTransactions: friendTransactions.toNumber(),
+    totalTransfers: selfTransfers
+      .plus(outsideTransactions)
+      .plus(friendTransactions)
+      .minus(expenses)
+      .toNumber(),
   };
 };
 
-const getFinalBalancesFromFriendStatements = (
+export const getFinalBalancesFromFriendStatements = (
   ...statements: AggregatedStatementResult[]
 ): FriendTransferSummary => {
   const expenses = statements
     .filter((statement) => statement.statementKind === 'expense')
     .reduce((acc, cur) => {
-      return acc + cur.totalAmount;
-    }, 0);
+      return acc.plus(cur.totalAmount);
+    }, new Decimal(0));
   const friendTransactions = statements
     .filter((statement) => statement.statementKind === 'friend_transaction')
     .reduce((acc, cur) => {
-      return acc + cur.totalAmount;
-    }, 0);
+      return acc.plus(cur.totalAmount);
+    }, new Decimal(0));
   const splits = statements
     .filter((statement) => statement.statementKind === undefined)
     .reduce((acc, cur) => {
-      return acc + cur.totalAmount;
-    }, 0);
+      return acc.plus(cur.totalAmount);
+    }, new Decimal(0));
   return {
-    paidByFriend: expenses,
-    splits: splits,
-    friendTransactions: friendTransactions,
-    totalTransfers: expenses - splits + friendTransactions,
+    paidByFriend: expenses.toNumber(),
+    splits: splits.toNumber(),
+    friendTransactions: friendTransactions.toNumber(),
+    totalTransfers: expenses.minus(splits).plus(friendTransactions).toNumber(),
   };
 };
 
@@ -223,20 +188,6 @@ const aggregatedSelfTransfersData = (aggregationArguments: AggregationArguments)
     .orderBy(...aggregationBy, unionQuery.accountId);
 };
 
-export const getAccounts = (db: Database, userId: string) =>
-  db
-    .select()
-    .from(bankAccount)
-    .where(eq(bankAccount.userId, userId))
-    .orderBy(bankAccount.accountName);
-
-export const getFriends = (db: Database, userId: string) =>
-  db
-    .select()
-    .from(friendsProfiles)
-    .where(eq(friendsProfiles.userId, userId))
-    .orderBy(friendsProfiles.name);
-
 const getTransfersSummary = instrumentedFunction(
   'getTransfersSummary',
   async (
@@ -295,7 +246,7 @@ const friendTransfersSummary = instrumentedFunction(
   },
 );
 
-const getAccountsAndStartingBalances = instrumentedFunction(
+export const getAccountsAndStartingBalances = instrumentedFunction(
   'getAccountsAndStartingBalances',
   async (
     db: Database,
@@ -336,7 +287,13 @@ export const getAccountsSummaryBetweenDates = instrumentedFunction(
         (summary) => summary.accountId === account.account.id,
       ) ?? {
         accountId: account.account.id,
-        ...defaultAccountSummary,
+        startingBalance: 0,
+        expenses: 0,
+        selfTransfers: 0,
+        outsideTransactions: 0,
+        friendTransactions: 0,
+        totalTransfers: 0,
+        finalBalance: 0,
       };
       return {
         account: account.account,
@@ -348,7 +305,7 @@ export const getAccountsSummaryBetweenDates = instrumentedFunction(
   },
 );
 
-const getFriendsAndStartingBalances = instrumentedFunction(
+export const getFriendsAndStartingBalances = instrumentedFunction(
   'getFriendsAndStartingBalances',
   async (
     db: Database,
@@ -389,7 +346,12 @@ export const getFriendsSummaryBetweenDates = instrumentedFunction(
         (summary) => summary.friendId === friend.friend.id,
       ) ?? {
         friendId: friend.friend.id,
-        ...defaultFriendSummary,
+        startingBalance: 0,
+        paidByFriend: 0,
+        splits: 0,
+        friendTransactions: 0,
+        totalTransfers: 0,
+        finalBalance: 0,
       };
       return {
         friend: friend.friend,
@@ -401,31 +363,67 @@ export const getFriendsSummaryBetweenDates = instrumentedFunction(
   },
 );
 
-export const addAccountsSummary = (data: AggregatedAccountTransferSummary[]) =>
-  data.reduce<AggregatedAccountTransferSummary>((acc, cur) => {
+export const addAccountsSummary = (data: AggregatedAccountTransferSummary[]) => {
+  const val = data.reduce((acc, cur) => {
     return {
-      startingBalance: acc.startingBalance + cur.startingBalance,
-      expenses: acc.expenses + cur.expenses,
-      selfTransfers: acc.selfTransfers + cur.selfTransfers,
-      outsideTransactions: acc.outsideTransactions + cur.outsideTransactions,
-      friendTransactions: acc.friendTransactions + cur.friendTransactions,
-      totalTransfers: acc.totalTransfers + cur.totalTransfers,
-      finalBalance: acc.finalBalance + cur.finalBalance,
+      startingBalance: acc.startingBalance.plus(cur.startingBalance),
+      expenses: acc.expenses.plus(cur.expenses),
+      selfTransfers: acc.selfTransfers.plus(cur.selfTransfers),
+      outsideTransactions: acc.outsideTransactions.plus(cur.outsideTransactions),
+      friendTransactions: acc.friendTransactions.plus(cur.friendTransactions),
+      totalTransfers: acc.totalTransfers.plus(cur.totalTransfers),
+      finalBalance: acc.finalBalance.plus(cur.finalBalance),
     };
   }, defaultAccountSummary);
+  return {
+    startingBalance: val.startingBalance.toNumber(),
+    expenses: val.expenses.toNumber(),
+    selfTransfers: val.selfTransfers.toNumber(),
+    outsideTransactions: val.outsideTransactions.toNumber(),
+    friendTransactions: val.friendTransactions.toNumber(),
+    totalTransfers: val.totalTransfers.toNumber(),
+    finalBalance: val.finalBalance.toNumber(),
+  };
+};
 
-export const addFriendsSummary = (data: AggregatedFriendTransferSummary[]) =>
-  data.reduce<AggregatedFriendTransferSummary>((acc, cur) => {
+export const addFriendsSummary = (data: AggregatedFriendTransferSummary[]) => {
+  const val = data.reduce((acc, cur) => {
     return {
-      startingBalance: acc.startingBalance + cur.startingBalance,
-      paidByFriend: acc.paidByFriend + cur.paidByFriend,
-      splits: acc.splits + cur.splits,
-      friendTransactions: acc.friendTransactions + cur.friendTransactions,
-      totalTransfers: acc.totalTransfers + cur.totalTransfers,
-      finalBalance: acc.finalBalance + cur.finalBalance,
+      startingBalance: acc.startingBalance.plus(cur.startingBalance),
+      paidByFriend: acc.paidByFriend.plus(cur.paidByFriend),
+      splits: acc.splits.plus(cur.splits),
+      friendTransactions: acc.friendTransactions.plus(cur.friendTransactions),
+      totalTransfers: acc.totalTransfers.plus(cur.totalTransfers),
+      finalBalance: acc.finalBalance.plus(cur.finalBalance),
     };
   }, defaultFriendSummary);
+  return {
+    startingBalance: val.startingBalance.toNumber(),
+    paidByFriend: val.paidByFriend.toNumber(),
+    splits: val.splits.toNumber(),
+    friendTransactions: val.friendTransactions.toNumber(),
+    totalTransfers: val.totalTransfers.toNumber(),
+    finalBalance: val.finalBalance.toNumber(),
+  };
+};
 
+type StatementAggregatedData = Awaited<ReturnType<typeof aggregatedStatementsSummary>>[number] & {
+  periodStart: Date;
+  category: string;
+};
+type SelfTransferAggregatedData = Awaited<
+  ReturnType<typeof aggregatedSelfTransfersData>
+>[number] & {
+  periodStart: Date;
+};
+type FriendsAggregatedData = Awaited<ReturnType<typeof aggregatedFriendsData>>[number] & {
+  periodStart: Date;
+  category: string;
+};
+type SplitsAggregatedData = Awaited<ReturnType<typeof aggregatedSplitsData>>[number] & {
+  periodStart: Date;
+  category: string;
+};
 export const getRawDataForAggregation = instrumentedFunction(
   'getRawDataForAggregation',
   async (
@@ -471,29 +469,14 @@ export const getRawDataForAggregation = instrumentedFunction(
       },
       aggregationBy: [selfTransferAggregation],
     };
-    const statementData = (await aggregatedStatementsSummary(statementParams)) as (Awaited<
-      ReturnType<typeof aggregatedStatementsSummary>
-    >[number] & {
-      periodStart: Date;
-      category: string;
-    })[];
-    const selfTransferData = (await aggregatedSelfTransfersData(selfTransferParams)) as (Awaited<
-      ReturnType<typeof aggregatedSelfTransfersData>
-    >[number] & {
-      periodStart: Date;
-    })[];
-    const friendsData = (await aggregatedFriendsData(statementParams)) as (Awaited<
-      ReturnType<typeof aggregatedFriendsData>
-    >[number] & {
-      periodStart: Date;
-      category: string;
-    })[];
-    const splitsData = (await aggregatedSplitsData(statementParams)) as (Awaited<
-      ReturnType<typeof aggregatedSplitsData>
-    >[number] & {
-      periodStart: Date;
-      category: string;
-    })[];
+    const statementData = (await aggregatedStatementsSummary(
+      statementParams,
+    )) as StatementAggregatedData[];
+    const selfTransferData = (await aggregatedSelfTransfersData(
+      selfTransferParams,
+    )) as SelfTransferAggregatedData[];
+    const friendsData = (await aggregatedFriendsData(statementParams)) as FriendsAggregatedData[];
+    const splitsData = (await aggregatedSplitsData(statementParams)) as SplitsAggregatedData[];
     const startingBalances = await getAccountsSummaryBetweenDates(db, userId, start, end);
     const startingFriendsBalances = await getFriendsSummaryBetweenDates(db, userId, start, end);
     return {
@@ -514,7 +497,14 @@ export const processAggregatedData = ({
   friendsData,
   splitsData,
   selfTransferData,
-}: Awaited<ReturnType<typeof getRawDataForAggregation>>) => {
+}: {
+  accountsSummary: { account: { id: string }; startingBalance: number }[];
+  friendsSummary: { friend: { id: string }; startingBalance: number }[];
+  statementData: StatementAggregatedData[];
+  friendsData: FriendsAggregatedData[];
+  splitsData: SplitsAggregatedData[];
+  selfTransferData: SelfTransferAggregatedData[];
+}) => {
   const uniquePeriodStarts = Array.from(
     new Set([
       ...statementData.map((exp) => exp.periodStart.getTime()),
@@ -553,7 +543,7 @@ export const processAggregatedData = ({
       );
       const summaryData = getFinalBalanceFromStatements(...a, ...b);
       const startingBalance = lastPeriodBalances[account.account.id];
-      const finalBalance = startingBalance + summaryData.totalTransfers;
+      const finalBalance = new Decimal(startingBalance).plus(summaryData.totalTransfers).toNumber();
       lastPeriodBalances[account.account.id] = finalBalance;
       processedAccountSummary.push({
         accountId: account.account.id,
@@ -572,7 +562,7 @@ export const processAggregatedData = ({
       );
       const summaryData = getFinalBalancesFromFriendStatements(...a, ...b);
       const startingBalance = lastPeriodBalances[friend.friend.id];
-      const finalBalance = startingBalance + summaryData.totalTransfers;
+      const finalBalance = new Decimal(startingBalance).plus(summaryData.totalTransfers).toNumber();
       lastPeriodBalances[friend.friend.id] = finalBalance;
       processedFriendSummary.push({
         friendId: friend.friend.id,
@@ -599,7 +589,9 @@ export const processAggregatedData = ({
         ...friendsStatements,
         ...splitsStatements,
       );
-      const expense = statementsSummary.expenses - friendsSummary.splits;
+      const expense = new Decimal(statementsSummary.expenses)
+        .minus(friendsSummary.splits)
+        .toNumber();
       categoryWiseSummary[category] = expense;
     }
     return {
@@ -608,16 +600,18 @@ export const processAggregatedData = ({
       friendsSummary: processedFriendSummary,
       totalAccountsSummary,
       totalFriendsSummary,
-      totalExpenses:
-        totalAccountsSummary.expenses +
-        totalFriendsSummary.paidByFriend -
-        totalFriendsSummary.splits,
+      totalExpenses: new Decimal(totalAccountsSummary.expenses)
+        .plus(totalFriendsSummary.paidByFriend)
+        .minus(totalFriendsSummary.splits)
+        .toNumber(),
       categoryWiseSummary,
     };
   });
   const categoryWiseTotals = periodAggregations.reduce<Record<string, number>>((acc, cur) => {
     for (const category in cur.categoryWiseSummary) {
-      acc[category] = (acc[category] ?? 0) + cur.categoryWiseSummary[category];
+      acc[category] = new Decimal(acc[category] ?? 0)
+        .plus(cur.categoryWiseSummary[category])
+        .toNumber();
     }
     return acc;
   }, {});
@@ -627,651 +621,187 @@ export const processAggregatedData = ({
   };
 };
 
-// Statement Helpers
-
-export const getStatementAmountAndSplits = async (
-  db: Database,
-  statementId: string,
-  exceptSplitId: string = '',
-) => {
-  const statementResult = await db
-    .select({ amount: statements.amount, kind: statements.statementKind })
-    .from(statements)
-    .where(eq(statements.id, statementId));
-  if (statementResult.length === 0) {
-    throw new Error('Statement not found');
-  }
-  const statement = statementResult[0];
-  const query = db
-    .select({ sum: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number) })
-    .from(splits);
-  if (exceptSplitId.trim() === '') {
-    query.where(eq(splits.statementId, statementId));
-  } else {
-    query.where(and(eq(splits.statementId, statementId), ne(splits.id, exceptSplitId)));
-  }
-  const totalAllocatedResult = await query.then((res) => res[0]);
-  return {
-    kind: statement.kind,
-    statementAmount: Number.parseFloat(statement.amount),
-    totalAllocated: totalAllocatedResult.sum,
-  };
-};
-
-const generateStatementUnionDetailedQuery = (db: Database, unnestTags?: boolean) => {
-  const fromAccount = alias(bankAccount, 'from_account');
-  const toAccount = alias(bankAccount, 'to_account');
-  const splitTotals = db.$with('split_totals').as(
-    db
-      .select({
-        statementId: splits.statementId,
-        total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
-      })
-      .from(splits)
-      .groupBy(splits.statementId),
-  );
-  let statementQuery = db
-    .with(splitTotals)
-    .select({
-      id: statements.id,
-      createdAt: statements.createdAt,
-      amount: statements.amount,
-      accountName: bankAccount.accountName,
-      friendName: friendsProfiles.name,
-      userId: statements.userId,
-      splitAmount: splitTotals.total,
-      accountId: statements.accountId,
-      friendId: statements.friendId,
-      category: statements.category,
-      tags: statements.tags,
-      statementKind: statements.statementKind,
-      additionalAttributes: statements.additionalAttributes,
-      type: sql<string>`'statement'`.as('type'),
-      fromAccount: sql<string | null>`NULL`.as('from_account'),
-      toAccount: sql<string | null>`NULL`.as('to_account'),
-      fromAccountId: sql<string | null>`NULL::uuid`.as('from_account_id'),
-      toAccountId: sql<string | null>`NULL::uuid`.as('to_account_id'),
-      tag: sql<string | null>`tag`.as('tag'),
-    })
-    .from(statements)
-    .leftJoin(bankAccount, eq(bankAccount.id, statements.accountId))
-    .leftJoin(friendsProfiles, eq(friendsProfiles.id, statements.friendId))
-    .leftJoin(splitTotals, eq(splitTotals.statementId, statements.id));
-  if (unnestTags === true) {
-    statementQuery = statementQuery.crossJoin(sql`unnest(${statements.tags}) as tag`);
-  } else {
-    statementQuery = statementQuery.crossJoin(sql`(SELECT NULL::text AS tag)`);
-  }
-  return unionAll(
-    statementQuery,
-    db
-      .select({
-        id: selfTransferStatements.id,
-        createdAt: selfTransferStatements.createdAt,
-        amount: selfTransferStatements.amount,
-        accountName: sql<string | null>`NULL`.as('account_name'),
-        friendName: sql<string | null>`NULL`.as('friend_name'),
-        userId: selfTransferStatements.userId,
-        splitAmount: sql<number>`0`.as('split_amount'),
-        accountId: sql<string | null>`NULL::uuid`.as('account_id'),
-        friendId: sql<string | null>`NULL::uuid`.as('friend_id'),
-        category: sql<string>`NULL`.as('category'),
-        tags: sql<string[]>`ARRAY[]::text[]`.as('tags'),
-        statementKind: sql<'self_transfer'>`'self_transfer'`.as('statement_kind'),
-        additionalAttributes: sql`'{}'`.as('additional_attributes'),
-        type: sql<string>`'self_transfer'`.as('type'),
-        fromAccount: fromAccount.accountName,
-        toAccount: toAccount.accountName,
-        fromAccountId: selfTransferStatements.fromAccountId,
-        toAccountId: selfTransferStatements.toAccountId,
-        tag: sql<string | null>`NULL`.as('tag'),
-      })
-      .from(selfTransferStatements)
-      .leftJoin(fromAccount, eq(fromAccount.id, selfTransferStatements.fromAccountId))
-      .leftJoin(toAccount, eq(toAccount.id, selfTransferStatements.toAccountId)),
-  ).as('union_query');
-};
-
-const generateStatementUnionOverviewQuery = (db: Database) => {
-  return unionAll(
-    db
-      .select({
-        id: statements.id,
-        createdAt: statements.createdAt,
-        userId: statements.userId,
-        friendId: statements.friendId,
-        statementKind: statements.statementKind,
-        type: sql<string>`'statement'`.as('type'),
-      })
-      .from(statements),
-    db
-      .select({
-        id: selfTransferStatements.id,
-        createdAt: selfTransferStatements.createdAt,
-        userId: selfTransferStatements.userId,
-        friendId: sql<string | null>`NULL::uuid`.as('friend_id'),
-        statementKind: sql<'self_transfer'>`'self_transfer'`.as('statement_kind'),
-        type: sql<string>`'self_transfer'`.as('type'),
-      })
-      .from(selfTransferStatements),
-  ).as('union_query');
-};
-
-const getMergedStatementsDetailedRaw = (
-  db: Database,
-  userId: string,
-  account: string[],
-  category: string[],
-  tags: string[],
-  statementKind: StatementKind[],
-  start?: Date,
-  end?: Date,
-) => {
-  const union = generateStatementUnionDetailedQuery(db, tags.length > 0);
-  const conditions = [];
-  conditions.push(eq(union.userId, userId));
-  if (start !== undefined) {
-    conditions.push(gte(union.createdAt, start));
-  }
-  if (end !== undefined) {
-    conditions.push(lt(union.createdAt, end));
-  }
-  if (account.length > 0) {
-    const statementIdsWithSplits = db
-      .select({ statementId: splits.statementId })
-      .from(splits)
-      .where(inArray(splits.friendId, account));
-    conditions.push(
-      or(
-        inArray(union.accountId, account),
-        inArray(union.fromAccountId, account),
-        inArray(union.toAccountId, account),
-        inArray(union.friendId, account),
-        inArray(union.id, statementIdsWithSplits),
-      ),
-    );
-  }
-  if (category.length > 0) {
-    conditions.push(inArray(union.category, category));
-  }
-  if (tags.length > 0) {
-    conditions.push(inArray(union.tag, tags));
-  }
-  if (statementKind.length > 0) {
-    conditions.push(inArray(union.statementKind, statementKind));
-  }
-  return db
-    .select()
-    .from(union)
-    .where(and(...conditions))
-    .orderBy(desc(union.createdAt), asc(union.id));
-};
-
-export const getMergedStatements = instrumentedFunction(
-  'getMergedStatements',
-  async (
-    db: Database,
-    userId: string,
-    input: z.infer<typeof statementParserSchema>,
-  ): Promise<(Statement | SelfTransferStatement)[]> => {
-    const offset = (input.page - 1) * input.perPage;
-    const selectQuery = getMergedStatementsDetailedRaw(
-      db,
-      userId,
-      input.account,
-      input.category,
-      input.tags,
-      input.statementKind,
-      input.start,
-      input.end,
-    );
-    return (await selectQuery.limit(input.perPage).offset(offset))
-      .map<Statement | SelfTransferStatement | undefined>((row) => {
-        if (row.type === 'statement') {
-          const value: Statement = {
-            id: row.id,
-            createdAt: row.createdAt,
-            userId: row.userId,
-            accountId: row.accountId,
-            friendId: row.friendId,
-            amount: row.amount,
-            category: row.category,
-            tags: row.tags,
-            statementKind: row.statementKind,
-            splitAmount: row.splitAmount,
-            accountName: row.accountName,
-            friendName: row.friendName,
-            additionalAttributes: row.additionalAttributes,
-          };
-          return value;
-        }
-        if (row.fromAccountId !== null && row.toAccountId !== null) {
-          const value: SelfTransferStatement = {
-            id: row.id,
-            createdAt: row.createdAt,
-            userId: row.userId,
-            amount: row.amount,
-            fromAccountId: row.fromAccountId,
-            toAccountId: row.toAccountId,
-            fromAccount: row.fromAccount,
-            toAccount: row.toAccount,
-          };
-          return value;
-        }
-      })
-      .filter((row): row is Statement | SelfTransferStatement => row !== undefined);
-  },
-);
-
-export const getRowsCount = instrumentedFunction(
-  'getRowsCount',
-  async (
-    db: Database,
-    userId: string,
-    input: Omit<z.infer<typeof statementParserSchema>, 'page' | 'perPage'>,
-  ) => {
-    const statementConditions = [];
-    const selfTransferStatementConditions = [];
-    statementConditions.push(...buildQueryConditions(statements, userId, input.start, input.end));
-    selfTransferStatementConditions.push(
-      ...buildQueryConditions(selfTransferStatements, userId, input.start, input.end),
-    );
-    if (input.account.length > 0) {
-      const statementIdsWithSplits = db
-        .select({ statementId: splits.statementId })
-        .from(splits)
-        .where(inArray(splits.friendId, input.account));
-      statementConditions.push(
-        or(
-          inArray(statements.accountId, input.account),
-          inArray(statements.friendId, input.account),
-          inArray(statements.id, statementIdsWithSplits),
-        ),
-      );
-      selfTransferStatementConditions.push(
-        or(
-          inArray(selfTransferStatements.fromAccountId, input.account),
-          inArray(selfTransferStatements.toAccountId, input.account),
-        ),
-      );
-    }
-    if (input.statementKind.length > 0) {
-      statementConditions.push(inArray(statements.statementKind, input.statementKind));
-      if (input.statementKind.findIndex((kind) => kind === 'self_transfer') === -1) {
-        selfTransferStatementConditions.push(sql`1 = 0`);
-      }
-    }
-    if (input.category.length > 0) {
-      statementConditions.push(inArray(statements.category, input.category));
-    }
-    let statementCount = 0;
-    if (input.tags.length > 0) {
-      statementConditions.push(inArray(sql`tag`, input.tags));
-      statementCount = (
-        await db
-          .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
-          .from(statements)
-          .crossJoin(sql`unnest(${statements.tags}) as tag`)
-          .where(and(...statementConditions))
-      )[0].count;
-    } else {
-      statementCount = (
-        await db
-          .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
-          .from(statements)
-          .where(and(...statementConditions))
-      )[0].count;
-    }
-    let selfTransferStatementCount = 0;
-    if (input.category.length === 0 && input.tags.length === 0) {
-      selfTransferStatementCount = (
-        await db
-          .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
-          .from(selfTransferStatements)
-          .where(and(...selfTransferStatementConditions))
-      )[0].count;
-    }
-    return {
-      statementCount,
-      selfTransferStatementCount,
-    };
-  },
-);
-
-const getChangeForAccount = (accountId: string, statement: Statement | SelfTransferStatement) => {
-  if ('accountId' in statement && statement.accountId === accountId) {
-    let change = 0;
-    if (statement.statementKind === 'expense') {
-      change = -1 * Number.parseFloat(statement.amount);
-    }
-    if (
-      statement.statementKind === 'friend_transaction' ||
-      statement.statementKind === 'outside_transaction'
-    ) {
-      change = Number.parseFloat(statement.amount);
-    }
-    return change;
-  }
-  if ('fromAccountId' in statement && 'toAccountId' in statement) {
-    if (statement.fromAccountId === accountId) {
-      return -1 * Number.parseFloat(statement.amount);
-    }
-    if (statement.toAccountId === accountId) {
-      return Number.parseFloat(statement.amount);
-    }
-  }
-  return 0;
-};
-
-const getChangeForFriend = (
-  friendId: string,
-  statement: Statement | SelfTransferStatement,
-  splitTotals: { statementId: string; total: number }[],
-) => {
-  const splitAmount =
-    -1 * (splitTotals.find((split) => split.statementId === statement.id)?.total ?? 0);
-  if (
-    'friendId' in statement &&
-    statement.friendId === friendId &&
-    (statement.statementKind === 'expense' || statement.statementKind === 'friend_transaction')
-  ) {
-    return splitAmount + Number.parseFloat(statement.amount);
-  }
-  return splitAmount;
-};
-
-const getFriendSplitsLimited = instrumentedFunction(
-  'getFriendSplitsLimited',
-  async (
-    db: Database,
-    userId: string,
-    limit: number,
-    account: string,
-    start?: Date,
-    end?: Date,
-  ) => {
-    const union = generateStatementUnionOverviewQuery(db);
-    const conditions = [];
-    conditions.push(eq(union.userId, userId));
-    if (start !== undefined) {
-      conditions.push(gte(union.createdAt, start));
-    }
-    if (end !== undefined) {
-      conditions.push(lt(union.createdAt, end));
-    }
-    if (account.length > 0) {
-      const statementIdsWithSplits = db
-        .select({ statementId: splits.statementId })
-        .from(splits)
-        .where(eq(splits.friendId, account));
-      conditions.push(
-        or(inArray(union.friendId, [account]), inArray(union.id, statementIdsWithSplits)),
-      );
-    }
-    const selectedStatements = db.$with('selected_statements').as(
+export const getRawDataForCustomAggregation = instrumentedFunction(
+  'getRawDataForCustomAggregation',
+  async (db: Database, userId: string) => {
+    // @ts-ignore This is not working in drizzle
+    const one = db.$with('one').as(sql`select 1 as x`);
+    const boundariesCte = db.$with('boundaries').as(
       db
-        .select()
-        .from(union)
-        .where(and(...conditions))
-        .orderBy(desc(union.createdAt), asc(union.id))
-        .offset(limit),
+        .select({
+          boundary: sql<Date>`(${reportBoundaries.boundaryDate})::timestamptz`
+            .mapWith((value: string | Date) => {
+              if (value instanceof Date) {
+                return value;
+              }
+              return new Date(`${value}`);
+            })
+            .as('boundary'),
+        })
+        .from(reportBoundaries)
+        .where(eq(reportBoundaries.userId, userId))
+        .unionAll(
+          db
+            .select({
+              boundary: sql<Date>`to_timestamp(0)::timestamptz`
+                .mapWith((value: string | Date) => {
+                  if (value instanceof Date) {
+                    return value;
+                  }
+                  return new Date(`${value}`);
+                })
+                .as('boundary'),
+            })
+            .from(one),
+        )
+        .unionAll(
+          db
+            .select({
+              boundary: sql<Date>`now()::timestamptz`
+                .mapWith((value: string | Date) => {
+                  if (value instanceof Date) {
+                    return value;
+                  }
+                  return new Date(`${value}`);
+                })
+                .as('boundary'),
+            })
+            .from(one),
+        ),
     );
-    return db
-      .with(selectedStatements)
+    const dedupCte = db.$with('dedup').as(
+      db
+        .selectDistinct({
+          boundary: boundariesCte.boundary,
+        })
+        .from(boundariesCte),
+    );
+    const bucketsCte = db.$with('buckets').as(
+      db
+        .select({
+          startDate: dedupCte.boundary,
+          endDate: sql`
+          lead(${dedupCte.boundary}) over (order by ${dedupCte.boundary})
+        `
+            .mapWith((value: string | Date) => {
+              if (value instanceof Date) {
+                return value;
+              }
+              return new Date(`${value}`);
+            })
+            .as('end_date'),
+        })
+        .from(dedupCte),
+    );
+    const dbWithExtras = db.with(one, boundariesCte, dedupCte, bucketsCte);
+    const statementConditions = buildQueryConditions(statements, userId);
+    const selfTransferConditions = buildQueryConditions(selfTransferStatements, userId);
+    const statementData = await dbWithExtras
       .select({
-        friendId: splits.friendId,
-        total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
+        accountId: statements.accountId,
+        statementKind: statements.statementKind,
+        totalAmount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
+        periodStart: bucketsCte.startDate,
+        category: statements.category,
       })
-      .from(splits)
-      .where(
-        inArray(
-          splits.statementId,
-          db.select({ id: selectedStatements.id }).from(selectedStatements),
+      .from(statements)
+      .innerJoin(
+        bucketsCte,
+        and(
+          gte(statements.createdAt, bucketsCte.startDate),
+          lt(statements.createdAt, bucketsCte.endDate),
         ),
       )
-      .groupBy(splits.friendId);
-  },
-);
-
-const getStartingBalancesPaginated = instrumentedFunction(
-  'getStartingBalancesPaginated',
-  async (
-    db: Database,
-    userId: string,
-    input: z.infer<typeof accountFriendStatementsParserSchema>,
-  ) => {
-    const accountStartingBalanceBeforeStart = (
-      await getAccountsAndStartingBalances(db, userId, input.start)
-    ).find((account) => account.account.id === input.account);
-    const friendsStartingBalanceBeforeStart = (
-      await getFriendsAndStartingBalances(db, userId, input.start)
-    ).find((friend) => friend.friend.id === input.account);
-    const limit = input.page * input.perPage;
-    const rawQuery = getMergedStatementsDetailedRaw(
-      db,
-      userId,
-      [input.account],
-      [],
-      [],
-      [],
-      input.start,
-      input.end,
-    );
-    const selectedRows = db.$with('selected_rows').as(rawQuery.offset(limit));
-    const aggregatedStatementsSummary = await db
-      .with(selectedRows)
-      .select({
-        fromAccountId: selectedRows.fromAccountId,
-        toAccountId: selectedRows.toAccountId,
-        accountId: selectedRows.accountId,
-        friendId: selectedRows.friendId,
-        statementKind: selectedRows.statementKind,
-        totalAmount: sql<number>`COALESCE(SUM(${selectedRows.amount}), 0)`.mapWith(Number),
-      })
-      .from(selectedRows)
+      .where(and(...statementConditions))
       .groupBy(
-        selectedRows.statementKind,
-        selectedRows.fromAccountId,
-        selectedRows.toAccountId,
-        selectedRows.accountId,
-        selectedRows.friendId,
+        bucketsCte.startDate,
+        statements.accountId,
+        statements.statementKind,
+        statements.category,
+      )
+      .orderBy(
+        bucketsCte.startDate,
+        statements.accountId,
+        statements.statementKind,
+        statements.category,
       );
-    if (accountStartingBalanceBeforeStart !== undefined) {
-      const accountId = accountStartingBalanceBeforeStart.account.id;
-      const statements = aggregatedStatementsSummary.filter(
-        (st) => st.accountId === accountId && st.statementKind !== 'self_transfer',
-      );
-      const selfTransfers = aggregatedStatementsSummary
-        .filter(
-          (st) =>
-            st.statementKind === 'self_transfer' &&
-            (st.fromAccountId === accountId || st.toAccountId === accountId),
-        )
-        .reduce((acc, cur) => {
-          if (cur.fromAccountId === accountId) {
-            return acc - cur.totalAmount;
-          }
-          if (cur.toAccountId === accountId) {
-            return acc + cur.totalAmount;
-          }
-          return acc;
-        }, 0);
-      const transfers = getFinalBalanceFromStatements(...statements, {
-        totalAmount: selfTransfers,
-      });
-      return {
-        ...accountStartingBalanceBeforeStart,
-        transfers: transfers,
-        finalBalance: accountStartingBalanceBeforeStart.startingBalance + transfers.totalTransfers,
-      };
-    }
-    if (friendsStartingBalanceBeforeStart !== undefined) {
-      const friendId = friendsStartingBalanceBeforeStart.friend.id;
-      const friendSplits = await getFriendSplitsLimited(
-        db,
-        userId,
-        limit,
-        input.account,
-        input.start,
-        input.end,
-      );
-      const statements = aggregatedStatementsSummary.filter(
-        (st) =>
-          st.friendId === friendId &&
-          (st.statementKind === 'expense' || st.statementKind === 'friend_transaction'),
-      );
-      const split = friendSplits
-        .filter((split) => split.friendId === friendId)
-        .reduce((acc, cur) => {
-          return acc + cur.total;
-        }, 0);
-      const transfers = getFinalBalancesFromFriendStatements(...statements, { totalAmount: split });
-      return {
-        ...friendsStartingBalanceBeforeStart,
-        transfers: transfers,
-        finalBalance: friendsStartingBalanceBeforeStart.startingBalance + transfers.totalTransfers,
-      };
-    }
-    throw new Error('Invalid input');
-  },
-);
 
-export const mergeRawStatementsWithSummary = instrumentedFunction(
-  'mergeRawStatementsWithSummary',
-  async (
-    db: Database,
-    userId: string,
-    mergeWithAccountFriendId: string,
-    rawStatements: (Statement | SelfTransferStatement)[],
-    input: Omit<z.infer<typeof statementParserSchema>, 'account'>,
-  ) => {
-    let splitTotal: {
-      statementId: string;
-      total: number;
-    }[] = [];
-    const summary = await getStartingBalancesPaginated(db, userId, {
-      ...input,
-      account: mergeWithAccountFriendId,
-    });
-    if ('friend' in summary) {
-      splitTotal = await db
-        .select({
-          total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number),
-          statementId: splits.statementId,
-        })
-        .from(splits)
-        .where(
-          and(
-            eq(splits.friendId, mergeWithAccountFriendId),
-            inArray(
-              splits.statementId,
-              rawStatements.map((s) => s.id),
-            ),
-          ),
-        )
-        .groupBy(splits.statementId);
-    }
-    let startingBalance = summary.finalBalance;
-    return {
-      summary,
-      statements: rawStatements
-        .toReversed()
-        .map((statement) => {
-          if ('account' in summary && mergeWithAccountFriendId === summary.account.id) {
-            const change = getChangeForAccount(mergeWithAccountFriendId, statement);
-            startingBalance += change;
-            return {
-              ...statement,
-              finalBalance: startingBalance,
-            };
-          }
-          if ('friend' in summary && mergeWithAccountFriendId === summary.friend.id) {
-            const change = getChangeForFriend(mergeWithAccountFriendId, statement, splitTotal);
-            startingBalance += change;
-            return {
-              ...statement,
-              finalBalance: startingBalance,
-            };
-          }
-          return statement;
-        })
-        .reverse(),
-    };
-  },
-);
-
-export const getFromAccount = (statement: Statement | SelfTransferStatement): string | null => {
-  if (isSelfTransfer(statement)) {
-    return statement.fromAccount;
-  }
-  switch (statement.statementKind) {
-    case 'expense':
-      return statement.accountName ?? statement.friendName;
-    case 'friend_transaction':
-      return Number.parseFloat(statement.amount) < 0 ? statement.accountName : statement.friendName;
-    case 'outside_transaction':
-      return Number.parseFloat(statement.amount) < 0 ? statement.accountName : null;
-    case 'self_transfer':
-      return null;
-    default:
-      return null;
-  }
-};
-
-export const getToAccount = (statement: Statement | SelfTransferStatement): string | null => {
-  if (isSelfTransfer(statement)) {
-    return statement.toAccount;
-  }
-  switch (statement.statementKind) {
-    case 'expense':
-      return null;
-    case 'friend_transaction':
-      return Number.parseFloat(statement.amount) < 0 ? statement.friendName : statement.accountName;
-    case 'outside_transaction':
-      return Number.parseFloat(statement.amount) < 0 ? null : statement.accountName;
-    case 'self_transfer':
-      return null;
-    default:
-      return null;
-  }
-};
-
-export const friendBelongToUser = instrumentedFunction(
-  'friendBelongToUser',
-  async (friendId: string, userId: string, db: Database) => {
-    const friend = await db
-      .select()
-      .from(friendsProfiles)
-      .where(and(eq(friendsProfiles.id, friendId), eq(friendsProfiles.userId, userId)))
-      .limit(1);
-    return friend.length > 0;
-  },
-);
-
-export const accountBelongToUser = instrumentedFunction(
-  'accountBelongToUser',
-  async (accountId: string, userId: string, db: Database) => {
-    const account = await db
-      .select()
-      .from(bankAccount)
-      .where(and(eq(bankAccount.id, accountId), eq(bankAccount.userId, userId)))
-      .limit(1);
-    return account.length > 0;
-  },
-);
-
-export const getCreditCards = instrumentedFunction(
-  'getCreditCards',
-  async (db: Database, userId: string) => {
-    return db
+    const unionQuery = selfTransfersUnionQuery(db, selfTransferConditions);
+    const selfTransferData = await dbWithExtras
       .select({
-        id: creditCardAccounts.id,
-        accountId: creditCardAccounts.accountId,
-        cardLimit: creditCardAccounts.cardLimit,
-        accountName: bankAccount.accountName,
+        accountId: unionQuery.accountId,
+        totalAmount: sql<number>`COALESCE(SUM(${unionQuery.amount}), 0)`.mapWith(Number),
+        periodStart: bucketsCte.startDate,
       })
-      .from(creditCardAccounts)
-      .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-      .where(eq(bankAccount.userId, userId));
+      .from(unionQuery)
+      .innerJoin(
+        bucketsCte,
+        and(
+          gte(unionQuery.createdAt, bucketsCte.startDate),
+          lt(unionQuery.createdAt, bucketsCte.endDate),
+        ),
+      )
+      .groupBy(bucketsCte.startDate, unionQuery.accountId)
+      .orderBy(bucketsCte.startDate, unionQuery.accountId);
+    const friendsData = await dbWithExtras
+      .select({
+        periodStart: bucketsCte.startDate,
+        category: statements.category,
+        friendId: statements.friendId,
+        statementKind: statements.statementKind,
+        totalAmount: sql<number>`COALESCE(SUM(${statements.amount}), 0)`.mapWith(Number),
+      })
+      .from(statements)
+      .innerJoin(
+        bucketsCte,
+        and(
+          gte(statements.createdAt, bucketsCte.startDate),
+          lt(statements.createdAt, bucketsCte.endDate),
+        ),
+      )
+      .where(
+        and(
+          ...statementConditions,
+          inArray(statements.statementKind, ['friend_transaction', 'expense']),
+          isNotNull(statements.friendId),
+        ),
+      )
+      .groupBy(
+        bucketsCte.startDate,
+        statements.friendId,
+        statements.statementKind,
+        statements.category,
+      )
+      .orderBy(
+        bucketsCte.startDate,
+        statements.friendId,
+        statements.statementKind,
+        statements.category,
+      );
+    const splitsData = await dbWithExtras
+      .select({
+        periodStart: bucketsCte.startDate,
+        category: statements.category,
+        friendId: splits.friendId,
+        totalAmount: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number),
+      })
+      .from(splits)
+      .innerJoin(statements, eq(splits.statementId, statements.id))
+      .innerJoin(
+        bucketsCte,
+        and(
+          gte(statements.createdAt, bucketsCte.startDate),
+          lt(statements.createdAt, bucketsCte.endDate),
+        ),
+      )
+      .where(and(...statementConditions))
+      .groupBy(bucketsCte.startDate, splits.friendId, statements.category)
+      .orderBy(bucketsCte.startDate, splits.friendId, statements.category);
+    return {
+      statementData,
+      selfTransferData,
+      friendsData,
+      splitsData,
+    };
   },
 );
