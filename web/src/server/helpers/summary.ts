@@ -584,7 +584,7 @@ export const processAggregatedData = ({
   for (const friend of friendsSummary) {
     lastPeriodBalances[friend.friend.id] = friend.startingBalance;
   }
-  const periodAggregations = uniquePeriodStarts.map((date) => {
+  const periodAggregations = uniquePeriodStarts.map((date, idx) => {
     const processedAccountSummary: (AggregatedAccountTransferSummary & { accountId: string })[] =
       [];
     for (const account of accountsSummary) {
@@ -628,7 +628,13 @@ export const processAggregatedData = ({
     }
     const totalAccountsSummary = addAccountsSummary(processedAccountSummary);
     const totalFriendsSummary = addFriendsSummary(processedFriendSummary);
-    const categoryWiseSummary: Record<string, number> = {};
+    const categoryWiseSummary: Record<
+      string,
+      {
+        expenses: number;
+        outsideTransactions: number;
+      }
+    > = {};
     for (const category of uniqueCategories) {
       const filteredStatements = statementData.filter(
         (exp) => exp.category === category && exp.periodStart.getTime() === date.getTime(),
@@ -647,10 +653,18 @@ export const processAggregatedData = ({
       const expense = new Decimal(statementsSummary.expenses)
         .minus(friendsSummary.splits)
         .toNumber();
-      categoryWiseSummary[category] = expense;
+      categoryWiseSummary[category] = {
+        expenses: expense,
+        outsideTransactions: statementsSummary.outsideTransactions,
+      };
     }
+    const periodEndDate =
+      idx < uniquePeriodStarts.length - 1
+        ? new Date(uniquePeriodStarts[idx + 1].getTime() - 1)
+        : new Date();
     return {
       date,
+      endDate: periodEndDate,
       accountsSummary: processedAccountSummary,
       friendsSummary: processedFriendSummary,
       totalAccountsSummary,
@@ -665,7 +679,7 @@ export const processAggregatedData = ({
   const categoryWiseTotals = periodAggregations.reduce<Record<string, number>>((acc, cur) => {
     for (const category in cur.categoryWiseSummary) {
       acc[category] = new Decimal(acc[category] ?? 0)
-        .plus(cur.categoryWiseSummary[category])
+        .plus(cur.categoryWiseSummary[category].expenses)
         .toNumber();
     }
     return acc;

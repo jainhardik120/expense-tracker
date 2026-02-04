@@ -13,12 +13,14 @@ import {
   SelectGroup,
   SelectItem,
   SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 import { Autocomplete } from '../ui/autocomplete';
+import { Button } from '../ui/button';
 
 type SelectOption = { label: string; value: string };
 
@@ -206,23 +208,40 @@ const RenderedRadioInput = <T extends FieldValues = FieldValues>(props: FieldPro
   </div>
 );
 
-const RenderedSelectInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
-  <Select value={props.field.value} onValueChange={props.field.onChange}>
-    <SelectTrigger className="w-full">
-      <SelectValue placeholder={props.formField.placeholder} />
-    </SelectTrigger>
-    <SelectContent>
-      <SelectGroup>
-        <SelectLabel>{props.formField.label}</SelectLabel>
-        {props.formField.options?.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
-            {option.label}
-          </SelectItem>
-        ))}
-      </SelectGroup>
-    </SelectContent>
-  </Select>
-);
+const RenderedSelectInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => {
+  const [key, setKey] = useState(+new Date());
+
+  return (
+    <Select key={key} value={props.field.value} onValueChange={props.field.onChange}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder={props.formField.placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          <SelectLabel>{props.formField.label}</SelectLabel>
+          {props.formField.options?.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+        <SelectSeparator />
+        <Button
+          className="w-full px-2"
+          size="sm"
+          variant="secondary"
+          onClick={(e) => {
+            e.stopPropagation();
+            props.field.onChange('');
+            setKey(+new Date());
+          }}
+        >
+          Clear
+        </Button>
+      </SelectContent>
+    </Select>
+  );
+};
 
 const RenderedColorInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
   <Input type="color" {...props.field} />

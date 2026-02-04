@@ -34,19 +34,9 @@ const links = [
     icon: LineChart,
   },
   {
-    label: 'Statements',
-    href: '/statements',
-    icon: Sheet,
-  },
-  {
-    label: 'Reports',
-    href: '/reports',
-    icon: FileBarChart,
-  },
-  {
-    label: 'Investments',
-    href: '/investments',
-    icon: DollarSign,
+    label: 'EMI Calculator',
+    href: '/emi-calculator',
+    icon: Calculator,
   },
   {
     label: 'EMIs',
@@ -54,19 +44,29 @@ const links = [
     icon: CreditCard,
   },
   {
+    label: 'Investments',
+    href: '/investments',
+    icon: DollarSign,
+  },
+  {
     label: 'Recurring Payments',
     href: '/recurring-payments',
     icon: RefreshCw,
   },
   {
-    label: 'EMI Calculator',
-    href: '/emi-calculator',
-    icon: Calculator,
+    label: 'Reports',
+    href: '/reports',
+    icon: FileBarChart,
   },
   {
     label: 'SMS Notifications',
     href: '/sms-notifications',
     icon: MessageSquareMore,
+  },
+  {
+    label: 'Statements',
+    href: '/statements',
+    icon: Sheet,
   },
 ];
 

@@ -216,6 +216,7 @@ export const defaultFriendSummary = {
 
 export type ProcessedAggregationData = {
   date: Date;
+  endDate: Date;
   accountsSummary: ({
     startingBalance: number;
     finalBalance: number;
@@ -231,6 +232,13 @@ export type ProcessedAggregationData = {
   totalAccountsSummary: AggregatedAccountTransferSummary;
   totalFriendsSummary: AggregatedFriendTransferSummary;
   totalExpenses: number;
+  categoryWiseSummary: Record<
+    string,
+    {
+      expenses: number;
+      outsideTransactions: number;
+    }
+  >;
 };
 
 export const DateTruncValues = ['day', 'week', 'month', 'quarter', 'year'];

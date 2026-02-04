@@ -44,11 +44,24 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
     columns: [
       {
         id: 'date',
-        header: 'Date',
+        header: 'Start Date',
         // eslint-disable-next-line react/no-unstable-nested-components
         cell: ({ row }) => {
           const { date } = row.original;
           const d = typeof date === 'string' ? new Date(date) : date;
+          const zonedDate = toZonedTime(d, timezone);
+          const formatStr = 'MMM dd, yyyy';
+          const string = format(zonedDate, formatStr);
+          return <p>{string}</p>;
+        },
+      },
+      {
+        id: 'endDate',
+        header: 'End Date',
+        // eslint-disable-next-line react/no-unstable-nested-components
+        cell: ({ row }) => {
+          const { endDate } = row.original;
+          const d = typeof endDate === 'string' ? new Date(endDate) : endDate;
           const zonedDate = toZonedTime(d, timezone);
           const formatStr = 'MMM dd, yyyy';
           const string = format(zonedDate, formatStr);

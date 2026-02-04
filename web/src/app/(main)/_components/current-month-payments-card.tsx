@@ -93,7 +93,7 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
         <DataTable
           background={false}
           enablePagination={false}
-          getItemValue={(r) => r.date.toISOString()}
+          getItemValue={(r) => (isRecurring(r) ? r.name : r.emiName)}
           showBorder={false}
           table={table}
         />

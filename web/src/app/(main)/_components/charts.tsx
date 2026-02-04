@@ -27,7 +27,11 @@ export const ExpensesLineChart = ({
   range,
   allCategories,
 }: {
-  data: { date: Date; expenses: number; categoryWiseSummary: Record<string, number> }[];
+  data: {
+    date: Date;
+    expenses: number;
+    categoryWiseSummary: Record<string, { expenses: number; outsideTransactions: number }>;
+  }[];
   unit: DateTruncUnit;
   range: DateRange;
   allCategories: string[];
@@ -75,7 +79,7 @@ export const ExpensesLineChart = ({
 
       let total = 0;
       for (const category of selectedCategories) {
-        const amount = d.categoryWiseSummary[category];
+        const amount = d.categoryWiseSummary[category].expenses;
         filteredData[category] = amount;
         total += amount;
       }

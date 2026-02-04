@@ -36,7 +36,10 @@ export const session = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     impersonatedBy: text('impersonated_by'),
   },
-  (table) => [index('session_userId_idx').on(table.userId)],
+  (table) => [
+    index('session_userId_idx').on(table.userId),
+    index('session_token_idx').on(table.token),
+  ],
 );
 
 export const account = pgTable(
