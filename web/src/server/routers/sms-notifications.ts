@@ -135,9 +135,18 @@ const recentStatementsQuery = (db: Database, userId: string, where: SQL[]) =>
     .as('recent_statements');
 
 const getHints = async (db: Database, smsNotification: SMSNotification, userId: string) => {
-  const recentBankNameStatements = recentStatementsQuery(db, userId, [
+  let recentBankNameStatements = recentStatementsQuery(db, userId, [
     eq(smsNotifications.bankName, smsNotification.bankName),
   ]);
+  if (
+    smsNotification.accountLast4 !== null &&
+    !isNaN(parseInt(smsNotification.accountLast4)) &&
+    parseInt(smsNotification.accountLast4) > 0
+  ) {
+    recentBankNameStatements = recentStatementsQuery(db, userId, [
+      eq(smsNotifications.accountLast4, smsNotification.accountLast4),
+    ]);
+  }
   const bankIdHint = (
     await db
       .select({
