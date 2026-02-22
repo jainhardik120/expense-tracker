@@ -104,4 +104,5 @@ dependencies {
     implementation(libs.ktor.client.auth)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.compose.material.icons.extended)
 }
