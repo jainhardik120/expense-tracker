@@ -186,7 +186,16 @@ export const statementsRouter = createTRPCRouter({
       rowsCount,
     };
   }),
-  addStatement: protectedProcedure.input(createStatementSchema).mutation(async ({ ctx, input }) => {
+  addStatement: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/statements',
+      },
+    })
+    .input(createStatementSchema)
+    .output(z.array(z.object({ id: z.string() })))
+    .mutation(async ({ ctx, input }) => {
     if (
       input.accountId !== undefined &&
       input.accountId !== '' &&
@@ -252,14 +261,28 @@ export const statementsRouter = createTRPCRouter({
         .returning({ id: statements.id });
     }),
   deleteStatement: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/statements/{id}',
+      },
+    })
     .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => {
-      return ctx.db
+    .output(z.void())
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
         .delete(statements)
         .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)));
     }),
   addSelfTransferStatement: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/statements/self-transfer',
+      },
+    })
     .input(createSelfTransferSchema)
+    .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
       if (
         !(await accountBelongToUser(input.fromAccountId, ctx.user.id, ctx.db)) ||
@@ -309,9 +332,16 @@ export const statementsRouter = createTRPCRouter({
         .returning({ id: selfTransferStatements.id });
     }),
   deleteSelfTransferStatement: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/statements/self-transfer/{id}',
+      },
+    })
     .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => {
-      return ctx.db
+    .output(z.void())
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
         .delete(selfTransferStatements)
         .where(
           and(

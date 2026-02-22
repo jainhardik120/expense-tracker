@@ -25,9 +25,28 @@ const validateAccountOwnership = async (
 };
 
 export const accountsRouter = createTRPCRouter({
-  getAccounts: protectedProcedure.query(({ ctx }) => {
-    return getAccounts(ctx.db, ctx.user.id);
-  }),
+  getAccounts: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/accounts',
+      },
+    })
+    .input(z.void())
+    .output(
+      z.array(
+        z.object({
+          id: z.string(),
+          userId: z.string(),
+          startingBalance: z.string(),
+          accountName: z.string(),
+          createdAt: z.date().nullable(),
+        }),
+      ),
+    )
+    .query(({ ctx }) => {
+      return getAccounts(ctx.db, ctx.user.id);
+    }),
   createAccount: protectedProcedure.input(createAccountSchema).mutation(({ ctx, input }) => {
     return ctx.db.insert(bankAccount).values({
       userId: ctx.user.id,
