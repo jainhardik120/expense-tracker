@@ -6,7 +6,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
@@ -38,21 +40,27 @@ class MainActivity : ComponentActivity() {
                 }
 
                 when (val s = vm.state.collectAsState().value) {
-                    is AuthState.SignedOut -> Scaffold(modifier = Modifier.fillMaxSize()) { _ ->
-                        LoginScreen(
-                            onLogin = { loginLauncher.launch(vm.loginIntent()) }
-                        )
+                    is AuthState.SignedOut -> Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
+                            LoginScreen(
+                                onLogin = { loginLauncher.launch(vm.loginIntent()) }
+                            )
+                        }
                     }
 
-                    is AuthState.Loading -> Scaffold(modifier = Modifier.fillMaxSize()) { _ ->
-                        LoadingScreen()
+                    is AuthState.Loading -> Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
+                            LoadingScreen()
+                        }
                     }
 
-                    is AuthState.Error -> Scaffold(modifier = Modifier.fillMaxSize()) { _ ->
-                        ErrorScreen(
-                            message = s.message,
-                            onRetryLogin = { loginLauncher.launch(vm.loginIntent()) }
-                        )
+                    is AuthState.Error -> Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
+                            ErrorScreen(
+                                message = s.message,
+                                onRetryLogin = { loginLauncher.launch(vm.loginIntent()) }
+                            )
+                        }
                     }
 
                     is AuthState.SignedIn -> MainApp(

@@ -2,8 +2,8 @@ package com.jainhardik120.expensetracker.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -50,7 +50,7 @@ fun MainApp(onLogout: () -> Unit) {
 
     val bottomNavItems = listOf(
         BottomNavItem("Home", Icons.Default.Home, SummaryRoute),
-        BottomNavItem("Statements", Icons.Default.List, StatementsRoute),
+        BottomNavItem("Statements", Icons.AutoMirrored.Filled.List, StatementsRoute),
         BottomNavItem("Settings", Icons.Default.Settings, SettingsRoute)
     )
 
