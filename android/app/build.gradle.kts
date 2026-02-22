@@ -103,4 +103,5 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.ktor.client.auth)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.navigation.compose)
 }

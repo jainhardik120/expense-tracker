@@ -17,7 +17,10 @@ import {
   createSplitSchema,
   createStatementSchema,
   dateSchema,
+  isSelfTransfer,
   ONE_HUNDRED_PERCENTAGE,
+  pageSchema,
+  statementItemSchema,
   statementParserSchema,
 } from '@/types';
 
@@ -25,6 +28,94 @@ const ACCOUNT_NOT_FOUND_ERROR = 'Account not found';
 const FRIEND_NOT_FOUND_ERROR = 'Friend not found';
 
 export const statementsRouter = createTRPCRouter({
+  listStatements: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/statements',
+      },
+    })
+    .input(
+      z.object({
+        ...dateSchema,
+        ...pageSchema,
+      }),
+    )
+    .output(
+      z.object({
+        statements: z.array(statementItemSchema),
+        pageCount: z.number(),
+        rowsCount: z.object({
+          statementCount: z.number(),
+          selfTransferStatementCount: z.number(),
+        }),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const mergedStatements = await getMergedStatements(ctx.db, ctx.user.id, {
+        ...input,
+        statementKind: [],
+        account: [],
+        category: [],
+        tags: [],
+      });
+      const rowsCount = await getRowsCount(ctx.db, ctx.user.id, {
+        ...input,
+        statementKind: [],
+        account: [],
+        category: [],
+        tags: [],
+      });
+      const pageCount = Math.ceil(
+        (rowsCount.statementCount + rowsCount.selfTransferStatementCount) / input.perPage,
+      );
+      return {
+        statements: mergedStatements.map((s) => {
+          if (isSelfTransfer(s)) {
+            return {
+              id: s.id,
+              createdAt: s.createdAt,
+              userId: s.userId,
+              amount: s.amount,
+              type: 'self_transfer' as const,
+              statementKind: 'self_transfer' as const,
+              fromAccountId: s.fromAccountId,
+              toAccountId: s.toAccountId,
+              fromAccount: s.fromAccount,
+              toAccount: s.toAccount,
+              accountId: null,
+              friendId: null,
+              category: null,
+              tags: [],
+              splitAmount: 0,
+              accountName: null,
+              friendName: null,
+            };
+          }
+          return {
+            id: s.id,
+            createdAt: s.createdAt,
+            userId: s.userId,
+            amount: s.amount,
+            type: 'statement' as const,
+            statementKind: s.statementKind,
+            accountId: s.accountId,
+            friendId: s.friendId,
+            category: s.category,
+            tags: s.tags,
+            splitAmount: s.splitAmount,
+            accountName: s.accountName,
+            friendName: s.friendName,
+            fromAccountId: null,
+            toAccountId: null,
+            fromAccount: null,
+            toAccount: null,
+          };
+        }),
+        pageCount,
+        rowsCount,
+      };
+    }),
   getCategories: protectedProcedure
     .input(
       z.object({
