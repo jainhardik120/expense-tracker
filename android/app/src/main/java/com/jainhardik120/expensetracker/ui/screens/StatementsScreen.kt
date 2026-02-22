@@ -30,7 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jainhardik120.expensetracker.data.entity.StatementItem
-import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
@@ -230,20 +232,15 @@ private fun formatAmount(amount: String): String {
     }
 }
 
+private val outputDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("dd MMM yyyy", Locale.getDefault())
+        .withZone(ZoneId.systemDefault())
+
 private fun formatDate(isoDate: String): String {
     return try {
-        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault())
-        val outputFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-        val date = inputFormat.parse(isoDate)
-        date?.let { outputFormat.format(it) } ?: isoDate
+        val instant = Instant.parse(isoDate)
+        outputDateFormatter.format(instant)
     } catch (_: Exception) {
-        try {
-            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
-            val outputFormat = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-            val date = inputFormat.parse(isoDate)
-            date?.let { outputFormat.format(it) } ?: isoDate
-        } catch (_: Exception) {
-            isoDate
-        }
+        isoDate
     }
 }
