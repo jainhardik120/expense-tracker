@@ -123,6 +123,26 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
 };
 
 export type Investment = typeof investments.$inferSelect;
+
+export const statementItemSchema = z.object({
+  id: z.string(),
+  createdAt: z.date(),
+  userId: z.string(),
+  amount: z.string(),
+  type: z.enum(['statement', 'self_transfer']),
+  statementKind: z.enum(statementKindEnum.enumValues),
+  accountId: z.string().nullable(),
+  friendId: z.string().nullable(),
+  category: z.string().nullable(),
+  tags: z.string().array(),
+  splitAmount: z.number(),
+  accountName: z.string().nullable(),
+  friendName: z.string().nullable(),
+  fromAccountId: z.string().nullable(),
+  toAccountId: z.string().nullable(),
+  fromAccount: z.string().nullable(),
+  toAccount: z.string().nullable(),
+});
 export type CreditCardAccount = typeof creditCardAccounts.$inferSelect;
 export type Emi = typeof emis.$inferSelect;
 export const accountTransferSummarySchema = z.object({

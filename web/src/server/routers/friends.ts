@@ -7,9 +7,27 @@ import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createFriendSchema } from '@/types';
 
 export const friendsRouter = createTRPCRouter({
-  getFriends: protectedProcedure.query(({ ctx }) => {
-    return getFriends(ctx.db, ctx.user.id);
-  }),
+  getFriends: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/friends',
+      },
+    })
+    .input(z.void())
+    .output(
+      z.array(
+        z.object({
+          id: z.string(),
+          userId: z.string(),
+          name: z.string(),
+          createdAt: z.date().nullable(),
+        }),
+      ),
+    )
+    .query(({ ctx }) => {
+      return getFriends(ctx.db, ctx.user.id);
+    }),
   createFriend: protectedProcedure.input(createFriendSchema).mutation(({ ctx, input }) => {
     return ctx.db
       .insert(friendsProfiles)

@@ -6,22 +6,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.jainhardik120.expensetracker.auth.AuthState
+import com.jainhardik120.expensetracker.ui.MainApp
 import com.jainhardik120.expensetracker.ui.auth.AuthViewModel
 import com.jainhardik120.expensetracker.ui.auth.ErrorScreen
-import com.jainhardik120.expensetracker.ui.auth.HomeScreen
 import com.jainhardik120.expensetracker.ui.auth.LoadingScreen
 import com.jainhardik120.expensetracker.ui.auth.LoginScreen
 import com.jainhardik120.expensetracker.ui.theme.ExpenseTrackerTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -30,35 +29,43 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ExpenseTrackerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Column(Modifier.padding(innerPadding)) {
-                        val vm: AuthViewModel = hiltViewModel()
+                val vm: AuthViewModel = hiltViewModel()
 
-                        val loginLauncher = rememberLauncherForActivityResult(
-                            contract = ActivityResultContracts.StartActivityForResult()
-                        ) { result ->
-                            result.data?.let {
-                                vm.onAuthEvent(it)
-                            }
-                        }
+                val loginLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.StartActivityForResult()
+                ) { result ->
+                    result.data?.let {
+                        vm.onAuthEvent(it)
+                    }
+                }
 
-                        when (val s = vm.state.collectAsState().value) {
-                            is AuthState.SignedOut -> LoginScreen(
+                when (val s = vm.state.collectAsState().value) {
+                    is AuthState.SignedOut -> Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
+                            LoginScreen(
                                 onLogin = { loginLauncher.launch(vm.loginIntent()) }
-                            )
-
-                            is AuthState.Loading -> LoadingScreen()
-                            is AuthState.Error -> ErrorScreen(
-                                message = s.message,
-                                onRetryLogin = { loginLauncher.launch(vm.loginIntent()) }
-                            )
-
-                            is AuthState.SignedIn -> HomeScreen(
-                                onLogout = vm::logout,
-                                vm
                             )
                         }
                     }
+
+                    is AuthState.Loading -> Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
+                            LoadingScreen()
+                        }
+                    }
+
+                    is AuthState.Error -> Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                        Box(modifier = Modifier.padding(innerPadding)) {
+                            ErrorScreen(
+                                message = s.message,
+                                onRetryLogin = { loginLauncher.launch(vm.loginIntent()) }
+                            )
+                        }
+                    }
+
+                    is AuthState.SignedIn -> MainApp(
+                        onLogout = vm::logout
+                    )
                 }
             }
         }

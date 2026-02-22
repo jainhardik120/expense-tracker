@@ -17,7 +17,10 @@ import {
   createSplitSchema,
   createStatementSchema,
   dateSchema,
+  isSelfTransfer,
   ONE_HUNDRED_PERCENTAGE,
+  pageSchema,
+  statementItemSchema,
   statementParserSchema,
 } from '@/types';
 
@@ -25,6 +28,94 @@ const ACCOUNT_NOT_FOUND_ERROR = 'Account not found';
 const FRIEND_NOT_FOUND_ERROR = 'Friend not found';
 
 export const statementsRouter = createTRPCRouter({
+  listStatements: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/statements',
+      },
+    })
+    .input(
+      z.object({
+        ...dateSchema,
+        ...pageSchema,
+      }),
+    )
+    .output(
+      z.object({
+        statements: z.array(statementItemSchema),
+        pageCount: z.number(),
+        rowsCount: z.object({
+          statementCount: z.number(),
+          selfTransferStatementCount: z.number(),
+        }),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const mergedStatements = await getMergedStatements(ctx.db, ctx.user.id, {
+        ...input,
+        statementKind: [],
+        account: [],
+        category: [],
+        tags: [],
+      });
+      const rowsCount = await getRowsCount(ctx.db, ctx.user.id, {
+        ...input,
+        statementKind: [],
+        account: [],
+        category: [],
+        tags: [],
+      });
+      const pageCount = Math.ceil(
+        (rowsCount.statementCount + rowsCount.selfTransferStatementCount) / input.perPage,
+      );
+      return {
+        statements: mergedStatements.map((s) => {
+          if (isSelfTransfer(s)) {
+            return {
+              id: s.id,
+              createdAt: s.createdAt,
+              userId: s.userId,
+              amount: s.amount,
+              type: 'self_transfer' as const,
+              statementKind: 'self_transfer' as const,
+              fromAccountId: s.fromAccountId,
+              toAccountId: s.toAccountId,
+              fromAccount: s.fromAccount,
+              toAccount: s.toAccount,
+              accountId: null,
+              friendId: null,
+              category: null,
+              tags: [],
+              splitAmount: 0,
+              accountName: null,
+              friendName: null,
+            };
+          }
+          return {
+            id: s.id,
+            createdAt: s.createdAt,
+            userId: s.userId,
+            amount: s.amount,
+            type: 'statement' as const,
+            statementKind: s.statementKind,
+            accountId: s.accountId,
+            friendId: s.friendId,
+            category: s.category,
+            tags: s.tags,
+            splitAmount: s.splitAmount,
+            accountName: s.accountName,
+            friendName: s.friendName,
+            fromAccountId: null,
+            toAccountId: null,
+            fromAccount: null,
+            toAccount: null,
+          };
+        }),
+        pageCount,
+        rowsCount,
+      };
+    }),
   getCategories: protectedProcedure
     .input(
       z.object({
@@ -95,7 +186,16 @@ export const statementsRouter = createTRPCRouter({
       rowsCount,
     };
   }),
-  addStatement: protectedProcedure.input(createStatementSchema).mutation(async ({ ctx, input }) => {
+  addStatement: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/statements',
+      },
+    })
+    .input(createStatementSchema)
+    .output(z.array(z.object({ id: z.string() })))
+    .mutation(async ({ ctx, input }) => {
     if (
       input.accountId !== undefined &&
       input.accountId !== '' &&
@@ -161,14 +261,28 @@ export const statementsRouter = createTRPCRouter({
         .returning({ id: statements.id });
     }),
   deleteStatement: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/statements/{id}',
+      },
+    })
     .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => {
-      return ctx.db
+    .output(z.void())
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
         .delete(statements)
         .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)));
     }),
   addSelfTransferStatement: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/statements/self-transfer',
+      },
+    })
     .input(createSelfTransferSchema)
+    .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
       if (
         !(await accountBelongToUser(input.fromAccountId, ctx.user.id, ctx.db)) ||
@@ -218,9 +332,16 @@ export const statementsRouter = createTRPCRouter({
         .returning({ id: selfTransferStatements.id });
     }),
   deleteSelfTransferStatement: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/statements/self-transfer/{id}',
+      },
+    })
     .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => {
-      return ctx.db
+    .output(z.void())
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
         .delete(selfTransferStatements)
         .where(
           and(
