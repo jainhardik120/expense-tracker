@@ -9,6 +9,7 @@ import AggregationTable from './_components/aggregation-table';
 import { CategoryExpensesPieChart, ExpensesLineChart, SummaryCard } from './_components/charts';
 import { CreditCardsCard } from './_components/credit-cards-card';
 import { CurrentMonthPaymentsCard } from './_components/current-month-payments-card';
+import { DashboardPaymentOverview } from './_components/dashboard-payment-overview';
 import FilterPanel from './_components/filter-panel';
 import { FutureMonthsPaymentsCard } from './_components/future-months-payments-card';
 import SummaryTable from './_components/summary-table';
@@ -79,6 +80,11 @@ export default async function Page({
       >
         {([summaryData, creditData]) => (
           <SummaryTable creditData={creditData.cards} data={summaryData} />
+        )}
+      </AsyncComponent>
+      <AsyncComponent promise={Promise.all([aggregationPromise, creditAccountsPromise])}>
+        {([summaryData, creditData]) => (
+          <DashboardPaymentOverview creditData={creditData} summaryData={summaryData} />
         )}
       </AsyncComponent>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">

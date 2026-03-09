@@ -42,8 +42,14 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
     return emiTotal + recurringTotal;
   }, [currentMonthPayments, recurringCurrentMonth]);
 
+  const sortedData = useMemo(() => {
+    return [...currentMonthPayments, ...recurringCurrentMonth].sort((a, b) => {
+      return a.date.getTime() - b.date.getTime();
+    });
+  }, [currentMonthPayments, recurringCurrentMonth]);
+
   const { table } = useDataTable({
-    data: [...currentMonthPayments, ...recurringCurrentMonth],
+    data: sortedData,
     columns: [
       {
         id: 'type',

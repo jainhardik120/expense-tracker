@@ -8,6 +8,23 @@ import { type RouterOutput } from '@/server/routers';
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
 type SummaryData = RouterOutput['summary']['getAggregatedData'];
 
+const formatBillingDate = (billingDate: number) => {
+  const mod100 = billingDate % 100;
+  if (mod100 >= 11 && mod100 <= 13) {
+    return `${billingDate}th`;
+  }
+  switch (billingDate % 10) {
+    case 1:
+      return `${billingDate}st`;
+    case 2:
+      return `${billingDate}nd`;
+    case 3:
+      return `${billingDate}rd`;
+    default:
+      return `${billingDate}th`;
+  }
+};
+
 export const CreditCardsCard = ({
   creditData,
   summaryData,
@@ -66,6 +83,10 @@ export const CreditCardsCard = ({
                           {formatCurrency(availableLimit)}
                         </span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Billing Date:</span>
+                        <span className="font-medium">{formatBillingDate(card.billingDate)}</span>
+                      </div>
                     </div>
                     <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
                       <div
@@ -105,6 +126,10 @@ export const CreditCardsCard = ({
                         <span className="font-medium text-green-600">
                           {formatCurrency(availableLimit)}
                         </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Billing Date:</span>
+                        <span className="font-medium">{formatBillingDate(card.billingDate)}</span>
                       </div>
                     </div>
                   </div>

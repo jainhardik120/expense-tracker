@@ -31,6 +31,7 @@ const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData
         creditCardId: creditAccount?.id,
         creditAccountId: creditAccount?.accountId,
         cardLimit: creditAccount?.cardLimit,
+        billingDate: creditAccount?.billingDate,
       };
     });
   }, [data, creditData]);

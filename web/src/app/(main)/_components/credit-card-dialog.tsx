@@ -23,6 +23,7 @@ type CreditCardDialogProps = Readonly<{
   existingCreditCard?: {
     id: string;
     cardLimit: string;
+    billingDate: number;
   } | null;
 }>;
 
@@ -49,6 +50,7 @@ export const CreditCardDialog = ({
     defaultValues: {
       accountId,
       cardLimit: existingCreditCard?.cardLimit ?? '',
+      billingDate: existingCreditCard?.billingDate ?? 1,
     },
   });
 
@@ -59,6 +61,7 @@ export const CreditCardDialog = ({
           id: existingCreditCard.id,
           accountId: data.accountId,
           cardLimit: data.cardLimit,
+          billingDate: data.billingDate,
         });
         toast.success('Credit card limit updated successfully');
       } else {
@@ -95,7 +98,7 @@ export const CreditCardDialog = ({
     setOpen(newOpen);
     if (!newOpen && (existingCreditCard === null || existingCreditCard === undefined)) {
       setShowForm(false);
-      reset({ accountId, cardLimit: '' });
+      reset({ accountId, cardLimit: '', billingDate: 1 });
     }
   };
 
@@ -148,6 +151,20 @@ export const CreditCardDialog = ({
               />
               {errors.cardLimit === undefined ? null : (
                 <p className="text-destructive text-sm">{errors.cardLimit.message}</p>
+              )}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="billingDate">Billing Date (Day of Month)</Label>
+              <Input
+                id="billingDate"
+                max={31}
+                min={1}
+                placeholder="Enter billing date"
+                type="number"
+                {...register('billingDate', { valueAsNumber: true })}
+              />
+              {errors.billingDate === undefined ? null : (
+                <p className="text-destructive text-sm">{errors.billingDate.message}</p>
               )}
             </div>
           </div>

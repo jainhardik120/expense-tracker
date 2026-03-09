@@ -5,7 +5,12 @@ import { bankAccount, creditCardAccounts } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { getAccounts, getCreditCards } from '@/server/helpers/account';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { amount, createAccountSchema, createCreditCardAccountSchema } from '@/types';
+import {
+  amount,
+  createAccountSchema,
+  createCreditCardAccountSchema,
+  creditCardBillingDateSchema,
+} from '@/types';
 
 const CREDIT_CARD_NOT_FOUND = 'Credit card not found or access denied';
 
@@ -86,6 +91,7 @@ export const accountsRouter = createTRPCRouter({
         .values({
           accountId: input.accountId,
           cardLimit: input.cardLimit,
+          billingDate: input.billingDate,
         })
         .returning();
     }),
@@ -95,6 +101,7 @@ export const accountsRouter = createTRPCRouter({
         id: z.string(),
         accountId: z.string(),
         cardLimit: amount,
+        billingDate: creditCardBillingDateSchema,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -104,6 +111,7 @@ export const accountsRouter = createTRPCRouter({
         .set({
           accountId: input.accountId,
           cardLimit: input.cardLimit,
+          billingDate: input.billingDate,
         })
         .where(eq(creditCardAccounts.id, input.id))
         .returning({ id: creditCardAccounts.id });

@@ -47,6 +47,12 @@ export const optionalAmount = z
     message: 'Expected number, received a string',
   });
 
+export const creditCardBillingDateSchema = z
+  .number()
+  .int()
+  .min(1, { message: 'Billing date must be between 1 and 31' })
+  .max(31, { message: 'Billing date must be between 1 and 31' });
+
 export const createAccountSchema = z.object({
   startingBalance: amount,
   accountName: z.string(),
@@ -104,6 +110,7 @@ export const createInvestmentSchema = z.object({
 export const createCreditCardAccountSchema = z.object({
   accountId: z.string(),
   cardLimit: amount,
+  billingDate: creditCardBillingDateSchema,
 });
 
 export type StatementKind = (typeof statementKindEnum.enumValues)[number];

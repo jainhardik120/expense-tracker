@@ -253,6 +253,13 @@
       "when": 1770138991696,
       "tag": "0035_glamorous_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1773057779132,
+      "tag": "0036_spicy_landau",
+      "breakpoints": true
     }
   ]
 }

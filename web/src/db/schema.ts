@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   numeric,
+  integer,
   pgEnum,
   uuid,
   check,
@@ -168,6 +169,7 @@ export const creditCardAccounts = pgTable('credit_card_accounts', {
     .references(() => bankAccount.id, { onDelete: 'cascade' })
     .unique(),
   cardLimit: numeric('card_limit').notNull(),
+  billingDate: integer('billing_date').notNull().default(1),
 });
 
 export const emis = pgTable('emis', {

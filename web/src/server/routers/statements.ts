@@ -196,30 +196,31 @@ export const statementsRouter = createTRPCRouter({
     .input(createStatementSchema)
     .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
-    if (
-      input.accountId !== undefined &&
-      input.accountId !== '' &&
-      !(await accountBelongToUser(input.accountId, ctx.user.id, ctx.db))
-    ) {
-      throw new Error(ACCOUNT_NOT_FOUND_ERROR);
-    }
-    if (
-      input.friendId !== undefined &&
-      input.friendId !== '' &&
-      !(await friendBelongToUser(input.friendId, ctx.user.id, ctx.db))
-    ) {
-      throw new Error(FRIEND_NOT_FOUND_ERROR);
-    }
-    return ctx.db
-      .insert(statements)
-      .values({
-        userId: ctx.user.id,
-        ...input,
-        accountId: input.accountId === undefined || input.accountId === '' ? null : input.accountId,
-        friendId: input.friendId === undefined || input.friendId === '' ? null : input.friendId,
-      })
-      .returning({ id: statements.id });
-  }),
+      if (
+        input.accountId !== undefined &&
+        input.accountId !== '' &&
+        !(await accountBelongToUser(input.accountId, ctx.user.id, ctx.db))
+      ) {
+        throw new Error(ACCOUNT_NOT_FOUND_ERROR);
+      }
+      if (
+        input.friendId !== undefined &&
+        input.friendId !== '' &&
+        !(await friendBelongToUser(input.friendId, ctx.user.id, ctx.db))
+      ) {
+        throw new Error(FRIEND_NOT_FOUND_ERROR);
+      }
+      return ctx.db
+        .insert(statements)
+        .values({
+          userId: ctx.user.id,
+          ...input,
+          accountId:
+            input.accountId === undefined || input.accountId === '' ? null : input.accountId,
+          friendId: input.friendId === undefined || input.friendId === '' ? null : input.friendId,
+        })
+        .returning({ id: statements.id });
+    }),
   updateStatement: protectedProcedure
     .input(
       z.object({

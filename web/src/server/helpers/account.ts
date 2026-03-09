@@ -87,6 +87,7 @@ export const getCreditCards = instrumentedFunction(
         id: creditCardAccounts.id,
         accountId: creditCardAccounts.accountId,
         cardLimit: creditCardAccounts.cardLimit,
+        billingDate: creditCardAccounts.billingDate,
         accountName: bankAccount.accountName,
       })
       .from(creditCardAccounts)

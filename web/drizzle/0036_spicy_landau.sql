@@ -1,0 +1,1 @@
+ALTER TABLE "credit_card_accounts" ADD COLUMN "billing_date" integer DEFAULT 1 NOT NULL;

@@ -12,7 +12,29 @@ import { UpdateAccountForm } from './account-forms';
 import { CreditCardDialog } from './credit-card-dialog';
 import { UpdateFriendForm } from './friend-forms';
 
-type CreditCardAccount = { creditCardId?: string; creditAccountId?: string; cardLimit?: string };
+type CreditCardAccount = {
+  creditCardId?: string;
+  creditAccountId?: string;
+  cardLimit?: string;
+  billingDate?: number;
+};
+
+const formatBillingDate = (billingDate: number) => {
+  const mod100 = billingDate % 100;
+  if (mod100 >= 11 && mod100 <= 13) {
+    return `${billingDate}th`;
+  }
+  switch (billingDate % 10) {
+    case 1:
+      return `${billingDate}st`;
+    case 2:
+      return `${billingDate}nd`;
+    case 3:
+      return `${billingDate}rd`;
+    default:
+      return `${billingDate}th`;
+  }
+};
 
 const DeleteButton = ({
   mutation,
@@ -50,6 +72,7 @@ const AccountActions = ({
               ? {
                   id: row.creditCardId ?? '',
                   cardLimit: row.cardLimit ?? '',
+                  billingDate: row.billingDate ?? 1,
                 }
               : null
           }
@@ -90,6 +113,14 @@ export const createAccountColumns = (
       id: 'startingBalance',
       header: 'Starting Balance',
       accessorFn: (row) => row.startingBalance.toFixed(2),
+    },
+    {
+      id: 'billingDate',
+      header: 'Billing Date',
+      accessorFn: (row) =>
+        isFriendSummary(row) || row.billingDate === undefined
+          ? '-'
+          : formatBillingDate(row.billingDate),
     },
     {
       id: 'expenses',
