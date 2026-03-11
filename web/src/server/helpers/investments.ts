@@ -1,4 +1,5 @@
 import type { investments } from '@/db/schema';
+import { env } from '@/lib/env';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
   type InvestmentKindValue,
@@ -11,6 +12,11 @@ import { parseFloatSafe } from '@/server/helpers/emi-calculations';
 const YEAR_IN_MS = 365.25 * 24 * 60 * 60 * 1000;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (compatible; ExpenseTracker/1.0)';
+
+const getCoinGeckoHeaders = (): HeadersInit => ({
+  Accept: 'application/json',
+  'x-cg-demo-api-key': env.COINGECKO_API_KEY,
+});
 
 type InvestmentRow = typeof investments.$inferSelect;
 
@@ -362,6 +368,7 @@ const searchCrypto = async (query: string): Promise<InvestmentInstrumentSearchRe
     }>;
   }>(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`, {
     cache: 'no-store',
+    headers: getCoinGeckoHeaders(),
   });
 
   const coins = payload?.coins ?? [];
@@ -513,9 +520,7 @@ const resolveCryptoInstrumentNames = async (codes: string[]): Promise<Map<string
         `https://api.coingecko.com/api/v3/coins/markets?vs_currency=inr&ids=${encodeURIComponent(idsBatch.join(','))}&per_page=250&page=1&sparkline=false`,
         {
           cache: 'no-store',
-          headers: {
-            Accept: 'application/json',
-          },
+          headers: getCoinGeckoHeaders(),
         },
       );
       const coins = payload ?? [];
@@ -738,9 +743,7 @@ const getHistoricalCryptoPrices = async ({
     `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(code.toLowerCase())}/market_chart/range?vs_currency=inr&from=${periodStart}&to=${periodEnd}`,
     {
       cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-      },
+      headers: getCoinGeckoHeaders(),
     },
   );
   const values = payload?.prices ?? [];
@@ -852,9 +855,7 @@ const getCryptoQuotes = async (requests: QuoteRequest[]): Promise<Map<string, Qu
     `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(cryptoIds.join(','))}&vs_currencies=inr&include_last_updated_at=true`,
     {
       cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-      },
+      headers: getCoinGeckoHeaders(),
     },
   );
 

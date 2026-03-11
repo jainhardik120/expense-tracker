@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import { format } from 'date-fns';
+import { format, startOfDay, subDays } from 'date-fns';
 
 import LineChart from '@/components/line-chart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +23,22 @@ import { type RouterOutput } from '@/server/routers';
 type DashboardData = RouterOutput['investments']['getInvestmentsDashboard'];
 
 const PORTFOLIO_VIEW = '__portfolio__';
+const TIME_RANGE_OPTIONS = [
+  { value: '1d', label: '1D' },
+  { value: '1w', label: '1W' },
+  { value: '1m', label: '1M' },
+  { value: '3m', label: '3M' },
+  { value: '6m', label: '6M' },
+  { value: 'lifetime', label: 'Lifetime' },
+] as const;
+type TimeRangeValue = (typeof TIME_RANGE_OPTIONS)[number]['value'];
+const TIME_RANGE_DAYS: Partial<Record<TimeRangeValue, number>> = {
+  '1d': 1,
+  '1w': 7,
+  '1m': 30,
+  '3m': 90,
+  '6m': 180,
+};
 
 const toViewValue = (kind: InvestmentKindValue, code: string) => `${kind}|${code}`;
 
@@ -49,6 +65,7 @@ const parseViewValue = (value: string): { kind: InvestmentKindValue; code: strin
 
 export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData }) => {
   const [viewSelection, setViewSelection] = useState(PORTFOLIO_VIEW);
+  const [timeRange, setTimeRange] = useState<TimeRangeValue>('lifetime');
 
   const groupedOptions = useMemo(() => {
     const map = new Map<InvestmentKindValue, DashboardData['instrumentOptions']>();
@@ -78,26 +95,37 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
     },
   );
 
-  const portfolioChartData = useMemo(() => {
-    return dashboard.timeline.map((point) => ({
-      date: format(point.date, 'dd MMM'),
-      investedAmount: point.investedAmount,
-      valuationAmount: point.valuationAmount,
-      pnl: point.pnl,
-    }));
-  }, [dashboard.timeline]);
-
-  const instrumentChartData = useMemo(() => {
-    const points = instrumentTimelineQuery.data?.points ?? [];
-    return points.map((point) => ({
-      date: format(point.date, 'dd MMM'),
-      holdingValue: point.holdingValue,
-      unitPrice: point.unitPrice,
-    }));
-  }, [instrumentTimelineQuery.data?.points]);
-
   const isPortfolioView = viewSelection === PORTFOLIO_VIEW;
-  const chartRows = isPortfolioView ? portfolioChartData : instrumentChartData;
+
+  const chartRows = useMemo(() => {
+    const cutoffDays = TIME_RANGE_DAYS[timeRange];
+    const cutoffDate =
+      cutoffDays === undefined ? null : subDays(startOfDay(new Date()), cutoffDays - 1).getTime();
+    const sourcePoints = isPortfolioView
+      ? dashboard.timeline.map((point) => ({
+          date: point.date,
+          investedAmount: point.investedAmount,
+          valuationAmount: point.valuationAmount,
+          pnl: point.pnl,
+        }))
+      : (instrumentTimelineQuery.data?.points ?? []).map((point) => ({
+          date: point.date,
+          holdingValue: point.holdingValue,
+          unitPrice: point.unitPrice,
+        }));
+
+    return sourcePoints
+      .filter((point) => {
+        if (cutoffDate === null) {
+          return true;
+        }
+        return startOfDay(point.date).getTime() >= cutoffDate;
+      })
+      .map((point) => ({
+        ...point,
+        date: format(point.date, 'dd MMM'),
+      }));
+  }, [dashboard.timeline, instrumentTimelineQuery.data?.points, isPortfolioView, timeRange]);
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
@@ -142,30 +170,44 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
         <CardHeader className="gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>Investment Timeline</CardTitle>
-            <Select value={viewSelection} onValueChange={setViewSelection}>
-              <SelectTrigger className="w-[22rem] max-w-full">
-                <SelectValue placeholder="Select portfolio or instrument" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Portfolio</SelectLabel>
-                  <SelectItem value={PORTFOLIO_VIEW}>All Investments</SelectItem>
-                </SelectGroup>
-                {[...groupedOptions.entries()].map(([kind, options]) => (
-                  <SelectGroup key={kind}>
-                    <SelectLabel>{investmentKindLabels[kind]}</SelectLabel>
-                    {options.map((option) => (
-                      <SelectItem
-                        key={toViewValue(option.kind, option.code)}
-                        value={toViewValue(option.kind, option.code)}
-                      >
-                        {option.name} ({option.code})
-                      </SelectItem>
-                    ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={timeRange} onValueChange={(value) => { setTimeRange(value as TimeRangeValue); }}>
+                <SelectTrigger className="w-[7rem]">
+                  <SelectValue placeholder="Range" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIME_RANGE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={viewSelection} onValueChange={setViewSelection}>
+                <SelectTrigger className="w-[22rem] max-w-full">
+                  <SelectValue placeholder="Select portfolio or instrument" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Portfolio</SelectLabel>
+                    <SelectItem value={PORTFOLIO_VIEW}>All Investments</SelectItem>
                   </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
+                  {[...groupedOptions.entries()].map(([kind, options]) => (
+                    <SelectGroup key={kind}>
+                      <SelectLabel>{investmentKindLabels[kind]}</SelectLabel>
+                      {options.map((option) => (
+                        <SelectItem
+                          key={toViewValue(option.kind, option.code)}
+                          value={toViewValue(option.kind, option.code)}
+                        >
+                          {option.name} ({option.code})
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           {!isPortfolioView && selectedInstrument !== null && selectedInstrument !== undefined ? (
             <div className="text-muted-foreground text-sm">
@@ -219,6 +261,27 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
               </div>
             ))}
           </div>
+          <p className="text-muted-foreground text-xs">
+            Crypto market data provided by{' '}
+            <a
+              className="underline underline-offset-2"
+              href="https://www.coingecko.com/"
+              rel="noreferrer"
+              target="_blank"
+            >
+              CoinGecko
+            </a>
+            . Attribution guide:{' '}
+            <a
+              className="underline underline-offset-2"
+              href="https://brand.coingecko.com/resources/attribution-guide"
+              rel="noreferrer"
+              target="_blank"
+            >
+              CoinGecko Attribution
+            </a>
+            .
+          </p>
         </CardContent>
       </Card>
     </div>
