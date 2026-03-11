@@ -9,10 +9,12 @@ import { type RouterOutput } from '@/server/routers';
 
 import { createInvestmentColumns } from './InvestmentColumns';
 import { CreateInvestmentForm } from './InvestmentForms';
+import { InvestmentsOverview } from './InvestmentsOverview';
 
 type InvestmentData = RouterOutput['investments']['getInvestments'];
+type InvestmentDashboardData = RouterOutput['investments']['getInvestmentsDashboard'];
 
-const Table = ({ data }: { data: InvestmentData }) => {
+const Table = ({ data, dashboard }: { data: InvestmentData; dashboard: InvestmentDashboardData }) => {
   const router = useRouter();
   const columns = createInvestmentColumns(() => {
     router.refresh();
@@ -26,11 +28,14 @@ const Table = ({ data }: { data: InvestmentData }) => {
   });
 
   return (
-    <DataTable getItemValue={(item) => item.id} table={table}>
-      <DataTableToolbar table={table}>
-        <CreateInvestmentForm />
-      </DataTableToolbar>
-    </DataTable>
+    <div className="grid gap-4">
+      <InvestmentsOverview dashboard={dashboard} />
+      <DataTable getItemValue={(item) => item.id} table={table}>
+        <DataTableToolbar table={table}>
+          <CreateInvestmentForm />
+        </DataTableToolbar>
+      </DataTable>
+    </div>
   );
 };
 

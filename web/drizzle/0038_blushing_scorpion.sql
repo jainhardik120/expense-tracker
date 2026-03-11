@@ -1,0 +1,1 @@
+ALTER TABLE "investments" DROP COLUMN "instrument_name";

@@ -260,6 +260,20 @@
       "when": 1773057779132,
       "tag": "0036_spicy_landau",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1773225000000,
+      "tag": "0037_noble_portfolio",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1773240657081,
+      "tag": "0038_blushing_scorpion",
+      "breakpoints": true
     }
   ]
 }

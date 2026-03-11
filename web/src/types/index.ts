@@ -25,6 +25,7 @@ import {
   smsTransactionStatusEnum,
   type smsNotifications,
 } from '@/db/schema';
+import { investmentKindValues, isUnitBasedInvestment } from '@/lib/investments';
 
 export const statementKindMap = {
   expense: 'Expense',
@@ -97,14 +98,33 @@ export const createSelfTransferSchema = z.object({
 });
 
 export const createInvestmentSchema = z.object({
-  investmentKind: z.string().min(1),
+  investmentKind: z.enum(investmentKindValues),
+  instrumentCode: z.string().trim().optional(),
   investmentDate: z.date(),
   investmentAmount: amount,
   maturityDate: z.date().optional(),
-  maturityAmount: amount.optional(),
-  amount: amount.optional(),
-  units: amount.optional(),
-  purchaseRate: amount.optional(),
+  maturityAmount: optionalAmount.optional(),
+  amount: optionalAmount.optional(),
+  units: optionalAmount.optional(),
+  purchaseRate: optionalAmount.optional(),
+  annualRate: optionalAmount.optional(),
+}).superRefine((value, ctx) => {
+  if (isUnitBasedInvestment(value.investmentKind)) {
+    if (value.instrumentCode === undefined || value.instrumentCode.trim() === '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['instrumentCode'],
+        message: 'Instrument code is required for stocks, mutual funds, and crypto',
+      });
+    }
+    if (value.units === undefined || value.units === '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['units'],
+        message: 'Units are required for stocks, mutual funds, and crypto',
+      });
+    }
+  }
 });
 
 export const createCreditCardAccountSchema = z.object({

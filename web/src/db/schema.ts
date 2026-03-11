@@ -153,6 +153,7 @@ export const investments = pgTable('investments', {
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
   investmentKind: text('investment_kind').notNull(),
+  instrumentCode: text('instrument_code'),
   investmentDate: timestamp('investment_date').notNull(),
   investmentAmount: numeric('investment_amount').notNull(),
   maturityDate: timestamp('maturity_date'),
@@ -160,6 +161,9 @@ export const investments = pgTable('investments', {
   amount: numeric('amount'),
   units: numeric('units'),
   purchaseRate: numeric('purchase_rate'),
+  annualRate: numeric('annual_rate'),
+  isClosed: boolean('is_closed').notNull().default(false),
+  closedAt: timestamp('closed_at'),
 });
 
 export const creditCardAccounts = pgTable('credit_card_accounts', {

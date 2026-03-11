@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 
 import { CartesianGrid, Line, LineChart as RechartsLineChart, XAxis } from 'recharts';
+import { type LineDot } from 'recharts/types/cartesian/Line';
 
 import {
   type ChartConfig,
@@ -44,7 +45,7 @@ const addColorsToChartData = (data: ChartData) => {
   };
 };
 
-const LineChart = ({ data }: { data: ChartData }) => {
+const LineChart = ({ data, dot }: { data: ChartData; dot?: LineDot }) => {
   const dataWithColors = useMemo(() => addColorsToChartData(data), [data]);
   return (
     <ChartContainer config={dataWithColors.secondaryAxes}>
@@ -71,9 +72,11 @@ const LineChart = ({ data }: { data: ChartData }) => {
               r: 6,
             }}
             dataKey={key}
-            dot={{
-              fill: dataWithColors.secondaryAxes[key].color,
-            }}
+            dot={
+              dot ?? {
+                fill: dataWithColors.secondaryAxes[key].color,
+              }
+            }
             stroke={dataWithColors.secondaryAxes[key].color}
             strokeWidth={2}
             type="natural"

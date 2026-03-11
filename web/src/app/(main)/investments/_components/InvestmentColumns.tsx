@@ -5,43 +5,58 @@ import { format } from 'date-fns';
 import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
+import { investmentKindLabels } from '@/lib/investments';
 import { api } from '@/server/react';
-import { type Investment } from '@/types';
+import { type RouterOutput } from '@/server/routers';
 
-import { UpdateInvestmentForm } from './InvestmentForms';
+import { CloseInvestmentForm, UpdateInvestmentForm } from './InvestmentForms';
 
-export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investment>[] => [
+type InvestmentRow = RouterOutput['investments']['getInvestments']['investments'][number];
+
+const formatSignedCurrency = (value: number | null): string => {
+  if (value === null) {
+    return '-';
+  }
+  const absValue = Math.abs(value);
+  const formatted = formatCurrency(absValue);
+  if (value > 0) {
+    return `+${formatted}`;
+  }
+  if (value < 0) {
+    return `-${formatted}`;
+  }
+  return formatted;
+};
+
+export const createInvestmentColumns = (refresh: () => void): ColumnDef<InvestmentRow>[] => [
   {
-    accessorKey: 'investmentKind',
-    header: 'Kind',
+    accessorKey: 'normalizedKind',
+    header: 'Type',
+    cell: ({ row }) => investmentKindLabels[row.original.normalizedKind],
+  },
+  {
+    accessorKey: 'instrumentCode',
+    header: 'Code',
+    cell: ({ row }) => {
+      const code = row.original.instrumentCode ?? '-';
+      if (row.original.instrumentName === null) {
+        return code;
+      }
+      return `${row.original.instrumentName} (${code})`;
+    },
   },
   {
     accessorKey: 'investmentDate',
     header: 'Investment Date',
-    cell: ({ row }) => format(row.original.investmentDate, 'PPp'),
+    cell: ({ row }) => format(row.original.investmentDate, 'PP'),
   },
   {
     accessorKey: 'investmentAmount',
-    header: 'Investment Amount',
-  },
-  {
-    accessorKey: 'maturityDate',
-    header: 'Maturity Date',
-    cell: ({ row }) =>
-      row.original.maturityDate === null ? '-' : format(row.original.maturityDate, 'PPp'),
-  },
-  {
-    accessorKey: 'maturityAmount',
-    header: 'Maturity Amount',
-    cell: ({ row }) =>
-      row.original.maturityAmount === null ? '-' : formatCurrency(row.original.maturityAmount),
-  },
-  {
-    accessorKey: 'amount',
-    header: 'Current Amount',
-    cell: ({ row }) => (row.original.amount === null ? '-' : formatCurrency(row.original.amount)),
+    header: 'Invested',
+    cell: ({ row }) => formatCurrency(row.original.investmentAmount),
   },
   {
     accessorKey: 'units',
@@ -49,10 +64,44 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
     cell: ({ row }) => row.original.units ?? '-',
   },
   {
-    accessorKey: 'purchaseRate',
-    header: 'Purchase Rate',
+    accessorKey: 'liveUnitPrice',
+    header: 'Unit Price (INR)',
     cell: ({ row }) =>
-      row.original.purchaseRate === null ? '-' : formatCurrency(row.original.purchaseRate),
+      row.original.liveUnitPrice === null ? '-' : formatCurrency(row.original.liveUnitPrice),
+  },
+  {
+    accessorKey: 'valuationAmount',
+    header: 'Current Value',
+    cell: ({ row }) =>
+      row.original.valuationAmount === null ? '-' : formatCurrency(row.original.valuationAmount),
+  },
+  {
+    accessorKey: 'pnl',
+    header: 'P/L',
+    cell: ({ row }) => {
+      const pnlValue = row.original.pnl;
+      const pnlPercent = row.original.pnlPercentage;
+      if (pnlValue === null) {
+        return <span>-</span>;
+      }
+      let tone = 'text-muted-foreground';
+      if (pnlValue > 0) {
+        tone = 'text-green-600';
+      } else if (pnlValue < 0) {
+        tone = 'text-red-600';
+      }
+      const percentage = pnlPercent === null ? '' : ` (${pnlPercent.toFixed(2)}%)`;
+      return <span className={tone}>{`${formatSignedCurrency(pnlValue)}${percentage}`}</span>;
+    },
+  },
+  {
+    id: 'status',
+    header: 'Status',
+    cell: ({ row }) => (
+      <Badge variant={row.original.isClosedPosition ? 'secondary' : 'default'}>
+        {row.original.isClosedPosition ? 'Closed' : 'Open'}
+      </Badge>
+    ),
   },
   {
     id: 'actions',
@@ -66,6 +115,9 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
             investmentId={row.original.id}
             refresh={refresh}
           />
+          {!row.original.isClosedPosition ? (
+            <CloseInvestmentForm investmentId={row.original.id} refresh={refresh} />
+          ) : null}
           <DeleteConfirmationDialog
             mutation={deleteMutation}
             mutationInput={{ id: row.original.id }}
