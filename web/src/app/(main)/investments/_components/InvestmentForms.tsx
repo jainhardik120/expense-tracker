@@ -182,25 +182,6 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
     displayCondition: (values) =>
       requiresInstrumentCode(normalizeInvestmentKind(values.investmentKind)),
   },
-  {
-    name: 'purchaseRate',
-    label: 'Purchase Rate (Optional)',
-    type: 'number',
-    placeholder: 'Price per unit in INR',
-    min: 0,
-    max: 9999999999,
-    step: 0.00000001,
-    displayCondition: (values) =>
-      requiresInstrumentCode(normalizeInvestmentKind(values.investmentKind)),
-  },
-  {
-    name: 'amount',
-    label: 'Manual Current Value (Optional)',
-    type: 'number',
-    placeholder: 'Used when live quote is unavailable',
-    min: 0,
-    max: 9999999999,
-  },
 ];
 
 export const CreateInvestmentForm = () => {
@@ -221,9 +202,7 @@ export const CreateInvestmentForm = () => {
         investmentAmount: '',
         maturityDate: new Date(),
         maturityAmount: '',
-        amount: '',
         units: '',
-        purchaseRate: '',
         annualRate: '',
       }}
       fields={investmentFormFields}
@@ -268,9 +247,7 @@ export const UpdateInvestmentForm = ({
         investmentAmount: initialData.investmentAmount,
         maturityDate: initialData.maturityDate ?? new Date(),
         maturityAmount: initialData.maturityAmount ?? '',
-        amount: initialData.amount ?? '',
         units: initialData.units ?? '',
-        purchaseRate: initialData.purchaseRate ?? '',
         annualRate: initialData.annualRate ?? '',
       }}
       fields={investmentFormFields}

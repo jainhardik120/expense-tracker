@@ -105,9 +105,7 @@ export const createInvestmentSchema = z
     investmentAmount: amount,
     maturityDate: z.date().optional(),
     maturityAmount: optionalAmount.optional(),
-    amount: optionalAmount.optional(),
     units: optionalAmount.optional(),
-    purchaseRate: optionalAmount.optional(),
     annualRate: optionalAmount.optional(),
   })
   .superRefine((value, ctx) => {

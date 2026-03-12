@@ -33,9 +33,7 @@ const normalizeInvestmentInput = (input: z.infer<typeof createInvestmentSchema>)
   investmentAmount: input.investmentAmount,
   maturityDate: optionalDateToNull(input.maturityDate),
   maturityAmount: optionalToNull(input.maturityAmount),
-  amount: optionalToNull(input.amount),
   units: optionalToNull(input.units),
-  purchaseRate: optionalToNull(input.purchaseRate),
   annualRate: optionalToNull(input.annualRate),
 });
 

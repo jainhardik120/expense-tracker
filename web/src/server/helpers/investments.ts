@@ -186,29 +186,10 @@ const getDayChangePercentageFromValuation = (
   return getPercentageChange(dayChange, valuationAmount - dayChange);
 };
 
-const deriveUnits = ({
-  units,
-  purchaseRate,
-  investedAmount,
-}: {
-  units: string | null | undefined;
-  purchaseRate: string | null | undefined;
-  investedAmount: string | null | undefined;
-}): number | null => {
+const deriveUnits = ({ units }: { units: string | null | undefined }): number | null => {
   const parsedUnits = parseOptionalNumber(units);
   if (parsedUnits !== null && parsedUnits > 0) {
     return parsedUnits;
-  }
-
-  const parsedPurchaseRate = parseOptionalNumber(purchaseRate);
-  const parsedInvestedAmount = parseOptionalNumber(investedAmount);
-  if (
-    parsedPurchaseRate !== null &&
-    parsedPurchaseRate > 0 &&
-    parsedInvestedAmount !== null &&
-    parsedInvestedAmount > 0
-  ) {
-    return parsedInvestedAmount / parsedPurchaseRate;
   }
 
   return null;
@@ -320,11 +301,6 @@ const getFdValuationAtDate = (investment: InvestmentRow, valueDate: Date): numbe
   const principal = parseOptionalNumber(investment.investmentAmount);
   if (principal === null) {
     return null;
-  }
-
-  const manualValue = parseOptionalNumber(investment.amount);
-  if (manualValue !== null) {
-    return manualValue;
   }
 
   const maturityValue = parseOptionalNumber(investment.maturityAmount);
@@ -1268,8 +1244,6 @@ const enrichInvestments = instrumentedFunction(
       const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
       const units = deriveUnits({
         units: investment.units,
-        purchaseRate: investment.purchaseRate,
-        investedAmount: investment.investmentAmount,
       });
       const quote =
         instrumentCode === '' ? undefined : context.quoteByInstrumentKey.get(instrumentKey);
@@ -1285,7 +1259,7 @@ const enrichInvestments = instrumentedFunction(
         if (normalizedKind === 'fd') {
           return getFdValuation(investment);
         }
-        return closedAmount;
+        return investedAmount;
       })();
 
       const pnl = valuationAmount === null ? null : valuationAmount - investedAmount;
@@ -1309,8 +1283,6 @@ const enrichInvestments = instrumentedFunction(
       } else if (isUnitBasedInvestment(normalizedKind) && instrumentCode !== '') {
         const units = deriveUnits({
           units: investment.units,
-          purchaseRate: investment.purchaseRate,
-          investedAmount: investment.investmentAmount,
         });
         const metrics = oneDayUnitMetricsByKey.get(instrumentKey);
         const currentUnitPrice = metrics?.currentUnitPrice;
@@ -1348,20 +1320,10 @@ const enrichInvestments = instrumentedFunction(
 );
 
 const getUnitsForInvestment = (investment: EnrichedInvestment): number => {
-  return (
-    deriveUnits({
-      units: investment.units,
-      purchaseRate: investment.purchaseRate,
-      investedAmount: investment.investmentAmount,
-    }) ?? 0
-  );
+  return deriveUnits({ units: investment.units }) ?? 0;
 };
 
 const getFallbackUnitPrice = (investment: EnrichedInvestment): number | undefined => {
-  const purchaseRate = parseOptionalNumber(investment.purchaseRate);
-  if (purchaseRate !== null && purchaseRate > 0) {
-    return purchaseRate;
-  }
   const units = getUnitsForInvestment(investment);
   const investedAmount = parseOptionalNumber(investment.investmentAmount);
   if (units > 0 && investedAmount !== null && investedAmount > 0) {
@@ -1429,12 +1391,16 @@ const buildDailyInstrumentTimeline = async ({
         }
         if (kind === 'fd') {
           value += getFdValuationAtDate(position, day) ?? 0;
-        } else {
+          continue;
+        }
+        if (position.isClosedPosition) {
           value +=
             parseOptionalNumber(position.amount) ??
             parseOptionalNumber(position.investmentAmount) ??
             0;
+          continue;
         }
+        value += parseOptionalNumber(position.investmentAmount) ?? 0;
       }
       return {
         date: day,
@@ -1781,12 +1747,15 @@ const getInvestmentsDashboard = instrumentedFunction(
         if (closeDay !== null && day.getTime() > closeDay.getTime()) {
           continue;
         }
-        const value =
-          investment.normalizedKind === 'fd'
-            ? (getFdValuationAtDate(investment, day) ?? 0)
-            : (parseOptionalNumber(investment.amount) ??
-              parseOptionalNumber(investment.investmentAmount) ??
-              0);
+        let value = parseOptionalNumber(investment.investmentAmount) ?? 0;
+        if (investment.normalizedKind === 'fd') {
+          value = getFdValuationAtDate(investment, day) ?? 0;
+        } else if (investment.isClosedPosition) {
+          value =
+            parseOptionalNumber(investment.amount) ??
+            parseOptionalNumber(investment.investmentAmount) ??
+            0;
+        }
         const dayKey = dateToDayKey(day);
         dailyValuation.set(dayKey, (dailyValuation.get(dayKey) ?? 0) + value);
       }

@@ -160,7 +160,6 @@ export const investments = pgTable('investments', {
   maturityAmount: numeric('maturity_amount'),
   amount: numeric('amount'),
   units: numeric('units'),
-  purchaseRate: numeric('purchase_rate'),
   annualRate: numeric('annual_rate'),
   isClosed: boolean('is_closed').notNull().default(false),
   closedAt: timestamp('closed_at'),
