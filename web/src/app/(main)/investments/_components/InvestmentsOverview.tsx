@@ -16,29 +16,37 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/format';
-import { investmentKindLabels, type InvestmentKindValue } from '@/lib/investments';
+import {
+  investmentKindLabels,
+  type InvestmentKindValue,
+  type InvestmentTimelineRangeValue,
+  investmentTimelineRangeDays,
+} from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
-type DashboardData = RouterOutput['investments']['getInvestmentsDashboard'];
+type DashboardData = RouterOutput['investments']['getInvestmentsPageData']['dashboard'];
+type InstrumentTimelineEntry =
+  RouterOutput['investments']['getInvestmentsPageData']['instrumentTimelines'][number];
+type TimelineFilters = {
+  start?: Date;
+  end?: Date;
+  investmentKind: string[];
+};
 
 const PORTFOLIO_VIEW = '__portfolio__';
-const TIME_RANGE_OPTIONS = [
+const POSITIVE_TONE = 'text-green-600';
+const NEGATIVE_TONE = 'text-red-600';
+const UNITS_DECIMALS = 4;
+
+const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: string }> = [
   { value: '1d', label: '1D' },
   { value: '1w', label: '1W' },
   { value: '1m', label: '1M' },
   { value: '3m', label: '3M' },
   { value: '6m', label: '6M' },
   { value: 'lifetime', label: 'Lifetime' },
-] as const;
-type TimeRangeValue = (typeof TIME_RANGE_OPTIONS)[number]['value'];
-const TIME_RANGE_DAYS: Partial<Record<TimeRangeValue, number>> = {
-  '1d': 1,
-  '1w': 7,
-  '1m': 30,
-  '3m': 90,
-  '6m': 180,
-};
+];
 
 const toViewValue = (kind: InvestmentKindValue, code: string) => `${kind}|${code}`;
 
@@ -63,9 +71,17 @@ const parseViewValue = (value: string): { kind: InvestmentKindValue; code: strin
   return null;
 };
 
-export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData }) => {
+export const InvestmentsOverview = ({
+  dashboard,
+  instrumentTimelines,
+  filters,
+}: {
+  dashboard: DashboardData;
+  instrumentTimelines: InstrumentTimelineEntry[];
+  filters: TimelineFilters;
+}) => {
   const [viewSelection, setViewSelection] = useState(PORTFOLIO_VIEW);
-  const [timeRange, setTimeRange] = useState<TimeRangeValue>('lifetime');
+  const [timeRange, setTimeRange] = useState<InvestmentTimelineRangeValue>('1m');
 
   const groupedOptions = useMemo(() => {
     const map = new Map<InvestmentKindValue, DashboardData['instrumentOptions']>();
@@ -87,32 +103,56 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
     });
   }, [dashboard.instrumentOptions, viewSelection]);
 
-  const selectedInstrumentKey = parseViewValue(viewSelection);
-  const instrumentTimelineQuery = api.investments.getInstrumentTimeline.useQuery(
-    selectedInstrumentKey ?? { kind: 'stocks', code: '' },
+  const isPortfolioView = viewSelection === PORTFOLIO_VIEW;
+  const requiresRemoteTimeline =
+    timeRange === '3m' || timeRange === '6m' || timeRange === 'lifetime';
+
+  const rangeTimelineQuery = api.investments.getInvestmentsTimelines.useQuery(
     {
-      enabled: selectedInstrumentKey !== null,
+      start: filters.start,
+      end: filters.end,
+      investmentKind: filters.investmentKind,
+      range: timeRange,
+    },
+    {
+      enabled: requiresRemoteTimeline,
     },
   );
 
-  const isPortfolioView = viewSelection === PORTFOLIO_VIEW;
+  const selectedTimelineEntries = requiresRemoteTimeline
+    ? (rangeTimelineQuery.data?.instrumentTimelines ?? instrumentTimelines)
+    : instrumentTimelines;
+  const portfolioTimeline = requiresRemoteTimeline
+    ? (rangeTimelineQuery.data?.timeline ?? dashboard.timeline)
+    : dashboard.timeline;
+
+  const instrumentTimelineMap = useMemo(() => {
+    const map = new Map<string, InstrumentTimelineEntry['timeline']>();
+    for (const entry of selectedTimelineEntries) {
+      map.set(toViewValue(entry.kind, entry.code), entry.timeline);
+    }
+    return map;
+  }, [selectedTimelineEntries]);
 
   const chartRows = useMemo(() => {
-    const cutoffDays = TIME_RANGE_DAYS[timeRange];
-    const cutoffDate =
-      cutoffDays === undefined ? null : subDays(startOfDay(new Date()), cutoffDays - 1).getTime();
     const sourcePoints = isPortfolioView
-      ? dashboard.timeline.map((point) => ({
+      ? portfolioTimeline.map((point) => ({
           date: point.date,
           investedAmount: point.investedAmount,
           valuationAmount: point.valuationAmount,
           pnl: point.pnl,
         }))
-      : (instrumentTimelineQuery.data?.points ?? []).map((point) => ({
+      : (instrumentTimelineMap.get(viewSelection)?.points ?? []).map((point) => ({
           date: point.date,
           holdingValue: point.holdingValue,
           unitPrice: point.unitPrice,
         }));
+
+    const days = investmentTimelineRangeDays[timeRange];
+    const cutoffDate =
+      requiresRemoteTimeline || days === undefined
+        ? null
+        : subDays(startOfDay(new Date()), days - 1).getTime();
 
     return sourcePoints
       .filter((point) => {
@@ -125,7 +165,17 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
         ...point,
         date: format(point.date, 'dd MMM'),
       }));
-  }, [dashboard.timeline, instrumentTimelineQuery.data?.points, isPortfolioView, timeRange]);
+  }, [
+    instrumentTimelineMap,
+    isPortfolioView,
+    portfolioTimeline,
+    requiresRemoteTimeline,
+    timeRange,
+    viewSelection,
+  ]);
+
+  const isLoadingTimeline =
+    requiresRemoteTimeline && rangeTimelineQuery.isFetching && chartRows.length === 0;
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
@@ -151,9 +201,19 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
             <CardTitle className="text-sm font-medium">Total P/L</CardTitle>
           </CardHeader>
           <CardContent
-            className={`text-xl font-semibold ${dashboard.summary.pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}
+            className={`text-xl font-semibold ${dashboard.summary.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}`}
           >
             {formatCurrency(dashboard.summary.pnl)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">1D Change</CardTitle>
+          </CardHeader>
+          <CardContent
+            className={`text-xl font-semibold ${dashboard.summary.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}`}
+          >
+            {formatCurrency(dashboard.summary.dayChange)}
           </CardContent>
         </Card>
         <Card>
@@ -171,7 +231,12 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>Investment Timeline</CardTitle>
             <div className="flex flex-wrap items-center gap-2">
-              <Select value={timeRange} onValueChange={(value) => { setTimeRange(value as TimeRangeValue); }}>
+              <Select
+                value={timeRange}
+                onValueChange={(value) => {
+                  setTimeRange(value as InvestmentTimelineRangeValue);
+                }}
+              >
                 <SelectTrigger className="w-[7rem]">
                   <SelectValue placeholder="Range" />
                 </SelectTrigger>
@@ -212,10 +277,14 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
           {!isPortfolioView && selectedInstrument !== null && selectedInstrument !== undefined ? (
             <div className="text-muted-foreground text-sm">
               {selectedInstrument.name} ({selectedInstrument.code}) - Units{' '}
-              {selectedInstrument.units.toFixed(4)} - Value{' '}
+              {selectedInstrument.units.toFixed(UNITS_DECIMALS)} - Value{' '}
               {formatCurrency(selectedInstrument.valuationAmount)} - P/L{' '}
-              <span className={selectedInstrument.pnl >= 0 ? 'text-green-600' : 'text-red-600'}>
+              <span className={selectedInstrument.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
                 {formatCurrency(selectedInstrument.pnl)}
+              </span>{' '}
+              - 1D{' '}
+              <span className={selectedInstrument.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                {formatCurrency(selectedInstrument.dayChange)}
               </span>
             </div>
           ) : null}
@@ -223,7 +292,7 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
         <CardContent className="space-y-4">
           {chartRows.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              {instrumentTimelineQuery.isFetching
+              {isLoadingTimeline
                 ? 'Loading timeline...'
                 : 'No timeline data available for the selected view.'}
             </p>
@@ -247,6 +316,7 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
                 data: chartRows,
               }}
               dot={false}
+              type="monotone"
             />
           )}
 
@@ -258,6 +328,9 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
                   {kindItem.openPositions} open / {kindItem.closedPositions} closed
                 </div>
                 <div>{formatCurrency(kindItem.valuationAmount)}</div>
+                <div className={kindItem.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                  1D {formatCurrency(kindItem.dayChange)}
+                </div>
               </div>
             ))}
           </div>
@@ -271,16 +344,6 @@ export const InvestmentsOverview = ({ dashboard }: { dashboard: DashboardData })
             >
               CoinGecko
             </a>
-            . Attribution guide:{' '}
-            <a
-              className="underline underline-offset-2"
-              href="https://brand.coingecko.com/resources/attribution-guide"
-              rel="noreferrer"
-              target="_blank"
-            >
-              CoinGecko Attribution
-            </a>
-            .
           </p>
         </CardContent>
       </Card>

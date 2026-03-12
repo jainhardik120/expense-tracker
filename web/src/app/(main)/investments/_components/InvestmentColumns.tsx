@@ -14,9 +14,10 @@ import { type RouterOutput } from '@/server/routers';
 
 import { CloseInvestmentForm, UpdateInvestmentForm } from './InvestmentForms';
 
-type InvestmentRow = RouterOutput['investments']['getInvestments']['investments'][number];
+type InvestmentRow =
+  RouterOutput['investments']['getInvestmentsPageData']['table']['investments'][number];
 
-const formatSignedCurrency = (value: number | null): string => {
+export const formatSignedCurrency = (value: number | null): string => {
   if (value === null) {
     return '-';
   }
@@ -29,6 +30,13 @@ const formatSignedCurrency = (value: number | null): string => {
     return `-${formatted}`;
   }
   return formatted;
+};
+
+export const getSignedValueTone = (value: number | null): string => {
+  if (value === null || value === 0) {
+    return 'text-muted-foreground';
+  }
+  return value > 0 ? 'text-green-600' : 'text-red-600';
 };
 
 export const createInvestmentColumns = (refresh: () => void): ColumnDef<InvestmentRow>[] => [
@@ -84,14 +92,26 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
       if (pnlValue === null) {
         return <span>-</span>;
       }
-      let tone = 'text-muted-foreground';
-      if (pnlValue > 0) {
-        tone = 'text-green-600';
-      } else if (pnlValue < 0) {
-        tone = 'text-red-600';
-      }
+      const tone = getSignedValueTone(pnlValue);
       const percentage = pnlPercent === null ? '' : ` (${pnlPercent.toFixed(2)}%)`;
       return <span className={tone}>{`${formatSignedCurrency(pnlValue)}${percentage}`}</span>;
+    },
+  },
+  {
+    accessorKey: 'dayChange',
+    header: '1D Change',
+    cell: ({ row }) => {
+      const dayChangeValue = row.original.dayChange;
+      const dayChangePercent = row.original.dayChangePercentage;
+      if (dayChangeValue === null) {
+        return <span>-</span>;
+      }
+      const percentage = dayChangePercent === null ? '' : ` (${dayChangePercent.toFixed(2)}%)`;
+      return (
+        <span className={getSignedValueTone(dayChangeValue)}>
+          {`${formatSignedCurrency(dayChangeValue)}${percentage}`}
+        </span>
+      );
     },
   },
   {

@@ -97,35 +97,37 @@ export const createSelfTransferSchema = z.object({
   createdAt: z.date(),
 });
 
-export const createInvestmentSchema = z.object({
-  investmentKind: z.enum(investmentKindValues),
-  instrumentCode: z.string().trim().optional(),
-  investmentDate: z.date(),
-  investmentAmount: amount,
-  maturityDate: z.date().optional(),
-  maturityAmount: optionalAmount.optional(),
-  amount: optionalAmount.optional(),
-  units: optionalAmount.optional(),
-  purchaseRate: optionalAmount.optional(),
-  annualRate: optionalAmount.optional(),
-}).superRefine((value, ctx) => {
-  if (isUnitBasedInvestment(value.investmentKind)) {
-    if (value.instrumentCode === undefined || value.instrumentCode.trim() === '') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['instrumentCode'],
-        message: 'Instrument code is required for stocks, mutual funds, and crypto',
-      });
+export const createInvestmentSchema = z
+  .object({
+    investmentKind: z.enum(investmentKindValues),
+    instrumentCode: z.string().trim().optional(),
+    investmentDate: z.date(),
+    investmentAmount: amount,
+    maturityDate: z.date().optional(),
+    maturityAmount: optionalAmount.optional(),
+    amount: optionalAmount.optional(),
+    units: optionalAmount.optional(),
+    purchaseRate: optionalAmount.optional(),
+    annualRate: optionalAmount.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (isUnitBasedInvestment(value.investmentKind)) {
+      if (value.instrumentCode === undefined || value.instrumentCode.trim() === '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['instrumentCode'],
+          message: 'Instrument code is required for stocks, mutual funds, and crypto',
+        });
+      }
+      if (value.units === undefined || value.units === '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['units'],
+          message: 'Units are required for stocks, mutual funds, and crypto',
+        });
+      }
     }
-    if (value.units === undefined || value.units === '') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['units'],
-        message: 'Units are required for stocks, mutual funds, and crypto',
-      });
-    }
-  }
-});
+  });
 
 export const createCreditCardAccountSchema = z.object({
   accountId: z.string(),

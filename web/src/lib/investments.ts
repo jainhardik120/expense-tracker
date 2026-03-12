@@ -46,3 +46,15 @@ export const isUnitBasedInvestment = (kind: InvestmentKindValue): boolean => {
 export const isLivePriceInvestment = (kind: InvestmentKindValue): boolean => {
   return kind === 'stocks' || kind === 'mutual_funds' || kind === 'crypto';
 };
+
+export const investmentTimelineRangeValues = ['1d', '1w', '1m', '3m', '6m', 'lifetime'] as const;
+
+export type InvestmentTimelineRangeValue = (typeof investmentTimelineRangeValues)[number];
+
+export const investmentTimelineRangeDays: Partial<Record<InvestmentTimelineRangeValue, number>> = {
+  '1d': 1,
+  '1w': 7,
+  '1m': 30,
+  '3m': 90,
+  '6m': 180,
+};

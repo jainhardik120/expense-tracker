@@ -3,6 +3,8 @@ import { env } from '@/lib/env';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
   type InvestmentKindValue,
+  type InvestmentTimelineRangeValue,
+  investmentTimelineRangeDays,
   isLivePriceInvestment,
   isUnitBasedInvestment,
   normalizeInvestmentKind,
@@ -26,8 +28,8 @@ type Quote = {
   source: string;
 };
 
-type QuoteRequest = {
-  investmentId: string;
+type InstrumentIdentity = {
+  kind: InvestmentKindValue;
   code: string;
 };
 
@@ -54,6 +56,17 @@ export type DashboardInstrumentOption = {
   investedAmount: number;
   valuationAmount: number;
   pnl: number;
+  dayChange: number;
+  dayChangePercentage: number | null;
+};
+
+export type DashboardInstrumentBreakdown = DashboardInstrumentOption & {
+  openPositions: number;
+  closedPositions: number;
+  totalPositions: number;
+  averageBuyPrice: number | null;
+  currentUnitPrice: number | null;
+  pnlPercentage: number | null;
 };
 
 export type InvestmentsDashboard = {
@@ -61,6 +74,9 @@ export type InvestmentsDashboard = {
     investedAmount: number;
     valuationAmount: number;
     pnl: number;
+    pnlPercentage: number | null;
+    dayChange: number;
+    dayChangePercentage: number | null;
     openPositions: number;
     closedPositions: number;
     totalPositions: number;
@@ -70,12 +86,16 @@ export type InvestmentsDashboard = {
     investedAmount: number;
     valuationAmount: number;
     pnl: number;
+    pnlPercentage: number | null;
+    dayChange: number;
+    dayChangePercentage: number | null;
     openPositions: number;
     closedPositions: number;
     totalPositions: number;
   }>;
   timeline: InvestmentTimelinePoint[];
   instrumentOptions: DashboardInstrumentOption[];
+  instrumentBreakdown: DashboardInstrumentBreakdown[];
 };
 
 export type InstrumentHoldingTimelinePoint = {
@@ -95,6 +115,41 @@ export type InstrumentHoldingTimeline = {
   };
 };
 
+export type InstrumentTimelineEntry = {
+  kind: InvestmentKindValue;
+  code: string;
+  timeline: InstrumentHoldingTimeline;
+};
+
+type InvestmentMarketDataContext = {
+  quoteByInstrumentKey: Map<string, Quote>;
+  nameByInstrumentKey: Map<string, string>;
+  historyByInstrumentKey: Map<string, Array<{ date: Date; price: number }>>;
+};
+
+export type InvestmentsPageData = {
+  table: {
+    investments: EnrichedInvestment[];
+    pageCount: number;
+    rowsCount: number;
+  };
+  dashboard: InvestmentsDashboard;
+  instrumentTimelines: InstrumentTimelineEntry[];
+  defaultRange: {
+    range: '1m';
+    startDate: Date;
+    endDate: Date;
+  };
+};
+
+export type InvestmentsRangeTimelines = {
+  range: InvestmentTimelineRangeValue;
+  startDate: Date;
+  endDate: Date;
+  timeline: InvestmentTimelinePoint[];
+  instrumentTimelines: InstrumentTimelineEntry[];
+};
+
 export type EnrichedInvestment = InvestmentRow & {
   normalizedKind: InvestmentKindValue;
   instrumentName: string | null;
@@ -103,6 +158,8 @@ export type EnrichedInvestment = InvestmentRow & {
   valuationAmount: number | null;
   pnl: number | null;
   pnlPercentage: number | null;
+  dayChange: number | null;
+  dayChangePercentage: number | null;
   valuationSource: string | null;
   valuationDate: Date | null;
 };
@@ -113,6 +170,48 @@ const parseOptionalNumber = (value: string | null | undefined): number | null =>
   }
   const parsed = parseFloatSafe(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getPercentageChange = (numerator: number, denominator: number): number | null => {
+  if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) {
+    return null;
+  }
+  return (numerator / Math.abs(denominator)) * 100;
+};
+
+const getDayChangePercentageFromValuation = (
+  valuationAmount: number,
+  dayChange: number,
+): number | null => {
+  return getPercentageChange(dayChange, valuationAmount - dayChange);
+};
+
+const deriveUnits = ({
+  units,
+  purchaseRate,
+  investedAmount,
+}: {
+  units: string | null | undefined;
+  purchaseRate: string | null | undefined;
+  investedAmount: string | null | undefined;
+}): number | null => {
+  const parsedUnits = parseOptionalNumber(units);
+  if (parsedUnits !== null && parsedUnits > 0) {
+    return parsedUnits;
+  }
+
+  const parsedPurchaseRate = parseOptionalNumber(purchaseRate);
+  const parsedInvestedAmount = parseOptionalNumber(investedAmount);
+  if (
+    parsedPurchaseRate !== null &&
+    parsedPurchaseRate > 0 &&
+    parsedInvestedAmount !== null &&
+    parsedInvestedAmount > 0
+  ) {
+    return parsedInvestedAmount / parsedPurchaseRate;
+  }
+
+  return null;
 };
 
 const parseMfDate = (value: string): Date | null => {
@@ -130,7 +229,8 @@ const parseMfDate = (value: string): Date | null => {
   return new Date(year, month - 1, day);
 };
 
-const startOfDay = (date: Date): Date => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+const startOfDay = (date: Date): Date =>
+  new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 const clampDateInRange = (date: Date, rangeStart: Date, rangeEnd: Date): Date => {
   if (date.getTime() < rangeStart.getTime()) {
@@ -156,6 +256,32 @@ const buildDailyRange = (startDate: Date, endDate: Date): Date[] => {
     cursor = new Date(cursor.getTime() + DAY_IN_MS);
   }
   return days;
+};
+
+const subtractDays = (date: Date, days: number): Date => {
+  return new Date(startOfDay(date).getTime() - Math.max(days - 1, 0) * DAY_IN_MS);
+};
+
+const getTimeRangeBounds = (
+  range: InvestmentTimelineRangeValue,
+  earliestDate: Date,
+  referenceEndDate?: Date,
+): { startDate: Date; endDate: Date } => {
+  const now = startOfDay(new Date());
+  const requestedEnd = referenceEndDate === undefined ? now : startOfDay(referenceEndDate);
+  const endDate = requestedEnd.getTime() > now.getTime() ? now : requestedEnd;
+  const days = investmentTimelineRangeDays[range];
+  if (days === undefined) {
+    return {
+      startDate: earliestDate,
+      endDate,
+    };
+  }
+  const requestedStart = subtractDays(endDate, days);
+  return {
+    startDate: requestedStart.getTime() < earliestDate.getTime() ? earliestDate : requestedStart,
+    endDate,
+  };
 };
 
 const buildDailyPriceSeries = ({
@@ -239,17 +365,20 @@ const getFdValuation = (investment: InvestmentRow): number | null => {
   return getFdValuationAtDate(investment, new Date());
 };
 
-const fetchJson = async <T>(url: string, init?: RequestInit): Promise<T | null> => {
-  try {
-    const response = await fetch(url, init);
-    if (!response.ok) {
+const fetchJson = instrumentedFunction(
+  'fetchJSON',
+  async <T>(url: string, init?: RequestInit): Promise<T | null> => {
+    try {
+      const response = await fetch(url, init);
+      if (!response.ok) {
+        return null;
+      }
+      return (await response.json()) as T;
+    } catch {
       return null;
     }
-    return (await response.json()) as T;
-  } catch {
-    return null;
-  }
-};
+  },
+);
 
 type MFScheme = {
   schemeCode: number;
@@ -407,7 +536,9 @@ const searchFd = async (query: string): Promise<InvestmentInstrumentSearchResult
   const normalized = query.toLowerCase().trim();
   return fdInstruments
     .filter((fd) => {
-      return fd.code.toLowerCase().includes(normalized) || fd.name.toLowerCase().includes(normalized);
+      return (
+        fd.code.toLowerCase().includes(normalized) || fd.name.toLowerCase().includes(normalized)
+      );
     })
     .slice(0, 20)
     .map((fd) => ({
@@ -505,7 +636,9 @@ const resolveMutualFundInstrumentNames = async (codes: string[]): Promise<Map<st
 
 const resolveCryptoInstrumentNames = async (codes: string[]): Promise<Map<string, string>> => {
   const names = new Map<string, string>();
-  const normalizedCodes = [...new Set(codes.map((code) => code.trim().toLowerCase()).filter(Boolean))];
+  const normalizedCodes = [
+    ...new Set(codes.map((code) => code.trim().toLowerCase()).filter(Boolean)),
+  ];
   const nameById = new Map<string, string>();
 
   await Promise.all(
@@ -578,7 +711,9 @@ const resolveInstrumentNames = async (
     resolveCryptoInstrumentNames([...new Set(codesByKind.crypto)]),
   ]);
 
-  const fdNameByCode = new Map(fdInstruments.map((instrument) => [instrument.code, instrument.name]));
+  const fdNameByCode = new Map(
+    fdInstruments.map((instrument) => [instrument.code, instrument.name]),
+  );
   const resolved = new Map<string, string>();
 
   for (const instrument of instruments) {
@@ -608,28 +743,25 @@ const resolveInstrumentNames = async (
 
 export const searchInvestmentInstruments = instrumentedFunction(
   'searchInvestmentInstruments',
-  async (
-    kind: InvestmentKindValue,
-    query: string,
-  ): Promise<InvestmentInstrumentSearchResult[]> => {
-  const normalizedQuery = query.trim();
-  if (normalizedQuery.length < 2) {
-    return [];
-  }
+  async (kind: InvestmentKindValue, query: string): Promise<InvestmentInstrumentSearchResult[]> => {
+    const normalizedQuery = query.trim();
+    if (normalizedQuery.length < 2) {
+      return [];
+    }
 
-  if (kind === 'stocks') {
-    return searchStocks(normalizedQuery);
-  }
-  if (kind === 'mutual_funds') {
-    return searchMutualFunds(normalizedQuery);
-  }
-  if (kind === 'crypto') {
-    return searchCrypto(normalizedQuery);
-  }
-  if (kind === 'fd') {
-    return searchFd(normalizedQuery);
-  }
-  return [];
+    if (kind === 'stocks') {
+      return searchStocks(normalizedQuery);
+    }
+    if (kind === 'mutual_funds') {
+      return searchMutualFunds(normalizedQuery);
+    }
+    if (kind === 'crypto') {
+      return searchCrypto(normalizedQuery);
+    }
+    if (kind === 'fd') {
+      return searchFd(normalizedQuery);
+    }
+    return [];
   },
 );
 
@@ -773,16 +905,24 @@ const getHistoricalUnitPrices = async (
   return [];
 };
 
-const getStockQuotes = async (requests: QuoteRequest[]): Promise<Map<string, Quote>> => {
-  const map = new Map<string, Quote>();
+const getStockQuotesByCode = async (codes: string[]): Promise<Map<string, Quote>> => {
+  const quotesByCode = new Map<string, Quote>();
+  const normalizedCodes = [...new Set(codes.map((code) => code.trim()).filter(Boolean))];
+  if (normalizedCodes.length === 0) {
+    return quotesByCode;
+  }
 
   await Promise.all(
-    requests.map(async ({ investmentId, code }) => {
+    normalizedCodes.map(async (code) => {
       const symbol = code.includes('.') ? code.toUpperCase() : `${code.toUpperCase()}.NS`;
       const payload = await fetchJson<{
         chart?: {
           result?: Array<{
-            meta?: { regularMarketPrice?: number; regularMarketTime?: number; currency?: string };
+            meta?: {
+              regularMarketPrice?: number;
+              regularMarketTime?: number;
+              currency?: string;
+            };
           }>;
         };
       }>(
@@ -795,29 +935,30 @@ const getStockQuotes = async (requests: QuoteRequest[]): Promise<Map<string, Quo
         },
       );
       const meta = payload?.chart?.result?.[0]?.meta;
-      if (meta?.currency !== 'INR') {
+      if (
+        meta?.currency !== 'INR' ||
+        meta.regularMarketPrice === undefined ||
+        !Number.isFinite(meta.regularMarketPrice) ||
+        meta.regularMarketPrice <= 0
+      ) {
         return;
       }
-      if (meta.regularMarketPrice === undefined) {
-        return;
-      }
-      map.set(investmentId, {
+      quotesByCode.set(code, {
         unitPriceInr: meta.regularMarketPrice,
-        asOf:
-          meta.regularMarketTime === undefined ? null : new Date(meta.regularMarketTime * 1000),
+        asOf: meta.regularMarketTime === undefined ? null : new Date(meta.regularMarketTime * 1000),
         source: 'yahoo-finance',
       });
     }),
   );
 
-  return map;
+  return quotesByCode;
 };
 
-const getMutualFundQuotes = async (requests: QuoteRequest[]): Promise<Map<string, Quote>> => {
-  const map = new Map<string, Quote>();
-
+const getMutualFundQuotesByCode = async (codes: string[]): Promise<Map<string, Quote>> => {
+  const quotesByCode = new Map<string, Quote>();
+  const normalizedCodes = [...new Set(codes.map((code) => code.trim()).filter(Boolean))];
   await Promise.all(
-    requests.map(async ({ investmentId, code }) => {
+    normalizedCodes.map(async (code) => {
       const payload = await fetchJson<{
         data?: Array<{ date: string; nav: string }>;
       }>(`https://api.mfapi.in/mf/${encodeURIComponent(code)}`, {
@@ -831,28 +972,29 @@ const getMutualFundQuotes = async (requests: QuoteRequest[]): Promise<Map<string
       if (!Number.isFinite(price) || price <= 0) {
         return;
       }
-      map.set(investmentId, {
+      quotesByCode.set(code, {
         unitPriceInr: price,
         asOf: parseMfDate(nav.date),
         source: 'mfapi.in',
       });
     }),
   );
-
-  return map;
+  return quotesByCode;
 };
 
-const getCryptoQuotes = async (requests: QuoteRequest[]): Promise<Map<string, Quote>> => {
-  const map = new Map<string, Quote>();
-  const cryptoIds = [...new Set(requests.map((request) => request.code.toLowerCase().trim()))];
-  if (cryptoIds.length === 0) {
-    return map;
+const getCryptoQuotesByCode = async (codes: string[]): Promise<Map<string, Quote>> => {
+  const quotesByCode = new Map<string, Quote>();
+  const normalizedCodes = [
+    ...new Set(codes.map((code) => code.trim().toLowerCase()).filter(Boolean)),
+  ];
+  if (normalizedCodes.length === 0) {
+    return quotesByCode;
   }
 
   const payload = await fetchJson<
     Record<string, { inr?: number; last_updated_at?: number } | undefined>
   >(
-    `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(cryptoIds.join(','))}&vs_currencies=inr&include_last_updated_at=true`,
+    `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(normalizedCodes.join(','))}&vs_currencies=inr&include_last_updated_at=true`,
     {
       cache: 'no-store',
       headers: getCoinGeckoHeaders(),
@@ -860,126 +1002,359 @@ const getCryptoQuotes = async (requests: QuoteRequest[]): Promise<Map<string, Qu
   );
 
   if (payload === null) {
-    return map;
+    return quotesByCode;
   }
 
-  for (const request of requests) {
-    const quote = payload[request.code.toLowerCase().trim()];
-    if (quote?.inr === undefined) {
+  for (const code of normalizedCodes) {
+    const quote = payload[code];
+    if (quote?.inr === undefined || !Number.isFinite(quote.inr) || quote.inr <= 0) {
       continue;
     }
-    map.set(request.investmentId, {
+    quotesByCode.set(code, {
       unitPriceInr: quote.inr,
       asOf: quote.last_updated_at === undefined ? null : new Date(quote.last_updated_at * 1000),
       source: 'coingecko',
     });
   }
 
-  return map;
+  return quotesByCode;
 };
 
-const getLiveQuotes = async (investmentsList: InvestmentRow[]): Promise<Map<string, Quote>> => {
-  const openPositions = investmentsList.filter((investment) => {
+const getUniqueInstruments = (investmentsList: InvestmentRow[]): InstrumentIdentity[] => {
+  const instrumentMap = new Map<string, InstrumentIdentity>();
+  for (const investment of investmentsList) {
     const kind = normalizeInvestmentKind(investment.investmentKind);
-    return !investment.isClosed && isLivePriceInvestment(kind) && Boolean(investment.instrumentCode);
-  });
+    const code = investment.instrumentCode?.trim() ?? '';
+    if (code === '') {
+      continue;
+    }
+    instrumentMap.set(createInstrumentKey(kind, code), { kind, code });
+  }
+  return [...instrumentMap.values()];
+};
 
-  const requestsByKind: Record<'stocks' | 'mutual_funds' | 'crypto', QuoteRequest[]> = {
+const getLiveQuotesByInstrument = async (
+  investmentsList: InvestmentRow[],
+): Promise<Map<string, Quote>> => {
+  const openLiveInstruments = getUniqueInstruments(
+    investmentsList.filter((investment) => {
+      const kind = normalizeInvestmentKind(investment.investmentKind);
+      return !investment.isClosed && isLivePriceInvestment(kind);
+    }),
+  );
+  const codesByKind: Record<'stocks' | 'mutual_funds' | 'crypto', string[]> = {
     stocks: [],
     mutual_funds: [],
     crypto: [],
   };
-
-  for (const investment of openPositions) {
-    const kind = normalizeInvestmentKind(investment.investmentKind);
-    const request = {
-      investmentId: investment.id,
-      code: investment.instrumentCode?.trim() ?? '',
-    };
-    if (request.code === '') {
-      continue;
-    }
-    if (kind === 'stocks' || kind === 'mutual_funds' || kind === 'crypto') {
-      requestsByKind[kind].push(request);
+  for (const instrument of openLiveInstruments) {
+    if (
+      instrument.kind === 'stocks' ||
+      instrument.kind === 'mutual_funds' ||
+      instrument.kind === 'crypto'
+    ) {
+      codesByKind[instrument.kind].push(instrument.code);
     }
   }
 
-  const [stocks, mfs, crypto] = await Promise.all([
-    getStockQuotes(requestsByKind.stocks),
-    getMutualFundQuotes(requestsByKind.mutual_funds),
-    getCryptoQuotes(requestsByKind.crypto),
+  const [stockQuotes, mutualFundQuotes, cryptoQuotes] = await Promise.all([
+    getStockQuotesByCode(codesByKind.stocks),
+    getMutualFundQuotesByCode(codesByKind.mutual_funds),
+    getCryptoQuotesByCode(codesByKind.crypto),
   ]);
 
-  return new Map<string, Quote>([...stocks, ...mfs, ...crypto]);
+  const quoteByInstrumentKey = new Map<string, Quote>();
+  for (const instrument of openLiveInstruments) {
+    if (instrument.kind === 'stocks') {
+      const quote = stockQuotes.get(instrument.code);
+      if (quote !== undefined) {
+        quoteByInstrumentKey.set(createInstrumentKey(instrument.kind, instrument.code), quote);
+      }
+      continue;
+    }
+    if (instrument.kind === 'mutual_funds') {
+      const quote = mutualFundQuotes.get(instrument.code);
+      if (quote !== undefined) {
+        quoteByInstrumentKey.set(createInstrumentKey(instrument.kind, instrument.code), quote);
+      }
+      continue;
+    }
+    if (instrument.kind === 'crypto') {
+      const quote = cryptoQuotes.get(instrument.code.toLowerCase());
+      if (quote !== undefined) {
+        quoteByInstrumentKey.set(createInstrumentKey(instrument.kind, instrument.code), quote);
+      }
+    }
+  }
+
+  return quoteByInstrumentKey;
 };
 
-export const enrichInvestments = instrumentedFunction(
-  'enrichInvestments',
-  async (investmentsList: InvestmentRow[]): Promise<EnrichedInvestment[]> => {
-  const quotes = await getLiveQuotes(investmentsList);
-  const instrumentNames = await resolveInstrumentNames(
-    investmentsList.map((investment) => ({
-      kind: normalizeInvestmentKind(investment.investmentKind),
-      code: investment.instrumentCode?.trim() ?? '',
-    })),
+const prefetchHistoricalPrices = async ({
+  instruments,
+  startDate,
+  endDate,
+}: {
+  instruments: InstrumentIdentity[];
+  startDate: Date;
+  endDate: Date;
+}): Promise<Map<string, Array<{ date: Date; price: number }>>> => {
+  const historyByInstrumentKey = new Map<string, Array<{ date: Date; price: number }>>();
+  await Promise.all(
+    instruments.map(async (instrument) => {
+      if (!isUnitBasedInvestment(instrument.kind)) {
+        return;
+      }
+      const history = await getHistoricalUnitPrices(
+        instrument.kind,
+        instrument.code,
+        startDate,
+        endDate,
+      );
+      historyByInstrumentKey.set(createInstrumentKey(instrument.kind, instrument.code), history);
+    }),
   );
+  return historyByInstrumentKey;
+};
 
-  return investmentsList.map((investment) => {
-    const normalizedKind = normalizeInvestmentKind(investment.investmentKind);
-    const instrumentCode = investment.instrumentCode?.trim() ?? '';
-    const instrumentName =
-      instrumentCode === ''
-        ? null
-        : (instrumentNames.get(createInstrumentKey(normalizedKind, instrumentCode)) ?? instrumentCode);
-    const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
-    const units = parseOptionalNumber(investment.units);
-    const quote = quotes.get(investment.id);
-    const closedAmount = parseOptionalNumber(investment.amount);
-
-    const valuationAmount = (() => {
-      if (investment.isClosed) {
-        return closedAmount;
-      }
-      if (quote !== undefined && units !== null) {
-        return quote.unitPriceInr * units;
-      }
-      if (normalizedKind === 'fd') {
-        return getFdValuation(investment);
-      }
-      return closedAmount;
-    })();
-
-    const pnl = valuationAmount === null ? null : valuationAmount - investedAmount;
-    const pnlPercentage =
-      pnl === null || investedAmount === 0 ? null : (pnl / Math.abs(investedAmount)) * 100;
-
+const buildInvestmentMarketDataContext = instrumentedFunction(
+  'buildInvestmentMarketDataContext',
+  async ({
+    investmentsList,
+    historyStartDate,
+    historyEndDate,
+  }: {
+    investmentsList: InvestmentRow[];
+    historyStartDate?: Date;
+    historyEndDate?: Date;
+  }): Promise<InvestmentMarketDataContext> => {
+    const instruments = getUniqueInstruments(investmentsList);
+    const [quoteByInstrumentKey, nameByInstrumentKey, historyByInstrumentKey] = await Promise.all([
+      getLiveQuotesByInstrument(investmentsList),
+      resolveInstrumentNames(instruments),
+      historyStartDate === undefined || historyEndDate === undefined
+        ? Promise.resolve(new Map<string, Array<{ date: Date; price: number }>>())
+        : prefetchHistoricalPrices({
+            instruments,
+            startDate: historyStartDate,
+            endDate: historyEndDate,
+          }),
+    ]);
     return {
-      ...investment,
-      normalizedKind,
-      instrumentName,
-      isClosedPosition: investment.isClosed,
-      liveUnitPrice: investment.isClosed ? null : quote?.unitPriceInr ?? null,
-      valuationAmount,
-      pnl,
-      pnlPercentage,
-      valuationSource: investment.isClosed ? 'closed' : quote?.source ?? null,
-      valuationDate: investment.isClosed ? investment.closedAt : quote?.asOf ?? null,
+      quoteByInstrumentKey,
+      nameByInstrumentKey,
+      historyByInstrumentKey,
     };
-  });
+  },
+);
+
+type UnitInstrumentOneDayMetrics = {
+  currentUnitPrice: number | null;
+  previousUnitPrice: number | null;
+};
+
+const getLatestPricePointOnOrBeforeDate = (
+  history: Array<{ date: Date; price: number }>,
+  targetDate: Date,
+): { date: Date; price: number } | null => {
+  const targetTime = startOfDay(targetDate).getTime();
+  let latestPoint: { date: Date; price: number } | null = null;
+  let latestTime = Number.MIN_SAFE_INTEGER;
+
+  for (const point of history) {
+    const pointDayTime = startOfDay(point.date).getTime();
+    if (pointDayTime > targetTime || point.price <= 0 || !Number.isFinite(point.price)) {
+      continue;
+    }
+    if (pointDayTime >= latestTime) {
+      latestTime = pointDayTime;
+      latestPoint = point;
+    }
+  }
+
+  return latestPoint;
+};
+
+const getLatestPricePointBeforeDate = (
+  history: Array<{ date: Date; price: number }>,
+  targetDate: Date,
+): { date: Date; price: number } | null => {
+  const targetTime = startOfDay(targetDate).getTime();
+  let latestPoint: { date: Date; price: number } | null = null;
+  let latestTime = Number.MIN_SAFE_INTEGER;
+
+  for (const point of history) {
+    const pointDayTime = startOfDay(point.date).getTime();
+    if (pointDayTime >= targetTime || point.price <= 0 || !Number.isFinite(point.price)) {
+      continue;
+    }
+    if (pointDayTime >= latestTime) {
+      latestTime = pointDayTime;
+      latestPoint = point;
+    }
+  }
+
+  return latestPoint;
+};
+
+const getUnitInstrumentOneDayMetricsByKey = ({
+  investmentsList,
+  marketDataContext,
+  asOfDate,
+}: {
+  investmentsList: InvestmentRow[];
+  marketDataContext: InvestmentMarketDataContext;
+  asOfDate: Date;
+}): Map<string, UnitInstrumentOneDayMetrics> => {
+  const metricsByInstrumentKey = new Map<string, UnitInstrumentOneDayMetrics>();
+
+  for (const instrument of getUniqueInstruments(investmentsList)) {
+    if (!isUnitBasedInvestment(instrument.kind)) {
+      continue;
+    }
+    const key = createInstrumentKey(instrument.kind, instrument.code);
+    const history = marketDataContext.historyByInstrumentKey.get(key) ?? [];
+    const quote = marketDataContext.quoteByInstrumentKey.get(key);
+    const quoteAsOfDate =
+      quote?.asOf === null || quote?.asOf === undefined ? null : startOfDay(quote.asOf);
+    const currentPointFromHistory = getLatestPricePointOnOrBeforeDate(
+      history,
+      quoteAsOfDate ?? asOfDate,
+    );
+    const currentReferenceDate =
+      quoteAsOfDate ?? startOfDay(currentPointFromHistory?.date ?? asOfDate);
+    const previousPointFromHistory = getLatestPricePointBeforeDate(history, currentReferenceDate);
+    metricsByInstrumentKey.set(key, {
+      currentUnitPrice: quote?.unitPriceInr ?? currentPointFromHistory?.price ?? null,
+      previousUnitPrice: previousPointFromHistory?.price ?? null,
+    });
+  }
+
+  return metricsByInstrumentKey;
+};
+
+const enrichInvestments = instrumentedFunction(
+  'enrichInvestments',
+  async ({
+    investmentsList,
+    marketDataContext,
+    valuationDate,
+  }: {
+    investmentsList: InvestmentRow[];
+    marketDataContext?: InvestmentMarketDataContext;
+    valuationDate?: Date;
+  }): Promise<EnrichedInvestment[]> => {
+    const context =
+      marketDataContext ??
+      (await buildInvestmentMarketDataContext({
+        investmentsList,
+      }));
+    const asOfDate =
+      valuationDate === undefined ? startOfDay(new Date()) : startOfDay(valuationDate);
+    const oneDayUnitMetricsByKey = getUnitInstrumentOneDayMetricsByKey({
+      investmentsList,
+      marketDataContext: context,
+      asOfDate,
+    });
+
+    return investmentsList.map((investment) => {
+      const normalizedKind = normalizeInvestmentKind(investment.investmentKind);
+      const instrumentCode = investment.instrumentCode?.trim() ?? '';
+      const instrumentKey = createInstrumentKey(normalizedKind, instrumentCode);
+      const instrumentName =
+        instrumentCode === ''
+          ? null
+          : (context.nameByInstrumentKey.get(instrumentKey) ?? instrumentCode);
+      const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
+      const units = deriveUnits({
+        units: investment.units,
+        purchaseRate: investment.purchaseRate,
+        investedAmount: investment.investmentAmount,
+      });
+      const quote =
+        instrumentCode === '' ? undefined : context.quoteByInstrumentKey.get(instrumentKey);
+      const closedAmount = parseOptionalNumber(investment.amount);
+
+      const valuationAmount = (() => {
+        if (investment.isClosed) {
+          return closedAmount;
+        }
+        if (quote !== undefined && units !== null) {
+          return quote.unitPriceInr * units;
+        }
+        if (normalizedKind === 'fd') {
+          return getFdValuation(investment);
+        }
+        return closedAmount;
+      })();
+
+      const pnl = valuationAmount === null ? null : valuationAmount - investedAmount;
+      const pnlPercentage = pnl === null ? null : getPercentageChange(pnl, investedAmount);
+
+      let dayChange: number | null = null;
+      let dayChangePercentage: number | null = null;
+      if (investment.isClosed) {
+        dayChange = 0;
+        dayChangePercentage = 0;
+      } else if (normalizedKind === 'fd') {
+        const currentValuation = getFdValuationAtDate(investment, asOfDate);
+        const previousValuation = getFdValuationAtDate(
+          investment,
+          new Date(asOfDate.getTime() - DAY_IN_MS),
+        );
+        if (currentValuation !== null && previousValuation !== null) {
+          dayChange = currentValuation - previousValuation;
+          dayChangePercentage = getPercentageChange(dayChange, previousValuation);
+        }
+      } else if (isUnitBasedInvestment(normalizedKind) && instrumentCode !== '') {
+        const units = deriveUnits({
+          units: investment.units,
+          purchaseRate: investment.purchaseRate,
+          investedAmount: investment.investmentAmount,
+        });
+        const metrics = oneDayUnitMetricsByKey.get(instrumentKey);
+        const currentUnitPrice = metrics?.currentUnitPrice;
+        const previousUnitPrice = metrics?.previousUnitPrice;
+        if (
+          units !== null &&
+          units > 0 &&
+          currentUnitPrice !== undefined &&
+          currentUnitPrice !== null &&
+          previousUnitPrice !== undefined &&
+          previousUnitPrice !== null
+        ) {
+          const unitPriceDelta = currentUnitPrice - previousUnitPrice;
+          dayChange = unitPriceDelta * units;
+          dayChangePercentage = getPercentageChange(dayChange, units * previousUnitPrice);
+        }
+      }
+
+      return {
+        ...investment,
+        normalizedKind,
+        instrumentName,
+        isClosedPosition: investment.isClosed,
+        liveUnitPrice: investment.isClosed ? null : (quote?.unitPriceInr ?? null),
+        valuationAmount,
+        pnl,
+        pnlPercentage,
+        dayChange,
+        dayChangePercentage,
+        valuationSource: investment.isClosed ? 'closed' : (quote?.source ?? null),
+        valuationDate: investment.isClosed ? investment.closedAt : (quote?.asOf ?? null),
+      };
+    });
   },
 );
 
 const getUnitsForInvestment = (investment: EnrichedInvestment): number => {
-  const directUnits = parseOptionalNumber(investment.units);
-  if (directUnits !== null && directUnits > 0) {
-    return directUnits;
-  }
-  const purchaseRate = parseOptionalNumber(investment.purchaseRate);
-  const investedAmount = parseOptionalNumber(investment.investmentAmount);
-  if (purchaseRate !== null && purchaseRate > 0 && investedAmount !== null && investedAmount > 0) {
-    return investedAmount / purchaseRate;
-  }
-  return 0;
+  return (
+    deriveUnits({
+      units: investment.units,
+      purchaseRate: investment.purchaseRate,
+      investedAmount: investment.investmentAmount,
+    }) ?? 0
+  );
 };
 
 const getFallbackUnitPrice = (investment: EnrichedInvestment): number | undefined => {
@@ -1005,13 +1380,10 @@ const getDailyRangeFromInvestments = ({
   end?: Date;
 }): { startDate: Date; endDate: Date; days: Date[] } => {
   const now = startOfDay(new Date());
-  const earliestInvestmentDate = investmentsList.reduce<Date>(
-    (earliest, investment) => {
-      const investmentDate = startOfDay(investment.investmentDate);
-      return investmentDate.getTime() < earliest.getTime() ? investmentDate : earliest;
-    },
-    now,
-  );
+  const earliestInvestmentDate = investmentsList.reduce<Date>((earliest, investment) => {
+    const investmentDate = startOfDay(investment.investmentDate);
+    return investmentDate.getTime() < earliest.getTime() ? investmentDate : earliest;
+  }, now);
   const requestedStart = start === undefined ? earliestInvestmentDate : startOfDay(start);
   const requestedEnd = end === undefined ? now : startOfDay(end);
   const clampedEnd = requestedEnd.getTime() > now.getTime() ? now : requestedEnd;
@@ -1029,12 +1401,14 @@ const buildDailyInstrumentTimeline = async ({
   positions,
   startDate,
   endDate,
+  historyByInstrumentKey,
 }: {
   kind: InvestmentKindValue;
   code: string;
   positions: EnrichedInvestment[];
   startDate: Date;
   endDate: Date;
+  historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
 }): Promise<InstrumentHoldingTimelinePoint[]> => {
   const dailyDates = buildDailyRange(startDate, endDate);
   if (dailyDates.length === 0) {
@@ -1056,7 +1430,10 @@ const buildDailyInstrumentTimeline = async ({
         if (kind === 'fd') {
           value += getFdValuationAtDate(position, day) ?? 0;
         } else {
-          value += parseOptionalNumber(position.amount) ?? parseOptionalNumber(position.investmentAmount) ?? 0;
+          value +=
+            parseOptionalNumber(position.amount) ??
+            parseOptionalNumber(position.investmentAmount) ??
+            0;
         }
       }
       return {
@@ -1072,7 +1449,9 @@ const buildDailyInstrumentTimeline = async ({
     .map((position) => getFallbackUnitPrice(position))
     .find((value): value is number => value !== undefined && value > 0);
 
-  const rawPrices = await getHistoricalUnitPrices(kind, code, startDate, endDate);
+  const rawPrices =
+    historyByInstrumentKey?.get(createInstrumentKey(kind, code)) ??
+    (await getHistoricalUnitPrices(kind, code, startDate, endDate));
   const dailyPrices = buildDailyPriceSeries({
     rawPoints: rawPrices,
     startDate,
@@ -1124,273 +1503,571 @@ const buildDailyInstrumentTimeline = async ({
   });
 };
 
-export const getInvestmentsDashboard = instrumentedFunction(
+type InstrumentAggregate = {
+  kind: InvestmentKindValue;
+  code: string;
+  name: string;
+  positionsCount: number;
+  openPositions: number;
+  closedPositions: number;
+  units: number;
+  investedAmount: number;
+  valuationAmount: number;
+  dayChange: number;
+  weightedBuyAmount: number;
+  weightedBuyUnits: number;
+  currentUnitPrice: number | null;
+};
+
+const buildInstrumentBreakdown = (
+  investmentsList: EnrichedInvestment[],
+): DashboardInstrumentBreakdown[] => {
+  const aggregates = new Map<string, InstrumentAggregate>();
+
+  for (const investment of investmentsList) {
+    const code = investment.instrumentCode?.trim() ?? '';
+    if (code === '') {
+      continue;
+    }
+    const key = createInstrumentKey(investment.normalizedKind, code);
+    const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
+    const valuationAmount = investment.valuationAmount ?? investedAmount;
+    const dayChange = investment.dayChange ?? 0;
+    const units = getUnitsForInvestment(investment);
+
+    const aggregate = aggregates.get(key) ?? {
+      kind: investment.normalizedKind,
+      code,
+      name: investment.instrumentName ?? code,
+      positionsCount: 0,
+      openPositions: 0,
+      closedPositions: 0,
+      units: 0,
+      investedAmount: 0,
+      valuationAmount: 0,
+      dayChange: 0,
+      weightedBuyAmount: 0,
+      weightedBuyUnits: 0,
+      currentUnitPrice: null,
+    };
+
+    aggregate.positionsCount += 1;
+    if (investment.isClosedPosition) {
+      aggregate.closedPositions += 1;
+    } else {
+      aggregate.openPositions += 1;
+      aggregate.units += units;
+    }
+    aggregate.investedAmount += investedAmount;
+    aggregate.valuationAmount += valuationAmount;
+    aggregate.dayChange += dayChange;
+    if (units > 0) {
+      aggregate.weightedBuyAmount += investedAmount;
+      aggregate.weightedBuyUnits += units;
+    }
+    if (!investment.isClosedPosition && investment.liveUnitPrice !== null) {
+      aggregate.currentUnitPrice = investment.liveUnitPrice;
+    }
+    aggregates.set(key, aggregate);
+  }
+
+  return [...aggregates.values()]
+    .map((aggregate) => {
+      const pnl = aggregate.valuationAmount - aggregate.investedAmount;
+      return {
+        kind: aggregate.kind,
+        code: aggregate.code,
+        name: aggregate.name,
+        positionsCount: aggregate.positionsCount,
+        openPositions: aggregate.openPositions,
+        closedPositions: aggregate.closedPositions,
+        totalPositions: aggregate.positionsCount,
+        units: aggregate.units,
+        investedAmount: aggregate.investedAmount,
+        valuationAmount: aggregate.valuationAmount,
+        pnl,
+        pnlPercentage: getPercentageChange(pnl, aggregate.investedAmount),
+        dayChange: aggregate.dayChange,
+        dayChangePercentage: getDayChangePercentageFromValuation(
+          aggregate.valuationAmount,
+          aggregate.dayChange,
+        ),
+        averageBuyPrice:
+          aggregate.weightedBuyUnits > 0
+            ? aggregate.weightedBuyAmount / aggregate.weightedBuyUnits
+            : null,
+        currentUnitPrice:
+          aggregate.currentUnitPrice ??
+          (aggregate.units > 0 ? aggregate.valuationAmount / aggregate.units : null),
+      };
+    })
+    .sort((left, right) => left.name.localeCompare(right.name));
+};
+
+const getInvestmentsDashboard = instrumentedFunction(
   'getInvestmentsDashboard',
   async ({
     investmentsList,
     start,
     end,
+    historyByInstrumentKey,
   }: {
     investmentsList: EnrichedInvestment[];
     start?: Date;
     end?: Date;
+    historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
   }): Promise<InvestmentsDashboard> => {
-  const kindMap = new Map<
-    InvestmentKindValue,
-    {
-      investedAmount: number;
-      valuationAmount: number;
-      openPositions: number;
-      closedPositions: number;
-      totalPositions: number;
-    }
-  >();
-  const instrumentMap = new Map<string, DashboardInstrumentOption>();
-  let totalInvestedAmount = 0;
-  let totalValuationAmount = 0;
-  let openPositions = 0;
-  let closedPositions = 0;
+    const kindMap = new Map<
+      InvestmentKindValue,
+      {
+        investedAmount: number;
+        valuationAmount: number;
+        dayChange: number;
+        openPositions: number;
+        closedPositions: number;
+        totalPositions: number;
+      }
+    >();
+    const instrumentBreakdown = buildInstrumentBreakdown(investmentsList);
+    const instrumentOptions: DashboardInstrumentOption[] = instrumentBreakdown.map((item) => ({
+      kind: item.kind,
+      code: item.code,
+      name: item.name,
+      positionsCount: item.positionsCount,
+      units: item.units,
+      investedAmount: item.investedAmount,
+      valuationAmount: item.valuationAmount,
+      pnl: item.pnl,
+      dayChange: item.dayChange,
+      dayChangePercentage: item.dayChangePercentage,
+    }));
+    let totalInvestedAmount = 0;
+    let totalValuationAmount = 0;
+    let totalDayChange = 0;
+    let openPositions = 0;
+    let closedPositions = 0;
 
-  for (const investment of investmentsList) {
-    const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
-    const valuationAmount = investment.valuationAmount ?? investedAmount;
-    totalInvestedAmount += investedAmount;
-    totalValuationAmount += valuationAmount;
+    for (const investment of investmentsList) {
+      const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
+      const valuationAmount = investment.valuationAmount ?? investedAmount;
+      const dayChange = investment.dayChange ?? 0;
+      totalInvestedAmount += investedAmount;
+      totalValuationAmount += valuationAmount;
+      totalDayChange += dayChange;
 
-    if (investment.isClosedPosition) {
-      closedPositions += 1;
-    } else {
-      openPositions += 1;
-    }
+      if (investment.isClosedPosition) {
+        closedPositions += 1;
+      } else {
+        openPositions += 1;
+      }
 
-    const kindSummary = kindMap.get(investment.normalizedKind) ?? {
-      investedAmount: 0,
-      valuationAmount: 0,
-      openPositions: 0,
-      closedPositions: 0,
-      totalPositions: 0,
-    };
-    kindSummary.investedAmount += investedAmount;
-    kindSummary.valuationAmount += valuationAmount;
-    kindSummary.totalPositions += 1;
-    if (investment.isClosedPosition) {
-      kindSummary.closedPositions += 1;
-    } else {
-      kindSummary.openPositions += 1;
-    }
-    kindMap.set(investment.normalizedKind, kindSummary);
-
-    const code = investment.instrumentCode?.trim() ?? '';
-    if (code !== '') {
-      const instrumentKey = `${investment.normalizedKind}:${code}`;
-      const instrumentSummary = instrumentMap.get(instrumentKey) ?? {
-        kind: investment.normalizedKind,
-        code,
-        name: investment.instrumentName ?? code,
-        positionsCount: 0,
-        units: 0,
+      const kindSummary = kindMap.get(investment.normalizedKind) ?? {
         investedAmount: 0,
         valuationAmount: 0,
-        pnl: 0,
+        dayChange: 0,
+        openPositions: 0,
+        closedPositions: 0,
+        totalPositions: 0,
       };
-      instrumentSummary.positionsCount += 1;
-      instrumentSummary.units += getUnitsForInvestment(investment);
-      instrumentSummary.investedAmount += investedAmount;
-      instrumentSummary.valuationAmount += valuationAmount;
-      instrumentSummary.pnl = instrumentSummary.valuationAmount - instrumentSummary.investedAmount;
-      instrumentMap.set(instrumentKey, instrumentSummary);
+      kindSummary.investedAmount += investedAmount;
+      kindSummary.valuationAmount += valuationAmount;
+      kindSummary.dayChange += dayChange;
+      kindSummary.totalPositions += 1;
+      if (investment.isClosedPosition) {
+        kindSummary.closedPositions += 1;
+      } else {
+        kindSummary.openPositions += 1;
+      }
+      kindMap.set(investment.normalizedKind, kindSummary);
     }
-  }
 
-  const kindBreakdown = [...kindMap.entries()]
-    .map(([kind, summary]) => ({
-      kind,
-      investedAmount: summary.investedAmount,
-      valuationAmount: summary.valuationAmount,
-      pnl: summary.valuationAmount - summary.investedAmount,
-      openPositions: summary.openPositions,
-      closedPositions: summary.closedPositions,
-      totalPositions: summary.totalPositions,
-    }))
-    .sort((left, right) => right.valuationAmount - left.valuationAmount);
+    const kindBreakdown = [...kindMap.entries()]
+      .map(([kind, summary]) => ({
+        kind,
+        investedAmount: summary.investedAmount,
+        valuationAmount: summary.valuationAmount,
+        pnl: summary.valuationAmount - summary.investedAmount,
+        pnlPercentage: getPercentageChange(
+          summary.valuationAmount - summary.investedAmount,
+          summary.investedAmount,
+        ),
+        dayChange: summary.dayChange,
+        dayChangePercentage: getDayChangePercentageFromValuation(
+          summary.valuationAmount,
+          summary.dayChange,
+        ),
+        openPositions: summary.openPositions,
+        closedPositions: summary.closedPositions,
+        totalPositions: summary.totalPositions,
+      }))
+      .sort((left, right) => right.valuationAmount - left.valuationAmount);
 
-  const instrumentOptions = [...instrumentMap.values()].sort((left, right) =>
-    left.name.localeCompare(right.name),
-  );
+    const { startDate, endDate, days } = getDailyRangeFromInvestments({
+      investmentsList,
+      start,
+      end,
+    });
 
-  const { startDate, endDate, days } = getDailyRangeFromInvestments({
-    investmentsList,
-    start,
-    end,
-  });
+    const dailyValuation = new Map<string, number>();
+    const investedEvents = new Map<string, number>();
+    let baseInvestedAmount = 0;
 
-  const dailyValuation = new Map<string, number>();
-  const investedEvents = new Map<string, number>();
-  let baseInvestedAmount = 0;
+    const unitBasedGroups = new Map<
+      string,
+      { kind: InvestmentKindValue; code: string; positions: EnrichedInvestment[] }
+    >();
+    const nonUnitPositions: EnrichedInvestment[] = [];
 
-  const unitBasedGroups = new Map<
-    string,
-    { kind: InvestmentKindValue; code: string; positions: EnrichedInvestment[] }
-  >();
-  const nonUnitPositions: EnrichedInvestment[] = [];
+    for (const investment of investmentsList) {
+      const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
+      const investmentDay = startOfDay(investment.investmentDate);
+      const closeDay = investment.closedAt === null ? null : startOfDay(investment.closedAt);
 
-  for (const investment of investmentsList) {
-    const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
-    const investmentDay = startOfDay(investment.investmentDate);
-    const closeDay = investment.closedAt === null ? null : startOfDay(investment.closedAt);
+      if (investmentDay.getTime() < startDate.getTime()) {
+        baseInvestedAmount += investedAmount;
+      } else {
+        const key = dateToDayKey(investmentDay);
+        investedEvents.set(key, (investedEvents.get(key) ?? 0) + investedAmount);
+      }
+      if (closeDay !== null) {
+        if (closeDay.getTime() < startDate.getTime()) {
+          baseInvestedAmount -= investedAmount;
+        } else if (closeDay.getTime() <= endDate.getTime()) {
+          const key = dateToDayKey(closeDay);
+          investedEvents.set(key, (investedEvents.get(key) ?? 0) - investedAmount);
+        }
+      }
 
-    if (investmentDay.getTime() < startDate.getTime()) {
-      baseInvestedAmount += investedAmount;
-    } else {
-      const key = dateToDayKey(investmentDay);
-      investedEvents.set(key, (investedEvents.get(key) ?? 0) + investedAmount);
-    }
-    if (closeDay !== null) {
-      if (closeDay.getTime() < startDate.getTime()) {
-        baseInvestedAmount -= investedAmount;
-      } else if (closeDay.getTime() <= endDate.getTime()) {
-        const key = dateToDayKey(closeDay);
-        investedEvents.set(key, (investedEvents.get(key) ?? 0) - investedAmount);
+      const code = investment.instrumentCode?.trim() ?? '';
+      if (isUnitBasedInvestment(investment.normalizedKind) && code !== '') {
+        const groupKey = `${investment.normalizedKind}:${code}`;
+        const group = unitBasedGroups.get(groupKey) ?? {
+          kind: investment.normalizedKind,
+          code,
+          positions: [],
+        };
+        group.positions.push(investment);
+        unitBasedGroups.set(groupKey, group);
+      } else {
+        nonUnitPositions.push(investment);
       }
     }
 
-    const code = investment.instrumentCode?.trim() ?? '';
-    if (isUnitBasedInvestment(investment.normalizedKind) && code !== '') {
-      const groupKey = `${investment.normalizedKind}:${code}`;
-      const group = unitBasedGroups.get(groupKey) ?? {
-        kind: investment.normalizedKind,
-        code,
-        positions: [],
-      };
-      group.positions.push(investment);
-      unitBasedGroups.set(groupKey, group);
-    } else {
-      nonUnitPositions.push(investment);
+    await Promise.all(
+      [...unitBasedGroups.values()].map(async (group) => {
+        const dailyInstrumentTimeline = await buildDailyInstrumentTimeline({
+          kind: group.kind,
+          code: group.code,
+          positions: group.positions,
+          startDate,
+          endDate,
+          historyByInstrumentKey,
+        });
+        for (const point of dailyInstrumentTimeline) {
+          const key = dateToDayKey(point.date);
+          dailyValuation.set(key, (dailyValuation.get(key) ?? 0) + point.holdingValue);
+        }
+      }),
+    );
+
+    for (const investment of nonUnitPositions) {
+      const investmentDay = startOfDay(investment.investmentDate);
+      const closeDay = investment.closedAt === null ? null : startOfDay(investment.closedAt);
+
+      for (const day of days) {
+        if (day.getTime() < investmentDay.getTime()) {
+          continue;
+        }
+        if (closeDay !== null && day.getTime() > closeDay.getTime()) {
+          continue;
+        }
+        const value =
+          investment.normalizedKind === 'fd'
+            ? (getFdValuationAtDate(investment, day) ?? 0)
+            : (parseOptionalNumber(investment.amount) ??
+              parseOptionalNumber(investment.investmentAmount) ??
+              0);
+        const dayKey = dateToDayKey(day);
+        dailyValuation.set(dayKey, (dailyValuation.get(dayKey) ?? 0) + value);
+      }
     }
-  }
 
-  await Promise.all(
-    [...unitBasedGroups.values()].map(async (group) => {
-      const dailyInstrumentTimeline = await buildDailyInstrumentTimeline({
-        kind: group.kind,
-        code: group.code,
-        positions: group.positions,
-        startDate,
-        endDate,
-      });
-      for (const point of dailyInstrumentTimeline) {
-        const key = dateToDayKey(point.date);
-        dailyValuation.set(key, (dailyValuation.get(key) ?? 0) + point.holdingValue);
-      }
-    }),
-  );
-
-  for (const investment of nonUnitPositions) {
-    const investmentDay = startOfDay(investment.investmentDate);
-    const closeDay = investment.closedAt === null ? null : startOfDay(investment.closedAt);
-
-    for (const day of days) {
-      if (day.getTime() < investmentDay.getTime()) {
-        continue;
-      }
-      if (closeDay !== null && day.getTime() > closeDay.getTime()) {
-        continue;
-      }
-      const value =
-        investment.normalizedKind === 'fd'
-          ? getFdValuationAtDate(investment, day) ?? 0
-          : parseOptionalNumber(investment.amount) ??
-            parseOptionalNumber(investment.investmentAmount) ??
-            0;
-      const dayKey = dateToDayKey(day);
-      dailyValuation.set(dayKey, (dailyValuation.get(dayKey) ?? 0) + value);
-    }
-  }
-
-  let runningInvestedAmount = baseInvestedAmount;
-  if (runningInvestedAmount < 0) {
-    runningInvestedAmount = 0;
-  }
-
-  const timeline = days.map((day) => {
-    const dayKey = dateToDayKey(day);
-    runningInvestedAmount += investedEvents.get(dayKey) ?? 0;
+    let runningInvestedAmount = baseInvestedAmount;
     if (runningInvestedAmount < 0) {
       runningInvestedAmount = 0;
     }
-    const valuationAmount = dailyValuation.get(dayKey) ?? 0;
-    return {
-      date: day,
-      investedAmount: runningInvestedAmount,
-      valuationAmount,
-      pnl: valuationAmount - runningInvestedAmount,
-    };
-  });
 
-  return {
-    summary: {
-      investedAmount: totalInvestedAmount,
-      valuationAmount: totalValuationAmount,
-      pnl: totalValuationAmount - totalInvestedAmount,
-      openPositions,
-      closedPositions,
-      totalPositions: openPositions + closedPositions,
-    },
-    kindBreakdown,
-    timeline,
-    instrumentOptions,
-  };
+    const timeline = days.map((day) => {
+      const dayKey = dateToDayKey(day);
+      runningInvestedAmount += investedEvents.get(dayKey) ?? 0;
+      if (runningInvestedAmount < 0) {
+        runningInvestedAmount = 0;
+      }
+      const valuationAmount = dailyValuation.get(dayKey) ?? 0;
+      return {
+        date: day,
+        investedAmount: runningInvestedAmount,
+        valuationAmount,
+        pnl: valuationAmount - runningInvestedAmount,
+      };
+    });
+
+    return {
+      summary: {
+        investedAmount: totalInvestedAmount,
+        valuationAmount: totalValuationAmount,
+        pnl: totalValuationAmount - totalInvestedAmount,
+        pnlPercentage: getPercentageChange(
+          totalValuationAmount - totalInvestedAmount,
+          totalInvestedAmount,
+        ),
+        dayChange: totalDayChange,
+        dayChangePercentage: getDayChangePercentageFromValuation(
+          totalValuationAmount,
+          totalDayChange,
+        ),
+        openPositions,
+        closedPositions,
+        totalPositions: openPositions + closedPositions,
+      },
+      kindBreakdown,
+      timeline,
+      instrumentOptions,
+      instrumentBreakdown,
+    };
   },
 );
 
-export const getInstrumentHoldingTimeline = instrumentedFunction(
+const getInstrumentHoldingTimeline = instrumentedFunction(
   'getInstrumentHoldingTimeline',
   async ({
     kind,
     code,
     investmentsList,
+    start,
+    end,
+    historyByInstrumentKey,
   }: {
     kind: InvestmentKindValue;
     code: string;
     investmentsList: EnrichedInvestment[];
+    start?: Date;
+    end?: Date;
+    historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
   }): Promise<InstrumentHoldingTimeline> => {
-  if (investmentsList.length === 0) {
+    if (investmentsList.length === 0) {
+      return {
+        points: [],
+        summary: {
+          unitsHeld: 0,
+          investedAmount: 0,
+          latestHoldingValue: 0,
+          pnl: 0,
+        },
+      };
+    }
+
+    const { startDate, endDate } = getDailyRangeFromInvestments({
+      investmentsList,
+      start,
+      end,
+    });
+    const points = await buildDailyInstrumentTimeline({
+      kind,
+      code,
+      positions: investmentsList,
+      startDate,
+      endDate,
+      historyByInstrumentKey,
+    });
+
+    const investedAmount = investmentsList.reduce((acc, investment) => {
+      return acc + (parseOptionalNumber(investment.investmentAmount) ?? 0);
+    }, 0);
+    const latestPoint = points.at(-1);
+    const latestHoldingValue = latestPoint?.holdingValue ?? 0;
+
     return {
-      points: [],
+      points,
       summary: {
-        unitsHeld: 0,
-        investedAmount: 0,
-        latestHoldingValue: 0,
-        pnl: 0,
+        unitsHeld: latestPoint?.unitsHeld ?? 0,
+        investedAmount,
+        latestHoldingValue,
+        pnl: latestHoldingValue - investedAmount,
       },
     };
-  }
+  },
+);
 
-  const { startDate, endDate } = getDailyRangeFromInvestments({
+const buildInstrumentGroups = (investmentsList: EnrichedInvestment[]) => {
+  const groups = new Map<
+    string,
+    { kind: InvestmentKindValue; code: string; positions: EnrichedInvestment[] }
+  >();
+  for (const investment of investmentsList) {
+    const code = investment.instrumentCode?.trim() ?? '';
+    if (code === '') {
+      continue;
+    }
+    const key = createInstrumentKey(investment.normalizedKind, code);
+    const group = groups.get(key) ?? {
+      kind: investment.normalizedKind,
+      code,
+      positions: [],
+    };
+    group.positions.push(investment);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+};
+
+const buildInstrumentTimelineEntries = instrumentedFunction(
+  'buildInstrumentTimelineEntries',
+  async ({
     investmentsList,
-  });
-  const points = await buildDailyInstrumentTimeline({
-    kind,
-    code,
-    positions: investmentsList,
     startDate,
     endDate,
-  });
+    historyByInstrumentKey,
+  }: {
+    investmentsList: EnrichedInvestment[];
+    startDate: Date;
+    endDate: Date;
+    historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
+  }): Promise<InstrumentTimelineEntry[]> => {
+    const groups = buildInstrumentGroups(investmentsList);
+    const entries = await Promise.all(
+      groups.map(async (group) => ({
+        kind: group.kind,
+        code: group.code,
+        timeline: await getInstrumentHoldingTimeline({
+          kind: group.kind,
+          code: group.code,
+          investmentsList: group.positions,
+          start: startDate,
+          end: endDate,
+          historyByInstrumentKey,
+        }),
+      })),
+    );
+    return entries.sort((left, right) => {
+      const kindCompare = left.kind.localeCompare(right.kind);
+      if (kindCompare !== 0) {
+        return kindCompare;
+      }
+      return left.code.localeCompare(right.code);
+    });
+  },
+);
 
-  const investedAmount = investmentsList.reduce((acc, investment) => {
-    return acc + (parseOptionalNumber(investment.investmentAmount) ?? 0);
-  }, 0);
-  const latestPoint = points.at(-1);
-  const latestHoldingValue = latestPoint?.holdingValue ?? 0;
+export const buildInvestmentsPageData = instrumentedFunction(
+  'buildInvestmentsPageData',
+  async ({
+    investmentsListRaw,
+    page,
+    perPage,
+    endDate,
+  }: {
+    investmentsListRaw: InvestmentRow[];
+    page: number;
+    perPage: number;
+    endDate?: Date;
+  }): Promise<InvestmentsPageData> => {
+    const now = startOfDay(new Date());
+    const earliestDate = investmentsListRaw.reduce<Date>((earliest, investment) => {
+      const investmentDate = startOfDay(investment.investmentDate);
+      return investmentDate.getTime() < earliest.getTime() ? investmentDate : earliest;
+    }, now);
+    const defaultRange = getTimeRangeBounds('1m', earliestDate, endDate);
+    const marketDataContext = await buildInvestmentMarketDataContext({
+      investmentsList: investmentsListRaw,
+      historyStartDate: defaultRange.startDate,
+      historyEndDate: defaultRange.endDate,
+    });
+    const enrichedAll = await enrichInvestments({
+      investmentsList: investmentsListRaw,
+      marketDataContext,
+      valuationDate: endDate,
+    });
 
-  return {
-    points,
-    summary: {
-      unitsHeld: latestPoint?.unitsHeld ?? 0,
-      investedAmount,
-      latestHoldingValue,
-      pnl: latestHoldingValue - investedAmount,
-    },
-  };
+    const rowsCount = enrichedAll.length;
+    const pageCount = Math.max(1, Math.ceil(rowsCount / perPage));
+    const offset = Math.max(page - 1, 0) * perPage;
+    const investments = enrichedAll.slice(offset, offset + perPage);
+    const dashboard = await getInvestmentsDashboard({
+      investmentsList: enrichedAll,
+      start: defaultRange.startDate,
+      end: defaultRange.endDate,
+      historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+    });
+    const instrumentTimelines = await buildInstrumentTimelineEntries({
+      investmentsList: enrichedAll,
+      startDate: defaultRange.startDate,
+      endDate: defaultRange.endDate,
+      historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+    });
+
+    return {
+      table: {
+        investments,
+        pageCount,
+        rowsCount,
+      },
+      dashboard,
+      instrumentTimelines,
+      defaultRange: {
+        range: '1m',
+        startDate: defaultRange.startDate,
+        endDate: defaultRange.endDate,
+      },
+    };
+  },
+);
+
+export const buildInvestmentsRangeTimelines = instrumentedFunction(
+  'buildInvestmentsRangeTimelines',
+  async ({
+    investmentsListRaw,
+    range,
+    endDate,
+  }: {
+    investmentsListRaw: InvestmentRow[];
+    range: InvestmentTimelineRangeValue;
+    endDate?: Date;
+  }): Promise<InvestmentsRangeTimelines> => {
+    const now = startOfDay(new Date());
+    const earliestDate = investmentsListRaw.reduce<Date>((earliest, investment) => {
+      const investmentDate = startOfDay(investment.investmentDate);
+      return investmentDate.getTime() < earliest.getTime() ? investmentDate : earliest;
+    }, now);
+    const rangeBounds = getTimeRangeBounds(range, earliestDate, endDate);
+    const marketDataContext = await buildInvestmentMarketDataContext({
+      investmentsList: investmentsListRaw,
+      historyStartDate: rangeBounds.startDate,
+      historyEndDate: rangeBounds.endDate,
+    });
+    const enrichedAll = await enrichInvestments({
+      investmentsList: investmentsListRaw,
+      marketDataContext,
+      valuationDate: endDate,
+    });
+    const dashboard = await getInvestmentsDashboard({
+      investmentsList: enrichedAll,
+      start: rangeBounds.startDate,
+      end: rangeBounds.endDate,
+      historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+    });
+    const instrumentTimelines = await buildInstrumentTimelineEntries({
+      investmentsList: enrichedAll,
+      startDate: rangeBounds.startDate,
+      endDate: rangeBounds.endDate,
+      historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+    });
+    return {
+      range,
+      startDate: rangeBounds.startDate,
+      endDate: rangeBounds.endDate,
+      timeline: dashboard.timeline,
+      instrumentTimelines,
+    };
   },
 );

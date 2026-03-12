@@ -1,12 +1,15 @@
-import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { investments } from '@/db/schema';
-import { investmentKindValues, normalizeInvestmentKind } from '@/lib/investments';
 import {
-  enrichInvestments,
-  getInstrumentHoldingTimeline,
-  getInvestmentsDashboard,
+  investmentKindValues,
+  investmentTimelineRangeValues,
+  normalizeInvestmentKind,
+} from '@/lib/investments';
+import {
+  buildInvestmentsPageData,
+  buildInvestmentsRangeTimelines,
   searchInvestmentInstruments,
 } from '@/server/helpers/investments';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
@@ -36,81 +39,78 @@ const normalizeInvestmentInput = (input: z.infer<typeof createInvestmentSchema>)
   annualRate: optionalToNull(input.annualRate),
 });
 
+const buildFilteredConditions = ({
+  userId,
+  start,
+  end,
+  investmentKind,
+}: {
+  userId: string;
+  start?: Date;
+  end?: Date;
+  investmentKind: string[];
+}) => {
+  const conditions = [eq(investments.userId, userId)];
+  if (start !== undefined) {
+    conditions.push(gte(investments.investmentDate, start));
+  }
+  if (end !== undefined) {
+    conditions.push(lte(investments.investmentDate, end));
+  }
+  if (investmentKind.length > 0) {
+    conditions.push(inArray(investments.investmentKind, investmentKind));
+  }
+  return conditions;
+};
+
 export const investmentsRouter = createTRPCRouter({
-  getInvestmentKinds: protectedProcedure.query(async ({ ctx }) => {
-    const kinds = await ctx.db
-      .selectDistinct({ investmentKind: investments.investmentKind })
-      .from(investments)
-      .where(eq(investments.userId, ctx.user.id));
-    return [...new Set(kinds.map((c) => normalizeInvestmentKind(c.investmentKind)))];
-  }),
-
-  getInvestments: protectedProcedure.input(investmentParserSchema).query(async ({ ctx, input }) => {
-    const conditions = [eq(investments.userId, ctx.user.id)];
-
-    if (input.start !== undefined) {
-      conditions.push(gte(investments.investmentDate, input.start));
-    }
-    if (input.end !== undefined) {
-      conditions.push(lte(investments.investmentDate, input.end));
-    }
-    if (input.investmentKind.length > 0) {
-      conditions.push(inArray(investments.investmentKind, input.investmentKind));
-    }
-
-    const investmentsListRaw = await ctx.db
-      .select()
-      .from(investments)
-      .where(and(...conditions))
-      .orderBy(desc(investments.investmentDate))
-      .limit(input.perPage)
-      .offset((input.page - 1) * input.perPage);
-    const investmentsList = await enrichInvestments(investmentsListRaw);
-
-    const [{ count }] = await ctx.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(investments)
-      .where(and(...conditions));
-
-    const pageCount = Math.ceil(count / input.perPage);
-
-    return {
-      investments: investmentsList,
-      pageCount,
-      rowsCount: count,
-    };
-  }),
-
-  getInvestmentsDashboard: protectedProcedure
-    .input(
-      z.object({
-        start: z.date().optional(),
-        end: z.date().optional(),
-        investmentKind: z.string().array().optional().default([]),
-      }),
-    )
+  getInvestmentsPageData: protectedProcedure
+    .input(investmentParserSchema)
     .query(async ({ ctx, input }) => {
-      const conditions = [eq(investments.userId, ctx.user.id)];
-      if (input.start !== undefined) {
-        conditions.push(gte(investments.investmentDate, input.start));
-      }
-      if (input.end !== undefined) {
-        conditions.push(lte(investments.investmentDate, input.end));
-      }
-      if (input.investmentKind.length > 0) {
-        conditions.push(inArray(investments.investmentKind, input.investmentKind));
-      }
-
+      const conditions = buildFilteredConditions({
+        userId: ctx.user.id,
+        start: input.start,
+        end: input.end,
+        investmentKind: input.investmentKind,
+      });
       const investmentsListRaw = await ctx.db
         .select()
         .from(investments)
         .where(and(...conditions))
         .orderBy(desc(investments.investmentDate));
-      const investmentsList = await enrichInvestments(investmentsListRaw);
-      return getInvestmentsDashboard({
-        investmentsList,
+      return buildInvestmentsPageData({
+        investmentsListRaw,
+        page: input.page,
+        perPage: input.perPage,
+        endDate: input.end,
+      });
+    }),
+
+  getInvestmentsTimelines: protectedProcedure
+    .input(
+      z.object({
+        start: z.date().optional(),
+        end: z.date().optional(),
+        investmentKind: z.string().array().optional().default([]),
+        range: z.enum(investmentTimelineRangeValues),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const conditions = buildFilteredConditions({
+        userId: ctx.user.id,
         start: input.start,
         end: input.end,
+        investmentKind: input.investmentKind,
+      });
+      const investmentsListRaw = await ctx.db
+        .select()
+        .from(investments)
+        .where(and(...conditions))
+        .orderBy(desc(investments.investmentDate));
+      return buildInvestmentsRangeTimelines({
+        investmentsListRaw,
+        range: input.range,
+        endDate: input.end,
       });
     }),
 
@@ -123,33 +123,6 @@ export const investmentsRouter = createTRPCRouter({
     )
     .query(async ({ input }) => {
       return searchInvestmentInstruments(input.kind, input.query);
-    }),
-
-  getInstrumentTimeline: protectedProcedure
-    .input(
-      z.object({
-        kind: z.enum(investmentKindValues),
-        code: z.string().min(1),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const rows = await ctx.db
-        .select()
-        .from(investments)
-        .where(
-          and(
-            eq(investments.userId, ctx.user.id),
-            eq(investments.investmentKind, input.kind),
-            eq(investments.instrumentCode, input.code),
-          ),
-        )
-        .orderBy(desc(investments.investmentDate));
-      const enriched = await enrichInvestments(rows);
-      return getInstrumentHoldingTimeline({
-        kind: input.kind,
-        code: input.code,
-        investmentsList: enriched,
-      });
     }),
 
   addInvestment: protectedProcedure
