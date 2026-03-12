@@ -2,6 +2,15 @@ export const investmentKindValues = ['fd', 'stocks', 'mutual_funds', 'crypto', '
 
 export type InvestmentKindValue = (typeof investmentKindValues)[number];
 
+export const stockMarketValues = ['IN', 'US'] as const;
+
+export type StockMarketValue = (typeof stockMarketValues)[number];
+
+export const stockMarketLabels: Record<StockMarketValue, string> = {
+  IN: 'India (NSE/BSE)',
+  US: 'United States (NYSE/NASDAQ)',
+};
+
 export const investmentKindLabels: Record<InvestmentKindValue, string> = {
   fd: 'Fixed Deposit',
   stocks: 'Stocks',
@@ -45,6 +54,20 @@ export const isUnitBasedInvestment = (kind: InvestmentKindValue): boolean => {
 
 export const isLivePriceInvestment = (kind: InvestmentKindValue): boolean => {
   return kind === 'stocks' || kind === 'mutual_funds' || kind === 'crypto';
+};
+
+export const normalizeStockMarket = (
+  market: string | null | undefined,
+  fallback: StockMarketValue = 'IN',
+): StockMarketValue => {
+  const normalized = (market ?? '').trim().toUpperCase();
+  if (normalized === 'US') {
+    return 'US';
+  }
+  if (normalized === 'IN') {
+    return 'IN';
+  }
+  return fallback;
 };
 
 export const investmentTimelineRangeValues = ['1d', '1w', '1m', '3m', '6m', 'lifetime'] as const;

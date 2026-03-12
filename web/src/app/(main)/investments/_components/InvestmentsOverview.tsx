@@ -21,6 +21,8 @@ import {
   type InvestmentKindValue,
   type InvestmentTimelineRangeValue,
   investmentTimelineRangeDays,
+  normalizeStockMarket,
+  type StockMarketValue,
 } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -38,6 +40,7 @@ const PORTFOLIO_VIEW = '__portfolio__';
 const POSITIVE_TONE = 'text-green-600';
 const NEGATIVE_TONE = 'text-red-600';
 const UNITS_DECIMALS = 4;
+const USD_CURRENCY = 'USD';
 
 const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: string }> = [
   { value: '1d', label: '1D' },
@@ -48,14 +51,22 @@ const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: st
   { value: 'lifetime', label: 'Lifetime' },
 ];
 
-const toViewValue = (kind: InvestmentKindValue, code: string) => `${kind}|${code}`;
+const toViewValue = (
+  kind: InvestmentKindValue,
+  code: string,
+  stockMarket: StockMarketValue | null,
+) => `${kind}|${stockMarket ?? 'NA'}|${code}`;
 
-const parseViewValue = (value: string): { kind: InvestmentKindValue; code: string } | null => {
-  const [kind, ...codeParts] = value.split('|');
+const parseViewValue = (
+  value: string,
+): { kind: InvestmentKindValue; code: string; stockMarket: StockMarketValue | null } | null => {
+  const [kind, stockMarketRaw, ...codeParts] = value.split('|');
   if (codeParts.length === 0) {
     return null;
   }
   const code = codeParts.join('|');
+  const normalizedStockMarket =
+    stockMarketRaw === 'NA' ? null : normalizeStockMarket(stockMarketRaw);
   if (
     kind === 'fd' ||
     kind === 'stocks' ||
@@ -65,10 +76,16 @@ const parseViewValue = (value: string): { kind: InvestmentKindValue; code: strin
   ) {
     return {
       kind,
+      stockMarket: normalizedStockMarket,
       code,
     };
   }
   return null;
+};
+
+const formatByCurrency = (amount: number, currency: string) => {
+  const locale = currency === USD_CURRENCY ? 'en-US' : 'en-IN';
+  return formatCurrency(amount, currency, locale);
 };
 
 export const InvestmentsOverview = ({
@@ -99,7 +116,11 @@ export const InvestmentsOverview = ({
       return null;
     }
     return dashboard.instrumentOptions.find((option) => {
-      return option.kind === parsed.kind && option.code === parsed.code;
+      return (
+        option.kind === parsed.kind &&
+        option.code === parsed.code &&
+        option.stockMarket === parsed.stockMarket
+      );
     });
   }, [dashboard.instrumentOptions, viewSelection]);
 
@@ -129,7 +150,7 @@ export const InvestmentsOverview = ({
   const instrumentTimelineMap = useMemo(() => {
     const map = new Map<string, InstrumentTimelineEntry['timeline']>();
     for (const entry of selectedTimelineEntries) {
-      map.set(toViewValue(entry.kind, entry.code), entry.timeline);
+      map.set(toViewValue(entry.kind, entry.code, entry.stockMarket), entry.timeline);
     }
     return map;
   }, [selectedTimelineEntries]);
@@ -176,6 +197,7 @@ export const InvestmentsOverview = ({
 
   const isLoadingTimeline =
     requiresRemoteTimeline && rangeTimelineQuery.isFetching && chartRows.length === 0;
+  const selectedCurrency = selectedInstrument?.displayCurrency ?? 'INR';
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
@@ -224,6 +246,9 @@ export const InvestmentsOverview = ({
             {dashboard.summary.openPositions}
           </CardContent>
         </Card>
+        <div className="text-muted-foreground px-1 text-xs sm:col-span-2">
+          Portfolio totals exclude stocks marked as RSU.
+        </div>
       </div>
 
       <Card>
@@ -262,10 +287,14 @@ export const InvestmentsOverview = ({
                       <SelectLabel>{investmentKindLabels[kind]}</SelectLabel>
                       {options.map((option) => (
                         <SelectItem
-                          key={toViewValue(option.kind, option.code)}
-                          value={toViewValue(option.kind, option.code)}
+                          key={toViewValue(option.kind, option.code, option.stockMarket)}
+                          value={toViewValue(option.kind, option.code, option.stockMarket)}
                         >
-                          {option.name} ({option.code})
+                          {option.name} ({option.code}
+                          {option.kind === 'stocks' && option.stockMarket !== null
+                            ? ` - ${option.stockMarket}`
+                            : ''}
+                          ){option.isRsu ? ' [RSU]' : ''}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -276,16 +305,20 @@ export const InvestmentsOverview = ({
           </div>
           {!isPortfolioView && selectedInstrument !== null && selectedInstrument !== undefined ? (
             <div className="text-muted-foreground text-sm">
-              {selectedInstrument.name} ({selectedInstrument.code}) - Units{' '}
-              {selectedInstrument.units.toFixed(UNITS_DECIMALS)} - Value{' '}
-              {formatCurrency(selectedInstrument.valuationAmount)} - P/L{' '}
+              {selectedInstrument.name} ({selectedInstrument.code}
+              {selectedInstrument.kind === 'stocks' && selectedInstrument.stockMarket !== null
+                ? ` - ${selectedInstrument.stockMarket}`
+                : ''}
+              ) - Units {selectedInstrument.units.toFixed(UNITS_DECIMALS)} - Value{' '}
+              {formatByCurrency(selectedInstrument.valuationAmount, selectedCurrency)} - P/L{' '}
               <span className={selectedInstrument.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                {formatCurrency(selectedInstrument.pnl)}
+                {formatByCurrency(selectedInstrument.pnl, selectedCurrency)}
               </span>{' '}
               - 1D{' '}
               <span className={selectedInstrument.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                {formatCurrency(selectedInstrument.dayChange)}
+                {formatByCurrency(selectedInstrument.dayChange, selectedCurrency)}
               </span>
+              {selectedInstrument.isRsu ? ' - RSU (excluded from portfolio totals)' : ''}
             </div>
           ) : null}
         </CardHeader>
@@ -310,8 +343,18 @@ export const InvestmentsOverview = ({
                       pnl: { label: 'P/L' },
                     }
                   : {
-                      holdingValue: { label: 'Holding Value' },
-                      unitPrice: { label: 'Unit Price' },
+                      holdingValue: {
+                        label:
+                          selectedInstrument?.displayCurrency === USD_CURRENCY
+                            ? 'Holding Value (USD)'
+                            : 'Holding Value',
+                      },
+                      unitPrice: {
+                        label:
+                          selectedInstrument?.displayCurrency === USD_CURRENCY
+                            ? 'Unit Price (USD)'
+                            : 'Unit Price',
+                      },
                     },
                 data: chartRows,
               }}

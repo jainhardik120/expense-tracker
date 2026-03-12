@@ -154,6 +154,8 @@ export const investments = pgTable('investments', {
     .references(() => user.id, { onDelete: 'cascade' }),
   investmentKind: text('investment_kind').notNull(),
   instrumentCode: text('instrument_code'),
+  stockMarket: text('stock_market'),
+  isRsu: boolean('is_rsu').notNull().default(false),
   investmentDate: timestamp('investment_date').notNull(),
   investmentAmount: numeric('investment_amount').notNull(),
   maturityDate: timestamp('maturity_date'),

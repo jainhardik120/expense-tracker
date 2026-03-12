@@ -25,7 +25,7 @@ import {
   smsTransactionStatusEnum,
   type smsNotifications,
 } from '@/db/schema';
-import { investmentKindValues, isUnitBasedInvestment } from '@/lib/investments';
+import { investmentKindValues, isUnitBasedInvestment, stockMarketValues } from '@/lib/investments';
 
 export const statementKindMap = {
   expense: 'Expense',
@@ -101,6 +101,8 @@ export const createInvestmentSchema = z
   .object({
     investmentKind: z.enum(investmentKindValues),
     instrumentCode: z.string().trim().optional(),
+    stockMarket: z.enum(stockMarketValues).optional(),
+    isRsu: z.boolean().default(false),
     investmentDate: z.date(),
     investmentAmount: amount,
     maturityDate: z.date().optional(),
@@ -124,6 +126,20 @@ export const createInvestmentSchema = z
           message: 'Units are required for stocks, mutual funds, and crypto',
         });
       }
+    }
+    if (value.investmentKind === 'stocks' && value.stockMarket === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['stockMarket'],
+        message: 'Stock market is required for stocks',
+      });
+    }
+    if (value.isRsu && value.investmentKind !== 'stocks') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['isRsu'],
+        message: 'RSU can only be marked for stocks',
+      });
     }
   });
 

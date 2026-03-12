@@ -19,6 +19,9 @@ import {
   investmentKindValues,
   isUnitBasedInvestment,
   normalizeInvestmentKind,
+  normalizeStockMarket,
+  stockMarketLabels,
+  stockMarketValues,
 } from '@/lib/investments';
 import { api } from '@/server/react';
 import { amount, createInvestmentSchema, type Investment } from '@/types';
@@ -28,6 +31,11 @@ const investmentKindOptions = investmentKindValues.map((kind) => ({
   value: kind,
 }));
 
+const stockMarketOptions = stockMarketValues.map((market) => ({
+  label: stockMarketLabels[market],
+  value: market,
+}));
+
 const requiresInstrumentCode = (kind: z.infer<typeof createInvestmentSchema>['investmentKind']) => {
   return isUnitBasedInvestment(kind);
 };
@@ -35,15 +43,30 @@ const requiresInstrumentCode = (kind: z.infer<typeof createInvestmentSchema>['in
 type InvestmentFormInput = z.input<typeof createInvestmentSchema>;
 
 const instrumentCodePlaceholders: Record<InvestmentKindValue, string> = {
-  stocks: 'Search stock (e.g. Reliance)',
+  stocks: 'Search stock',
   mutual_funds: 'Search mutual fund (e.g. Parag Parikh)',
   crypto: 'Search crypto (e.g. bitcoin)',
   fd: 'Search FD issuer (e.g. SBI)',
   other: 'Enter instrument code',
 };
 
+const stockSearchHelperTextByMarket: Record<(typeof stockMarketValues)[number], string> = {
+  IN: 'Searches Yahoo Finance symbols for Indian exchanges (NSE/BSE).',
+  US: 'Searches Yahoo Finance symbols for US exchanges (NYSE/NASDAQ).',
+};
+
+const getInstrumentSearchHelperText = (
+  kind: InvestmentKindValue,
+  stockMarket: (typeof stockMarketValues)[number],
+) => {
+  if (kind === 'stocks') {
+    return stockSearchHelperTextByMarket[stockMarket];
+  }
+  return instrumentSearchHelperText[kind];
+};
+
 const instrumentSearchHelperText: Record<InvestmentKindValue, string> = {
-  stocks: 'Searches Yahoo Finance symbols for Indian exchanges.',
+  stocks: stockSearchHelperTextByMarket.IN,
   mutual_funds: 'Searches mfapi.in scheme directory.',
   crypto: 'Searches CoinGecko coin ids.',
   fd: 'Searches preset Indian FD issuers.',
@@ -57,11 +80,13 @@ const InstrumentCodeAutocomplete = ({
 }) => {
   const { control } = useFormContext<InvestmentFormInput>();
   const investmentKind = useWatch({ control, name: 'investmentKind' });
+  const stockMarket = useWatch({ control, name: 'stockMarket' });
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSetSearchQuery = useDebouncedCallback((next: string) => {
     setSearchQuery(next.trim());
   }, 300);
   const normalizedKind = normalizeInvestmentKind(investmentKind);
+  const normalizedStockMarket = normalizeStockMarket(stockMarket);
   const currentValue = typeof field.value === 'string' ? field.value : '';
 
   useEffect(() => {
@@ -71,6 +96,7 @@ const InstrumentCodeAutocomplete = ({
   const { data, isFetching } = api.investments.searchInstruments.useQuery(
     {
       kind: normalizedKind,
+      stockMarket: normalizedStockMarket,
       query: searchQuery,
     },
     {
@@ -93,13 +119,20 @@ const InstrumentCodeAutocomplete = ({
     }));
   }, [data]);
 
-  const helperText = instrumentSearchHelperText[normalizedKind];
+  const helperText = getInstrumentSearchHelperText(normalizedKind, normalizedStockMarket);
+  let placeholder = instrumentCodePlaceholders[normalizedKind];
+  if (normalizedKind === 'stocks') {
+    placeholder =
+      normalizedStockMarket === 'US'
+        ? 'Search US stock (e.g. CSCO)'
+        : 'Search Indian stock (e.g. RELIANCE)';
+  }
 
   return (
     <div className="grid gap-2">
       <Autocomplete
         options={options}
-        placeholder={instrumentCodePlaceholders[normalizedKind]}
+        placeholder={placeholder}
         value={currentValue}
         onValueChange={(nextValue) => {
           field.onChange(nextValue);
@@ -120,16 +153,30 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
     options: investmentKindOptions,
   },
   {
+    name: 'stockMarket',
+    label: 'Stock Market',
+    type: 'select',
+    options: stockMarketOptions,
+    placeholder: 'Select stock market',
+    displayCondition: (values) => normalizeInvestmentKind(values.investmentKind) === 'stocks',
+  },
+  {
     name: 'instrumentCode',
     label: 'Instrument Code',
     type: 'custom',
     description:
-      'Search and select code by type. Stocks: NSE/BSE symbol, Mutual Funds: scheme code, Crypto: CoinGecko id, FD: issuer code.',
+      'Search and select code by type. Stocks: choose market first, Mutual Funds: scheme code, Crypto: CoinGecko id, FD: issuer code.',
     render: (field) => (
       <InstrumentCodeAutocomplete
         field={field as ControllerRenderProps<InvestmentFormInput, 'instrumentCode'>}
       />
     ),
+  },
+  {
+    name: 'isRsu',
+    label: 'Mark as RSU (excluded from portfolio totals/graph)',
+    type: 'checkbox',
+    displayCondition: (values) => normalizeInvestmentKind(values.investmentKind) === 'stocks',
   },
   {
     name: 'investmentDate',
@@ -140,6 +187,8 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
     name: 'investmentAmount',
     label: 'Investment Amount',
     type: 'number',
+    description:
+      'Enter INR for Indian investments. For US stocks, enter USD amount (auto-converted to INR in dashboard/table).',
     placeholder: 'Investment Amount',
     min: 0,
     max: 9999999999,
@@ -198,6 +247,8 @@ export const CreateInvestmentForm = () => {
       defaultValues={{
         investmentKind: 'stocks',
         instrumentCode: '',
+        stockMarket: 'IN',
+        isRsu: false,
         investmentDate: new Date(),
         investmentAmount: '',
         maturityDate: new Date(),
@@ -243,6 +294,8 @@ export const UpdateInvestmentForm = ({
       defaultValues={{
         investmentKind: normalizedKind,
         instrumentCode: initialData.instrumentCode ?? '',
+        stockMarket: normalizeStockMarket(initialData.stockMarket),
+        isRsu: initialData.isRsu,
         investmentDate: initialData.investmentDate,
         investmentAmount: initialData.investmentAmount,
         maturityDate: initialData.maturityDate ?? new Date(),

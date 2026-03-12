@@ -3,17 +3,21 @@ import { env } from '@/lib/env';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
   type InvestmentKindValue,
+  type StockMarketValue,
   type InvestmentTimelineRangeValue,
   investmentTimelineRangeDays,
   isLivePriceInvestment,
   isUnitBasedInvestment,
   normalizeInvestmentKind,
+  normalizeStockMarket,
 } from '@/lib/investments';
 import { parseFloatSafe } from '@/server/helpers/emi-calculations';
 
 const YEAR_IN_MS = 365.25 * 24 * 60 * 60 * 1000;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (compatible; ExpenseTracker/1.0)';
+const USD_CURRENCY = 'USD';
+const INR_CURRENCY = 'INR';
 
 const getCoinGeckoHeaders = (): HeadersInit => ({
   Accept: 'application/json',
@@ -21,9 +25,13 @@ const getCoinGeckoHeaders = (): HeadersInit => ({
 });
 
 type InvestmentRow = typeof investments.$inferSelect;
+type DisplayCurrencyValue = 'INR' | 'USD';
 
 type Quote = {
   unitPriceInr: number;
+  unitPriceNative: number;
+  nativeCurrency: string;
+  fxRateToInr: number | null;
   asOf: Date | null;
   source: string;
 };
@@ -31,6 +39,7 @@ type Quote = {
 type InstrumentIdentity = {
   kind: InvestmentKindValue;
   code: string;
+  stockMarket: StockMarketValue | null;
 };
 
 export type InvestmentInstrumentSearchResult = {
@@ -50,7 +59,11 @@ export type InvestmentTimelinePoint = {
 export type DashboardInstrumentOption = {
   kind: InvestmentKindValue;
   code: string;
+  stockMarket: StockMarketValue | null;
   name: string;
+  displayCurrency: DisplayCurrencyValue;
+  isRsu: boolean;
+  isExcludedFromPortfolio: boolean;
   positionsCount: number;
   units: number;
   investedAmount: number;
@@ -67,6 +80,10 @@ export type DashboardInstrumentBreakdown = DashboardInstrumentOption & {
   averageBuyPrice: number | null;
   currentUnitPrice: number | null;
   pnlPercentage: number | null;
+  buyValueInrAtPurchaseFx: number | null;
+  currentValueInrAtCurrentFx: number | null;
+  buyFxRateToInr: number | null;
+  currentFxRateToInr: number | null;
 };
 
 export type InvestmentsDashboard = {
@@ -118,10 +135,13 @@ export type InstrumentHoldingTimeline = {
 export type InstrumentTimelineEntry = {
   kind: InvestmentKindValue;
   code: string;
+  stockMarket: StockMarketValue | null;
   timeline: InstrumentHoldingTimeline;
 };
 
 type InvestmentMarketDataContext = {
+  usdInrRate: number | null;
+  usdInrHistory: Array<{ date: Date; price: number }>;
   quoteByInstrumentKey: Map<string, Quote>;
   nameByInstrumentKey: Map<string, string>;
   historyByInstrumentKey: Map<string, Array<{ date: Date; price: number }>>;
@@ -152,13 +172,31 @@ export type InvestmentsRangeTimelines = {
 
 export type EnrichedInvestment = InvestmentRow & {
   normalizedKind: InvestmentKindValue;
+  normalizedStockMarket: StockMarketValue | null;
+  displayCurrency: DisplayCurrencyValue;
+  isRsuPosition: boolean;
+  investedAmountInr: number;
+  investedAmountNative: number;
+  investedAmountCurrency: string;
+  investedAmountFxRateToInr: number | null;
+  currentFxRateToInr: number | null;
+  investedAmountInrAtCurrentFx: number | null;
+  investedAmountDisplay: number;
   instrumentName: string | null;
   isClosedPosition: boolean;
   liveUnitPrice: number | null;
+  liveUnitPriceNative: number | null;
+  liveUnitPriceCurrency: string | null;
+  liveFxRateToInr: number | null;
+  liveUnitPriceDisplay: number | null;
   valuationAmount: number | null;
+  valuationAmountDisplay: number | null;
+  currentValueInrAtCurrentFx: number | null;
   pnl: number | null;
+  pnlDisplay: number | null;
   pnlPercentage: number | null;
   dayChange: number | null;
+  dayChangeDisplay: number | null;
   dayChangePercentage: number | null;
   valuationSource: string | null;
   valuationDate: Date | null;
@@ -193,6 +231,19 @@ const deriveUnits = ({ units }: { units: string | null | undefined }): number | 
   }
 
   return null;
+};
+
+const getStockMarketFromInvestment = (
+  investment: Pick<InvestmentRow, 'investmentKind' | 'stockMarket'>,
+): StockMarketValue | null => {
+  if (normalizeInvestmentKind(investment.investmentKind) !== 'stocks') {
+    return null;
+  }
+  return normalizeStockMarket(investment.stockMarket);
+};
+
+const isRsuInvestment = (investment: Pick<InvestmentRow, 'investmentKind' | 'isRsu'>): boolean => {
+  return normalizeInvestmentKind(investment.investmentKind) === 'stocks' && investment.isRsu;
 };
 
 const parseMfDate = (value: string): Date | null => {
@@ -361,7 +412,214 @@ type MFScheme = {
   schemeName: string;
 };
 
-const createInstrumentKey = (kind: InvestmentKindValue, code: string): string => `${kind}:${code}`;
+const createInstrumentKey = (
+  kind: InvestmentKindValue,
+  code: string,
+  stockMarket: StockMarketValue | null = null,
+): string => {
+  if (kind === 'stocks') {
+    return `${kind}:${normalizeStockMarket(stockMarket)}:${code}`;
+  }
+  return `${kind}:${code}`;
+};
+
+const getYahooStockSymbol = (code: string, stockMarket: StockMarketValue): string => {
+  const normalizedCode = code.trim().toUpperCase();
+  if (stockMarket === 'US') {
+    return normalizedCode;
+  }
+  return normalizedCode.includes('.') ? normalizedCode : `${normalizedCode}.NS`;
+};
+
+const getFxRateToInrFromHistory = (
+  date: Date,
+  usdInrHistory: Array<{ date: Date; price: number }>,
+  fallbackRate: number | null,
+): number | null => {
+  const targetTime = startOfDay(date).getTime();
+  let latestRate: number | null = null;
+  let latestTime = Number.MIN_SAFE_INTEGER;
+
+  for (const point of usdInrHistory) {
+    const pointTime = startOfDay(point.date).getTime();
+    if (pointTime > targetTime || !Number.isFinite(point.price) || point.price <= 0) {
+      continue;
+    }
+    if (pointTime >= latestTime) {
+      latestRate = point.price;
+      latestTime = pointTime;
+    }
+  }
+
+  if (latestRate !== null) {
+    return latestRate;
+  }
+  if (fallbackRate !== null && Number.isFinite(fallbackRate) && fallbackRate > 0) {
+    return fallbackRate;
+  }
+  return null;
+};
+
+const convertPriceToInr = ({
+  unitPrice,
+  nativeCurrencyRaw,
+  usdInrRate,
+}: {
+  unitPrice: number;
+  nativeCurrencyRaw: string | null | undefined;
+  usdInrRate: number | null;
+}): {
+  unitPriceInr: number;
+  nativeCurrency: string;
+  fxRateToInr: number | null;
+} | null => {
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0) {
+    return null;
+  }
+  const nativeCurrency = (nativeCurrencyRaw ?? INR_CURRENCY).trim().toUpperCase();
+  if (nativeCurrency === INR_CURRENCY) {
+    return {
+      unitPriceInr: unitPrice,
+      nativeCurrency,
+      fxRateToInr: 1,
+    };
+  }
+  if (nativeCurrency === USD_CURRENCY) {
+    const fxRateToInr =
+      usdInrRate !== null && Number.isFinite(usdInrRate) && usdInrRate > 0 ? usdInrRate : null;
+    if (fxRateToInr === null) {
+      return null;
+    }
+    return {
+      unitPriceInr: unitPrice * fxRateToInr,
+      nativeCurrency,
+      fxRateToInr,
+    };
+  }
+  return null;
+};
+
+const getInvestmentAmountInInr = ({
+  investmentAmountRaw,
+  investmentDate,
+  normalizedKind,
+  normalizedStockMarket,
+  usdInrRate,
+  usdInrHistory,
+}: {
+  investmentAmountRaw: string | null | undefined;
+  investmentDate: Date;
+  normalizedKind: InvestmentKindValue;
+  normalizedStockMarket: StockMarketValue | null;
+  usdInrRate: number | null;
+  usdInrHistory: Array<{ date: Date; price: number }>;
+}): {
+  amountInr: number;
+  amountNative: number;
+  currency: 'INR' | 'USD';
+  purchaseFxRateToInr: number | null;
+  currentFxRateToInr: number | null;
+  amountInrAtCurrentFx: number | null;
+} => {
+  const parsedAmount = parseOptionalNumber(investmentAmountRaw) ?? 0;
+  if (normalizedKind === 'stocks' && normalizedStockMarket === 'US') {
+    const purchaseFxRateToInr = getFxRateToInrFromHistory(
+      investmentDate,
+      usdInrHistory,
+      usdInrRate,
+    );
+    const currentFxRateToInr =
+      usdInrRate !== null && Number.isFinite(usdInrRate) && usdInrRate > 0 ? usdInrRate : null;
+    const effectivePurchaseFx = purchaseFxRateToInr ?? currentFxRateToInr;
+    return {
+      amountInr: effectivePurchaseFx === null ? parsedAmount : parsedAmount * effectivePurchaseFx,
+      amountNative: parsedAmount,
+      currency: USD_CURRENCY,
+      purchaseFxRateToInr,
+      currentFxRateToInr,
+      amountInrAtCurrentFx: currentFxRateToInr === null ? null : parsedAmount * currentFxRateToInr,
+    };
+  }
+  return {
+    amountInr: parsedAmount,
+    amountNative: parsedAmount,
+    currency: INR_CURRENCY,
+    purchaseFxRateToInr: 1,
+    currentFxRateToInr: 1,
+    amountInrAtCurrentFx: parsedAmount,
+  };
+};
+
+const getUsdInrRate = instrumentedFunction('getUsdInrRate', async (): Promise<number | null> => {
+  const payload = await fetchJson<{
+    quoteResponse?: {
+      result?: Array<{ symbol?: string; regularMarketPrice?: number }>;
+    };
+  }>('https://query1.finance.yahoo.com/v7/finance/quote?symbols=USDINR%3DX', {
+    cache: 'no-store',
+    headers: {
+      'User-Agent': DEFAULT_USER_AGENT,
+    },
+  });
+
+  const price = payload?.quoteResponse?.result?.[0]?.regularMarketPrice;
+  if (price === undefined || !Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+  return price;
+});
+
+const getUsdInrHistory = instrumentedFunction(
+  'getUsdInrHistory',
+  async ({
+    startDate,
+    endDate,
+  }: {
+    startDate: Date;
+    endDate: Date;
+  }): Promise<Array<{ date: Date; price: number }>> => {
+    const periodStart = Math.floor(startOfDay(startDate).getTime() / 1000);
+    const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / 1000);
+    const payload = await fetchJson<{
+      chart?: {
+        result?: Array<{
+          timestamp?: number[];
+          indicators?: {
+            quote?: Array<{
+              close?: Array<number | null>;
+            }>;
+          };
+        }>;
+      };
+    }>(
+      `https://query1.finance.yahoo.com/v8/finance/chart/USDINR%3DX?interval=1d&period1=${periodStart}&period2=${periodEnd}`,
+      {
+        cache: 'no-store',
+        headers: {
+          'User-Agent': DEFAULT_USER_AGENT,
+        },
+      },
+    );
+
+    const result = payload?.chart?.result?.[0];
+    const timestamps = result?.timestamp ?? [];
+    const closes = result?.indicators?.quote?.[0]?.close ?? [];
+    const points: Array<{ date: Date; price: number }> = [];
+    for (const [index, timestamp] of timestamps.entries()) {
+      const close = closes[index];
+      if (close === null || !Number.isFinite(close) || close <= 0) {
+        continue;
+      }
+      points.push({
+        date: new Date(timestamp * 1000),
+        price: close,
+      });
+    }
+    return points;
+  },
+);
+
+const US_STOCK_EXCHANGES = new Set(['NMS', 'NAS', 'NGM', 'NYQ', 'ASE', 'PCX', 'PNK']);
 
 const splitIntoChunks = <T>(items: T[], chunkSize: number): T[][] => {
   const chunks: T[][] = [];
@@ -402,7 +660,10 @@ const getMutualFundSchemes = async (): Promise<MFScheme[]> => {
   return items;
 };
 
-const searchStocks = async (query: string): Promise<InvestmentInstrumentSearchResult[]> => {
+const searchStocks = async (
+  query: string,
+  stockMarket: StockMarketValue,
+): Promise<InvestmentInstrumentSearchResult[]> => {
   const payload = await fetchJson<{
     quotes?: Array<{
       symbol?: string;
@@ -426,13 +687,19 @@ const searchStocks = async (query: string): Promise<InvestmentInstrumentSearchRe
     .filter((item) => item.quoteType === 'EQUITY')
     .filter((item) => {
       const symbol = item.symbol ?? '';
-      const exchange = item.exchange ?? '';
-      return (
-        symbol.endsWith('.NS') ||
-        symbol.endsWith('.BO') ||
-        exchange.toUpperCase() === 'NSI' ||
-        exchange.toUpperCase() === 'BSE'
-      );
+      const exchange = (item.exchange ?? '').toUpperCase();
+      if (stockMarket === 'IN') {
+        return (
+          symbol.endsWith('.NS') ||
+          symbol.endsWith('.BO') ||
+          exchange === 'NSI' ||
+          exchange === 'BSE'
+        );
+      }
+      if (symbol.includes('.')) {
+        return false;
+      }
+      return US_STOCK_EXCHANGES.has(exchange);
     })
     .slice(0, 20);
 
@@ -525,17 +792,19 @@ const searchFd = async (query: string): Promise<InvestmentInstrumentSearchResult
     }));
 };
 
-const resolveStockInstrumentNames = async (codes: string[]): Promise<Map<string, string>> => {
+const resolveStockInstrumentNames = async (
+  instruments: Array<{ code: string; stockMarket: StockMarketValue }>,
+): Promise<Map<string, string>> => {
   const names = new Map<string, string>();
-  const requests = codes
-    .map((code) => {
-      const normalizedCode = code.trim();
-      const symbol = normalizedCode.includes('.')
-        ? normalizedCode.toUpperCase()
-        : `${normalizedCode.toUpperCase()}.NS`;
+  const requests = instruments
+    .map((instrument) => {
+      const normalizedCode = instrument.code.trim();
+      const stockMarket = normalizeStockMarket(instrument.stockMarket);
+      const symbol = getYahooStockSymbol(normalizedCode, stockMarket);
       return {
         code: normalizedCode,
         symbol,
+        stockMarket,
       };
     })
     .filter((item) => item.code !== '');
@@ -581,7 +850,7 @@ const resolveStockInstrumentNames = async (codes: string[]): Promise<Map<string,
   for (const request of requests) {
     const resolvedName = nameBySymbol.get(request.symbol);
     if (resolvedName !== undefined) {
-      names.set(request.code, resolvedName);
+      names.set(createInstrumentKey('stocks', request.code, request.stockMarket), resolvedName);
     }
   }
 
@@ -663,7 +932,7 @@ const resolveCryptoInstrumentNames = async (codes: string[]): Promise<Map<string
 };
 
 const resolveInstrumentNames = async (
-  instruments: Array<{ kind: InvestmentKindValue; code: string }>,
+  instruments: InstrumentIdentity[],
 ): Promise<Map<string, string>> => {
   const codesByKind: Record<InvestmentKindValue, string[]> = {
     fd: [],
@@ -672,6 +941,7 @@ const resolveInstrumentNames = async (
     crypto: [],
     other: [],
   };
+  const stockInstruments: Array<{ code: string; stockMarket: StockMarketValue }> = [];
 
   for (const instrument of instruments) {
     const normalizedCode = instrument.code.trim();
@@ -679,10 +949,16 @@ const resolveInstrumentNames = async (
       continue;
     }
     codesByKind[instrument.kind].push(normalizedCode);
+    if (instrument.kind === 'stocks') {
+      stockInstruments.push({
+        code: normalizedCode,
+        stockMarket: normalizeStockMarket(instrument.stockMarket),
+      });
+    }
   }
 
   const [stockNames, mutualFundNames, cryptoNames] = await Promise.all([
-    resolveStockInstrumentNames([...new Set(codesByKind.stocks)]),
+    resolveStockInstrumentNames(stockInstruments),
     resolveMutualFundInstrumentNames([...new Set(codesByKind.mutual_funds)]),
     resolveCryptoInstrumentNames([...new Set(codesByKind.crypto)]),
   ]);
@@ -700,7 +976,9 @@ const resolveInstrumentNames = async (
 
     let name: string | undefined;
     if (instrument.kind === 'stocks') {
-      name = stockNames.get(normalizedCode);
+      name = stockNames.get(
+        createInstrumentKey('stocks', normalizedCode, normalizeStockMarket(instrument.stockMarket)),
+      );
     } else if (instrument.kind === 'mutual_funds') {
       name = mutualFundNames.get(normalizedCode);
     } else if (instrument.kind === 'crypto') {
@@ -711,7 +989,10 @@ const resolveInstrumentNames = async (
       name = normalizedCode;
     }
 
-    resolved.set(createInstrumentKey(instrument.kind, normalizedCode), name ?? normalizedCode);
+    resolved.set(
+      createInstrumentKey(instrument.kind, normalizedCode, instrument.stockMarket),
+      name ?? normalizedCode,
+    );
   }
 
   return resolved;
@@ -719,14 +1000,18 @@ const resolveInstrumentNames = async (
 
 export const searchInvestmentInstruments = instrumentedFunction(
   'searchInvestmentInstruments',
-  async (kind: InvestmentKindValue, query: string): Promise<InvestmentInstrumentSearchResult[]> => {
+  async (
+    kind: InvestmentKindValue,
+    query: string,
+    stockMarket: StockMarketValue = 'IN',
+  ): Promise<InvestmentInstrumentSearchResult[]> => {
     const normalizedQuery = query.trim();
     if (normalizedQuery.length < 2) {
       return [];
     }
 
     if (kind === 'stocks') {
-      return searchStocks(normalizedQuery);
+      return searchStocks(normalizedQuery, stockMarket);
     }
     if (kind === 'mutual_funds') {
       return searchMutualFunds(normalizedQuery);
@@ -750,19 +1035,28 @@ const dateToDayKey = (date: Date): string => {
 
 const getHistoricalStockPrices = async ({
   code,
+  stockMarket,
   startDate,
   endDate,
+  usdInrRate,
+  usdInrHistory,
 }: {
   code: string;
+  stockMarket: StockMarketValue;
   startDate: Date;
   endDate: Date;
+  usdInrRate: number | null;
+  usdInrHistory: Array<{ date: Date; price: number }>;
 }): Promise<Array<{ date: Date; price: number }>> => {
-  const symbol = code.includes('.') ? code.toUpperCase() : `${code.toUpperCase()}.NS`;
+  const symbol = getYahooStockSymbol(code, stockMarket);
   const periodStart = Math.floor(startOfDay(startDate).getTime() / 1000);
   const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / 1000);
   const payload = await fetchJson<{
     chart?: {
       result?: Array<{
+        meta?: {
+          currency?: string;
+        };
         timestamp?: number[];
         indicators?: {
           quote?: Array<{
@@ -781,18 +1075,32 @@ const getHistoricalStockPrices = async ({
     },
   );
   const result = payload?.chart?.result?.[0];
+  const nativeCurrency = result?.meta?.currency ?? (stockMarket === 'US' ? 'USD' : 'INR');
   const timestamps = result?.timestamp ?? [];
   const closes = result?.indicators?.quote?.[0]?.close ?? [];
   const points: Array<{ date: Date; price: number }> = [];
 
   for (const [index, timestamp] of timestamps.entries()) {
     const close = closes[index];
-    if (close === null || !Number.isFinite(close) || close <= 0) {
+    if (close === null) {
+      continue;
+    }
+    const closeDate = new Date(timestamp * 1000);
+    const fxRateToInr =
+      nativeCurrency === USD_CURRENCY
+        ? getFxRateToInrFromHistory(closeDate, usdInrHistory, usdInrRate)
+        : usdInrRate;
+    const converted = convertPriceToInr({
+      unitPrice: close,
+      nativeCurrencyRaw: nativeCurrency,
+      usdInrRate: fxRateToInr,
+    });
+    if (converted === null) {
       continue;
     }
     points.push({
-      date: new Date(timestamp * 1000),
-      price: close,
+      date: closeDate,
+      price: converted.unitPriceInr,
     });
   }
   return points;
@@ -868,9 +1176,21 @@ const getHistoricalUnitPrices = async (
   code: string,
   startDate: Date,
   endDate: Date,
+  options?: {
+    stockMarket?: StockMarketValue | null;
+    usdInrRate?: number | null;
+    usdInrHistory?: Array<{ date: Date; price: number }>;
+  },
 ): Promise<Array<{ date: Date; price: number }>> => {
   if (kind === 'stocks') {
-    return getHistoricalStockPrices({ code, startDate, endDate });
+    return getHistoricalStockPrices({
+      code,
+      stockMarket: normalizeStockMarket(options?.stockMarket),
+      startDate,
+      endDate,
+      usdInrRate: options?.usdInrRate ?? null,
+      usdInrHistory: options?.usdInrHistory ?? [],
+    });
   }
   if (kind === 'mutual_funds') {
     return getHistoricalMutualFundPrices({ code, startDate, endDate });
@@ -881,16 +1201,24 @@ const getHistoricalUnitPrices = async (
   return [];
 };
 
-const getStockQuotesByCode = async (codes: string[]): Promise<Map<string, Quote>> => {
+const getStockQuotesByCode = async (
+  instruments: Array<{ code: string; stockMarket: StockMarketValue }>,
+  usdInrRate: number | null,
+): Promise<Map<string, Quote>> => {
   const quotesByCode = new Map<string, Quote>();
-  const normalizedCodes = [...new Set(codes.map((code) => code.trim()).filter(Boolean))];
-  if (normalizedCodes.length === 0) {
+  const normalizedInstruments = instruments
+    .map((instrument) => ({
+      code: instrument.code.trim(),
+      stockMarket: normalizeStockMarket(instrument.stockMarket),
+    }))
+    .filter((instrument) => instrument.code !== '');
+  if (normalizedInstruments.length === 0) {
     return quotesByCode;
   }
 
   await Promise.all(
-    normalizedCodes.map(async (code) => {
-      const symbol = code.includes('.') ? code.toUpperCase() : `${code.toUpperCase()}.NS`;
+    normalizedInstruments.map(async ({ code, stockMarket }) => {
+      const symbol = getYahooStockSymbol(code, stockMarket);
       const payload = await fetchJson<{
         chart?: {
           result?: Array<{
@@ -910,18 +1238,51 @@ const getStockQuotesByCode = async (codes: string[]): Promise<Map<string, Quote>
           },
         },
       );
-      const meta = payload?.chart?.result?.[0]?.meta;
-      if (
-        meta?.currency !== 'INR' ||
-        meta.regularMarketPrice === undefined ||
-        !Number.isFinite(meta.regularMarketPrice) ||
-        meta.regularMarketPrice <= 0
-      ) {
+      let marketPrice = payload?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      let marketTime = payload?.chart?.result?.[0]?.meta?.regularMarketTime;
+      let marketCurrency = payload?.chart?.result?.[0]?.meta?.currency;
+
+      if (marketPrice === undefined || !Number.isFinite(marketPrice) || marketPrice <= 0) {
+        const quotePayload = await fetchJson<{
+          quoteResponse?: {
+            result?: Array<{
+              regularMarketPrice?: number;
+              regularMarketTime?: number;
+              currency?: string;
+            }>;
+          };
+        }>(
+          `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`,
+          {
+            cache: 'no-store',
+            headers: {
+              'User-Agent': DEFAULT_USER_AGENT,
+            },
+          },
+        );
+        const quoteResult = quotePayload?.quoteResponse?.result?.[0];
+        marketPrice = quoteResult?.regularMarketPrice;
+        marketTime = quoteResult?.regularMarketTime;
+        marketCurrency = quoteResult?.currency;
+      }
+
+      if (marketPrice === undefined || !Number.isFinite(marketPrice) || marketPrice <= 0) {
         return;
       }
-      quotesByCode.set(code, {
-        unitPriceInr: meta.regularMarketPrice,
-        asOf: meta.regularMarketTime === undefined ? null : new Date(meta.regularMarketTime * 1000),
+      const converted = convertPriceToInr({
+        unitPrice: marketPrice,
+        nativeCurrencyRaw: marketCurrency ?? (stockMarket === 'US' ? 'USD' : 'INR'),
+        usdInrRate,
+      });
+      if (converted === null) {
+        return;
+      }
+      quotesByCode.set(createInstrumentKey('stocks', code, stockMarket), {
+        unitPriceInr: converted.unitPriceInr,
+        unitPriceNative: marketPrice,
+        nativeCurrency: converted.nativeCurrency,
+        fxRateToInr: converted.fxRateToInr,
+        asOf: marketTime === undefined ? null : new Date(marketTime * 1000),
         source: 'yahoo-finance',
       });
     }),
@@ -950,6 +1311,9 @@ const getMutualFundQuotesByCode = async (codes: string[]): Promise<Map<string, Q
       }
       quotesByCode.set(code, {
         unitPriceInr: price,
+        unitPriceNative: price,
+        nativeCurrency: 'INR',
+        fxRateToInr: 1,
         asOf: parseMfDate(nav.date),
         source: 'mfapi.in',
       });
@@ -988,6 +1352,9 @@ const getCryptoQuotesByCode = async (codes: string[]): Promise<Map<string, Quote
     }
     quotesByCode.set(code, {
       unitPriceInr: quote.inr,
+      unitPriceNative: quote.inr,
+      nativeCurrency: 'INR',
+      fxRateToInr: 1,
       asOf: quote.last_updated_at === undefined ? null : new Date(quote.last_updated_at * 1000),
       source: 'coingecko',
     });
@@ -1004,13 +1371,19 @@ const getUniqueInstruments = (investmentsList: InvestmentRow[]): InstrumentIdent
     if (code === '') {
       continue;
     }
-    instrumentMap.set(createInstrumentKey(kind, code), { kind, code });
+    const stockMarket = getStockMarketFromInvestment(investment);
+    instrumentMap.set(createInstrumentKey(kind, code, stockMarket), {
+      kind,
+      code,
+      stockMarket,
+    });
   }
   return [...instrumentMap.values()];
 };
 
 const getLiveQuotesByInstrument = async (
   investmentsList: InvestmentRow[],
+  usdInrRate: number | null,
 ): Promise<Map<string, Quote>> => {
   const openLiveInstruments = getUniqueInstruments(
     investmentsList.filter((investment) => {
@@ -1018,23 +1391,29 @@ const getLiveQuotesByInstrument = async (
       return !investment.isClosed && isLivePriceInvestment(kind);
     }),
   );
-  const codesByKind: Record<'stocks' | 'mutual_funds' | 'crypto', string[]> = {
+  const codesByKind: {
+    stocks: Array<{ code: string; stockMarket: StockMarketValue }>;
+    mutual_funds: string[];
+    crypto: string[];
+  } = {
     stocks: [],
     mutual_funds: [],
     crypto: [],
   };
   for (const instrument of openLiveInstruments) {
-    if (
-      instrument.kind === 'stocks' ||
-      instrument.kind === 'mutual_funds' ||
-      instrument.kind === 'crypto'
-    ) {
+    if (instrument.kind === 'stocks') {
+      codesByKind.stocks.push({
+        code: instrument.code,
+        stockMarket: normalizeStockMarket(instrument.stockMarket),
+      });
+      continue;
+    }
+    if (instrument.kind === 'mutual_funds' || instrument.kind === 'crypto') {
       codesByKind[instrument.kind].push(instrument.code);
     }
   }
-
   const [stockQuotes, mutualFundQuotes, cryptoQuotes] = await Promise.all([
-    getStockQuotesByCode(codesByKind.stocks),
+    getStockQuotesByCode(codesByKind.stocks, usdInrRate),
     getMutualFundQuotesByCode(codesByKind.mutual_funds),
     getCryptoQuotesByCode(codesByKind.crypto),
   ]);
@@ -1042,23 +1421,34 @@ const getLiveQuotesByInstrument = async (
   const quoteByInstrumentKey = new Map<string, Quote>();
   for (const instrument of openLiveInstruments) {
     if (instrument.kind === 'stocks') {
-      const quote = stockQuotes.get(instrument.code);
+      const quote = stockQuotes.get(
+        createInstrumentKey('stocks', instrument.code, instrument.stockMarket),
+      );
       if (quote !== undefined) {
-        quoteByInstrumentKey.set(createInstrumentKey(instrument.kind, instrument.code), quote);
+        quoteByInstrumentKey.set(
+          createInstrumentKey(instrument.kind, instrument.code, instrument.stockMarket),
+          quote,
+        );
       }
       continue;
     }
     if (instrument.kind === 'mutual_funds') {
       const quote = mutualFundQuotes.get(instrument.code);
       if (quote !== undefined) {
-        quoteByInstrumentKey.set(createInstrumentKey(instrument.kind, instrument.code), quote);
+        quoteByInstrumentKey.set(
+          createInstrumentKey(instrument.kind, instrument.code, instrument.stockMarket),
+          quote,
+        );
       }
       continue;
     }
     if (instrument.kind === 'crypto') {
       const quote = cryptoQuotes.get(instrument.code.toLowerCase());
       if (quote !== undefined) {
-        quoteByInstrumentKey.set(createInstrumentKey(instrument.kind, instrument.code), quote);
+        quoteByInstrumentKey.set(
+          createInstrumentKey(instrument.kind, instrument.code, instrument.stockMarket),
+          quote,
+        );
       }
     }
   }
@@ -1070,10 +1460,14 @@ const prefetchHistoricalPrices = async ({
   instruments,
   startDate,
   endDate,
+  usdInrRate,
+  usdInrHistory,
 }: {
   instruments: InstrumentIdentity[];
   startDate: Date;
   endDate: Date;
+  usdInrRate: number | null;
+  usdInrHistory: Array<{ date: Date; price: number }>;
 }): Promise<Map<string, Array<{ date: Date; price: number }>>> => {
   const historyByInstrumentKey = new Map<string, Array<{ date: Date; price: number }>>();
   await Promise.all(
@@ -1086,8 +1480,16 @@ const prefetchHistoricalPrices = async ({
         instrument.code,
         startDate,
         endDate,
+        {
+          stockMarket: instrument.stockMarket,
+          usdInrRate,
+          usdInrHistory,
+        },
       );
-      historyByInstrumentKey.set(createInstrumentKey(instrument.kind, instrument.code), history);
+      historyByInstrumentKey.set(
+        createInstrumentKey(instrument.kind, instrument.code, instrument.stockMarket),
+        history,
+      );
     }),
   );
   return historyByInstrumentKey;
@@ -1105,8 +1507,35 @@ const buildInvestmentMarketDataContext = instrumentedFunction(
     historyEndDate?: Date;
   }): Promise<InvestmentMarketDataContext> => {
     const instruments = getUniqueInstruments(investmentsList);
+    const hasUsStocks = instruments.some(
+      (instrument) =>
+        instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US',
+    );
+    const earliestInvestmentDate = investmentsList.reduce<Date | null>((earliest, investment) => {
+      const stockMarket = getStockMarketFromInvestment(investment);
+      if (stockMarket !== 'US') {
+        return earliest;
+      }
+      const date = startOfDay(investment.investmentDate);
+      if (earliest === null || date.getTime() < earliest.getTime()) {
+        return date;
+      }
+      return earliest;
+    }, null);
+    const usdInrHistoryEndDate = historyEndDate ?? new Date();
+    const [usdInrRateRaw, usdInrHistory] = hasUsStocks
+      ? await Promise.all([
+          getUsdInrRate(),
+          getUsdInrHistory({
+            startDate: earliestInvestmentDate ?? startOfDay(new Date()),
+            endDate: usdInrHistoryEndDate,
+          }),
+        ])
+      : [null, []];
+    const usdInrRate =
+      usdInrRateRaw ?? getFxRateToInrFromHistory(usdInrHistoryEndDate, usdInrHistory, null);
     const [quoteByInstrumentKey, nameByInstrumentKey, historyByInstrumentKey] = await Promise.all([
-      getLiveQuotesByInstrument(investmentsList),
+      getLiveQuotesByInstrument(investmentsList, usdInrRate),
       resolveInstrumentNames(instruments),
       historyStartDate === undefined || historyEndDate === undefined
         ? Promise.resolve(new Map<string, Array<{ date: Date; price: number }>>())
@@ -1114,9 +1543,13 @@ const buildInvestmentMarketDataContext = instrumentedFunction(
             instruments,
             startDate: historyStartDate,
             endDate: historyEndDate,
+            usdInrRate,
+            usdInrHistory,
           }),
     ]);
     return {
+      usdInrRate,
+      usdInrHistory,
       quoteByInstrumentKey,
       nameByInstrumentKey,
       historyByInstrumentKey,
@@ -1125,8 +1558,10 @@ const buildInvestmentMarketDataContext = instrumentedFunction(
 );
 
 type UnitInstrumentOneDayMetrics = {
-  currentUnitPrice: number | null;
-  previousUnitPrice: number | null;
+  currentUnitPriceInr: number | null;
+  previousUnitPriceInr: number | null;
+  currentUnitPriceNative: number | null;
+  previousUnitPriceNative: number | null;
 };
 
 const getLatestPricePointOnOrBeforeDate = (
@@ -1188,7 +1623,7 @@ const getUnitInstrumentOneDayMetricsByKey = ({
     if (!isUnitBasedInvestment(instrument.kind)) {
       continue;
     }
-    const key = createInstrumentKey(instrument.kind, instrument.code);
+    const key = createInstrumentKey(instrument.kind, instrument.code, instrument.stockMarket);
     const history = marketDataContext.historyByInstrumentKey.get(key) ?? [];
     const quote = marketDataContext.quoteByInstrumentKey.get(key);
     const quoteAsOfDate =
@@ -1200,9 +1635,55 @@ const getUnitInstrumentOneDayMetricsByKey = ({
     const currentReferenceDate =
       quoteAsOfDate ?? startOfDay(currentPointFromHistory?.date ?? asOfDate);
     const previousPointFromHistory = getLatestPricePointBeforeDate(history, currentReferenceDate);
+    const isUsStock =
+      instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US';
+    const currentUnitPriceInr = quote?.unitPriceInr ?? currentPointFromHistory?.price ?? null;
+    const previousUnitPriceInr = previousPointFromHistory?.price ?? null;
+
+    const currentUnitPriceNative = (() => {
+      if (!isUsStock) {
+        return currentUnitPriceInr;
+      }
+      if (quote?.unitPriceNative !== undefined) {
+        return quote.unitPriceNative;
+      }
+      if (currentPointFromHistory === null) {
+        return null;
+      }
+      const fxRate = getFxRateToInrFromHistory(
+        currentPointFromHistory.date,
+        marketDataContext.usdInrHistory,
+        marketDataContext.usdInrRate,
+      );
+      if (fxRate === null || fxRate <= 0) {
+        return null;
+      }
+      return currentPointFromHistory.price / fxRate;
+    })();
+
+    const previousUnitPriceNative = (() => {
+      if (!isUsStock) {
+        return previousUnitPriceInr;
+      }
+      if (previousPointFromHistory === null) {
+        return null;
+      }
+      const fxRate = getFxRateToInrFromHistory(
+        previousPointFromHistory.date,
+        marketDataContext.usdInrHistory,
+        marketDataContext.usdInrRate,
+      );
+      if (fxRate === null || fxRate <= 0) {
+        return null;
+      }
+      return previousPointFromHistory.price / fxRate;
+    })();
+
     metricsByInstrumentKey.set(key, {
-      currentUnitPrice: quote?.unitPriceInr ?? currentPointFromHistory?.price ?? null,
-      previousUnitPrice: previousPointFromHistory?.price ?? null,
+      currentUnitPriceInr,
+      previousUnitPriceInr,
+      currentUnitPriceNative,
+      previousUnitPriceNative,
     });
   }
 
@@ -1235,13 +1716,28 @@ const enrichInvestments = instrumentedFunction(
 
     return investmentsList.map((investment) => {
       const normalizedKind = normalizeInvestmentKind(investment.investmentKind);
+      const normalizedStockMarket = getStockMarketFromInvestment(investment);
+      const isUsStock = normalizedKind === 'stocks' && normalizedStockMarket === 'US';
+      const displayCurrency: DisplayCurrencyValue = isUsStock ? USD_CURRENCY : INR_CURRENCY;
       const instrumentCode = investment.instrumentCode?.trim() ?? '';
-      const instrumentKey = createInstrumentKey(normalizedKind, instrumentCode);
+      const instrumentKey = createInstrumentKey(
+        normalizedKind,
+        instrumentCode,
+        normalizedStockMarket,
+      );
       const instrumentName =
         instrumentCode === ''
           ? null
           : (context.nameByInstrumentKey.get(instrumentKey) ?? instrumentCode);
-      const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
+      const amountInfo = getInvestmentAmountInInr({
+        investmentAmountRaw: investment.investmentAmount,
+        investmentDate: investment.investmentDate,
+        normalizedKind,
+        normalizedStockMarket,
+        usdInrRate: context.usdInrRate,
+        usdInrHistory: context.usdInrHistory,
+      });
+      const investedAmount = amountInfo.amountInr;
       const units = deriveUnits({
         units: investment.units,
       });
@@ -1263,12 +1759,13 @@ const enrichInvestments = instrumentedFunction(
       })();
 
       const pnl = valuationAmount === null ? null : valuationAmount - investedAmount;
-      const pnlPercentage = pnl === null ? null : getPercentageChange(pnl, investedAmount);
 
       let dayChange: number | null = null;
+      let dayChangeDisplay: number | null = null;
       let dayChangePercentage: number | null = null;
       if (investment.isClosed) {
         dayChange = 0;
+        dayChangeDisplay = 0;
         dayChangePercentage = 0;
       } else if (normalizedKind === 'fd') {
         const currentValuation = getFdValuationAtDate(investment, asOfDate);
@@ -1278,6 +1775,7 @@ const enrichInvestments = instrumentedFunction(
         );
         if (currentValuation !== null && previousValuation !== null) {
           dayChange = currentValuation - previousValuation;
+          dayChangeDisplay = dayChange;
           dayChangePercentage = getPercentageChange(dayChange, previousValuation);
         }
       } else if (isUnitBasedInvestment(normalizedKind) && instrumentCode !== '') {
@@ -1285,8 +1783,8 @@ const enrichInvestments = instrumentedFunction(
           units: investment.units,
         });
         const metrics = oneDayUnitMetricsByKey.get(instrumentKey);
-        const currentUnitPrice = metrics?.currentUnitPrice;
-        const previousUnitPrice = metrics?.previousUnitPrice;
+        const currentUnitPrice = metrics?.currentUnitPriceInr;
+        const previousUnitPrice = metrics?.previousUnitPriceInr;
         if (
           units !== null &&
           units > 0 &&
@@ -1297,21 +1795,115 @@ const enrichInvestments = instrumentedFunction(
         ) {
           const unitPriceDelta = currentUnitPrice - previousUnitPrice;
           dayChange = unitPriceDelta * units;
-          dayChangePercentage = getPercentageChange(dayChange, units * previousUnitPrice);
+          if (isUsStock) {
+            const currentUnitPriceNative = metrics?.currentUnitPriceNative;
+            const previousUnitPriceNative = metrics?.previousUnitPriceNative;
+            if (
+              currentUnitPriceNative !== null &&
+              currentUnitPriceNative !== undefined &&
+              previousUnitPriceNative !== null &&
+              previousUnitPriceNative !== undefined
+            ) {
+              dayChangeDisplay = (currentUnitPriceNative - previousUnitPriceNative) * units;
+              dayChangePercentage = getPercentageChange(
+                dayChangeDisplay,
+                units * previousUnitPriceNative,
+              );
+            } else {
+              dayChangePercentage = getPercentageChange(dayChange, units * previousUnitPrice);
+            }
+          } else {
+            dayChangeDisplay = dayChange;
+            dayChangePercentage = getPercentageChange(dayChange, units * previousUnitPrice);
+          }
+        }
+      }
+
+      const currentFxRateToInr = investment.isClosed
+        ? amountInfo.currentFxRateToInr
+        : (quote?.fxRateToInr ?? amountInfo.currentFxRateToInr);
+
+      const investedAmountDisplay =
+        displayCurrency === USD_CURRENCY ? amountInfo.amountNative : amountInfo.amountInr;
+
+      const liveUnitPriceDisplay = (() => {
+        if (investment.isClosed) {
+          return null;
+        }
+        if (displayCurrency === USD_CURRENCY) {
+          return quote?.unitPriceNative ?? null;
+        }
+        return quote?.unitPriceInr ?? null;
+      })();
+
+      const valuationAmountDisplay = (() => {
+        if (valuationAmount === null) {
+          return null;
+        }
+        if (displayCurrency !== USD_CURRENCY) {
+          return valuationAmount;
+        }
+        if (investment.isClosed) {
+          if (currentFxRateToInr !== null && currentFxRateToInr > 0) {
+            return valuationAmount / currentFxRateToInr;
+          }
+          return null;
+        }
+        if (quote !== undefined && units !== null) {
+          return quote.unitPriceNative * units;
+        }
+        return amountInfo.amountNative;
+      })();
+
+      const pnlDisplay =
+        valuationAmountDisplay === null ? null : valuationAmountDisplay - investedAmountDisplay;
+      const pnlPercentageDisplay =
+        pnlDisplay === null ? null : getPercentageChange(pnlDisplay, investedAmountDisplay);
+
+      const effectiveDayChangeDisplay =
+        dayChangeDisplay ??
+        (displayCurrency === USD_CURRENCY && dayChange !== null && currentFxRateToInr !== null
+          ? dayChange / currentFxRateToInr
+          : dayChange);
+
+      let currentValueInrAtCurrentFx: number | null = null;
+      if (valuationAmountDisplay !== null) {
+        if (displayCurrency !== USD_CURRENCY) {
+          currentValueInrAtCurrentFx = valuationAmountDisplay;
+        } else if (currentFxRateToInr !== null) {
+          currentValueInrAtCurrentFx = valuationAmountDisplay * currentFxRateToInr;
         }
       }
 
       return {
         ...investment,
         normalizedKind,
+        normalizedStockMarket,
+        displayCurrency,
+        isRsuPosition: isRsuInvestment(investment),
+        investedAmountInr: amountInfo.amountInr,
+        investedAmountNative: amountInfo.amountNative,
+        investedAmountCurrency: amountInfo.currency,
+        investedAmountFxRateToInr: amountInfo.purchaseFxRateToInr,
+        currentFxRateToInr: amountInfo.currentFxRateToInr,
+        investedAmountInrAtCurrentFx: amountInfo.amountInrAtCurrentFx,
+        investedAmountDisplay,
         instrumentName,
         isClosedPosition: investment.isClosed,
         liveUnitPrice: investment.isClosed ? null : (quote?.unitPriceInr ?? null),
+        liveUnitPriceNative: investment.isClosed ? null : (quote?.unitPriceNative ?? null),
+        liveUnitPriceCurrency: investment.isClosed ? null : (quote?.nativeCurrency ?? null),
+        liveFxRateToInr: investment.isClosed ? null : (quote?.fxRateToInr ?? null),
+        liveUnitPriceDisplay,
         valuationAmount,
+        valuationAmountDisplay,
+        currentValueInrAtCurrentFx,
         pnl,
-        pnlPercentage,
+        pnlDisplay,
+        pnlPercentage: pnlPercentageDisplay,
         dayChange,
-        dayChangePercentage,
+        dayChangeDisplay: effectiveDayChangeDisplay,
+        dayChangePercentage: effectiveDayChangeDisplay === null ? null : dayChangePercentage,
         valuationSource: investment.isClosed ? 'closed' : (quote?.source ?? null),
         valuationDate: investment.isClosed ? investment.closedAt : (quote?.asOf ?? null),
       };
@@ -1325,8 +1917,8 @@ const getUnitsForInvestment = (investment: EnrichedInvestment): number => {
 
 const getFallbackUnitPrice = (investment: EnrichedInvestment): number | undefined => {
   const units = getUnitsForInvestment(investment);
-  const investedAmount = parseOptionalNumber(investment.investmentAmount);
-  if (units > 0 && investedAmount !== null && investedAmount > 0) {
+  const investedAmount = investment.investedAmountInr;
+  if (units > 0 && investedAmount > 0) {
     return investedAmount / units;
   }
   return undefined;
@@ -1360,17 +1952,21 @@ const getDailyRangeFromInvestments = ({
 const buildDailyInstrumentTimeline = async ({
   kind,
   code,
+  stockMarket,
   positions,
   startDate,
   endDate,
   historyByInstrumentKey,
+  usdInrHistory,
 }: {
   kind: InvestmentKindValue;
   code: string;
+  stockMarket: StockMarketValue | null;
   positions: EnrichedInvestment[];
   startDate: Date;
   endDate: Date;
   historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
+  usdInrHistory?: Array<{ date: Date; price: number }>;
 }): Promise<InstrumentHoldingTimelinePoint[]> => {
   const dailyDates = buildDailyRange(startDate, endDate);
   if (dailyDates.length === 0) {
@@ -1414,10 +2010,18 @@ const buildDailyInstrumentTimeline = async ({
   const fallbackPrice = positions
     .map((position) => getFallbackUnitPrice(position))
     .find((value): value is number => value !== undefined && value > 0);
+  const usdInrRateFallback =
+    positions
+      .map((position) => position.liveFxRateToInr)
+      .find((value): value is number => value !== null && value > 0) ?? null;
 
   const rawPrices =
-    historyByInstrumentKey?.get(createInstrumentKey(kind, code)) ??
-    (await getHistoricalUnitPrices(kind, code, startDate, endDate));
+    historyByInstrumentKey?.get(createInstrumentKey(kind, code, stockMarket)) ??
+    (await getHistoricalUnitPrices(kind, code, startDate, endDate, {
+      stockMarket,
+      usdInrRate: usdInrRateFallback,
+      usdInrHistory: usdInrHistory ?? [],
+    }));
   const dailyPrices = buildDailyPriceSeries({
     rawPoints: rawPrices,
     startDate,
@@ -1472,17 +2076,27 @@ const buildDailyInstrumentTimeline = async ({
 type InstrumentAggregate = {
   kind: InvestmentKindValue;
   code: string;
+  stockMarket: StockMarketValue | null;
   name: string;
+  displayCurrency: DisplayCurrencyValue;
+  isRsu: boolean;
+  isExcludedFromPortfolio: boolean;
   positionsCount: number;
   openPositions: number;
   closedPositions: number;
   units: number;
   investedAmount: number;
+  investedAmountDisplay: number;
+  buyValueInrAtPurchaseFx: number;
+  buyValueInrAtCurrentFx: number;
   valuationAmount: number;
+  valuationAmountDisplay: number;
   dayChange: number;
-  weightedBuyAmount: number;
+  dayChangeDisplay: number;
+  weightedBuyAmountDisplay: number;
   weightedBuyUnits: number;
-  currentUnitPrice: number | null;
+  currentUnitPriceDisplay: number | null;
+  currentValueInrAtCurrentFx: number;
 };
 
 const buildInstrumentBreakdown = (
@@ -1495,8 +2109,12 @@ const buildInstrumentBreakdown = (
     if (code === '') {
       continue;
     }
-    const key = createInstrumentKey(investment.normalizedKind, code);
-    const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
+    const key = createInstrumentKey(
+      investment.normalizedKind,
+      code,
+      investment.normalizedStockMarket,
+    );
+    const investedAmount = investment.investedAmountInr;
     const valuationAmount = investment.valuationAmount ?? investedAmount;
     const dayChange = investment.dayChange ?? 0;
     const units = getUnitsForInvestment(investment);
@@ -1504,17 +2122,27 @@ const buildInstrumentBreakdown = (
     const aggregate = aggregates.get(key) ?? {
       kind: investment.normalizedKind,
       code,
+      stockMarket: investment.normalizedStockMarket,
       name: investment.instrumentName ?? code,
+      displayCurrency: investment.displayCurrency,
+      isRsu: investment.isRsuPosition,
+      isExcludedFromPortfolio: investment.isRsuPosition,
       positionsCount: 0,
       openPositions: 0,
       closedPositions: 0,
       units: 0,
       investedAmount: 0,
+      investedAmountDisplay: 0,
+      buyValueInrAtPurchaseFx: 0,
+      buyValueInrAtCurrentFx: 0,
       valuationAmount: 0,
+      valuationAmountDisplay: 0,
       dayChange: 0,
-      weightedBuyAmount: 0,
+      dayChangeDisplay: 0,
+      weightedBuyAmountDisplay: 0,
       weightedBuyUnits: 0,
-      currentUnitPrice: null,
+      currentUnitPriceDisplay: null,
+      currentValueInrAtCurrentFx: 0,
     };
 
     aggregate.positionsCount += 1;
@@ -1525,46 +2153,73 @@ const buildInstrumentBreakdown = (
       aggregate.units += units;
     }
     aggregate.investedAmount += investedAmount;
+    aggregate.investedAmountDisplay += investment.investedAmountDisplay;
+    aggregate.buyValueInrAtPurchaseFx += investment.investedAmountInr;
+    aggregate.buyValueInrAtCurrentFx += investment.investedAmountInrAtCurrentFx ?? investedAmount;
     aggregate.valuationAmount += valuationAmount;
+    aggregate.valuationAmountDisplay +=
+      investment.valuationAmountDisplay ?? investment.investedAmountDisplay;
+    aggregate.currentValueInrAtCurrentFx +=
+      investment.currentValueInrAtCurrentFx ?? valuationAmount;
     aggregate.dayChange += dayChange;
+    aggregate.dayChangeDisplay += investment.dayChangeDisplay ?? dayChange;
+    aggregate.isRsu = aggregate.isRsu || investment.isRsuPosition;
+    aggregate.isExcludedFromPortfolio =
+      aggregate.isExcludedFromPortfolio || investment.isRsuPosition;
     if (units > 0) {
-      aggregate.weightedBuyAmount += investedAmount;
+      aggregate.weightedBuyAmountDisplay += investment.investedAmountDisplay;
       aggregate.weightedBuyUnits += units;
     }
-    if (!investment.isClosedPosition && investment.liveUnitPrice !== null) {
-      aggregate.currentUnitPrice = investment.liveUnitPrice;
+    if (!investment.isClosedPosition && investment.liveUnitPriceDisplay !== null) {
+      aggregate.currentUnitPriceDisplay = investment.liveUnitPriceDisplay;
     }
     aggregates.set(key, aggregate);
   }
 
   return [...aggregates.values()]
     .map((aggregate) => {
-      const pnl = aggregate.valuationAmount - aggregate.investedAmount;
+      const pnlDisplay = aggregate.valuationAmountDisplay - aggregate.investedAmountDisplay;
       return {
         kind: aggregate.kind,
         code: aggregate.code,
+        stockMarket: aggregate.stockMarket,
         name: aggregate.name,
+        displayCurrency: aggregate.displayCurrency,
+        isRsu: aggregate.isRsu,
+        isExcludedFromPortfolio: aggregate.isExcludedFromPortfolio,
         positionsCount: aggregate.positionsCount,
         openPositions: aggregate.openPositions,
         closedPositions: aggregate.closedPositions,
         totalPositions: aggregate.positionsCount,
         units: aggregate.units,
-        investedAmount: aggregate.investedAmount,
-        valuationAmount: aggregate.valuationAmount,
-        pnl,
-        pnlPercentage: getPercentageChange(pnl, aggregate.investedAmount),
-        dayChange: aggregate.dayChange,
+        investedAmount: aggregate.investedAmountDisplay,
+        valuationAmount: aggregate.valuationAmountDisplay,
+        pnl: pnlDisplay,
+        pnlPercentage: getPercentageChange(pnlDisplay, aggregate.investedAmountDisplay),
+        dayChange: aggregate.dayChangeDisplay,
         dayChangePercentage: getDayChangePercentageFromValuation(
-          aggregate.valuationAmount,
-          aggregate.dayChange,
+          aggregate.valuationAmountDisplay,
+          aggregate.dayChangeDisplay,
         ),
         averageBuyPrice:
           aggregate.weightedBuyUnits > 0
-            ? aggregate.weightedBuyAmount / aggregate.weightedBuyUnits
+            ? aggregate.weightedBuyAmountDisplay / aggregate.weightedBuyUnits
             : null,
         currentUnitPrice:
-          aggregate.currentUnitPrice ??
-          (aggregate.units > 0 ? aggregate.valuationAmount / aggregate.units : null),
+          aggregate.currentUnitPriceDisplay ??
+          (aggregate.units > 0 ? aggregate.valuationAmountDisplay / aggregate.units : null),
+        buyValueInrAtPurchaseFx:
+          aggregate.displayCurrency === USD_CURRENCY ? aggregate.buyValueInrAtPurchaseFx : null,
+        currentValueInrAtCurrentFx:
+          aggregate.displayCurrency === USD_CURRENCY ? aggregate.currentValueInrAtCurrentFx : null,
+        buyFxRateToInr:
+          aggregate.displayCurrency === USD_CURRENCY && aggregate.investedAmountDisplay > 0
+            ? aggregate.buyValueInrAtPurchaseFx / aggregate.investedAmountDisplay
+            : null,
+        currentFxRateToInr:
+          aggregate.displayCurrency === USD_CURRENCY && aggregate.valuationAmountDisplay > 0
+            ? aggregate.currentValueInrAtCurrentFx / aggregate.valuationAmountDisplay
+            : null,
       };
     })
     .sort((left, right) => left.name.localeCompare(right.name));
@@ -1577,11 +2232,13 @@ const getInvestmentsDashboard = instrumentedFunction(
     start,
     end,
     historyByInstrumentKey,
+    usdInrHistory,
   }: {
     investmentsList: EnrichedInvestment[];
     start?: Date;
     end?: Date;
     historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
+    usdInrHistory?: Array<{ date: Date; price: number }>;
   }): Promise<InvestmentsDashboard> => {
     const kindMap = new Map<
       InvestmentKindValue,
@@ -1594,11 +2251,16 @@ const getInvestmentsDashboard = instrumentedFunction(
         totalPositions: number;
       }
     >();
+    const portfolioInvestments = investmentsList.filter((investment) => !investment.isRsuPosition);
     const instrumentBreakdown = buildInstrumentBreakdown(investmentsList);
     const instrumentOptions: DashboardInstrumentOption[] = instrumentBreakdown.map((item) => ({
       kind: item.kind,
       code: item.code,
+      stockMarket: item.stockMarket,
       name: item.name,
+      displayCurrency: item.displayCurrency,
+      isRsu: item.isRsu,
+      isExcludedFromPortfolio: item.isExcludedFromPortfolio,
       positionsCount: item.positionsCount,
       units: item.units,
       investedAmount: item.investedAmount,
@@ -1613,8 +2275,8 @@ const getInvestmentsDashboard = instrumentedFunction(
     let openPositions = 0;
     let closedPositions = 0;
 
-    for (const investment of investmentsList) {
-      const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
+    for (const investment of portfolioInvestments) {
+      const investedAmount = investment.investedAmountInr;
       const valuationAmount = investment.valuationAmount ?? investedAmount;
       const dayChange = investment.dayChange ?? 0;
       totalInvestedAmount += investedAmount;
@@ -1669,7 +2331,7 @@ const getInvestmentsDashboard = instrumentedFunction(
       .sort((left, right) => right.valuationAmount - left.valuationAmount);
 
     const { startDate, endDate, days } = getDailyRangeFromInvestments({
-      investmentsList,
+      investmentsList: portfolioInvestments,
       start,
       end,
     });
@@ -1680,12 +2342,17 @@ const getInvestmentsDashboard = instrumentedFunction(
 
     const unitBasedGroups = new Map<
       string,
-      { kind: InvestmentKindValue; code: string; positions: EnrichedInvestment[] }
+      {
+        kind: InvestmentKindValue;
+        code: string;
+        stockMarket: StockMarketValue | null;
+        positions: EnrichedInvestment[];
+      }
     >();
     const nonUnitPositions: EnrichedInvestment[] = [];
 
-    for (const investment of investmentsList) {
-      const investedAmount = parseOptionalNumber(investment.investmentAmount) ?? 0;
+    for (const investment of portfolioInvestments) {
+      const investedAmount = investment.investedAmountInr;
       const investmentDay = startOfDay(investment.investmentDate);
       const closeDay = investment.closedAt === null ? null : startOfDay(investment.closedAt);
 
@@ -1706,10 +2373,15 @@ const getInvestmentsDashboard = instrumentedFunction(
 
       const code = investment.instrumentCode?.trim() ?? '';
       if (isUnitBasedInvestment(investment.normalizedKind) && code !== '') {
-        const groupKey = `${investment.normalizedKind}:${code}`;
+        const groupKey = createInstrumentKey(
+          investment.normalizedKind,
+          code,
+          investment.normalizedStockMarket,
+        );
         const group = unitBasedGroups.get(groupKey) ?? {
           kind: investment.normalizedKind,
           code,
+          stockMarket: investment.normalizedStockMarket,
           positions: [],
         };
         group.positions.push(investment);
@@ -1724,10 +2396,12 @@ const getInvestmentsDashboard = instrumentedFunction(
         const dailyInstrumentTimeline = await buildDailyInstrumentTimeline({
           kind: group.kind,
           code: group.code,
+          stockMarket: group.stockMarket,
           positions: group.positions,
           startDate,
           endDate,
           historyByInstrumentKey,
+          usdInrHistory,
         });
         for (const point of dailyInstrumentTimeline) {
           const key = dateToDayKey(point.date);
@@ -1812,17 +2486,21 @@ const getInstrumentHoldingTimeline = instrumentedFunction(
   async ({
     kind,
     code,
+    stockMarket,
     investmentsList,
     start,
     end,
     historyByInstrumentKey,
+    usdInrHistory,
   }: {
     kind: InvestmentKindValue;
     code: string;
+    stockMarket: StockMarketValue | null;
     investmentsList: EnrichedInvestment[];
     start?: Date;
     end?: Date;
     historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
+    usdInrHistory?: Array<{ date: Date; price: number }>;
   }): Promise<InstrumentHoldingTimeline> => {
     if (investmentsList.length === 0) {
       return {
@@ -1844,20 +2522,41 @@ const getInstrumentHoldingTimeline = instrumentedFunction(
     const points = await buildDailyInstrumentTimeline({
       kind,
       code,
+      stockMarket,
       positions: investmentsList,
       startDate,
       endDate,
       historyByInstrumentKey,
+      usdInrHistory,
     });
+    const isUsStock = kind === 'stocks' && normalizeStockMarket(stockMarket) === 'US';
+    const pointsInDisplayCurrency = isUsStock
+      ? points.map((point) => {
+          const fxRate = getFxRateToInrFromHistory(
+            point.date,
+            usdInrHistory ?? [],
+            investmentsList.find((investment) => investment.currentFxRateToInr !== null)
+              ?.currentFxRateToInr ?? null,
+          );
+          if (fxRate === null || fxRate <= 0) {
+            return point;
+          }
+          return {
+            ...point,
+            unitPrice: point.unitPrice / fxRate,
+            holdingValue: point.holdingValue / fxRate,
+          };
+        })
+      : points;
 
     const investedAmount = investmentsList.reduce((acc, investment) => {
-      return acc + (parseOptionalNumber(investment.investmentAmount) ?? 0);
+      return acc + (isUsStock ? investment.investedAmountDisplay : investment.investedAmountInr);
     }, 0);
-    const latestPoint = points.at(-1);
+    const latestPoint = pointsInDisplayCurrency.at(-1);
     const latestHoldingValue = latestPoint?.holdingValue ?? 0;
 
     return {
-      points,
+      points: pointsInDisplayCurrency,
       summary: {
         unitsHeld: latestPoint?.unitsHeld ?? 0,
         investedAmount,
@@ -1871,17 +2570,27 @@ const getInstrumentHoldingTimeline = instrumentedFunction(
 const buildInstrumentGroups = (investmentsList: EnrichedInvestment[]) => {
   const groups = new Map<
     string,
-    { kind: InvestmentKindValue; code: string; positions: EnrichedInvestment[] }
+    {
+      kind: InvestmentKindValue;
+      code: string;
+      stockMarket: StockMarketValue | null;
+      positions: EnrichedInvestment[];
+    }
   >();
   for (const investment of investmentsList) {
     const code = investment.instrumentCode?.trim() ?? '';
     if (code === '') {
       continue;
     }
-    const key = createInstrumentKey(investment.normalizedKind, code);
+    const key = createInstrumentKey(
+      investment.normalizedKind,
+      code,
+      investment.normalizedStockMarket,
+    );
     const group = groups.get(key) ?? {
       kind: investment.normalizedKind,
       code,
+      stockMarket: investment.normalizedStockMarket,
       positions: [],
     };
     group.positions.push(investment);
@@ -1897,24 +2606,29 @@ const buildInstrumentTimelineEntries = instrumentedFunction(
     startDate,
     endDate,
     historyByInstrumentKey,
+    usdInrHistory,
   }: {
     investmentsList: EnrichedInvestment[];
     startDate: Date;
     endDate: Date;
     historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
+    usdInrHistory?: Array<{ date: Date; price: number }>;
   }): Promise<InstrumentTimelineEntry[]> => {
     const groups = buildInstrumentGroups(investmentsList);
     const entries = await Promise.all(
       groups.map(async (group) => ({
         kind: group.kind,
         code: group.code,
+        stockMarket: group.stockMarket,
         timeline: await getInstrumentHoldingTimeline({
           kind: group.kind,
           code: group.code,
+          stockMarket: group.stockMarket,
           investmentsList: group.positions,
           start: startDate,
           end: endDate,
           historyByInstrumentKey,
+          usdInrHistory,
         }),
       })),
     );
@@ -1967,12 +2681,14 @@ export const buildInvestmentsPageData = instrumentedFunction(
       start: defaultRange.startDate,
       end: defaultRange.endDate,
       historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+      usdInrHistory: marketDataContext.usdInrHistory,
     });
     const instrumentTimelines = await buildInstrumentTimelineEntries({
       investmentsList: enrichedAll,
       startDate: defaultRange.startDate,
       endDate: defaultRange.endDate,
       historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+      usdInrHistory: marketDataContext.usdInrHistory,
     });
 
     return {
@@ -2024,12 +2740,14 @@ export const buildInvestmentsRangeTimelines = instrumentedFunction(
       start: rangeBounds.startDate,
       end: rangeBounds.endDate,
       historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+      usdInrHistory: marketDataContext.usdInrHistory,
     });
     const instrumentTimelines = await buildInstrumentTimelineEntries({
       investmentsList: enrichedAll,
       startDate: rangeBounds.startDate,
       endDate: rangeBounds.endDate,
       historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+      usdInrHistory: marketDataContext.usdInrHistory,
     });
     return {
       range,

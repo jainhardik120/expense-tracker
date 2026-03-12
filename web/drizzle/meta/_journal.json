@@ -281,6 +281,13 @@
       "when": 1773310403786,
       "tag": "0039_first_bruce_banner",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1773311351374,
+      "tag": "0040_nappy_blizzard",
+      "breakpoints": true
     }
   ]
 }

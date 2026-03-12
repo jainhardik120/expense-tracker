@@ -6,6 +6,8 @@ import {
   investmentKindValues,
   investmentTimelineRangeValues,
   normalizeInvestmentKind,
+  normalizeStockMarket,
+  stockMarketValues,
 } from '@/lib/investments';
 import {
   buildInvestmentsPageData,
@@ -26,16 +28,21 @@ const optionalDateToNull = (value: Date | undefined): Date | null => {
   return value ?? null;
 };
 
-const normalizeInvestmentInput = (input: z.infer<typeof createInvestmentSchema>) => ({
-  investmentKind: normalizeInvestmentKind(input.investmentKind),
-  instrumentCode: optionalToNull(input.instrumentCode),
-  investmentDate: input.investmentDate,
-  investmentAmount: input.investmentAmount,
-  maturityDate: optionalDateToNull(input.maturityDate),
-  maturityAmount: optionalToNull(input.maturityAmount),
-  units: optionalToNull(input.units),
-  annualRate: optionalToNull(input.annualRate),
-});
+const normalizeInvestmentInput = (input: z.infer<typeof createInvestmentSchema>) => {
+  const normalizedKind = normalizeInvestmentKind(input.investmentKind);
+  return {
+    investmentKind: normalizedKind,
+    instrumentCode: optionalToNull(input.instrumentCode),
+    stockMarket: normalizedKind === 'stocks' ? normalizeStockMarket(input.stockMarket) : null,
+    isRsu: normalizedKind === 'stocks' ? input.isRsu : false,
+    investmentDate: input.investmentDate,
+    investmentAmount: input.investmentAmount,
+    maturityDate: optionalDateToNull(input.maturityDate),
+    maturityAmount: optionalToNull(input.maturityAmount),
+    units: optionalToNull(input.units),
+    annualRate: optionalToNull(input.annualRate),
+  };
+};
 
 const buildFilteredConditions = ({
   userId,
@@ -116,11 +123,12 @@ export const investmentsRouter = createTRPCRouter({
     .input(
       z.object({
         kind: z.enum(investmentKindValues),
+        stockMarket: z.enum(stockMarketValues).optional().default('IN'),
         query: z.string().trim().max(120),
       }),
     )
     .query(async ({ input }) => {
-      return searchInvestmentInstruments(input.kind, input.query);
+      return searchInvestmentInstruments(input.kind, input.query, input.stockMarket);
     }),
 
   addInvestment: protectedProcedure
