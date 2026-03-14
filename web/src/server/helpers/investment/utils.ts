@@ -53,6 +53,14 @@ export const isRsuInvestment = (
   return normalizeInvestmentKind(investment.investmentKind) === 'stocks' && investment.isRsu;
 };
 
+export const isExcludedFromPortfolioInvestment = (
+  investment: Pick<InvestmentRow, 'investmentKind' | 'isRsu'>,
+): boolean => {
+  return (
+    isRsuInvestment(investment) || normalizeInvestmentKind(investment.investmentKind) === 'epfo'
+  );
+};
+
 export const dateToDayKey = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');

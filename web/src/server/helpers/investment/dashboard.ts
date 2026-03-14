@@ -80,7 +80,7 @@ const buildInstrumentBreakdown = (
       name: investment.instrumentName ?? code,
       displayCurrency: investment.displayCurrency,
       isRsu: investment.isRsuPosition,
-      isExcludedFromPortfolio: investment.isRsuPosition,
+      isExcludedFromPortfolio: investment.isExcludedFromPortfolioPosition,
       positionsCount: 0,
       openPositions: 0,
       closedPositions: 0,
@@ -119,7 +119,7 @@ const buildInstrumentBreakdown = (
     aggregate.dayChangeDisplay += investment.dayChangeDisplay ?? dayChange;
     aggregate.isRsu = aggregate.isRsu || investment.isRsuPosition;
     aggregate.isExcludedFromPortfolio =
-      aggregate.isExcludedFromPortfolio || investment.isRsuPosition;
+      aggregate.isExcludedFromPortfolio || investment.isExcludedFromPortfolioPosition;
     if (units > 0) {
       aggregate.weightedBuyAmountDisplay += investment.investedAmountDisplay;
       aggregate.weightedBuyUnits += units;
@@ -205,7 +205,9 @@ export const getInvestmentsDashboard = instrumentedFunction(
         totalPositions: number;
       }
     >();
-    const portfolioInvestments = investmentsList.filter((investment) => !investment.isRsuPosition);
+    const portfolioInvestments = investmentsList.filter(
+      (investment) => !investment.isExcludedFromPortfolioPosition,
+    );
     const instrumentBreakdown = buildInstrumentBreakdown(investmentsList);
     const instrumentOptions: DashboardInstrumentOption[] = instrumentBreakdown.map((item) => ({
       kind: item.kind,

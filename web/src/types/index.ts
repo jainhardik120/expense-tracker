@@ -116,14 +116,14 @@ export const createInvestmentSchema = z
         ctx.addIssue({
           code: 'custom',
           path: ['instrumentCode'],
-          message: 'Instrument code is required for stocks, mutual funds, and crypto',
+          message: 'Instrument code is required for stocks, mutual funds, crypto, and commodities',
         });
       }
       if (value.units === undefined || value.units === '') {
         ctx.addIssue({
           code: 'custom',
           path: ['units'],
-          message: 'Units are required for stocks, mutual funds, and crypto',
+          message: 'Units are required for stocks, mutual funds, crypto, and commodities',
         });
       }
     }

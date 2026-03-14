@@ -10,6 +10,7 @@ import {
 import { createInstrumentKey, DAY_IN_MS, INR_CURRENCY, startOfDay, USD_CURRENCY } from './shared';
 import {
   deriveUnits,
+  isExcludedFromPortfolioInvestment,
   getPercentageChange,
   getStockMarketFromInvestment,
   isRsuInvestment,
@@ -210,6 +211,7 @@ export const enrichInvestments = instrumentedFunction(
         normalizedStockMarket,
         displayCurrency,
         isRsuPosition: isRsuInvestment(investment),
+        isExcludedFromPortfolioPosition: isExcludedFromPortfolioInvestment(investment),
         investedAmountInr: amountInfo.amountInr,
         investedAmountNative: amountInfo.amountNative,
         investedAmountCurrency: amountInfo.currency,

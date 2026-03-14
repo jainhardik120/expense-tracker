@@ -215,13 +215,16 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
     historyEndDate?: Date;
   }): Promise<InvestmentMarketDataContext> => {
     const instruments = getUniqueInstruments(investmentsList);
-    const hasUsStocks = instruments.some(
+    const requiresUsdInrData = instruments.some(
       (instrument) =>
-        instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US',
+        (instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US') ||
+        instrument.kind === 'commodities',
     );
     const earliestInvestmentDate = investmentsList.reduce<Date | null>((earliest, investment) => {
+      const kind = normalizeInvestmentKind(investment.investmentKind);
       const stockMarket = getStockMarketFromInvestment(investment);
-      if (stockMarket !== 'US') {
+      const needsUsdInrData = (kind === 'stocks' && stockMarket === 'US') || kind === 'commodities';
+      if (!needsUsdInrData) {
         return earliest;
       }
       const date = startOfDay(investment.investmentDate);
@@ -231,7 +234,7 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
       return earliest;
     }, null);
     const usdInrHistoryEndDate = historyEndDate ?? new Date();
-    const [usdInrRateRaw, usdInrHistory] = hasUsStocks
+    const [usdInrRateRaw, usdInrHistory] = requiresUsdInrData
       ? await Promise.all([
           getUsdInrRate(),
           getUsdInrHistory({

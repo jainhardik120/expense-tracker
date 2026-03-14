@@ -1,4 +1,12 @@
-export const investmentKindValues = ['fd', 'stocks', 'mutual_funds', 'crypto', 'other'] as const;
+export const investmentKindValues = [
+  'fd',
+  'stocks',
+  'mutual_funds',
+  'crypto',
+  'commodities',
+  'epfo',
+  'other',
+] as const;
 
 export type InvestmentKindValue = (typeof investmentKindValues)[number];
 
@@ -16,6 +24,8 @@ export const investmentKindLabels: Record<InvestmentKindValue, string> = {
   stocks: 'Stocks',
   mutual_funds: 'Mutual Funds',
   crypto: 'Crypto Currency',
+  commodities: 'Commodities',
+  epfo: 'EPFO',
   other: 'Other',
 };
 
@@ -37,6 +47,14 @@ const kindAliases: Record<string, InvestmentKindValue> = {
   cryptocurrency: 'crypto',
   cryptocurrencies: 'crypto',
   digital_asset: 'crypto',
+  commodity: 'commodities',
+  commodities: 'commodities',
+  gold: 'commodities',
+  silver: 'commodities',
+  epfo: 'epfo',
+  employee_provident_fund: 'epfo',
+  provident_fund: 'epfo',
+  pf: 'epfo',
   other: 'other',
 };
 
@@ -48,12 +66,19 @@ export const normalizeInvestmentKind = (kind: string | null | undefined): Invest
   return kindAliases[normalized] ?? 'other';
 };
 
+const unitPricedInvestmentKinds = new Set<InvestmentKindValue>([
+  'stocks',
+  'mutual_funds',
+  'crypto',
+  'commodities',
+]);
+
 export const isUnitBasedInvestment = (kind: InvestmentKindValue): boolean => {
-  return kind === 'stocks' || kind === 'mutual_funds' || kind === 'crypto';
+  return unitPricedInvestmentKinds.has(kind);
 };
 
 export const isLivePriceInvestment = (kind: InvestmentKindValue): boolean => {
-  return kind === 'stocks' || kind === 'mutual_funds' || kind === 'crypto';
+  return unitPricedInvestmentKinds.has(kind);
 };
 
 export const normalizeStockMarket = (

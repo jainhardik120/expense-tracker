@@ -14,6 +14,7 @@ import { formatCurrency } from '@/lib/format';
 import { investmentKindLabels } from '@/lib/investments';
 import { type RouterOutput } from '@/server/routers';
 
+import { getExcludedPortfolioDescription } from './display';
 import { createInvestmentColumns, getSignedValueTone } from './InvestmentColumns';
 import { CreateInvestmentForm } from './InvestmentForms';
 import { InvestmentsOverview } from './InvestmentsOverview';
@@ -106,7 +107,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
         <div className="font-medium">{row.original.name}</div>
         <div className="text-muted-foreground text-xs">
           {row.original.code}
-          {row.original.isRsu ? ' - RSU (excluded from portfolio)' : ''}
+          {getExcludedPortfolioDescription(row.original).replace(' totals', '')}
         </div>
       </div>
     ),

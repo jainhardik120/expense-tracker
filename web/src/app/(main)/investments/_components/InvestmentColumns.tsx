@@ -130,8 +130,15 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
   {
     id: 'rsu',
     header: 'Tag',
-    cell: ({ row }) =>
-      row.original.isRsuPosition ? <Badge variant="secondary">RSU</Badge> : <span>-</span>,
+    cell: ({ row }) => {
+      if (row.original.isRsuPosition) {
+        return <Badge variant="secondary">RSU</Badge>;
+      }
+      if (row.original.normalizedKind === 'epfo') {
+        return <Badge variant="secondary">EPFO</Badge>;
+      }
+      return <span>-</span>;
+    },
   },
   {
     accessorKey: 'investmentDate',

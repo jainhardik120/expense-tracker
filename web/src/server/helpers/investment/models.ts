@@ -134,6 +134,7 @@ export type EnrichedInvestment = InvestmentRow & {
   normalizedStockMarket: StockMarketValue | null;
   displayCurrency: DisplayCurrencyValue;
   isRsuPosition: boolean;
+  isExcludedFromPortfolioPosition: boolean;
   investedAmountInr: number;
   investedAmountNative: number;
   investedAmountCurrency: string;

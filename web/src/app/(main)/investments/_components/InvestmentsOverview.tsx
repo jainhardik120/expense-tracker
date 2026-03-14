@@ -18,6 +18,7 @@ import {
 import { formatCurrency } from '@/lib/format';
 import {
   investmentKindLabels,
+  investmentKindValues,
   type InvestmentKindValue,
   type InvestmentTimelineRangeValue,
   investmentTimelineRangeDays,
@@ -26,6 +27,8 @@ import {
 } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
+
+import { getExcludedPortfolioDescription, getExcludedPortfolioTag } from './display';
 
 type DashboardData = RouterOutput['investments']['getInvestmentsPageData']['dashboard'];
 type InstrumentTimelineEntry =
@@ -67,15 +70,9 @@ const parseViewValue = (
   const code = codeParts.join('|');
   const normalizedStockMarket =
     stockMarketRaw === 'NA' ? null : normalizeStockMarket(stockMarketRaw);
-  if (
-    kind === 'fd' ||
-    kind === 'stocks' ||
-    kind === 'mutual_funds' ||
-    kind === 'crypto' ||
-    kind === 'other'
-  ) {
+  if (investmentKindValues.includes(kind as InvestmentKindValue)) {
     return {
-      kind,
+      kind: kind as InvestmentKindValue,
       stockMarket: normalizedStockMarket,
       code,
     };
@@ -247,7 +244,7 @@ export const InvestmentsOverview = ({
           </CardContent>
         </Card>
         <div className="text-muted-foreground px-1 text-xs sm:col-span-2">
-          Portfolio totals exclude stocks marked as RSU.
+          Portfolio totals exclude RSU positions and EPFO.
         </div>
       </div>
 
@@ -294,7 +291,7 @@ export const InvestmentsOverview = ({
                           {option.kind === 'stocks' && option.stockMarket !== null
                             ? ` - ${option.stockMarket}`
                             : ''}
-                          ){option.isRsu ? ' [RSU]' : ''}
+                          ){getExcludedPortfolioTag(option)}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -318,7 +315,7 @@ export const InvestmentsOverview = ({
               <span className={selectedInstrument.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
                 {formatByCurrency(selectedInstrument.dayChange, selectedCurrency)}
               </span>
-              {selectedInstrument.isRsu ? ' - RSU (excluded from portfolio totals)' : ''}
+              {getExcludedPortfolioDescription(selectedInstrument)}
             </div>
           ) : null}
         </CardHeader>

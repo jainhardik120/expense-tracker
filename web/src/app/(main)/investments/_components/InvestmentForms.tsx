@@ -46,7 +46,9 @@ const instrumentCodePlaceholders: Record<InvestmentKindValue, string> = {
   stocks: 'Search stock',
   mutual_funds: 'Search mutual fund (e.g. Parag Parikh)',
   crypto: 'Search crypto (e.g. bitcoin)',
+  commodities: 'Search commodity (e.g. gold)',
   fd: 'Search FD issuer (e.g. SBI)',
+  epfo: 'Enter EPFO account label',
   other: 'Enter instrument code',
 };
 
@@ -69,7 +71,9 @@ const instrumentSearchHelperText: Record<InvestmentKindValue, string> = {
   stocks: stockSearchHelperTextByMarket.IN,
   mutual_funds: 'Searches mfapi.in scheme directory.',
   crypto: 'Searches CoinGecko coin ids.',
+  commodities: 'Searches supported commodities like gold and silver.',
   fd: 'Searches preset Indian FD issuers.',
+  epfo: 'Optional custom EPFO label. EPFO is excluded from portfolio totals and timeline.',
   other: 'Enter a custom instrument code.',
 };
 
@@ -165,7 +169,7 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
     label: 'Instrument Code',
     type: 'custom',
     description:
-      'Search and select code by type. Stocks: choose market first, Mutual Funds: scheme code, Crypto: CoinGecko id, FD: issuer code.',
+      'Search and select code by type. Stocks: choose market first, Mutual Funds: scheme code, Crypto: CoinGecko id, Commodities: gold/silver, FD: issuer code.',
     render: (field) => (
       <InstrumentCodeAutocomplete
         field={field as ControllerRenderProps<InvestmentFormInput, 'instrumentCode'>}

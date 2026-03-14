@@ -1,5 +1,6 @@
 import type { InvestmentKindValue, StockMarketValue } from '@/lib/investments';
 
+import { CommoditiesInvestmentProvider } from './providers/commodities-investment-provider';
 import { CryptoInvestmentProvider } from './providers/crypto-investment-provider';
 import { FixedDepositInvestmentProvider } from './providers/fixed-deposit-investment-provider';
 import { MutualFundInvestmentProvider } from './providers/mutual-fund-investment-provider';
@@ -51,6 +52,7 @@ export const investmentInstrumentProviderRegistry = new InvestmentInstrumentProv
   new IndiaStockInvestmentProvider(),
   new UsStockInvestmentProvider(),
   new MutualFundInvestmentProvider(),
+  new CommoditiesInvestmentProvider(),
   new CryptoInvestmentProvider(),
   new FixedDepositInvestmentProvider(),
 ]);
