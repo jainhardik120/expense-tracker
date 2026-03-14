@@ -95,25 +95,24 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: 'gradle'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/master' }}
 
       - name: Change wrapper permissions
         run: chmod +x android/gradlew
 
-      - name: Run gradle tests
-        run: android/gradlew -p android test
-
-      - name: Build gradle project
-        run: android/gradlew -p android build
-
-      - name: Build APK debug
-        run: android/gradlew -p android assembleDebug
-
-      - name: Build APK release
-        run: android/gradlew -p android assemble
-
-      - name: Build AAB release
-        run: android/gradlew -p android app:bundleRelease
+      - name: Run Gradle CI build
+        run: >
+          android/gradlew -p android
+          --build-cache
+          --parallel
+          app:test
+          app:assembleDebug
+          app:assembleRelease
+          app:bundleRelease
 
       - name: Resolve release AAB
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
@@ -129,18 +128,21 @@ jobs:
       - name: Upload APK Debug
         uses: actions/upload-artifact@v4
         with:
+          compression-level: 0
           name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - APK(s) debug generated
           path: android/app/build/outputs/apk/debug/
 
       - name: Upload APK Release
         uses: actions/upload-artifact@v4
         with:
+          compression-level: 0
           name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - APK(s) release generated
           path: android/app/build/outputs/apk/release/
 
       - name: Upload AAB Release
         uses: actions/upload-artifact@v4
         with:
+          compression-level: 0
           name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - App bundle(s) AAB release generated
           path: android/app/build/outputs/bundle/release/
 
