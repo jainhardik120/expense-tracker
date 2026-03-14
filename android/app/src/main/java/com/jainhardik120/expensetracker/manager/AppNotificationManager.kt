@@ -1,6 +1,7 @@
 package com.jainhardik120.expensetracker.manager
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -61,6 +62,10 @@ class AppNotificationManager @Inject constructor(
         }
 
         createChannelsIfNeeded()
+        val notificationManager = NotificationManagerCompat.from(context)
+        if (!notificationManager.areNotificationsEnabled()) {
+            return
+        }
 
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
         val pendingIntent = launchIntent?.let {
@@ -84,7 +89,7 @@ class AppNotificationManager @Inject constructor(
             .setContentIntent(pendingIntent)
             .build()
 
-        NotificationManagerCompat.from(context).notify(notificationIds.incrementAndGet(), notification)
+        notificationManager.notifySafely(notificationIds.incrementAndGet(), notification)
     }
 
     private fun canPostNotifications(): Boolean {
@@ -125,4 +130,12 @@ class AppNotificationManager @Inject constructor(
         val merchant = parsedTransaction.merchant?.takeIf { it.isNotBlank() } ?: "Unknown merchant"
         return "${parsedTransaction.bankName}: ${parsedTransaction.currency} ${parsedTransaction.amount} at $merchant"
     }
+}
+
+@SuppressLint("MissingPermission")
+private fun NotificationManagerCompat.notifySafely(
+    notificationId: Int,
+    notification: android.app.Notification
+) {
+    notify(notificationId, notification)
 }
