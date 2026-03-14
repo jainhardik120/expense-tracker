@@ -4,26 +4,70 @@ env:
   main_project_module: android/app
   playstore_name: Expense Tracker
 
+permissions:
+  contents: write
 
 on:
   push:
     branches: ["**"]
+    paths:
+      - ".github/workflows/**"
+      - "android/app/**"
   pull_request:
     branches: ["**"]
+    paths:
+      - ".github/workflows/**"
+      - "android/app/**"
   workflow_dispatch:
 
 jobs:
   build:
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip version bump]') }}
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set current date as env variable
         run: echo "date_today=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: Set repository name as env variable
         run: echo "repository_name=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV
+
+      - name: Bump app version on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          current_version_code=$(grep -oE 'versionCode = [0-9]+' android/app/build.gradle.kts | awk '{print $3}')
+          current_version_name=$(grep -oE 'versionName = "[^"]+"' android/app/build.gradle.kts | sed -E 's/versionName = "([^"]+)"/\1/')
+
+          IFS='.' read -r major minor patch <<< "$current_version_name"
+          major=${major:-1}
+          minor=${minor:-0}
+          new_version_code=$((current_version_code + 1))
+          new_minor=$((minor + 1))
+
+          if [ -n "${patch:-}" ]; then
+            new_version_name="${major}.${new_minor}.0"
+          else
+            new_version_name="${major}.${new_minor}"
+          fi
+
+          perl -0pi -e 's/versionCode = \d+/versionCode = '"$new_version_code"'/; s/versionName = "[^"]+"/versionName = "'"$new_version_name"'"/' android/app/build.gradle.kts
+
+          echo "app_version_code=$new_version_code" >> $GITHUB_ENV
+          echo "app_version_name=$new_version_name" >> $GITHUB_ENV
+          echo "release_tag=v${new_version_name}" >> $GITHUB_ENV
+
+      - name: Commit and push version bump
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android/app/build.gradle.kts
+          git commit -m "ci: bump app version to ${app_version_name} [skip version bump]"
+          git push origin HEAD:${GITHUB_REF#refs/heads/}
 
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/keystore.jks
@@ -84,3 +128,15 @@ jobs:
         with:
           name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - App bundle(s) AAB release generated
           path: android/app/build/outputs/bundle/release/
+
+      - name: Create GitHub release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${release_tag}" \
+            android/app/build/outputs/apk/release/*.apk \
+            android/app/build/outputs/bundle/release/*.aab \
+            --target "$(git rev-parse HEAD)" \
+            --title "${playstore_name} ${release_tag}" \
+            --notes "Automated release for version ${app_version_name} (versionCode ${app_version_code})."
