@@ -13,7 +13,7 @@ import {
   buildInvestmentsPageData,
   buildInvestmentsRangeTimelines,
   searchInvestmentInstruments,
-} from '@/server/helpers/investments';
+} from '@/server/helpers/investment';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema, investmentParserSchema } from '@/types';
 
