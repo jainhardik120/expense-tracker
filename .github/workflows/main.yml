@@ -3,6 +3,8 @@ name: Generated APK AAB (Upload - Create Artifact To Github Action)
 env:
   main_project_module: android/app
   playstore_name: Expense Tracker
+  android_package_name: com.jainhardik120.expensetracker
+  google_play_track: internal
 
 permissions:
   contents: write
@@ -18,11 +20,13 @@ on:
     paths:
       - ".github/workflows/**"
       - "android/**"
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
   build:
-    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip version bump]') }}
+    if: ${{ github.event_name != 'release' && (github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip version bump]')) }}
     runs-on: ubuntu-latest
 
     steps:
@@ -140,3 +144,43 @@ jobs:
             --target "$(git rev-parse HEAD)" \
             --title "${playstore_name} ${release_tag}" \
             --notes "Automated release for version ${app_version_name} (versionCode ${app_version_code})."
+
+  publish_google_play_internal:
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate Google Play credentials
+        env:
+          PLAYSTORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAYSTORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$PLAYSTORE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "PLAYSTORE_SERVICE_ACCOUNT_JSON secret is required to publish GitHub releases to Google Play."
+            exit 1
+          fi
+
+      - name: Download AAB from GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist
+          gh release download "${{ github.event.release.tag_name }}" \
+            --pattern "*.aab" \
+            --dir dist
+
+          release_aab="$(find dist -type f -name '*.aab' -print -quit)"
+          if [ -z "$release_aab" ]; then
+            echo "No .aab asset found on release ${{ github.event.release.tag_name }}."
+            exit 1
+          fi
+
+          echo "release_aab=$release_aab" >> "$GITHUB_ENV"
+
+      - name: Upload release to Google Play internal track
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAYSTORE_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.android_package_name }}
+          releaseFiles: ${{ env.release_aab }}
+          track: ${{ env.google_play_track }}
+          status: completed

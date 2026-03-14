@@ -211,6 +211,18 @@ Ensure you:
 3. Run database migrations
 4. Deploy the application
 
+## 🤖 Android Release Automation
+
+The Android GitHub Actions workflow at `.github/workflows/main.yml` now publishes the release `.aab` to the Google Play `internal` track whenever a GitHub release is published.
+
+Before that release job can succeed:
+
+1. Enable the Google Play Android Developer API for the Google Cloud project tied to your Play Console account.
+2. Create a service account key in JSON format.
+3. Add that service account under Google Play Console `Users and permissions` and grant it access to `com.jainhardik120.expensetracker`.
+4. Add the JSON file contents to the repository GitHub secret `PLAYSTORE_SERVICE_ACCOUNT_JSON`.
+5. Make sure the app already exists in Play Console and has had its first upload created manually.
+
 ## 🤝 Contributing
 
 Contributions are welcome! Please follow these steps:

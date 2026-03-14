@@ -6,18 +6,16 @@ import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
 import com.jainhardik120.expensetracker.parser.core.ParsedTransaction
 import com.jainhardik120.expensetracker.parser.core.bank.BankParserFactory
-import java.util.Locale
-import java.util.Locale.getDefault
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Shared processor for SMS transactions. Used by both SmsBroadcastReceiver
- * and OptimizedSmsReaderWorker to ensure consistent transaction processing.
+ * Shared processor for SMS transactions handled by SmsBroadcastReceiver.
  */
 @Singleton
 class SmsTransactionProcessor @Inject constructor(
-    private val api: ExpenseTrackerAPI
+    private val api: ExpenseTrackerAPI,
+    private val notificationManager: AppNotificationManager
 ) {
     companion object {
         private const val TAG = "SmsTransactionProcessor"
@@ -64,6 +62,8 @@ class SmsTransactionProcessor @Inject constructor(
                 "Parsed transaction: ${parsedTransaction.amount} from ${parsedTransaction.bankName}"
             )
 
+            notificationManager.notifyTransactionReceived(parsedTransaction)
+
             // Save the transaction
             return saveParsedTransaction(parsedTransaction, body)
         } catch (e: Exception) {
@@ -78,7 +78,7 @@ class SmsTransactionProcessor @Inject constructor(
     ): ProcessingResult {
         return when (val result = api.sendNotification(SMSNotificationBody(
             amount = parsedTransaction.amount.toString(),
-            type = parsedTransaction.type.toString().lowercase(getDefault()),
+            type = parsedTransaction.type.toString().lowercase(),
             merchant = parsedTransaction.merchant ?: "Unknown Merchant",
             reference = parsedTransaction.reference ?: "No Reference",
             accountLast4 = parsedTransaction.accountLast4 ?: "0000",
@@ -96,11 +96,14 @@ class SmsTransactionProcessor @Inject constructor(
 
             is Result.ClientException -> {
                 Log.e(TAG, "Client error saving transaction: ${result.errorBody}")
-                ProcessingResult(false, reason = "Client error: ${result.errorBody}")
+                val reason = "Client error: ${result.errorBody}"
+                notificationManager.notifySmsSyncError(parsedTransaction, reason)
+                ProcessingResult(false, reason = reason)
             }
 
             is Result.Exception -> {
                 Log.e(TAG, "Exception saving transaction: ${result.errorMessage}")
+                notificationManager.notifySmsSyncError(parsedTransaction, result.errorMessage)
                 ProcessingResult(false, reason = result.errorMessage)
             }
         }

@@ -43,24 +43,3 @@ fun ErrorScreen(message: String, onRetryLogin: () -> Unit) {
         Button(onClick = onRetryLogin) { Text("Try again") }
     }
 }
-
-@Composable
-fun HomeScreen(onLogout: () -> Unit, vm: AuthViewModel) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Logged in ✅")
-        Spacer(Modifier.height(12.dp))
-        Button(onClick = onLogout) { Text("Logout") }
-        Button(onClick = vm::createDummyRequest) {
-            Text("Send Dummy Data")
-        }
-        Button(onClick = vm::refresh) {
-            Text("Refresh Auth Token")
-        }
-    }
-}
