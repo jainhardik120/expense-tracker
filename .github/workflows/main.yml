@@ -36,8 +36,8 @@ jobs:
       - name: Set repository name as env variable
         run: echo "repository_name=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV
 
-      - name: Bump app version on main
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Bump app version on master
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           current_version_code=$(grep -oE 'versionCode = [0-9]+' android/app/build.gradle.kts | awk '{print $3}')
           current_version_name=$(grep -oE 'versionName = "[^"]+"' android/app/build.gradle.kts | sed -E 's/versionName = "([^"]+)"/\1/')
@@ -61,7 +61,7 @@ jobs:
           echo "release_tag=v${new_version_name}" >> $GITHUB_ENV
 
       - name: Commit and push version bump
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -130,7 +130,7 @@ jobs:
           path: android/app/build/outputs/bundle/release/
 
       - name: Create GitHub release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
