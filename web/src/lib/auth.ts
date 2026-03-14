@@ -40,7 +40,15 @@ export const auth = betterAuth({
     oauthProvider({
       loginPage: '/auth/login',
       consentPage: '/auth/consent',
-      validAudiences: [`${getBaseUrl()}/api/external`, `${getBaseUrl()}`],
+      validAudiences: [
+        `${getBaseUrl()}/api/external`,
+        `${getBaseUrl()}`,
+        ...[
+          env.NODE_ENV === 'development'
+            ? [`https://local-dev-mac.hardikja.in`, `https://local-dev-mac.hardikja.in/api/external`]
+            : [],
+        ].flat(),
+      ],
     }),
   ],
   database: drizzleAdapter(db, {
@@ -79,7 +87,7 @@ export const auth = betterAuth({
   },
   trustedOrigins:
     env.NODE_ENV === 'development'
-      ? ['http://localhost:3000']
+      ? ['http://localhost:3000', 'https://local-dev-mac.hardikja.in']
       : [`https://${process.env.VERCEL_URL ?? ''}`],
   socialProviders: {
     github: {

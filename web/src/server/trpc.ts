@@ -44,7 +44,7 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   return result;
 });
 
-export const createTRPCContext = (opts: { headers: Headers }) => {
+export const createTRPCContext = (opts: { headers: Headers; baseUrl?: string }) => {
   return {
     db: db,
     ...opts,
@@ -59,6 +59,7 @@ export const createTRPCContextNext = async ({
   return {
     db: db,
     headers: req.headers,
+    baseUrl: `${req.headers.get('x-forwarded-proto') ?? 'http'}://${req.headers.get('host')}`,
   };
 };
 
@@ -85,10 +86,10 @@ const getUser = instrumentedFunction('getUser', async (ctx: Context) => {
     try {
       payload = await verifyJwsAccessToken(accessToken, {
         verifyOptions: {
-          issuer: `${getBaseUrl()}/api/auth`,
-          audience: `${getBaseUrl()}/api/external`,
+          issuer: `${ctx.baseUrl ?? getBaseUrl()}/api/auth`,
+          audience: `${ctx.baseUrl ?? getBaseUrl()}/api/external`,
         },
-        jwksFetch: `${getBaseUrl()}/api/auth/jwks`,
+        jwksFetch: `${ctx.baseUrl ?? getBaseUrl()}/api/auth/jwks`,
       });
     } catch {
       return;
