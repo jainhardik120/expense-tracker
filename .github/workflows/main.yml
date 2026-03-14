@@ -115,6 +115,17 @@ jobs:
       - name: Build AAB release
         run: android/gradlew -p android app:bundleRelease
 
+      - name: Resolve release AAB
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        run: |
+          release_aab="$(find android/app/build/outputs/bundle/release -type f -name '*.aab' -print -quit)"
+          if [ -z "$release_aab" ]; then
+            echo "No .aab file found after bundleRelease."
+            exit 1
+          fi
+
+          echo "release_aab=$release_aab" >> "$GITHUB_ENV"
+
       - name: Upload APK Debug
         uses: actions/upload-artifact@v4
         with:
@@ -133,6 +144,16 @@ jobs:
           name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - App bundle(s) AAB release generated
           path: android/app/build/outputs/bundle/release/
 
+      - name: Validate Google Play credentials
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          PLAYSTORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAYSTORE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$PLAYSTORE_SERVICE_ACCOUNT_JSON" ]; then
+            echo "PLAYSTORE_SERVICE_ACCOUNT_JSON secret is required to publish GitHub releases to Google Play."
+            exit 1
+          fi
+
       - name: Create GitHub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         env:
@@ -144,6 +165,16 @@ jobs:
             --target "$(git rev-parse HEAD)" \
             --title "${playstore_name} ${release_tag}" \
             --notes "Automated release for version ${app_version_name} (versionCode ${app_version_code})."
+
+      - name: Upload release to Google Play internal track
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAYSTORE_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.android_package_name }}
+          releaseFiles: ${{ env.release_aab }}
+          track: ${{ env.google_play_track }}
+          status: completed
 
   publish_google_play_internal:
     if: github.event_name == 'release' && github.event.action == 'published'

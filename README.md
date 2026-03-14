@@ -213,7 +213,7 @@ Ensure you:
 
 ## 🤖 Android Release Automation
 
-The Android GitHub Actions workflow at `.github/workflows/main.yml` now publishes the release `.aab` to the Google Play `internal` track whenever a GitHub release is published.
+The Android GitHub Actions workflow at `.github/workflows/main.yml` now publishes the release `.aab` to the Google Play `internal` track as part of the `master` release pipeline. A separate `release` trigger remains as a fallback for manually published GitHub releases.
 
 Before that release job can succeed:
 
