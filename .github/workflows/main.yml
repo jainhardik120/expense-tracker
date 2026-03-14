@@ -12,12 +12,12 @@ on:
     branches: ["**"]
     paths:
       - ".github/workflows/**"
-      - "android/app/**"
+      - "android/**"
   pull_request:
     branches: ["**"]
     paths:
       - ".github/workflows/**"
-      - "android/app/**"
+      - "android/**"
   workflow_dispatch:
 
 jobs:

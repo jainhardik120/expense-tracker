@@ -153,13 +153,30 @@ export type StatementKind = (typeof statementKindEnum.enumValues)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
 export type SMSNotification = typeof smsNotifications.$inferSelect;
-export type Statement = typeof statements.$inferSelect & {
+export type Statement = Omit<typeof statements.$inferSelect, 'statementKind' | 'additionalAttributes'> & {
+  type: 'statement';
+  statementKind: 'expense' | 'outside_transaction' | 'friend_transaction';
+  additionalAttributes: Record<string, unknown>;
   splitAmount: number;
   accountName: string | null;
   friendName: string | null;
+  fromAccountId: null;
+  toAccountId: null;
+  fromAccount: null;
+  toAccount: null;
   finalBalance?: number;
 };
 export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect & {
+  type: 'self_transfer';
+  statementKind: 'self_transfer';
+  accountId: null;
+  friendId: null;
+  category: null;
+  tags: string[];
+  splitAmount: number;
+  accountName: null;
+  friendName: null;
+  additionalAttributes?: Record<string, unknown>;
   fromAccount: string | null;
   toAccount: string | null;
   finalBalance?: number;
@@ -167,24 +184,51 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
 
 export type Investment = typeof investments.$inferSelect;
 
-export const statementItemSchema = z.object({
+export const statementSchema = z.object({
   id: z.string(),
   createdAt: z.date(),
   userId: z.string(),
   amount: z.string(),
-  type: z.enum(['statement', 'self_transfer']),
-  statementKind: z.enum(statementKindEnum.enumValues),
+  type: z.literal('statement'),
+  statementKind: z.enum(['expense', 'outside_transaction', 'friend_transaction']),
   accountId: z.string().nullable(),
   friendId: z.string().nullable(),
-  category: z.string().nullable(),
+  category: z.string(),
   tags: z.string().array(),
   splitAmount: z.number(),
   accountName: z.string().nullable(),
   friendName: z.string().nullable(),
-  fromAccountId: z.string().nullable(),
-  toAccountId: z.string().nullable(),
+  fromAccountId: z.null(),
+  toAccountId: z.null(),
+  fromAccount: z.null(),
+  toAccount: z.null(),
+  additionalAttributes: z.record(z.string(), z.unknown()),
+  finalBalance: z.number().optional(),
+});
+export const selfTransferStatementSchema = z.object({
+  id: z.string(),
+  createdAt: z.date(),
+  userId: z.string(),
+  amount: z.string(),
+  type: z.literal('self_transfer'),
+  statementKind: z.literal('self_transfer'),
+  accountId: z.null(),
+  friendId: z.null(),
+  category: z.null(),
+  tags: z.string().array(),
+  splitAmount: z.number(),
+  accountName: z.null(),
+  friendName: z.null(),
+  fromAccountId: z.string(),
+  toAccountId: z.string(),
   fromAccount: z.string().nullable(),
   toAccount: z.string().nullable(),
+  additionalAttributes: z.record(z.string(), z.unknown()).optional(),
+  finalBalance: z.number().optional(),
+});
+export const rowsCountSchema = z.object({
+  statementCount: z.number(),
+  selfTransferStatementCount: z.number(),
 });
 export type CreditCardAccount = typeof creditCardAccounts.$inferSelect;
 export type Emi = typeof emis.$inferSelect;
@@ -267,6 +311,27 @@ export const friendSummarySchema = z
   .extend(aggregatedFriendTransferSummarySchema.shape);
 
 export type FriendSummary = z.infer<typeof friendSummarySchema>;
+
+export const paginatedAccountSummarySchema = z.object({
+  account: accountSchema,
+  startingBalance: z.number(),
+  transfers: accountTransferSummarySchema,
+  finalBalance: z.number(),
+});
+
+export const paginatedFriendSummarySchema = z.object({
+  friend: friendSchema,
+  startingBalance: z.number(),
+  transfers: friendTransferSummarySchema,
+  finalBalance: z.number(),
+});
+
+export const statementsResponseSchema = z.object({
+  summary: z.union([paginatedAccountSummarySchema, paginatedFriendSummarySchema]).nullable(),
+  statements: z.array(z.union([statementSchema, selfTransferStatementSchema])),
+  pageCount: z.number(),
+  rowsCount: rowsCountSchema,
+});
 
 export const defaultFriendSummary = {
   startingBalance: new Decimal(0),
@@ -419,7 +484,7 @@ export const accountFriendStatementsParserSchema = z.object({
 export const isSelfTransfer = (
   statement: Statement | SelfTransferStatement,
 ): statement is SelfTransferStatement => {
-  return 'fromAccountId' in statement;
+  return statement.type === 'self_transfer';
 };
 
 export const isFriendSummary = (

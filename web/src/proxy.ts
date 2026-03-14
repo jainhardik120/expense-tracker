@@ -5,6 +5,11 @@ import { auth } from '@/lib/auth';
 
 const publicPaths: Array<RegExp> = [
   /^\/auth(\/|$)/,
+  /^\/privacy$/,
+  /^\/terms$/,
+  /^\/support$/,
+  /^\/delete-account$/,
+  /^\/brand(\/|$)/,
   /^\/api\/trpc(\/|$)/,
   /^\/_next(\/|$)/,
   /^\/api\/auth(\/|$)/,

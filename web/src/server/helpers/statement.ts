@@ -77,7 +77,9 @@ const generateStatementUnionDetailedQuery = (db: Database, unnestTags?: boolean)
       accountName: bankAccount.accountName,
       friendName: friendsProfiles.name,
       userId: statements.userId,
-      splitAmount: splitTotals.total,
+      splitAmount: sql<number>`COALESCE(${splitTotals.total}, 0)`
+        .mapWith(Number)
+        .as('split_amount'),
       accountId: statements.accountId,
       friendId: statements.friendId,
       category: statements.category,
@@ -225,11 +227,12 @@ export const getMergedStatements = instrumentedFunction(
     );
     return (await selectQuery.limit(input.perPage).offset(offset))
       .map<Statement | SelfTransferStatement | undefined>((row) => {
-        if (row.type === 'statement') {
+        if (row.type === 'statement' && row.statementKind !== 'self_transfer') {
           const value: Statement = {
             id: row.id,
             createdAt: row.createdAt,
             userId: row.userId,
+            type: 'statement',
             accountId: row.accountId,
             friendId: row.friendId,
             amount: row.amount,
@@ -239,7 +242,11 @@ export const getMergedStatements = instrumentedFunction(
             splitAmount: row.splitAmount,
             accountName: row.accountName,
             friendName: row.friendName,
-            additionalAttributes: row.additionalAttributes,
+            additionalAttributes: row.additionalAttributes as Record<string, unknown>,
+            fromAccountId: null,
+            toAccountId: null,
+            fromAccount: null,
+            toAccount: null,
           };
           return value;
         }
@@ -248,7 +255,17 @@ export const getMergedStatements = instrumentedFunction(
             id: row.id,
             createdAt: row.createdAt,
             userId: row.userId,
+            type: 'self_transfer',
             amount: row.amount,
+            statementKind: 'self_transfer',
+            accountId: null,
+            friendId: null,
+            category: null,
+            tags: [],
+            splitAmount: 0,
+            accountName: null,
+            friendName: null,
+            additionalAttributes: {},
             fromAccountId: row.fromAccountId,
             toAccountId: row.toAccountId,
             fromAccount: row.fromAccount,
@@ -350,7 +367,7 @@ const getChangeForAccount = (accountId: string, statement: Statement | SelfTrans
     }
     return change;
   }
-  if ('fromAccountId' in statement && 'toAccountId' in statement) {
+  if (statement.type === 'self_transfer') {
     if (statement.fromAccountId === accountId) {
       return -1 * Number.parseFloat(statement.amount);
     }
