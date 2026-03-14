@@ -25,6 +25,9 @@ jobs:
       - name: Set repository name as env variable
         run: echo "repository_name=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV
 
+      - name: Decode Keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/keystore.jks
+
       - name: Create local.properties
         run: |
           cat > android/local.properties <<'EOF'
@@ -34,6 +37,10 @@ jobs:
           AUTH_CLIENT_ID=${{ secrets.AUTH_CLIENT_ID }}
           AUTH_RESOURCE=${{ secrets.AUTH_RESOURCE }}
           AUTH_REDIRECT_URI=${{ secrets.AUTH_REDIRECT_URI }}
+          KEYSTORE_FILE=keystore.jks
+          STORE_PASSWORD=${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS=${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}
           EOF
       - name: Set Up JDK
         uses: actions/setup-java@v4
