@@ -367,7 +367,11 @@ export const InvestmentsOverview = ({
                 <div className="text-muted-foreground">
                   {kindItem.openPositions} open / {kindItem.closedPositions} closed
                 </div>
-                <div>{formatCurrency(kindItem.valuationAmount)}</div>
+                <div>Invested {formatCurrency(kindItem.investedAmount)}</div>
+                <div>Current Value {formatCurrency(kindItem.valuationAmount)}</div>
+                <div className={kindItem.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                  PNL {formatCurrency(kindItem.pnl)}
+                </div>
                 <div className={kindItem.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
                   1D {formatCurrency(kindItem.dayChange)}
                 </div>
