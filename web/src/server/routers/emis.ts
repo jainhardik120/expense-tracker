@@ -208,7 +208,8 @@ export const emisRouter = createTRPCRouter({
         throw new Error('Statement is already linked to an EMI');
       }
       const { schedule: payments } = calculateSchedule(emi);
-      let lastInstallmentNo = -1;
+      const firstPayment = payments[0].installment;
+      let lastInstallmentNo = firstPayment -1;
       const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.user.id, input.emiId);
       if (maxInstallmentNo !== null) {
         lastInstallmentNo = parseFloatSafe(maxInstallmentNo);

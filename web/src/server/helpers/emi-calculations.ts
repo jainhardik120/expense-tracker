@@ -116,7 +116,7 @@ export const calculateSchedule = (
       interest += values.iafe;
     }
     const gst = (interest * values.gst) / PERCENTAGE_DIVISOR;
-    const totalPayment = emi + gst;
+    const totalPayment = principalComponent + interest + gst;
 
     totalInterest += interest;
     totalGST += gst;
