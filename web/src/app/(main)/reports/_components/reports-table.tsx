@@ -1,9 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { format, toZonedTime } from 'date-fns-tz';
-import { Settings } from 'lucide-react';
+import { Settings, SlidersHorizontal } from 'lucide-react';
 
 import { aggregationTableColumns } from '@/components/aggregation-table-columns';
 import { DataTable } from '@/components/data-table/data-table';
@@ -22,6 +23,7 @@ import { useDataTable } from '@/hooks/use-data-table';
 import type { ProcessedAggregationData } from '@/types';
 
 import { BoundaryListItem, CreateBoundaryForm } from './boundary-forms';
+import { DownloadReportDialog } from './download-report-dialog';
 import { ReportNoteCell } from './report-note-cell';
 
 interface Boundary {
@@ -105,6 +107,13 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
   return (
     <DataTable enablePagination={false} getItemValue={(i) => i.date.toISOString()} table={table}>
       <DataTableToolbar table={table}>
+        <DownloadReportDialog boundaries={initialBoundaries} />
+        <Button asChild size="sm" variant="outline">
+          <Link href="/reports/template">
+            <SlidersHorizontal className="mr-2 size-4" />
+            Edit Report Template
+          </Link>
+        </Button>
         <Dialog>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline">

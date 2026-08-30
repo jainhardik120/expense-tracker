@@ -267,3 +267,25 @@ export const smsNotifications = pgTable('sms_notifications', {
   status: smsTransactionStatusEnum().notNull().default('pending'),
   additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
 });
+
+// One PDF report template per user. The four fields mirror @helix-hq/pdf-report's
+// ReportTemplate contract: the code step turns raw statement data into display
+// values, and the spec places them. Per-user because the calculations encode an
+// individual's own way of reading their money.
+export const reportTemplates = pgTable('report_templates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  inputSchema: jsonb('input_schema').notNull(),
+  code: text('code').notNull(),
+  outputSchema: jsonb('output_schema').notNull(),
+  spec: jsonb('spec').notNull(),
+  createdAt: timestamp('created_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
+});

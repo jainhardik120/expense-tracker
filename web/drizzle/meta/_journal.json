@@ -295,6 +295,13 @@
       "when": 1788103682223,
       "tag": "0041_lovely_thanos",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1788108421871,
+      "tag": "0042_special_wrecking_crew",
+      "breakpoints": true
     }
   ]
 }

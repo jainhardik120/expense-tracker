@@ -1,9 +1,11 @@
 import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { reportBoundaries } from '@/db/schema';
+import { reportBoundaries, reportTemplates } from '@/db/schema';
 import { startOfDayLocal, getTimezone } from '@/lib/date';
 import { getRawDataForCustomAggregation, processAggregatedData } from '@/server/helpers/summary';
+import { defaultExpenseReportTemplate } from '@/server/reports/default-template';
+import { buildReportInput } from '@/server/reports/report-input';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
 import { getAccounts, getFriends } from '../helpers/account';
@@ -101,6 +103,64 @@ export const reportsRouter = createTRPCRouter({
         .set({ note: trimmed === '' ? null : trimmed })
         .where(and(eq(reportBoundaries.id, input.id), eq(reportBoundaries.userId, ctx.user.id)))
         .returning();
+    }),
+
+  getTemplate: protectedProcedure.query(async ({ ctx }) => {
+    const stored = await ctx.db
+      .select()
+      .from(reportTemplates)
+      .where(eq(reportTemplates.userId, ctx.user.id))
+      .limit(1);
+    if (stored.length === 0) {
+      // Never persisted on read; the seed only becomes theirs once they save.
+      return { ...defaultExpenseReportTemplate, isDefault: true };
+    }
+    const row = stored[0];
+    return {
+      inputSchema: row.inputSchema,
+      code: row.code,
+      outputSchema: row.outputSchema,
+      spec: row.spec,
+      demoInput: defaultExpenseReportTemplate.demoInput,
+      isDefault: false,
+    };
+  }),
+
+  saveTemplate: protectedProcedure
+    .input(
+      z.object({
+        inputSchema: z.unknown(),
+        code: z.string(),
+        outputSchema: z.unknown(),
+        spec: z.unknown(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const values = {
+        userId: ctx.user.id,
+        inputSchema: input.inputSchema,
+        code: input.code,
+        outputSchema: input.outputSchema,
+        spec: input.spec,
+        updatedAt: new Date(),
+      };
+      return ctx.db
+        .insert(reportTemplates)
+        .values(values)
+        .onConflictDoUpdate({ target: reportTemplates.userId, set: values })
+        .returning();
+    }),
+
+  getReportInput: protectedProcedure
+    .input(z.object({ fromBoundaryId: z.string(), toBoundaryId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return buildReportInput({
+        db: ctx.db,
+        userId: ctx.user.id,
+        fromBoundaryId: input.fromBoundaryId,
+        toBoundaryId: input.toBoundaryId,
+        timezone: await getTimezone(),
+      });
     }),
 
   getAggregatedReport: protectedProcedure.query(async ({ ctx }) => {

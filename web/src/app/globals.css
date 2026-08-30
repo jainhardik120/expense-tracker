@@ -1,5 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Prebuilt: Tailwind does not scan node_modules, so this cannot be generated
+   here. It reads the same shadcn variables defined below, which is why the
+   design system's own globals.css is deliberately not imported — it would
+   redefine this app's theme rather than borrow from it. */
+@import "@helix-hq/pdf-report/editor.css";
 
 @custom-variant dark (&:is(.dark *));
 

@@ -16,6 +16,10 @@ const publicPaths: Array<RegExp> = [
   /^\/_next(\/|$)/,
   /^\/api\/auth(\/|$)/,
   /^\/api\/external(\/|$)/,
+  // These check the session themselves and answer 401, which is what a fetch
+  // client wants — a redirect to the login page would arrive as an HTML body.
+  /^\/api\/pdf-report(\/|$)/,
+  /^\/api\/reports(\/|$)/,
   /^\/.well-known(\/|$)/,
   /^\/public\//,
   /^\/favicon.ico$/,
