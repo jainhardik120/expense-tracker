@@ -1,4 +1,5 @@
 import type {
+  InvestmentCategoryValue,
   InvestmentKindValue,
   InvestmentTimelineRangeValue,
   StockMarketValue,
@@ -59,6 +60,18 @@ export type InvestmentsDashboard = {
   };
   kindBreakdown: Array<{
     kind: InvestmentKindValue;
+    investedAmount: number;
+    valuationAmount: number;
+    pnl: number;
+    pnlPercentage: number | null;
+    dayChange: number;
+    dayChangePercentage: number | null;
+    openPositions: number;
+    closedPositions: number;
+    totalPositions: number;
+  }>;
+  categoryBreakdown: Array<{
+    category: InvestmentCategoryValue;
     investedAmount: number;
     valuationAmount: number;
     pnl: number;

@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { statementKindEnum } from '@/db/schema';
 import { db } from '@/lib/db';
+import { setCookieHeader } from '@/lib/set-cookie-header';
 import { createCaller } from '@/server/routers';
 
 export const maxDuration = 30;
@@ -226,9 +227,11 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
 
 export const POST = async (req: Request) => {
   const heads = await headers();
+  const responseHeaders = new Headers();
   const caller = createCaller({
     headers: heads,
     db: db,
+    setHeader: (key, value) => setCookieHeader(key, value, responseHeaders),
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment

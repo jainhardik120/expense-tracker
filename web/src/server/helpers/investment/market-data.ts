@@ -115,10 +115,16 @@ export const getHistoricalUnitPrices = async (
   );
 };
 
-const getUniqueInstruments = (investmentsList: InvestmentRow[]): InstrumentIdentity[] => {
+const getUniqueInstruments = (
+  investmentsList: InvestmentRow[],
+  marketDataKinds?: InvestmentKindValue[],
+): InstrumentIdentity[] => {
   const instrumentMap = new Map<string, InstrumentIdentity>();
   for (const investment of investmentsList) {
     const kind = normalizeInvestmentKind(investment.investmentKind);
+    if (marketDataKinds !== undefined && !marketDataKinds.includes(kind)) {
+      continue;
+    }
     const code = investment.instrumentCode?.trim() ?? '';
     if (code === '') {
       continue;
@@ -134,14 +140,11 @@ const getUniqueInstruments = (investmentsList: InvestmentRow[]): InstrumentIdent
 };
 
 const getLiveQuotesByInstrument = async (
-  investmentsList: InvestmentRow[],
+  instruments: InstrumentIdentity[],
   usdInrRate: number | null,
 ): Promise<Map<string, Quote>> => {
-  const openLiveInstruments = getUniqueInstruments(
-    investmentsList.filter((investment) => {
-      const kind = normalizeInvestmentKind(investment.investmentKind);
-      return !investment.isClosed && isLivePriceInvestment(kind);
-    }),
+  const openLiveInstruments = instruments.filter((instrument) =>
+    isLivePriceInvestment(instrument.kind),
   );
   const quoteByInstrumentKey = new Map<string, Quote>();
   const providerGroups =
@@ -209,12 +212,18 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
     investmentsList,
     historyStartDate,
     historyEndDate,
+    marketDataKinds,
   }: {
     investmentsList: InvestmentRow[];
     historyStartDate?: Date;
     historyEndDate?: Date;
+    marketDataKinds?: InvestmentKindValue[];
   }): Promise<InvestmentMarketDataContext> => {
-    const instruments = getUniqueInstruments(investmentsList);
+    const instruments = getUniqueInstruments(investmentsList, marketDataKinds);
+    const openInstruments = getUniqueInstruments(
+      investmentsList.filter((investment) => !investment.isClosed),
+      marketDataKinds,
+    );
     const requiresUsdInrData = instruments.some(
       (instrument) =>
         (instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US') ||
@@ -246,7 +255,7 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
     const usdInrRate =
       usdInrRateRaw ?? getFxRateToInrFromHistory(usdInrHistoryEndDate, usdInrHistory, null);
     const [quoteByInstrumentKey, nameByInstrumentKey, historyByInstrumentKey] = await Promise.all([
-      getLiveQuotesByInstrument(investmentsList, usdInrRate),
+      getLiveQuotesByInstrument(openInstruments, usdInrRate),
       resolveInstrumentNames(instruments),
       historyStartDate === undefined || historyEndDate === undefined
         ? Promise.resolve(new Map<string, Array<{ date: Date; price: number }>>())

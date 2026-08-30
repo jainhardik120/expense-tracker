@@ -10,6 +10,19 @@ export const investmentKindValues = [
 
 export type InvestmentKindValue = (typeof investmentKindValues)[number];
 
+export const investmentCategoryValues = [
+  'fd',
+  'stocks',
+  'rsu',
+  'mutual_funds',
+  'crypto',
+  'commodities',
+  'epfo',
+  'other',
+] as const;
+
+export type InvestmentCategoryValue = (typeof investmentCategoryValues)[number];
+
 export const stockMarketValues = ['IN', 'US'] as const;
 
 export type StockMarketValue = (typeof stockMarketValues)[number];
@@ -27,6 +40,25 @@ export const investmentKindLabels: Record<InvestmentKindValue, string> = {
   commodities: 'Commodities',
   epfo: 'EPFO',
   other: 'Other',
+};
+
+export const investmentCategoryLabels: Record<InvestmentCategoryValue, string> = {
+  ...investmentKindLabels,
+  rsu: 'RSU',
+};
+
+export const getInvestmentCategory = (
+  kind: InvestmentKindValue,
+  isRsu: boolean,
+): InvestmentCategoryValue => {
+  return kind === 'stocks' && isRsu ? 'rsu' : kind;
+};
+
+export const compareInvestmentCategories = (
+  left: InvestmentCategoryValue,
+  right: InvestmentCategoryValue,
+): number => {
+  return investmentCategoryValues.indexOf(left) - investmentCategoryValues.indexOf(right);
 };
 
 const kindAliases: Record<string, InvestmentKindValue> = {

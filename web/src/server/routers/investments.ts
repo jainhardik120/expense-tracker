@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { investments } from '@/db/schema';
+import type { Database } from '@/lib/db';
 import {
   investmentKindValues,
   investmentTimelineRangeValues,
@@ -68,26 +69,69 @@ const buildFilteredConditions = ({
   return conditions;
 };
 
+const getFilteredInvestments = async ({
+  ctx,
+  input,
+}: {
+  ctx: { db: Database; user: { id: string } };
+  input: z.infer<typeof investmentParserSchema>;
+}) => {
+  const conditions = buildFilteredConditions({
+    userId: ctx.user.id,
+    start: input.start,
+    end: input.end,
+    investmentKind: input.investmentKind,
+  });
+  return ctx.db
+    .select()
+    .from(investments)
+    .where(and(...conditions))
+    .orderBy(desc(investments.investmentDate));
+};
+
 export const investmentsRouter = createTRPCRouter({
   getInvestmentsPageData: protectedProcedure
     .input(investmentParserSchema)
     .query(async ({ ctx, input }) => {
-      const conditions = buildFilteredConditions({
-        userId: ctx.user.id,
-        start: input.start,
-        end: input.end,
-        investmentKind: input.investmentKind,
-      });
-      const investmentsListRaw = await ctx.db
-        .select()
-        .from(investments)
-        .where(and(...conditions))
-        .orderBy(desc(investments.investmentDate));
+      const investmentsListRaw = await getFilteredInvestments({ ctx, input });
       return buildInvestmentsPageData({
         investmentsListRaw,
         page: input.page,
         perPage: input.perPage,
         endDate: input.end,
+      });
+    }),
+
+  getInvestmentsInitialData: protectedProcedure
+    .input(investmentParserSchema)
+    .query(async ({ ctx, input }) => {
+      const investmentsListRaw = await getFilteredInvestments({ ctx, input });
+      return buildInvestmentsPageData({
+        investmentsListRaw,
+        page: input.page,
+        perPage: input.perPage,
+        endDate: input.end,
+        marketDataKinds: [],
+      });
+    }),
+
+  getInvestmentsMarketDataByType: protectedProcedure
+    .input(
+      investmentParserSchema.extend({
+        investmentType: z.enum(investmentKindValues),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const investmentsListRaw = await getFilteredInvestments({ ctx, input });
+      const typeInvestments = investmentsListRaw.filter(
+        (investment) => normalizeInvestmentKind(investment.investmentKind) === input.investmentType,
+      );
+      return buildInvestmentsPageData({
+        investmentsListRaw: typeInvestments,
+        page: 0,
+        perPage: Math.max(1, typeInvestments.length),
+        endDate: input.end,
+        marketDataKinds: [input.investmentType],
       });
     }),
 
@@ -116,6 +160,39 @@ export const investmentsRouter = createTRPCRouter({
         investmentsListRaw,
         range: input.range,
         endDate: input.end,
+      });
+    }),
+
+  getInvestmentsTimelinesByType: protectedProcedure
+    .input(
+      z.object({
+        start: z.date().optional(),
+        end: z.date().optional(),
+        investmentKind: z.string().array().optional().default([]),
+        range: z.enum(investmentTimelineRangeValues),
+        investmentType: z.enum(investmentKindValues),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const conditions = buildFilteredConditions({
+        userId: ctx.user.id,
+        start: input.start,
+        end: input.end,
+        investmentKind: input.investmentKind,
+      });
+      const investmentsListRaw = await ctx.db
+        .select()
+        .from(investments)
+        .where(and(...conditions))
+        .orderBy(desc(investments.investmentDate));
+      const typeInvestments = investmentsListRaw.filter(
+        (investment) => normalizeInvestmentKind(investment.investmentKind) === input.investmentType,
+      );
+      return buildInvestmentsRangeTimelines({
+        investmentsListRaw: typeInvestments,
+        range: input.range,
+        endDate: input.end,
+        marketDataKinds: [input.investmentType],
       });
     }),
 

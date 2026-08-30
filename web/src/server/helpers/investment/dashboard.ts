@@ -1,6 +1,9 @@
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
+  compareInvestmentCategories,
+  getInvestmentCategory,
   isUnitBasedInvestment,
+  type InvestmentCategoryValue,
   type InvestmentKindValue,
   type StockMarketValue,
 } from '@/lib/investments';
@@ -53,6 +56,42 @@ type InstrumentAggregate = {
   currentValueInrAtCurrentFx: number;
 };
 
+type BreakdownAggregate = {
+  investedAmount: number;
+  valuationAmount: number;
+  dayChange: number;
+  openPositions: number;
+  closedPositions: number;
+  totalPositions: number;
+};
+
+const addInvestmentToBreakdown = <TKey extends string>(
+  map: Map<TKey, BreakdownAggregate>,
+  key: TKey,
+  investment: EnrichedInvestment,
+) => {
+  const investedAmount = investment.investedAmountInr;
+  const valuationAmount = investment.valuationAmount ?? investedAmount;
+  const summary = map.get(key) ?? {
+    investedAmount: 0,
+    valuationAmount: 0,
+    dayChange: 0,
+    openPositions: 0,
+    closedPositions: 0,
+    totalPositions: 0,
+  };
+  summary.investedAmount += investedAmount;
+  summary.valuationAmount += valuationAmount;
+  summary.dayChange += investment.dayChange ?? 0;
+  summary.totalPositions += 1;
+  if (investment.isClosedPosition) {
+    summary.closedPositions += 1;
+  } else {
+    summary.openPositions += 1;
+  }
+  map.set(key, summary);
+};
+
 const buildInstrumentBreakdown = (
   investmentsList: EnrichedInvestment[],
 ): DashboardInstrumentBreakdown[] => {
@@ -63,11 +102,11 @@ const buildInstrumentBreakdown = (
     if (code === '') {
       continue;
     }
-    const key = createInstrumentKey(
+    const key = `${createInstrumentKey(
       investment.normalizedKind,
       code,
       investment.normalizedStockMarket,
-    );
+    )}|${investment.isRsuPosition ? 'RSU' : 'REG'}`;
     const investedAmount = investment.investedAmountInr;
     const valuationAmount = investment.valuationAmount ?? investedAmount;
     const dayChange = investment.dayChange ?? 0;
@@ -176,7 +215,13 @@ const buildInstrumentBreakdown = (
             : null,
       };
     })
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort((left, right) => {
+      const categoryComparison = compareInvestmentCategories(
+        getInvestmentCategory(left.kind, left.isRsu),
+        getInvestmentCategory(right.kind, right.isRsu),
+      );
+      return categoryComparison === 0 ? left.name.localeCompare(right.name) : categoryComparison;
+    });
 };
 
 export const getInvestmentsDashboard = instrumentedFunction(
@@ -194,17 +239,8 @@ export const getInvestmentsDashboard = instrumentedFunction(
     historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
     usdInrHistory?: Array<{ date: Date; price: number }>;
   }): Promise<InvestmentsDashboard> => {
-    const kindMap = new Map<
-      InvestmentKindValue,
-      {
-        investedAmount: number;
-        valuationAmount: number;
-        dayChange: number;
-        openPositions: number;
-        closedPositions: number;
-        totalPositions: number;
-      }
-    >();
+    const kindMap = new Map<InvestmentKindValue, BreakdownAggregate>();
+    const categoryMap = new Map<InvestmentCategoryValue, BreakdownAggregate>();
     const portfolioInvestments = investmentsList.filter(
       (investment) => !investment.isExcludedFromPortfolioPosition,
     );
@@ -231,6 +267,14 @@ export const getInvestmentsDashboard = instrumentedFunction(
     let openPositions = 0;
     let closedPositions = 0;
 
+    for (const investment of investmentsList) {
+      addInvestmentToBreakdown(
+        categoryMap,
+        getInvestmentCategory(investment.normalizedKind, investment.isRsuPosition),
+        investment,
+      );
+    }
+
     for (const investment of portfolioInvestments) {
       const investedAmount = investment.investedAmountInr;
       const valuationAmount = investment.valuationAmount ?? investedAmount;
@@ -245,24 +289,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
         openPositions += 1;
       }
 
-      const kindSummary = kindMap.get(investment.normalizedKind) ?? {
-        investedAmount: 0,
-        valuationAmount: 0,
-        dayChange: 0,
-        openPositions: 0,
-        closedPositions: 0,
-        totalPositions: 0,
-      };
-      kindSummary.investedAmount += investedAmount;
-      kindSummary.valuationAmount += valuationAmount;
-      kindSummary.dayChange += dayChange;
-      kindSummary.totalPositions += 1;
-      if (investment.isClosedPosition) {
-        kindSummary.closedPositions += 1;
-      } else {
-        kindSummary.openPositions += 1;
-      }
-      kindMap.set(investment.normalizedKind, kindSummary);
+      addInvestmentToBreakdown(kindMap, investment.normalizedKind, investment);
     }
 
     const kindBreakdown = [...kindMap.entries()]
@@ -285,6 +312,27 @@ export const getInvestmentsDashboard = instrumentedFunction(
         totalPositions: summary.totalPositions,
       }))
       .sort((left, right) => right.valuationAmount - left.valuationAmount);
+
+    const categoryBreakdown = [...categoryMap.entries()]
+      .map(([category, summary]) => ({
+        category,
+        investedAmount: summary.investedAmount,
+        valuationAmount: summary.valuationAmount,
+        pnl: summary.valuationAmount - summary.investedAmount,
+        pnlPercentage: getPercentageChange(
+          summary.valuationAmount - summary.investedAmount,
+          summary.investedAmount,
+        ),
+        dayChange: summary.dayChange,
+        dayChangePercentage: getDayChangePercentageFromValuation(
+          summary.valuationAmount,
+          summary.dayChange,
+        ),
+        openPositions: summary.openPositions,
+        closedPositions: summary.closedPositions,
+        totalPositions: summary.totalPositions,
+      }))
+      .sort((left, right) => compareInvestmentCategories(left.category, right.category));
 
     const { startDate, endDate, days } = getDailyRangeFromInvestments({
       investmentsList: portfolioInvestments,
@@ -430,6 +478,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
         totalPositions: openPositions + closedPositions,
       },
       kindBreakdown,
+      categoryBreakdown,
       timeline,
       instrumentOptions,
       instrumentBreakdown,

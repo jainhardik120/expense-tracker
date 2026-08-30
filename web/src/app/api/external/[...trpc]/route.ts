@@ -1,5 +1,6 @@
 import { createOpenApiFetchHandler } from 'trpc-to-openapi';
 
+import { setCookieHeader } from '@/lib/set-cookie-header';
 import { appRouter } from '@/server/routers';
 import { createTRPCContextNext } from '@/server/trpc';
 
@@ -7,7 +8,8 @@ const handler = (req: Request) => {
   return createOpenApiFetchHandler({
     endpoint: '/api/external',
     router: appRouter,
-    createContext: createTRPCContextNext,
+    createContext: (opts) =>
+      createTRPCContextNext(opts, (key, value) => setCookieHeader(key, value, opts.resHeaders)),
     req,
   });
 };

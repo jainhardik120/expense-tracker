@@ -44,7 +44,11 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   return result;
 });
 
-export const createTRPCContext = (opts: { headers: Headers; baseUrl?: string }) => {
+export const createTRPCContext = (opts: {
+  headers: Headers;
+  baseUrl?: string;
+  setHeader: (key: string, value: string) => Promise<void>;
+}) => {
   return {
     db: db,
     ...opts,
@@ -53,13 +57,15 @@ export const createTRPCContext = (opts: { headers: Headers; baseUrl?: string }) 
 
 type Context = Awaited<ReturnType<typeof createTRPCContext>>;
 
-export const createTRPCContextNext = async ({
-  req,
-}: FetchCreateContextFnOptions): Promise<Context> => {
+export const createTRPCContextNext = async (
+  { req }: FetchCreateContextFnOptions,
+  setHeader: Context['setHeader'],
+): Promise<Context> => {
   return {
     db: db,
     headers: req.headers,
     baseUrl: `${req.headers.get('x-forwarded-proto') ?? 'http'}://${req.headers.get('host')}`,
+    setHeader,
   };
 };
 
@@ -104,15 +110,34 @@ const getUser = instrumentedFunction('getUser', async (ctx: Context) => {
     }
     return dbUsers[0];
   }
-  const session = await auth.api.getSession({ headers });
+  const { response: session, headers: returnedHeaders } = await auth.api.getSession({
+    headers,
+    returnHeaders: true,
+  });
+  const setCookie = returnedHeaders.get('set-cookie');
+  if (setCookie !== null) {
+    await ctx.setHeader('set-cookie', setCookie);
+  }
   if (session === null) {
     return;
   }
   return session.user;
 });
 
+const userPromiseByContext = new WeakMap<Context, ReturnType<typeof getUser>>();
+
+const getRequestUser = (ctx: Context): ReturnType<typeof getUser> => {
+  const existing = userPromiseByContext.get(ctx);
+  if (existing !== undefined) {
+    return existing;
+  }
+  const userPromise = getUser(ctx);
+  userPromiseByContext.set(ctx, userPromise);
+  return userPromise;
+};
+
 export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
-  const user = await getUser(ctx);
+  const user = await getRequestUser(ctx);
   if (user === undefined) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }
@@ -125,7 +150,7 @@ export const protectedProcedure = t.procedure.use(timingMiddleware).use(async ({
 });
 
 export const adminProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
-  const user = await getUser(ctx);
+  const user = await getRequestUser(ctx);
   if (user?.role !== 'admin') {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }

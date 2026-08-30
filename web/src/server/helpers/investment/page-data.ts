@@ -1,5 +1,5 @@
 import { instrumentedFunction } from '@/lib/instrumentation';
-import type { InvestmentTimelineRangeValue } from '@/lib/investments';
+import type { InvestmentKindValue, InvestmentTimelineRangeValue } from '@/lib/investments';
 
 import { enrichInvestments } from './enrichment';
 import { buildInvestmentMarketDataContext } from './market-data';
@@ -17,11 +17,13 @@ export const buildInvestmentsPageData = instrumentedFunction(
     page,
     perPage,
     endDate,
+    marketDataKinds,
   }: {
     investmentsListRaw: InvestmentRow[];
     page: number;
     perPage: number;
     endDate?: Date;
+    marketDataKinds?: InvestmentKindValue[];
   }): Promise<InvestmentsPageData> => {
     const now = startOfDay(new Date());
     const earliestDate = investmentsListRaw.reduce<Date>((earliest, investment) => {
@@ -33,6 +35,7 @@ export const buildInvestmentsPageData = instrumentedFunction(
       investmentsList: investmentsListRaw,
       historyStartDate: defaultRange.startDate,
       historyEndDate: defaultRange.endDate,
+      marketDataKinds,
     });
     const enrichedAll = await enrichInvestments({
       investmentsList: investmentsListRaw,
@@ -82,10 +85,12 @@ export const buildInvestmentsRangeTimelines = instrumentedFunction(
     investmentsListRaw,
     range,
     endDate,
+    marketDataKinds,
   }: {
     investmentsListRaw: InvestmentRow[];
     range: InvestmentTimelineRangeValue;
     endDate?: Date;
+    marketDataKinds?: InvestmentKindValue[];
   }): Promise<InvestmentsRangeTimelines> => {
     const now = startOfDay(new Date());
     const earliestDate = investmentsListRaw.reduce<Date>((earliest, investment) => {
@@ -97,6 +102,7 @@ export const buildInvestmentsRangeTimelines = instrumentedFunction(
       investmentsList: investmentsListRaw,
       historyStartDate: rangeBounds.startDate,
       historyEndDate: rangeBounds.endDate,
+      marketDataKinds,
     });
     const enrichedAll = await enrichInvestments({
       investmentsList: investmentsListRaw,

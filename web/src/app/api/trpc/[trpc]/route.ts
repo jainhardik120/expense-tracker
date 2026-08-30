@@ -1,23 +1,23 @@
-import { type NextRequest } from 'next/server';
-
-import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+import { type FetchCreateContextFnOptions, fetchRequestHandler } from '@trpc/server/adapters/fetch';
 
 import logger from '@/lib/logger';
+import { setCookieHeader } from '@/lib/set-cookie-header';
 import { appRouter } from '@/server/routers';
 import { createTRPCContext } from '@/server/trpc';
 
-const createContext = (req: NextRequest) => {
+const createContext = (req: Request, opts: FetchCreateContextFnOptions) => {
   return createTRPCContext({
     headers: req.headers,
+    setHeader: (key, value) => setCookieHeader(key, value, opts.resHeaders),
   });
 };
 
-const handler = (req: NextRequest) =>
+const handler = (req: Request) =>
   fetchRequestHandler({
     endpoint: '/api/trpc',
     req,
     router: appRouter,
-    createContext: () => createContext(req),
+    createContext: (opts) => createContext(req, opts),
     onError: ({ path, error }) => {
       logger.error(`tRPC failed on ${path ?? '<no-path>'}: ${error.message}`);
     },

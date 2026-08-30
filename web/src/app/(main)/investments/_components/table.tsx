@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import { useRouter } from 'next/navigation';
 
 import { type ColumnDef } from '@tanstack/react-table';
@@ -11,7 +13,17 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
-import { investmentKindLabels } from '@/lib/investments';
+import {
+  compareInvestmentCategories,
+  getInvestmentCategory,
+  investmentCategoryLabels,
+  investmentCategoryValues,
+  investmentKindLabels,
+  investmentKindValues,
+  type InvestmentCategoryValue,
+  type InvestmentKindValue,
+} from '@/lib/investments';
+import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
 import { getExcludedPortfolioDescription } from './display';
@@ -19,7 +31,8 @@ import { createInvestmentColumns, getSignedValueTone } from './InvestmentColumns
 import { CreateInvestmentForm } from './InvestmentForms';
 import { InvestmentsOverview } from './InvestmentsOverview';
 
-type InvestmentsPageData = RouterOutput['investments']['getInvestmentsPageData'];
+type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialData'];
+type MarketDataResult = RouterOutput['investments']['getInvestmentsMarketDataByType'];
 type TimelineFilters = {
   start?: Date;
   end?: Date;
@@ -29,6 +42,125 @@ const UNITS_DECIMALS = 4;
 type GroupedInvestmentRow = InvestmentsPageData['dashboard']['instrumentBreakdown'][number];
 const USD_CURRENCY = 'USD';
 const INR_CURRENCY = 'INR';
+const LOCAL_CALCULATION_SOURCE = 'local calculation';
+
+const marketDataSources: Record<InvestmentKindValue, string> = {
+  fd: LOCAL_CALCULATION_SOURCE,
+  stocks: 'Yahoo Finance',
+  mutual_funds: 'MFAPI',
+  crypto: 'CoinGecko',
+  commodities: 'Upstox and Hindustan Times',
+  epfo: LOCAL_CALCULATION_SOURCE,
+  other: LOCAL_CALCULATION_SOURCE,
+};
+
+const getMarketDataStatus = (query: { isError: boolean; isSuccess: boolean }): string => {
+  if (query.isError) {
+    return 'unavailable';
+  }
+  if (query.isSuccess) {
+    return 'updated';
+  }
+  return 'updating…';
+};
+
+const mergeDashboard = (
+  initialDashboard: InvestmentsPageData['dashboard'],
+  marketData: MarketDataResult[],
+) => {
+  const updatedKinds = new Map(
+    marketData.flatMap((data) => data.dashboard.kindBreakdown.map((item) => [item.kind, item])),
+  );
+  const kindBreakdown = initialDashboard.kindBreakdown.map(
+    (item) => updatedKinds.get(item.kind) ?? item,
+  );
+  const updatedCategories = new Map(
+    marketData.flatMap((data) =>
+      data.dashboard.categoryBreakdown.map((item) => [item.category, item]),
+    ),
+  );
+  const categoryBreakdown = initialDashboard.categoryBreakdown.map(
+    (item) => updatedCategories.get(item.category) ?? item,
+  );
+  const updatedKindValues = new Set(
+    marketData.flatMap((data) =>
+      data.table.investments.map((investment) => investment.normalizedKind),
+    ),
+  );
+  const instrumentBreakdown = [
+    ...initialDashboard.instrumentBreakdown.filter((item) => !updatedKindValues.has(item.kind)),
+    ...marketData.flatMap((data) => data.dashboard.instrumentBreakdown),
+  ].sort((left, right) => {
+    const categoryComparison = compareInvestmentCategories(
+      getInvestmentCategory(left.kind, left.isRsu),
+      getInvestmentCategory(right.kind, right.isRsu),
+    );
+    return categoryComparison === 0 ? left.name.localeCompare(right.name) : categoryComparison;
+  });
+  const instrumentOptions = [
+    ...initialDashboard.instrumentOptions.filter((item) => !updatedKindValues.has(item.kind)),
+    ...marketData.flatMap((data) => data.dashboard.instrumentOptions),
+  ].sort((left, right) => left.name.localeCompare(right.name));
+  const summary = kindBreakdown.reduce(
+    (total, item) => ({
+      investedAmount: total.investedAmount + item.investedAmount,
+      valuationAmount: total.valuationAmount + item.valuationAmount,
+      dayChange: total.dayChange + item.dayChange,
+      openPositions: total.openPositions + item.openPositions,
+      closedPositions: total.closedPositions + item.closedPositions,
+      totalPositions: total.totalPositions + item.totalPositions,
+    }),
+    {
+      investedAmount: 0,
+      valuationAmount: 0,
+      dayChange: 0,
+      openPositions: 0,
+      closedPositions: 0,
+      totalPositions: 0,
+    },
+  );
+  const pnl = summary.valuationAmount - summary.investedAmount;
+  const timeline =
+    marketData.length === investmentKindValues.length
+      ? [
+          ...marketData
+            .flatMap((data) => data.dashboard.timeline)
+            .reduce((points, point) => {
+              const key = point.date.toISOString();
+              const existing = points.get(key) ?? {
+                date: point.date,
+                investedAmount: 0,
+                valuationAmount: 0,
+                pnl: 0,
+              };
+              existing.investedAmount += point.investedAmount;
+              existing.valuationAmount += point.valuationAmount;
+              existing.pnl += point.pnl;
+              points.set(key, existing);
+              return points;
+            }, new Map<string, InvestmentsPageData['dashboard']['timeline'][number]>())
+            .values(),
+        ]
+      : initialDashboard.timeline;
+
+  return {
+    ...initialDashboard,
+    summary: {
+      ...summary,
+      pnl,
+      pnlPercentage: summary.investedAmount === 0 ? null : (pnl / summary.investedAmount) * 100,
+      dayChangePercentage:
+        summary.valuationAmount === summary.dayChange
+          ? null
+          : (summary.dayChange / (summary.valuationAmount - summary.dayChange)) * 100,
+    },
+    kindBreakdown,
+    categoryBreakdown,
+    instrumentBreakdown,
+    instrumentOptions,
+    timeline,
+  };
+};
 
 const formatByCurrency = (value: number, currency: string) => {
   const locale = currency === USD_CURRENCY ? 'en-US' : 'en-IN';
@@ -90,9 +222,26 @@ const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
 
 const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
   {
-    accessorKey: 'kind',
+    id: 'category',
+    accessorFn: (row) => getInvestmentCategory(row.kind, row.isRsu),
     header: 'Type',
-    cell: ({ row }) => investmentKindLabels[row.original.kind],
+    cell: ({ row }) =>
+      investmentCategoryLabels[getInvestmentCategory(row.original.kind, row.original.isRsu)],
+    filterFn: (row, _columnId, filterValue: unknown) => {
+      if (!Array.isArray(filterValue) || filterValue.length === 0) {
+        return true;
+      }
+      return filterValue.includes(getInvestmentCategory(row.original.kind, row.original.isRsu));
+    },
+    meta: {
+      label: 'Investment Category',
+      variant: 'multiSelect',
+      options: investmentCategoryValues.map((category) => ({
+        label: investmentCategoryLabels[category],
+        value: category,
+      })),
+    },
+    enableColumnFilter: true,
   },
   {
     accessorKey: 'stockMarket',
@@ -200,36 +349,138 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
 
 const Table = ({ data, filters }: { data: InvestmentsPageData; filters: TimelineFilters }) => {
   const router = useRouter();
+  const marketDataInput = {
+    start: filters.start,
+    end: filters.end,
+    investmentKind: filters.investmentKind,
+  };
+  const fixedDepositQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
+    ...marketDataInput,
+    investmentType: 'fd',
+  });
+  const stocksQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
+    ...marketDataInput,
+    investmentType: 'stocks',
+  });
+  const mutualFundsQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
+    ...marketDataInput,
+    investmentType: 'mutual_funds',
+  });
+  const cryptoQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
+    ...marketDataInput,
+    investmentType: 'crypto',
+  });
+  const commoditiesQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
+    ...marketDataInput,
+    investmentType: 'commodities',
+  });
+  const epfoQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
+    ...marketDataInput,
+    investmentType: 'epfo',
+  });
+  const otherQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
+    ...marketDataInput,
+    investmentType: 'other',
+  });
+  const marketQueries = [
+    ['fd', fixedDepositQuery],
+    ['stocks', stocksQuery],
+    ['mutual_funds', mutualFundsQuery],
+    ['crypto', cryptoQuery],
+    ['commodities', commoditiesQuery],
+    ['epfo', epfoQuery],
+    ['other', otherQuery],
+  ] as const;
+  const marketData = useMemo(
+    () => marketQueries.flatMap(([, query]) => (query.data === undefined ? [] : [query.data])),
+    // Each query result is an explicit dependency; the tuple itself is recreated on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      fixedDepositQuery.data,
+      stocksQuery.data,
+      mutualFundsQuery.data,
+      cryptoQuery.data,
+      commoditiesQuery.data,
+      epfoQuery.data,
+      otherQuery.data,
+    ],
+  );
+  const enrichedById = useMemo(
+    () =>
+      new Map(
+        marketData.flatMap((result) => result.table.investments.map((item) => [item.id, item])),
+      ),
+    [marketData],
+  );
+  const tableData = useMemo(
+    () => data.table.investments.map((item) => enrichedById.get(item.id) ?? item),
+    [data.table.investments, enrichedById],
+  );
+  const dashboard = useMemo(
+    () => mergeDashboard(data.dashboard, marketData),
+    [data.dashboard, marketData],
+  );
   const columns = createInvestmentColumns(() => {
     router.refresh();
   });
 
   const { table } = useDataTable({
-    data: data.table.investments,
+    data: tableData,
     columns,
     pageCount: data.table.pageCount,
     shallow: false,
   });
   const { table: groupedTable } = useDataTable({
-    data: data.dashboard.instrumentBreakdown,
+    data: dashboard.instrumentBreakdown,
     columns: groupedInvestmentColumns,
     pageCount: 1,
+    manualFiltering: false,
   });
+  const selectedCategoryFilter = groupedTable.getColumn('category')?.getFilterValue();
+  const selectedCategories = new Set<InvestmentCategoryValue>(
+    Array.isArray(selectedCategoryFilter)
+      ? selectedCategoryFilter.filter((category): category is InvestmentCategoryValue =>
+          investmentCategoryValues.includes(category as InvestmentCategoryValue),
+        )
+      : [],
+  );
+  const toggleCategory = (category: InvestmentCategoryValue) => {
+    const nextCategories = new Set(selectedCategories);
+    if (nextCategories.has(category)) {
+      nextCategories.delete(category);
+    } else {
+      nextCategories.add(category);
+    }
+    groupedTable
+      .getColumn('category')
+      ?.setFilterValue(nextCategories.size === 0 ? undefined : [...nextCategories]);
+  };
 
   return (
     <div className="grid gap-4">
       <InvestmentsOverview
-        dashboard={data.dashboard}
+        dashboard={dashboard}
         filters={filters}
         instrumentTimelines={data.instrumentTimelines}
+        selectedCategories={selectedCategories}
+        onCategoryToggle={toggleCategory}
       />
+      <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs">
+        {marketQueries.map(([kind, query]) => (
+          <span key={kind}>
+            {investmentKindLabels[kind]} ({marketDataSources[kind]}): {getMarketDataStatus(query)}
+          </span>
+        ))}
+      </div>
       <DataTable
         enablePagination={false}
         getItemValue={(item) =>
           `${item.kind}:${item.stockMarket ?? 'NA'}:${item.code}:${item.isRsu ? 'RSU' : 'REG'}`
         }
         table={groupedTable}
-      />
+      >
+        <DataTableToolbar table={groupedTable} viewOptions={false} />
+      </DataTable>
       <DataTable getItemValue={(item) => item.id} table={table}>
         <DataTableToolbar table={table}>
           <CreateInvestmentForm />

@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/format';
 import {
+  investmentCategoryLabels,
+  type InvestmentCategoryValue,
   investmentKindLabels,
   investmentKindValues,
   type InvestmentKindValue,
@@ -25,6 +27,7 @@ import {
   normalizeStockMarket,
   type StockMarketValue,
 } from '@/lib/investments';
+import { cn } from '@/lib/utils';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
@@ -89,10 +92,14 @@ export const InvestmentsOverview = ({
   dashboard,
   instrumentTimelines,
   filters,
+  selectedCategories,
+  onCategoryToggle,
 }: {
   dashboard: DashboardData;
   instrumentTimelines: InstrumentTimelineEntry[];
   filters: TimelineFilters;
+  selectedCategories: Set<InvestmentCategoryValue>;
+  onCategoryToggle: (category: InvestmentCategoryValue) => void;
 }) => {
   const [viewSelection, setViewSelection] = useState(PORTFOLIO_VIEW);
   const [timeRange, setTimeRange] = useState<InvestmentTimelineRangeValue>('1m');
@@ -125,24 +132,80 @@ export const InvestmentsOverview = ({
   const requiresRemoteTimeline =
     timeRange === '3m' || timeRange === '6m' || timeRange === 'lifetime';
 
-  const rangeTimelineQuery = api.investments.getInvestmentsTimelines.useQuery(
-    {
-      start: filters.start,
-      end: filters.end,
-      investmentKind: filters.investmentKind,
-      range: timeRange,
-    },
-    {
-      enabled: requiresRemoteTimeline,
-    },
+  const rangeTimelineInput = {
+    start: filters.start,
+    end: filters.end,
+    investmentKind: filters.investmentKind,
+    range: timeRange,
+  };
+  const fixedDepositTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
+    { ...rangeTimelineInput, investmentType: 'fd' },
+    { enabled: requiresRemoteTimeline },
   );
+  const stocksTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
+    { ...rangeTimelineInput, investmentType: 'stocks' },
+    { enabled: requiresRemoteTimeline },
+  );
+  const mutualFundsTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
+    { ...rangeTimelineInput, investmentType: 'mutual_funds' },
+    { enabled: requiresRemoteTimeline },
+  );
+  const cryptoTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
+    { ...rangeTimelineInput, investmentType: 'crypto' },
+    { enabled: requiresRemoteTimeline },
+  );
+  const commoditiesTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
+    { ...rangeTimelineInput, investmentType: 'commodities' },
+    { enabled: requiresRemoteTimeline },
+  );
+  const epfoTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
+    { ...rangeTimelineInput, investmentType: 'epfo' },
+    { enabled: requiresRemoteTimeline },
+  );
+  const otherTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
+    { ...rangeTimelineInput, investmentType: 'other' },
+    { enabled: requiresRemoteTimeline },
+  );
+  const timelineQueries = [
+    fixedDepositTimelineQuery,
+    stocksTimelineQuery,
+    mutualFundsTimelineQuery,
+    cryptoTimelineQuery,
+    commoditiesTimelineQuery,
+    epfoTimelineQuery,
+    otherTimelineQuery,
+  ];
+  const remoteTimelineData = timelineQueries.flatMap((query) =>
+    query.data === undefined ? [] : [query.data],
+  );
+  const remotePortfolioTimeline = [
+    ...remoteTimelineData
+      .flatMap((data) => data.timeline)
+      .reduce((points, point) => {
+        const key = point.date.toISOString();
+        const existing = points.get(key) ?? {
+          date: point.date,
+          investedAmount: 0,
+          valuationAmount: 0,
+          pnl: 0,
+        };
+        existing.investedAmount += point.investedAmount;
+        existing.valuationAmount += point.valuationAmount;
+        existing.pnl += point.pnl;
+        points.set(key, existing);
+        return points;
+      }, new Map<string, DashboardData['timeline'][number]>())
+      .values(),
+  ].sort((left, right) => left.date.getTime() - right.date.getTime());
 
-  const selectedTimelineEntries = requiresRemoteTimeline
-    ? (rangeTimelineQuery.data?.instrumentTimelines ?? instrumentTimelines)
-    : instrumentTimelines;
-  const portfolioTimeline = requiresRemoteTimeline
-    ? (rangeTimelineQuery.data?.timeline ?? dashboard.timeline)
-    : dashboard.timeline;
+  let selectedTimelineEntries = instrumentTimelines;
+  let portfolioTimeline = dashboard.timeline;
+  if (requiresRemoteTimeline) {
+    selectedTimelineEntries = remoteTimelineData.flatMap((data) => data.instrumentTimelines);
+    if (remotePortfolioTimeline.length > 0) {
+      portfolioTimeline = remotePortfolioTimeline;
+    }
+  }
 
   const instrumentTimelineMap = useMemo(() => {
     const map = new Map<string, InstrumentTimelineEntry['timeline']>();
@@ -181,7 +244,7 @@ export const InvestmentsOverview = ({
       })
       .map((point) => ({
         ...point,
-        date: format(point.date, 'dd MMM'),
+        date: format(point.date, timeRange === 'lifetime' ? 'dd MMM yyyy' : 'dd MMM'),
       }));
   }, [
     instrumentTimelineMap,
@@ -193,7 +256,9 @@ export const InvestmentsOverview = ({
   ]);
 
   const isLoadingTimeline =
-    requiresRemoteTimeline && rangeTimelineQuery.isFetching && chartRows.length === 0;
+    requiresRemoteTimeline &&
+    timelineQueries.some((query) => query.isFetching) &&
+    chartRows.length === 0;
   const selectedCurrency = selectedInstrument?.displayCurrency ?? 'INR';
 
   return (
@@ -361,22 +426,38 @@ export const InvestmentsOverview = ({
           )}
 
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {dashboard.kindBreakdown.map((kindItem) => (
-              <div key={kindItem.kind} className="bg-muted/40 rounded-md border p-3 text-sm">
-                <div className="font-semibold">{investmentKindLabels[kindItem.kind]}</div>
-                <div className="text-muted-foreground">
-                  {kindItem.openPositions} open / {kindItem.closedPositions} closed
-                </div>
-                <div>Invested {formatCurrency(kindItem.investedAmount)}</div>
-                <div>Current Value {formatCurrency(kindItem.valuationAmount)}</div>
-                <div className={kindItem.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                  PNL {formatCurrency(kindItem.pnl)}
-                </div>
-                <div className={kindItem.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                  1D {formatCurrency(kindItem.dayChange)}
-                </div>
-              </div>
-            ))}
+            {dashboard.categoryBreakdown.map((categoryItem) => {
+              const isSelected = selectedCategories.has(categoryItem.category);
+              return (
+                <button
+                  key={categoryItem.category}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    'bg-muted/40 hover:bg-muted/70 focus-visible:ring-ring rounded-md border p-3 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none',
+                    isSelected && 'border-primary bg-primary/10 hover:bg-primary/15',
+                  )}
+                  type="button"
+                  onClick={() => {
+                    onCategoryToggle(categoryItem.category);
+                  }}
+                >
+                  <div className="font-semibold">
+                    {investmentCategoryLabels[categoryItem.category]}
+                  </div>
+                  <div className="text-muted-foreground">
+                    {categoryItem.openPositions} open / {categoryItem.closedPositions} closed
+                  </div>
+                  <div>Invested {formatCurrency(categoryItem.investedAmount)}</div>
+                  <div>Current Value {formatCurrency(categoryItem.valuationAmount)}</div>
+                  <div className={categoryItem.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                    PNL {formatCurrency(categoryItem.pnl)}
+                  </div>
+                  <div className={categoryItem.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                    1D {formatCurrency(categoryItem.dayChange)}
+                  </div>
+                </button>
+              );
+            })}
           </div>
           <p className="text-muted-foreground text-xs">
             Crypto market data provided by{' '}
