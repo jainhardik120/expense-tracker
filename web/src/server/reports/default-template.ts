@@ -36,6 +36,9 @@ const outputSchema = z.object({
       rowColors: z.array(z.string().nullable()),
     }),
   ),
+  shoppingHeaders: z.array(z.string()),
+  shoppingRows: z.array(z.array(z.string())),
+  shoppingNote: z.string(),
   totalHeaders: z.array(z.string()),
   totalRows: z.array(z.array(z.string())),
   totalSeries: seriesSchema,
@@ -59,6 +62,11 @@ const ONE_OFF_CATEGORIES = ["Trip"];
 // A holiday package booked under "Extra" tells you nothing sitting inside
 // "Extra"; on its own line it is the largest thing you buy.
 const SPLIT_OUT_TAGS = ["Holiday Package", "Gym EMI"];
+// The category the end-of-report itemised table covers.
+const SHOPPING_CATEGORY = "Shopping";
+// A tag matching this is an instalment plan, so its rows collapse to one line
+// rather than repeating the same purchase every month.
+const EMI_PATTERN = "emi";
 // How many individual items each month lists before the rest is grouped.
 const TOP_PER_MONTH = 5;
 // How many item names a grouped row names in passing, largest first.
@@ -135,6 +143,7 @@ const spendSeries: { label: string; value: number }[] = [];
 const oneOffRows: string[][] = [];
 const months: unknown[] = [];
 const overall = new Map<string, number>();
+const shopping: Statement[] = [];
 
 let salaryTotal = 0;
 let motherTotal = 0;
@@ -206,6 +215,7 @@ for (const period of periods) {
   // The month's own split, by bucket.
   const monthBuckets = new Map<string, number>();
   for (const statement of routineIn) {
+    if (statement.category === SHOPPING_CATEGORY) shopping.push(statement);
     const bucket = bucketOf(statement);
     monthBuckets.set(bucket, (monthBuckets.get(bucket) ?? 0) + net(statement));
     overall.set(bucket, (overall.get(bucket) ?? 0) + net(statement));
@@ -263,6 +273,39 @@ while (months.length < MAX_MONTHS) {
   months.push({ label: "", pie: [], rows: [], rowColors: [] });
 }
 
+// Every shopping line, largest first, with instalment plans folded into one row
+// each — three months of "Tab EMI" is one purchase, not three.
+const isEmi = (s: Statement) => primaryTag(s).toLowerCase().indexOf(EMI_PATTERN) !== -1;
+const emiGroups = new Map<string, { total: number; count: number }>();
+const shoppingSingles: Statement[] = [];
+for (const statement of shopping) {
+  if (isEmi(statement)) {
+    const key = primaryTag(statement);
+    const seen = emiGroups.get(key) ?? { total: 0, count: 0 };
+    emiGroups.set(key, { total: seen.total + net(statement), count: seen.count + 1 });
+    continue;
+  }
+  shoppingSingles.push(statement);
+}
+const shoppingEntries = [
+  ...Array.from(emiGroups, ([tag, value]) => ({
+    label: tag,
+    when: value.count + (value.count === 1 ? " instalment" : " instalments"),
+    value: value.total,
+  })),
+  ...shoppingSingles.map((s) => ({
+    label: primaryTag(s),
+    when: s.date.slice(0, 10),
+    value: net(s),
+  })),
+].sort(descending);
+const shoppingTotal = sum(shoppingEntries.map((entry) => entry.value));
+const shoppingRows = shoppingEntries.map((entry) => [
+  entry.label,
+  entry.when,
+  money(entry.value),
+]);
+
 const overallSeries = toSeries(overall);
 const totalRows = overallSeries.map((entry) => [
   entry.label,
@@ -297,6 +340,15 @@ return {
   monthCount: monthCount,
   months: months,
   monthHeaders: ["What", "Detail", "Amount"],
+  shoppingHeaders: ["Item", "When", "Amount"],
+  shoppingRows: shoppingRows,
+  shoppingNote:
+    shoppingRows.length === 0
+      ? ""
+      : shoppingRows.length +
+        " shopping line(s) totalling " +
+        money(shoppingTotal) +
+        ". Instalment plans are folded into one row each.",
   totalHeaders: ["Group", "Total", "Per month"],
   totalRows: totalRows,
   totalSeries: overallSeries,
@@ -402,6 +454,7 @@ export const defaultExpenseReportTemplate: ReportTemplate = {
           'periods',
           ...monthKeys,
           'totals',
+          'shopping',
           'oneoffs',
         ],
       },
@@ -509,6 +562,33 @@ export const defaultExpenseReportTemplate: ReportTemplate = {
           align: ['left', 'right', 'right'],
           fontSize: 7,
           emptyText: 'No routine spending in this span.',
+        },
+        children: [],
+      },
+      // Deliberately not wrapped in KeepTogether: this table runs to dozens of
+      // rows, and forcing it onto one page overlaps them instead of paginating.
+      shopping: {
+        type: 'Section',
+        props: {
+          title: 'Every shopping line',
+          subtitle: 'Largest first, instalment plans grouped',
+        },
+        children: ['shopping-note', 'shopping-table'],
+      },
+      'shopping-note': {
+        type: 'Callout',
+        props: { text: { $state: '/shoppingNote' }, tone: 'info' },
+        children: [],
+      },
+      'shopping-table': {
+        type: 'DataTable',
+        props: {
+          headers: { $state: '/shoppingHeaders' },
+          rows: { $state: '/shoppingRows' },
+          columnWidths: ['48%', '28%', '24%'],
+          align: ['left', 'left', 'right'],
+          fontSize: 7,
+          emptyText: 'No shopping in this span.',
         },
         children: [],
       },

@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth';
 import { getTimezone } from '@/lib/date';
 import { db } from '@/lib/db';
 import logger from '@/lib/logger';
+import { reportBranding } from '@/server/reports/branding';
 import { defaultExpenseReportTemplate } from '@/server/reports/default-template';
 import { buildReportInput } from '@/server/reports/report-input';
 
@@ -64,11 +65,7 @@ export const POST = async (request: Request) => {
 
     const pdf = await renderReportToBuffer(template, {
       input,
-      branding: {
-        title: 'Money report',
-        subtitle: session.user.name,
-        generatedAt: new Date().toUTCString(),
-      },
+      branding: reportBranding(session.user.name),
     });
 
     return new Response(Buffer.from(pdf) as unknown as BodyInit, {

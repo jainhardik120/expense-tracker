@@ -1,4 +1,5 @@
 import { auth } from '@/lib/auth';
+import { reportBranding } from '@/server/reports/branding';
 
 // react-pdf and the json-render registry are Node-only.
 export const runtime = 'nodejs';
@@ -22,11 +23,7 @@ export const POST = async (request: Request) => {
 
   const pdf = await renderReportToBuffer(template, {
     input: body.input,
-    branding: {
-      title: 'Expense Tracker',
-      subtitle: session.user.name,
-      generatedAt: new Date().toUTCString(),
-    },
+    branding: reportBranding(session.user.name),
   });
 
   return new Response(Buffer.from(pdf) as unknown as BodyInit, {
