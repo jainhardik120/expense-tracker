@@ -87,6 +87,22 @@ export const reportsRouter = createTRPCRouter({
         .where(and(eq(reportBoundaries.id, input.id), eq(reportBoundaries.userId, ctx.user.id)))
         .returning();
     }),
+  updateBoundaryNote: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        note: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const trimmed = input.note.trim();
+      return ctx.db
+        .update(reportBoundaries)
+        .set({ note: trimmed === '' ? null : trimmed })
+        .where(and(eq(reportBoundaries.id, input.id), eq(reportBoundaries.userId, ctx.user.id)))
+        .returning();
+    }),
+
   getAggregatedReport: protectedProcedure.query(async ({ ctx }) => {
     const rawData = await getRawDataForCustomAggregation(ctx.db, ctx.user.id);
     const friends = await getFriends(ctx.db, ctx.user.id);

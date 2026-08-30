@@ -288,6 +288,13 @@
       "when": 1773311351374,
       "tag": "0040_nappy_blizzard",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1788103682223,
+      "tag": "0041_lovely_thanos",
+      "breakpoints": true
     }
   ]
 }

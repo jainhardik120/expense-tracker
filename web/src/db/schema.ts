@@ -140,6 +140,8 @@ export const reportBoundaries = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     boundaryDate: timestamp('boundary_date').notNull(),
+    // Free-form note for the report period that starts at this boundary.
+    note: text('note'),
     createdAt: timestamp('created_at')
       .notNull()
       .$defaultFn(() => new Date()),
