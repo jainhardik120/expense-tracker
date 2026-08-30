@@ -28,6 +28,11 @@ const createContext = cache(async () => {
   heads.set('x-trpc-source', 'rsc');
   return createTRPCContext({
     headers: heads,
+    // Next.js forbids mutating cookies during an RSC render (only Server Actions
+    // and Route Handlers may), so this genuinely cannot forward better-auth's
+    // refreshed session-cache cookie. The proxy refreshes it ahead of this render
+    // and forwards it on the request, so getSession here reads the cache instead
+    // of hitting the database. See src/proxy.ts.
     setHeader: async () => {},
   });
 });
