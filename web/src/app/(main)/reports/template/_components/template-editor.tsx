@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
 
-import { Save } from 'lucide-react';
+import { Check, RefreshCw } from 'lucide-react';
+import { parseAsString, useQueryStates } from 'nuqs';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import { api } from '@/server/react';
 import type { ReportInput } from '@/server/reports/report-input';
 
@@ -73,32 +74,55 @@ export const TemplateEditor = ({
   const [tab, setTab] = useState<TabId>('code');
   const [draft, setDraft] = useState(template);
   const [error, setError] = useState<string | null>(null);
-  const [from, setFrom] = useState(initialFrom);
-  const [to, setTo] = useState(initialTo);
-  const router = useRouter();
   const mutation = api.reports.saveTemplate.useMutation();
 
-  // Refetched only when the span changes, and seeded from the server render so
-  // the first preview does not wait on a round trip.
+  // In the URL so reloading the page — or sharing the link — keeps the span you
+  // were looking at instead of snapping back to the last few periods.
+  const [span, setSpan] = useQueryStates({
+    from: parseAsString.withDefault(initialFrom),
+    to: parseAsString.withDefault(initialTo),
+  });
+  const { from, to } = span;
+
+  // Refetched when the span changes, and seeded from the server render so the
+  // first preview does not wait on a round trip.
   const previewInput = api.reports.getReportInput.useQuery(
     { fromBoundaryId: from, toBoundaryId: to },
     { initialData: from === initialFrom && to === initialTo ? initialInput : undefined },
   );
 
-  const save = async () => {
+  // What the server currently holds, so autosave only writes real changes.
+  const savedRef = useRef(JSON.stringify(template));
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  const persist = useDebouncedCallback(async (value: ReportTemplate) => {
+    const serialized = JSON.stringify(value);
+    if (serialized === savedRef.current) {
+      return;
+    }
+    setSaveState('saving');
     try {
       await mutation.mutateAsync({
-        inputSchema: draft.inputSchema,
-        code: draft.code,
-        outputSchema: draft.outputSchema,
-        spec: draft.spec,
+        inputSchema: value.inputSchema,
+        code: value.code,
+        outputSchema: value.outputSchema,
+        spec: value.spec,
       });
-      toast('Template saved');
-      router.refresh();
+      savedRef.current = serialized;
+      setSaveState('saved');
     } catch (err) {
+      setSaveState('error');
       toast.error(err instanceof Error ? err.message : String(err));
     }
-  };
+  }, 1200);
+
+  // Only ever writes a template that parses; a half-typed brace is not a save.
+  useEffect(() => {
+    if (error !== null) {
+      return;
+    }
+    persist(draft);
+  }, [draft, error, persist]);
 
   const active = TABS.find((entry) => entry.id === tab) ?? TABS[0];
 
@@ -116,16 +140,39 @@ export const TemplateEditor = ({
           </div>
           <div className="flex items-center gap-3">
             {error !== null && <span className="text-destructive text-sm">{error}</span>}
-            <Button disabled={mutation.isPending || error !== null} onClick={save}>
-              <Save className="mr-2 size-4" />
-              {mutation.isPending ? 'Saving…' : 'Save'}
+            <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
+              {saveState === 'saving' && 'Saving…'}
+              {saveState === 'saved' && (
+                <>
+                  <Check className="size-3.5" />
+                  Saved
+                </>
+              )}
+              {saveState === 'error' && <span className="text-destructive">Not saved</span>}
+            </span>
+            <Button
+              disabled={previewInput.isFetching}
+              variant="outline"
+              onClick={() => {
+                void previewInput.refetch();
+              }}
+            >
+              <RefreshCw
+                className={`mr-2 size-4 ${previewInput.isFetching ? 'animate-spin' : ''}`}
+              />
+              Refresh
             </Button>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2">
           <span className="text-muted-foreground text-xs">Preview against</span>
-          <Select value={from} onValueChange={setFrom}>
+          <Select
+            value={from}
+            onValueChange={(value) => {
+              void setSpan({ from: value });
+            }}
+          >
             <SelectTrigger className="h-8 w-[150px]" size="sm">
               <SelectValue />
             </SelectTrigger>
@@ -138,7 +185,12 @@ export const TemplateEditor = ({
             </SelectContent>
           </Select>
           <span className="text-muted-foreground text-xs">to</span>
-          <Select value={to} onValueChange={setTo}>
+          <Select
+            value={to}
+            onValueChange={(value) => {
+              void setSpan({ to: value });
+            }}
+          >
             <SelectTrigger className="h-8 w-[150px]" size="sm">
               <SelectValue />
             </SelectTrigger>
