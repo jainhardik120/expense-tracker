@@ -16,11 +16,28 @@ const globalForDb = globalThis as unknown as { expenseTrackerPool?: Pool };
 const createPool = () => {
   const created = new Pool({
     connectionString: env.DATABASE_URL,
-    // Aiven reports max_connections=20 with 3 reserved for superusers, and its own
-    // background workers hold several more. Keep this small enough that a handful
-    // of concurrent Fluid instances still fit inside the budget.
-    max: 3,
-    // Hand idle connections back quickly so other instances can claim the slot.
+    // One connection per instance, because the budget is spent per instance
+    // rather than per query.
+    //
+    // Aiven allows 20 connections with 3 reserved for superusers, so 17 are
+    // ours. A pool is per process and nothing sits in front of Postgres to
+    // share them, so an instance's connections are useless to every other
+    // instance. Worse, `idleTimeoutMillis` below never fires here: it is a
+    // timer, and Fluid freezes the instance between requests, so the event loop
+    // that would run it is suspended. Measured on a warm deployment, five
+    // instances held fourteen connections with every one of them idle — one for
+    // 272 seconds — while nothing was running a query at all. The same pool in
+    // an ordinary Node process releases after ten seconds as configured.
+    //
+    // So the ceiling is instances x max, and Vercel keeps instances warm for
+    // minutes. At 3 that was five instances before a sixth got 53300; at 1 it
+    // is seventeen. The cost is that a request issuing queries in parallel now
+    // serialises them — `buildReportInput` runs six in a `Promise.all` — which
+    // is worth a second on the report download to stop ordinary navigation
+    // failing.
+    max: 1,
+    // Kept for the non-Fluid case (local runs, any self-hosted deployment),
+    // where the loop keeps running and this does reclaim an idle connection.
     idleTimeoutMillis: 10000,
     // Queue for a while instead of failing fast; a small pool means bursts wait.
     connectionTimeoutMillis: 10000,
