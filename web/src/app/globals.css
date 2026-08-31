@@ -1,10 +1,17 @@
+/* Declared before Tailwind's own layers so it ranks below them: the editor
+   stylesheet is a second, complete Tailwind build, and left unlayered its copy
+   of e.g. `md:grid-cols-2` lands after this app's `xl:grid-cols-3` and wins at
+   equal specificity — which silently drops the dashboard from three columns to
+   two. A layer makes the app's utilities authoritative whatever the order. */
+@layer pdf-report-editor;
+
 @import "tailwindcss";
 @import "tw-animate-css";
 /* Prebuilt: Tailwind does not scan node_modules, so this cannot be generated
    here. It reads the same shadcn variables defined below, which is why the
    design system's own globals.css is deliberately not imported — it would
    redefine this app's theme rather than borrow from it. */
-@import "@helix-hq/pdf-report/editor.css";
+@import "@helix-hq/pdf-report/editor.css" layer(pdf-report-editor);
 
 @custom-variant dark (&:is(.dark *));
 
