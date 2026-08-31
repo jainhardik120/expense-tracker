@@ -86,7 +86,12 @@ export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) =
                       item.href === '/' ? pathname === item.href : pathname.includes(item.href)
                     }
                   >
-                    <Link href={item.href}>
+                    {/* Without this every sidebar link prefetches as soon as it
+                        enters the viewport, so opening any page fires a render
+                        of all eight — each running its own queries against a
+                        database that allows ~15 connections in total. Hovering
+                        still prefetches, which is one page at a time. */}
+                    <Link href={item.href} prefetch={false}>
                       <item.icon />
                       {item.label}
                     </Link>
