@@ -38,7 +38,7 @@ const CODE = `type Statement = {
   tags: string[];
   splitAmount: number;
 };
-type Period = { index: number; start: string; end: string; label: string; note: string };
+type Period = { index: number; start: string; end: string; label: string };
 
 const periods = input.periods as Period[];
 const statements = input.statements as Statement[];

@@ -24,13 +24,11 @@ import type { ProcessedAggregationData } from '@/types';
 
 import { BoundaryListItem, CreateBoundaryForm } from './boundary-forms';
 import { DownloadReportDialog } from './download-report-dialog';
-import { ReportNoteCell } from './report-note-cell';
 
 interface Boundary {
   id: string;
   userId: string;
   boundaryDate: Date;
-  note: string | null;
   createdAt: Date;
 }
 
@@ -43,11 +41,6 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
   const timezone = useTimezone();
   const router = useRouter();
   const [, ...columns] = aggregationTableColumns('day', timezone);
-  // A report row covers the span starting at one boundary, so the note lives on
-  // the boundary whose date matches the row's start date.
-  const boundaryByStart = new Map(
-    initialBoundaries.map((boundary) => [new Date(boundary.boundaryDate).getTime(), boundary]),
-  );
   const { table } = useDataTable({
     data: initialReport,
     pageCount: 1,
@@ -76,29 +69,6 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
           const formatStr = 'MMM dd, yyyy';
           const string = format(zonedDate, formatStr);
           return <p>{string}</p>;
-        },
-      },
-      {
-        id: 'note',
-        header: 'Note',
-        size: 320,
-        // eslint-disable-next-line react/no-unstable-nested-components
-        cell: ({ row }) => {
-          const { date } = row.original;
-          const d = typeof date === 'string' ? new Date(date) : date;
-          const boundary = boundaryByStart.get(d.getTime());
-          return (
-            <div className="w-[320px] min-w-[320px] whitespace-normal">
-              <ReportNoteCell
-                // Remount when the stored note changes so the textarea picks up
-                // server state after a refresh without a state-syncing effect.
-                key={`${boundary?.id ?? 'none'}:${boundary?.note ?? ''}`}
-                boundaryId={boundary?.id}
-                initialNote={boundary?.note ?? ''}
-                refresh={router.refresh}
-              />
-            </div>
-          );
         },
       },
       ...columns,

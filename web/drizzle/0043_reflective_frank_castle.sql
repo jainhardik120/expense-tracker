@@ -1,0 +1,1 @@
+ALTER TABLE "report_boundaries" DROP COLUMN "note";

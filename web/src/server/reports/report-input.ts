@@ -31,7 +31,6 @@ export const reportInputSchema = z.object({
       start: z.string(),
       end: z.string(),
       label: z.string(),
-      note: z.string(),
     }),
   ),
   statements: z.array(
@@ -136,7 +135,6 @@ export const buildReportInput = async ({
       start: boundary.boundaryDate.toISOString(),
       end: end.toISOString(),
       label: `${formatter.format(boundary.boundaryDate)} – ${formatter.format(end)}`,
-      note: boundary.note ?? '',
     };
   });
   const periodStarts = periods.map((period) => new Date(period.start).getTime());
