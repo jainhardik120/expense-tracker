@@ -29,7 +29,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@helix-hq/design-system": "^0.2.1",
-    "@helix-hq/pdf-report": "^0.4.0",
+    "@helix-hq/pdf-report": "^0.5.0",
     "@hookform/resolvers": "^5.2.2",
     "@kubiks/otel-better-auth": "^2.0.2",
     "@kubiks/otel-drizzle": "^2.1.0",
