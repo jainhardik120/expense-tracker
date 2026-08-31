@@ -5,6 +5,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import type { SelfTransferStatement, Statement } from '@/types';
 
+import { BulkStatementTagDialog } from './BulkStatementTagDialog';
 import { BulkStatementSplitsDialog } from './StatementSplits';
 
 import type { Table } from '@tanstack/react-table';
@@ -24,6 +25,7 @@ const StatementTableActionBar = ({
       />
       <div className="flex items-center gap-1.5">
         <BulkStatementSplitsDialog selectedRows={rows.map((row) => row.original)} />
+        <BulkStatementTagDialog selectedRows={rows.map((row) => row.original)} />
       </div>
     </DataTableActionBar>
   );

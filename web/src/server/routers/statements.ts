@@ -278,6 +278,32 @@ export const statementsRouter = createTRPCRouter({
         .from(splits)
         .where(and(eq(splits.statementId, input.id), eq(splits.userId, ctx.user.id)));
     }),
+  addBulkStatementTag: protectedProcedure
+    .input(
+      z.object({
+        statementIds: z.array(z.string()),
+        tag: z.string().trim().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Appended in SQL rather than read-modify-write so the "already has it"
+      // case is the condition itself: a row that carries the tag does not match
+      // and is left exactly as it was. Self transfers carry no tags, so any
+      // selected alongside these simply do not match either.
+      const updated = await ctx.db
+        .update(statements)
+        .set({ tags: sql`array_append(${statements.tags}, ${input.tag})` })
+        .where(
+          and(
+            eq(statements.userId, ctx.user.id),
+            inArray(statements.id, input.statementIds),
+            sql`NOT (${input.tag} = ANY(${statements.tags}))`,
+          ),
+        )
+        .returning({ id: statements.id });
+      return { tagged: updated.length };
+    }),
+
   addBulkStatementSplits: protectedProcedure
     .input(
       z.object({

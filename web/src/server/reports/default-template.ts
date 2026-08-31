@@ -36,6 +36,9 @@ const outputSchema = z.object({
       rowColors: z.array(z.string().nullable()),
     }),
   ),
+  watchedHeaders: z.array(z.string()),
+  watchedRows: z.array(z.array(z.string())),
+  watchedNote: z.string(),
   shoppingHeaders: z.array(z.string()),
   shoppingRows: z.array(z.array(z.string())),
   shoppingNote: z.string(),
@@ -62,6 +65,10 @@ const ONE_OFF_CATEGORIES = ["Trip"];
 // A holiday package booked under "Extra" tells you nothing sitting inside
 // "Extra"; on its own line it is the largest thing you buy.
 const SPLIT_OUT_TAGS = ["Holiday Package", "Gym EMI"];
+// Tags worth a running yearly total of their own. Unlike SPLIT_OUT_TAGS these
+// do not change how anything else is grouped — a row can be counted here and
+// still sit in its own category everywhere else.
+const WATCHED_TAGS = ["Setup", "Electronics"];
 // The category the end-of-report itemised table covers.
 const SHOPPING_CATEGORY = "Shopping";
 // A tag matching this is an instalment plan, so its rows collapse to one line
@@ -144,6 +151,9 @@ const oneOffRows: string[][] = [];
 const months: unknown[] = [];
 const overall = new Map<string, number>();
 const shopping: Statement[] = [];
+// Every expense row in the span, so the watched tags can be totalled across all
+// of them rather than only the routine ones.
+const allExpenses: Statement[] = [];
 
 let salaryTotal = 0;
 let motherTotal = 0;
@@ -176,6 +186,8 @@ for (const period of periods) {
       .filter((s) => s.category === INVESTMENT_CATEGORY && s.kind === "outside_transaction")
       .map((s) => s.amount),
   );
+
+  for (const statement of expenseRows) allExpenses.push(statement);
 
   const rent = sum(expenseRows.filter(isRent).map(net));
   const oneOffRowsIn = expenseRows.filter((s) => isOneOff(s) && !isRent(s));
@@ -273,6 +285,29 @@ while (months.length < MAX_MONTHS) {
   months.push({ label: "", pie: [], rows: [], rowColors: [] });
 }
 
+// A running total per watched tag. Matched case-insensitively so "setup" and
+// "Setup" are the same spend, and counted over every expense — a tagged flight
+// or trip item still belongs in its tag's total.
+const watchedRows = WATCHED_TAGS.map((want) => {
+  const matches = allExpenses.filter((s) =>
+    s.tags.some((tag) => tag.toLowerCase() === want.toLowerCase()),
+  );
+  const total = sum(matches.map(net));
+  return {
+    label: want,
+    count: matches.length,
+    total: total,
+    perPeriod: periods.length === 0 ? 0 : total / periods.length,
+  };
+})
+  .sort((left, right) => right.total - left.total)
+  .map((entry) => [
+    entry.label,
+    String(entry.count),
+    money(entry.total),
+    money(entry.perPeriod),
+  ]);
+
 // Every shopping line, largest first, with instalment plans folded into one row
 // each — three months of "Tab EMI" is one purchase, not three.
 const isEmi = (s: Statement) => primaryTag(s).toLowerCase().indexOf(EMI_PATTERN) !== -1;
@@ -340,6 +375,12 @@ return {
   monthCount: monthCount,
   months: months,
   monthHeaders: ["What", "Detail", "Amount"],
+  watchedHeaders: ["Tag", "Items", "Total", "Per period"],
+  watchedRows: watchedRows,
+  watchedNote:
+    WATCHED_TAGS.length === 0
+      ? ""
+      : "Totals for tags you are keeping an eye on, across every expense in this span.",
   shoppingHeaders: ["Item", "When", "Amount"],
   shoppingRows: shoppingRows,
   shoppingNote:
@@ -454,6 +495,7 @@ export const defaultExpenseReportTemplate: ReportTemplate = {
           'periods',
           ...monthKeys,
           'totals',
+          'watched',
           'shopping',
           'oneoffs',
         ],
@@ -562,6 +604,33 @@ export const defaultExpenseReportTemplate: ReportTemplate = {
           align: ['left', 'right', 'right'],
           fontSize: 7,
           emptyText: 'No routine spending in this span.',
+        },
+        children: [],
+      },
+      watched: {
+        type: 'KeepTogether',
+        props: { marginBottom: 8 },
+        children: ['watched-section'],
+      },
+      'watched-section': {
+        type: 'Section',
+        props: { title: 'Tags you are watching' },
+        children: ['watched-note', 'watched-table'],
+      },
+      'watched-note': {
+        type: 'Callout',
+        props: { text: { $state: '/watchedNote' }, tone: 'info' },
+        children: [],
+      },
+      'watched-table': {
+        type: 'DataTable',
+        props: {
+          headers: { $state: '/watchedHeaders' },
+          rows: { $state: '/watchedRows' },
+          columnWidths: ['40%', '14%', '23%', '23%'],
+          align: ['left', 'right', 'right', 'right'],
+          fontSize: 8,
+          emptyText: 'No watched tags configured.',
         },
         children: [],
       },
