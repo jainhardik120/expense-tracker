@@ -104,7 +104,8 @@ export const defaultExpenseReportTemplate: ReportTemplate = {
     investments: [],
     accounts: [],
     friends: [],
-    openingBalance: 0,
+    openingAccountsBalance: 0,
+    openingFriendsBalance: 0,
   },
   spec: {
     root: 'doc',

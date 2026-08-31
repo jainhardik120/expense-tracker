@@ -67,9 +67,12 @@ export const reportInputSchema = z.object({
   ),
   accounts: z.array(z.object({ name: z.string(), startingBalance: z.number() })),
   friends: z.array(z.object({ name: z.string() })),
-  // Total across all accounts the instant the reported span opens, so the code
-  // can close the balance identity without being handed every prior row.
-  openingBalance: z.number(),
+  // Where things stood the instant the reported span opens, split the way the
+  // app's own balance figure is: what the accounts hold, and what friends owe.
+  // "My balance" is the difference of the two, so a report cannot reproduce the
+  // number shown on the reports page without both legs kept apart.
+  openingAccountsBalance: z.number(),
+  openingFriendsBalance: z.number(),
 });
 
 export type ReportInput = z.infer<typeof reportInputSchema>;
@@ -84,13 +87,6 @@ const periodIndexFor = (date: Date, starts: number[]) => {
   }
   return index;
 };
-
-/** Signed movement a set of rows applies to the account balance. */
-const netMovement = (rows: { amount: string; statementKind: string }[]) =>
-  rows.reduce((total, row) => {
-    const amount = parseFloatSafe(row.amount);
-    return row.statementKind === 'expense' ? total - amount : total + amount;
-  }, 0);
 
 export const buildReportInput = async ({
   db,
@@ -196,13 +192,44 @@ export const buildReportInput = async ({
     );
   }
 
-  // Everything before the span, to seed the balance the periods then move.
+  // Everything before the span, to seed the balances the periods then move.
   const priorRows = await db
-    .select({ amount: statements.amount, statementKind: statements.statementKind })
+    .select({
+      id: statements.id,
+      amount: statements.amount,
+      statementKind: statements.statementKind,
+      accountId: statements.accountId,
+      friendId: statements.friendId,
+    })
     .from(statements)
     .where(and(eq(statements.userId, userId), lt(statements.createdAt, spanStart)));
   const startingTotal = accountRows.reduce(
     (total, row) => total + parseFloatSafe(row.startingBalance),
+    0,
+  );
+
+  // Mirrors the app's own aggregation: an account moves on rows carrying an
+  // account, a friend balance on rows carrying a friend, and a row can be both.
+  // Splits on statements from before the span only — `splitRows` covers all time.
+  const priorIds = new Set(priorRows.map((row) => row.id));
+  const priorSplitTotal = splitRows.reduce(
+    (total, split) =>
+      priorIds.has(split.statementId) ? total + parseFloatSafe(split.amount) : total,
+    0,
+  );
+
+  const accountSide = priorRows.reduce((total, row) => {
+    if (row.accountId === null) {
+      return total;
+    }
+    const amount = parseFloatSafe(row.amount);
+    return row.statementKind === 'expense' ? total - amount : total + amount;
+  }, 0);
+  // A friend balance rises both when they pay for you and when a friend
+  // transaction is recorded, so every row carrying a friend adds; the splits they
+  // owe you are taken off below.
+  const friendSide = priorRows.reduce(
+    (total, row) => (row.friendId === null ? total : total + parseFloatSafe(row.amount)),
     0,
   );
 
@@ -240,6 +267,7 @@ export const buildReportInput = async ({
       startingBalance: parseFloatSafe(row.startingBalance),
     })),
     friends: friendRows.map((row) => ({ name: row.name })),
-    openingBalance: startingTotal + netMovement(priorRows),
+    openingAccountsBalance: startingTotal + accountSide,
+    openingFriendsBalance: friendSide - priorSplitTotal,
   };
 };
