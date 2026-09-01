@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 
 import { Check, RefreshCw } from 'lucide-react';
-import { parseAsString, useQueryStates } from 'nuqs';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -21,6 +20,8 @@ import { api } from '@/server/react';
 import type { ReportInput } from '@/server/reports/report-input';
 
 import type { ReportTemplate } from '@helix-hq/pdf-report';
+
+import { useSpanQueryState } from '../../_components/report-span';
 
 // Monaco touches `window` on import, so none of this can be server rendered.
 const loading = () => <p className="text-muted-foreground p-6 text-sm">Loading editor…</p>;
@@ -77,11 +78,12 @@ export const TemplateEditor = ({
   const mutation = api.reports.saveTemplate.useMutation();
 
   // In the URL so reloading the page — or sharing the link — keeps the span you
-  // were looking at instead of snapping back to the last few periods.
-  const [span, setSpan] = useQueryStates({
-    from: parseAsString.withDefault(initialFrom),
-    to: parseAsString.withDefault(initialTo),
-  });
+  // were looking at, and in storage so it carries over from the report page
+  // rather than snapping back to the last few periods.
+  const [span, setSpan] = useSpanQueryState(
+    boundaries.map((boundary) => boundary.id),
+    { from: initialFrom, to: initialTo },
+  );
   const { from, to } = span;
 
   // Refetched when the span changes, and seeded from the server render so the
@@ -170,7 +172,7 @@ export const TemplateEditor = ({
           <Select
             value={from}
             onValueChange={(value) => {
-              void setSpan({ from: value });
+              setSpan({ from: value, to });
             }}
           >
             <SelectTrigger className="h-8 w-[150px]" size="sm">
@@ -188,7 +190,7 @@ export const TemplateEditor = ({
           <Select
             value={to}
             onValueChange={(value) => {
-              void setSpan({ to: value });
+              setSpan({ from, to: value });
             }}
           >
             <SelectTrigger className="h-8 w-[150px]" size="sm">

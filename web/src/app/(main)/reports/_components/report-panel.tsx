@@ -4,7 +4,6 @@ import { useState } from 'react';
 
 import { format } from 'date-fns';
 import { Download, RefreshCw } from 'lucide-react';
-import { parseAsString, useQueryStates } from 'nuqs';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -20,6 +19,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/server/react';
 
+import { useSpanQueryState } from './report-span';
 import { ReportView } from './report-view';
 
 import type { Spec } from '@json-render/core';
@@ -37,10 +37,12 @@ type Boundary = { id: string; boundaryDate: Date };
 export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
   const first = boundaries[0]?.id ?? '';
   const last = boundaries[boundaries.length - 1]?.id ?? '';
-  const [span, setSpan] = useQueryStates({
-    from: parseAsString.withDefault(first),
-    to: parseAsString.withDefault(last),
-  });
+  // URL first so a linked report opens the span it names, then whatever was
+  // last chosen anywhere in the app, then the whole range.
+  const [span, setSpan] = useSpanQueryState(
+    boundaries.map((boundary) => boundary.id),
+    { from: first, to: last },
+  );
   const [pending, setPending] = useState(false);
 
   const fromIndex = boundaries.findIndex((boundary) => boundary.id === span.from);
@@ -118,7 +120,9 @@ export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
         <CardContent className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="flex flex-1 flex-col gap-2">
             <Label htmlFor="panel-from">From</Label>
-            <Select value={span.from} onValueChange={(from) => void setSpan({ from })}>
+            <Select value={span.from} onValueChange={(from) => {
+                setSpan({ from, to: span.to });
+              }}>
               <SelectTrigger className="w-full" id="panel-from">
                 <SelectValue placeholder="Start" />
               </SelectTrigger>
@@ -133,7 +137,9 @@ export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
           </div>
           <div className="flex flex-1 flex-col gap-2">
             <Label htmlFor="panel-to">To</Label>
-            <Select value={span.to} onValueChange={(to) => void setSpan({ to })}>
+            <Select value={span.to} onValueChange={(to) => {
+                setSpan({ from: span.from, to });
+              }}>
               <SelectTrigger className="w-full" id="panel-to">
                 <SelectValue placeholder="End" />
               </SelectTrigger>

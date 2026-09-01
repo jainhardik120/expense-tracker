@@ -24,13 +24,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+import { useStoredSpan } from './report-span';
+
 type Boundary = { id: string; boundaryDate: Date };
 
 export const DownloadReportDialog = ({ boundaries }: { boundaries: Boundary[] }) => {
-  // Default to the whole completed span: the last boundary closes the most
-  // recent finished period, so the ongoing month is never half-reported.
-  const [from, setFrom] = useState(boundaries[0]?.id ?? '');
-  const [to, setTo] = useState(boundaries[boundaries.length - 1]?.id ?? '');
+  // Whatever span was last chosen anywhere in the app, falling back to the
+  // whole completed range: the last boundary closes the most recent finished
+  // period, so the ongoing month is never half-reported.
+  const [span, setSpan] = useStoredSpan(
+    boundaries.map((boundary) => boundary.id),
+    { from: boundaries[0]?.id ?? '', to: boundaries[boundaries.length - 1]?.id ?? '' },
+  );
+  const { from, to } = span;
   const [pending, setPending] = useState(false);
 
   const fromIndex = boundaries.findIndex((boundary) => boundary.id === from);
@@ -92,7 +98,9 @@ export const DownloadReportDialog = ({ boundaries }: { boundaries: Boundary[] })
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="report-from">From boundary</Label>
-            <Select value={from} onValueChange={setFrom}>
+            <Select value={from} onValueChange={(next) => {
+                setSpan({ from: next, to });
+              }}>
               <SelectTrigger id="report-from">
                 <SelectValue placeholder="Start" />
               </SelectTrigger>
@@ -107,7 +115,9 @@ export const DownloadReportDialog = ({ boundaries }: { boundaries: Boundary[] })
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="report-to">To boundary</Label>
-            <Select value={to} onValueChange={setTo}>
+            <Select value={to} onValueChange={(next) => {
+                setSpan({ from, to: next });
+              }}>
               <SelectTrigger id="report-to">
                 <SelectValue placeholder="End" />
               </SelectTrigger>
