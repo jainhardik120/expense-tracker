@@ -31,6 +31,9 @@
     "@helix-hq/design-system": "^0.2.1",
     "@helix-hq/pdf-report": "^0.5.0",
     "@hookform/resolvers": "^5.2.2",
+    "@json-render/core": "0.19.0",
+    "@json-render/react": "0.19.0",
+    "@json-render/react-pdf": "0.19.0",
     "@kubiks/otel-better-auth": "^2.0.2",
     "@kubiks/otel-drizzle": "^2.1.0",
     "@opentelemetry/api": "^1.9.0",
@@ -106,7 +109,7 @@
     "use-stick-to-bottom": "^1.1.2",
     "vaul": "^1.1.2",
     "winston": "^3.19.0",
-    "zod": "4.3.6"
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.1",

@@ -90,6 +90,25 @@ export const reportsRouter = createTRPCRouter({
         .returning();
     }),
 
+  /**
+   * The report as data: the spec to draw and the values it binds to.
+   *
+   * The same pair the PDF is rendered from, so the page shows exactly what the
+   * download contains rather than a second implementation of the same sums.
+   */
+  renderReport: protectedProcedure
+    .input(z.object({ fromBoundaryId: z.string(), toBoundaryId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const { prepareUserReport } = await import('@/server/reports/prepare');
+      return prepareUserReport({
+        db: ctx.db,
+        userId: ctx.user.id,
+        userName: ctx.user.name,
+        fromBoundaryId: input.fromBoundaryId,
+        toBoundaryId: input.toBoundaryId,
+      });
+    }),
+
   getTemplate: protectedProcedure.query(async ({ ctx }) => {
     const stored = await ctx.db
       .select()

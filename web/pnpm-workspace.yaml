@@ -11,3 +11,8 @@ minimumReleaseAgeExclude:
   - '@helix-hq/pdf-report@0.2.0 || 0.3.0 || 0.4.0 || 0.5.0'
 onlyBuiltDependencies:
   - esbuild
+# One zod for the whole tree. @helix-hq/pdf-report resolves its own copy
+# otherwise, and two zods mean a catalog built with one is not assignable to a
+# registry expecting the other.
+overrides:
+  zod: 4.4.3
