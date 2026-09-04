@@ -9,6 +9,15 @@ export const env = createEnv({
     DATABASE_URL: z.url(),
     EMAIL_SENDER_ADDRESS: z.string(),
     NODE_ENV: z.enum(['development', 'test', 'production']),
+    /**
+     * Extra origins better-auth will accept sign-ins from, comma separated.
+     *
+     * Production otherwise trusts only `https://$VERCEL_URL`, which a local
+     * `next start` can never satisfy — the browser sends `http://localhost:3000`
+     * and no value of VERCEL_URL makes that match, so the scheme alone rejects
+     * every local login. Set it in `.env` rather than rediscovering it.
+     */
+    AUTH_TRUSTED_ORIGINS: z.string().optional(),
     GITHUB_CLIENT_ID: z.string(),
     GITHUB_CLIENT_SECRET: z.string(),
     COINGECKO_API_KEY: z.string(),
@@ -30,6 +39,7 @@ export const env = createEnv({
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
       process.env['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL'],
     NODE_ENV: process.env['NODE_ENV'],
+    AUTH_TRUSTED_ORIGINS: process.env['AUTH_TRUSTED_ORIGINS'],
     GITHUB_CLIENT_ID: process.env['GITHUB_CLIENT_ID'],
     GITHUB_CLIENT_SECRET: process.env['GITHUB_CLIENT_SECRET'],
     NEXT_PUBLIC_POSTHOG_HOST: process.env['NEXT_PUBLIC_POSTHOG_HOST'],
