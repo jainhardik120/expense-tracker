@@ -50,17 +50,18 @@ export const prepareUserReport = async ({
         },
   );
 
+  const timezone = await getTimezone();
   const input = await buildReportInput({
     db,
     userId,
     fromBoundaryId,
     toBoundaryId,
-    timezone: await getTimezone(),
+    timezone,
   });
 
   const { spec, data } = await prepareReport(template, {
     input,
-    branding: reportBranding(userName),
+    branding: reportBranding(userName, timezone),
   });
 
   return { spec, data };

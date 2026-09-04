@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import { addDays, endOfDay, format, getDaysInMonth, startOfDay } from 'date-fns';
+import { addDays, endOfDay, getDaysInMonth, startOfDay } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 import { useTimezone } from '@/components/time-zone-setter';
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
 import {
   getFutureRecurringPayments,
@@ -56,6 +57,7 @@ export const DashboardPaymentOverview = ({
   creditData: CreditCardData;
   summaryData: SummaryData;
 }) => {
+  const zoned = useZonedFormat();
   const timezone = useTimezone();
   const [days, setDays] = useState<number>(7);
 
@@ -255,7 +257,7 @@ export const DashboardPaymentOverview = ({
 
         <div className="space-y-2">
           <p className="text-sm font-medium">
-            Upcoming Payments ({format(rangeStart, 'MMM dd')} - {format(rangeEnd, 'MMM dd')})
+            Upcoming Payments ({zoned(rangeStart, 'MMM dd')} - {zoned(rangeEnd, 'MMM dd')})
           </p>
           {upcomingPayments.length === 0 ? (
             <p className="text-muted-foreground text-sm">No upcoming payments in this window.</p>
@@ -269,7 +271,7 @@ export const DashboardPaymentOverview = ({
                   <div>
                     <p className="text-sm font-medium">{payment.name}</p>
                     <p className="text-muted-foreground text-xs">
-                      {payment.type} • {format(payment.date, 'MMM dd')}
+                      {payment.type} • {zoned(payment.date, 'MMM dd')}
                     </p>
                   </div>
                   <p className="text-sm font-semibold">{formatCurrency(payment.amount)}</p>

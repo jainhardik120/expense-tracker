@@ -10,11 +10,22 @@ import {
   splits,
   statements,
 } from '@/db/schema';
+import { localWallClock } from '@/lib/date';
 import type { Database } from '@/lib/db';
 import { parseFloatSafe } from '@/server/helpers/emi-calculations';
 
 /**
  * What a report is handed: raw rows, not metrics.
+ *
+ * Every `date` is the reader's wall clock (`YYYY-MM-DDTHH:mm`, no zone), not an
+ * instant. The sandbox the code step runs in has no `Intl`, so a template
+ * cannot convert an instant to the reader's timezone even if it wanted to —
+ * meaning any date it is handed as UTC is a date it will report wrongly for
+ * everyone outside UTC. Converting once here fixes the page and the PDF
+ * together, since both render from this same input.
+ *
+ * The exception is `periods[].start` and `end`, which stay instants because
+ * links back into the app need epoch millis; those are documented in place.
  *
  * Every judgement about what a row *means* — which category is rent, which tag
  * marks a one-off, how expenditure is derived — belongs in the template's code
@@ -23,11 +34,17 @@ import { parseFloatSafe } from '@/server/helpers/emi-calculations';
  * periods (it cannot see the boundaries either), and computes nothing else.
  */
 export const reportInputSchema = z.object({
+  /** The reader's wall clock, like every other `date` here. */
   generatedAt: z.string(),
   currency: z.string(),
   periods: z.array(
     z.object({
       index: z.number(),
+      /**
+       * Instants, unlike every other date here, because a template needs them
+       * to build links back into the app and that means real epoch millis.
+       * `label` is what a period should be shown as.
+       */
       start: z.string(),
       end: z.string(),
       label: z.string(),
@@ -232,12 +249,12 @@ export const buildReportInput = async ({
   );
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: localWallClock(new Date(), timezone),
     currency: 'INR',
     periods,
     statements: statementRows.map((row) => ({
       periodIndex: periodIndexFor(row.createdAt, periodStarts),
-      date: row.createdAt.toISOString(),
+      date: localWallClock(row.createdAt, timezone),
       amount: parseFloatSafe(row.amount),
       category: row.category,
       kind: row.statementKind,
@@ -248,14 +265,14 @@ export const buildReportInput = async ({
     })),
     selfTransfers: selfTransferRows.map((row) => ({
       periodIndex: periodIndexFor(row.createdAt, periodStarts),
-      date: row.createdAt.toISOString(),
+      date: localWallClock(row.createdAt, timezone),
       amount: parseFloatSafe(row.amount),
       fromAccount: accountName.get(row.fromAccountId) ?? '',
       toAccount: accountName.get(row.toAccountId) ?? '',
     })),
     investments: investmentRows.map((row) => ({
       periodIndex: periodIndexFor(row.investmentDate, periodStarts),
-      date: row.investmentDate.toISOString(),
+      date: localWallClock(row.investmentDate, timezone),
       kind: row.investmentKind,
       instrument: row.instrumentCode ?? '',
       amount: parseFloatSafe(row.investmentAmount),

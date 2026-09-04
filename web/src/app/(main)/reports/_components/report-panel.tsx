@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 
-import { format } from 'date-fns';
 import { Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -17,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { api } from '@/server/react';
 
 import { useSpanQueryState } from './report-span';
@@ -44,6 +44,7 @@ export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
     { from: first, to: last },
   );
   const [pending, setPending] = useState(false);
+  const zoned = useZonedFormat();
 
   const fromIndex = boundaries.findIndex((boundary) => boundary.id === span.from);
   const toIndex = boundaries.findIndex((boundary) => boundary.id === span.to);
@@ -81,7 +82,7 @@ export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
 
   const options = boundaries.map((boundary) => ({
     id: boundary.id,
-    label: format(boundary.boundaryDate, 'MMM dd, yyyy'),
+    label: zoned(boundary.boundaryDate, 'MMM dd, yyyy'),
   }));
 
   if (boundaries.length < 2) {

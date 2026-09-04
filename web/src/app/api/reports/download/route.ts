@@ -55,17 +55,18 @@ export const POST = async (request: Request) => {
   );
 
   try {
+    const timezone = await getTimezone();
     const input = await buildReportInput({
       db,
       userId: session.user.id,
       fromBoundaryId: parsed.data.fromBoundaryId,
       toBoundaryId: parsed.data.toBoundaryId,
-      timezone: await getTimezone(),
+      timezone,
     });
 
     const pdf = await renderReportToBuffer(template, {
       input,
-      branding: reportBranding(session.user.name),
+      branding: reportBranding(session.user.name, timezone),
     });
 
     return new Response(Buffer.from(pdf) as unknown as BodyInit, {

@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 
-import { format } from 'date-fns';
 import { Download, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 
 import { useStoredSpan } from './report-span';
 
@@ -38,6 +38,7 @@ export const DownloadReportDialog = ({ boundaries }: { boundaries: Boundary[] })
   );
   const { from, to } = span;
   const [pending, setPending] = useState(false);
+  const zoned = useZonedFormat();
 
   const fromIndex = boundaries.findIndex((boundary) => boundary.id === from);
   const toIndex = boundaries.findIndex((boundary) => boundary.id === to);
@@ -76,7 +77,7 @@ export const DownloadReportDialog = ({ boundaries }: { boundaries: Boundary[] })
 
   const options = boundaries.map((boundary) => ({
     id: boundary.id,
-    label: format(boundary.boundaryDate, 'MMM dd, yyyy'),
+    label: zoned(boundary.boundaryDate, 'MMM dd, yyyy'),
   }));
 
   return (

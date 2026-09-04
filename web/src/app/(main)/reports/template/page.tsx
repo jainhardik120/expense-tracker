@@ -1,5 +1,4 @@
-import { format } from 'date-fns';
-
+import { getTimezone, zonedFormat } from '@/lib/date';
 import { api } from '@/server/server';
 
 import { TemplateEditor } from './_components/template-editor';
@@ -7,6 +6,7 @@ import { TemplateEditor } from './_components/template-editor';
 import type { ReportTemplate } from '@helix-hq/pdf-report';
 
 export default async function ReportTemplatePage() {
+  const timezone = await getTimezone();
   const [stored, boundaries] = await Promise.all([
     api.reports.getTemplate(),
     api.reports.getBoundaries(),
@@ -42,7 +42,7 @@ export default async function ReportTemplatePage() {
     <TemplateEditor
       boundaries={boundaries.map((boundary) => ({
         id: boundary.id,
-        label: format(boundary.boundaryDate, 'MMM dd, yyyy'),
+        label: zonedFormat(boundary.boundaryDate, 'MMM dd, yyyy', timezone),
       }))}
       initialFrom={initialFrom}
       initialInput={initialInput}

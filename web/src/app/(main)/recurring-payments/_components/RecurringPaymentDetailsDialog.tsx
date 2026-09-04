@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 
-import { format } from 'date-fns';
 import { Calendar, Eye } from 'lucide-react';
 
 import { DataTable } from '@/components/data-table/data-table';
@@ -12,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RecurringPayment } from '@/types';
@@ -63,13 +63,14 @@ const ErrorState = ({ message }: { message: string }) => (
 );
 
 const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
+  const zoned = useZonedFormat();
   const { table } = useDataTable({
     data: schedule,
     columns: [
       {
         id: 'scheduledDate',
         header: 'Scheduled Date',
-        accessorFn: (row: ScheduleEntry) => format(row.scheduledDate, DATE_FORMAT),
+        accessorFn: (row: ScheduleEntry) => zoned(row.scheduledDate, DATE_FORMAT),
       },
       {
         id: 'expectedAmount',
@@ -86,7 +87,7 @@ const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
         id: 'linkedStatementDate',
         header: 'Actual Payment',
         accessorFn: (row: ScheduleEntry) =>
-          row.linkedStatementDate !== null ? format(row.linkedStatementDate, DATE_FORMAT) : '-',
+          zoned(row.linkedStatementDate, DATE_FORMAT),
       },
       {
         id: 'linkedStatementAmount',
@@ -110,13 +111,14 @@ const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
 };
 
 const LinkedStatementsTable = ({ statements }: { statements: LinkedStatement[] }) => {
+  const zoned = useZonedFormat();
   const { table } = useDataTable({
     data: statements,
     columns: [
       {
         id: 'createdAt',
         header: 'Date',
-        accessorFn: (row: LinkedStatement) => format(row.createdAt, DATE_FORMAT),
+        accessorFn: (row: LinkedStatement) => zoned(row.createdAt, DATE_FORMAT),
       },
       {
         id: 'amount',

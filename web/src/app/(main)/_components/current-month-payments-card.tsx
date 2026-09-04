@@ -2,12 +2,13 @@
 
 import { useMemo } from 'react';
 
-import { endOfMonth, format } from 'date-fns';
+import { endOfMonth } from 'date-fns';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { useTimezone } from '@/components/time-zone-setter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
 import type { PaymentWithLocation } from '@/server/helpers/emi-calculations';
 import {
@@ -23,6 +24,7 @@ const isRecurring = (
 ): payment is RecurringPaymentSchedule => 'category' in payment;
 
 export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
+  const zoned = useZonedFormat();
   const { currentMonthPayments, recurringPayments } = creditData;
   const timezone = useTimezone();
   const recurringCurrentMonth = useMemo(() => {
@@ -69,7 +71,7 @@ export const CurrentMonthPaymentsCard = ({ creditData }: { creditData: CreditCar
       {
         id: 'date',
         header: 'Date',
-        accessorFn: (row) => format(row.date, 'MMM dd'),
+        accessorFn: (row) => zoned(row.date, 'MMM dd'),
       },
       {
         id: 'amount',

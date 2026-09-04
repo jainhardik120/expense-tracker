@@ -2,12 +2,13 @@
 
 import { useMemo } from 'react';
 
-import { format, isSameMonth } from 'date-fns';
+import { isSameMonth } from 'date-fns';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useZonedFormat, type ZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
 import { type EMICalculationResult } from '@/types';
 
@@ -48,12 +49,12 @@ const renderStatusCell = (row: ScheduleRowWithPayment) => (
 );
 
 // eslint-disable-next-line sonarjs/function-return-type
-const renderPaidOnCell = (row: ScheduleRowWithPayment): React.ReactNode => {
+const renderPaidOnCell = (row: ScheduleRowWithPayment, zoned: ZonedFormat): React.ReactNode => {
   const stmt = row.linkedStatement;
   if (stmt === undefined) {
     return <span>-</span>;
   }
-  return <span className="text-sm">{format(stmt.createdAt, 'dd MMM yyyy')}</span>;
+  return <span className="text-sm">{zoned(stmt.createdAt, 'dd MMM yyyy')}</span>;
 };
 
 const renderAmountPaidCell = (row: ScheduleRowWithPayment): string => {
@@ -65,6 +66,7 @@ const renderAmountPaidCell = (row: ScheduleRowWithPayment): string => {
 };
 
 export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentScheduleTableProps) => {
+  const zoned = useZonedFormat();
   const showDates = useMemo(
     () => result.schedule.some((row) => row.date !== undefined),
     [result.schedule],
@@ -132,7 +134,7 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
               id: 'date',
               header: 'Due Date',
               accessorFn: (row: ScheduleRowWithPayment) =>
-                row.date === undefined ? '-' : format(row.date, 'dd MMM yyyy'),
+                row.date === undefined ? '-' : zoned(row.date, 'dd MMM yyyy'),
             },
           ]
         : []),
@@ -178,7 +180,7 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
               id: 'paidOn',
               header: 'Paid On',
               cell: ({ row }: { row: { original: ScheduleRowWithPayment } }) =>
-                renderPaidOnCell(row.original),
+                renderPaidOnCell(row.original, zoned),
             },
             {
               id: 'amountPaid',
@@ -189,7 +191,7 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
           ]
         : []),
     ],
-    [showDates, showPaymentStatus],
+    [showDates, showPaymentStatus, zoned],
   );
 
   const { table } = useDataTable({

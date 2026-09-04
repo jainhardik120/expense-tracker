@@ -26,6 +26,46 @@ export const formatTruncatedDate = (
   return format(zonedDate, formatStr);
 };
 
+/**
+ * An instant written as the reader's wall clock: `YYYY-MM-DDTHH:mm`.
+ *
+ * Stored timestamps are instants, and the calendar day an instant falls on
+ * depends on who is looking. A purchase at 00:30 on 1 January in Delhi is
+ * 19:00 on 31 December in UTC, so anything that slices a day out of
+ * `toISOString()` reports the wrong date for half the night, every night.
+ *
+ * The result deliberately carries no zone suffix: it is a wall clock, not an
+ * instant, and is meant for display and for grouping by day. Sorting still
+ * works, because the format is lexicographic. Anything that needs the instant
+ * back should be handed the instant instead.
+ */
+export const localWallClock = (date: Date, timeZone: string): string => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+  const find = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  // en-CA renders midnight as 24 rather than 00 in some runtimes.
+  const hour = find('hour') === '24' ? '00' : find('hour');
+  return `${find('year')}-${find('month')}-${find('day')}T${hour}:${find('minute')}`;
+};
+
+/** date-fns formatting, in the reader's timezone rather than the server's. */
+export const zonedFormat = (date: Date | string, pattern: string, timeZone: string): string => {
+  const value = typeof date === 'string' ? new Date(date) : date;
+  return format(toZonedTime(value, timeZone), pattern);
+};
+
+/** Just the reader's calendar day, `YYYY-MM-DD`. */
+export const localDay = (date: Date, timeZone: string): string =>
+  localWallClock(date, timeZone).slice(0, 10);
+
 export const getDefaultDateRange = (timezone: string) => {
   const now = new Date();
   const localNow = toZonedTime(now, timezone);

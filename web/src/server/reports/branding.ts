@@ -1,3 +1,5 @@
+import { localWallClock } from '@/lib/date';
+
 import type { ReportBranding } from '@helix-hq/pdf-report';
 
 // react-pdf cannot read CSS custom properties and does not understand oklch, so
@@ -21,11 +23,20 @@ const CHART_PALETTE = [
   '#475569',
 ] as const;
 
-/** Branding stamped on every report this app renders. */
-export const reportBranding = (subtitle: string, title = 'Money report'): ReportBranding => ({
+/**
+ * Branding stamped on every report this app renders.
+ *
+ * `timezone` is the reader's, because a footer reading "Generated 09:34 GMT" is
+ * telling them the time somewhere they do not live.
+ */
+export const reportBranding = (
+  subtitle: string,
+  timezone: string,
+  title = 'Money report',
+): ReportBranding => ({
   title,
   subtitle,
-  generatedAt: new Date().toUTCString(),
+  generatedAt: localWallClock(new Date(), timezone).replace('T', ' '),
   wordmark: 'EXPENSE TRACKER',
   // The package's own glyph is the Helix double strand; this app is not Helix.
   showMark: false,

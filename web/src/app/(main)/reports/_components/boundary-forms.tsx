@@ -1,6 +1,5 @@
 'use client';
 
-import { format } from 'date-fns';
 import { Pencil, Trash2 } from 'lucide-react';
 import { z } from 'zod';
 
@@ -8,6 +7,7 @@ import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { api } from '@/server/react';
 
 const createBoundarySchema = z.object({
@@ -121,9 +121,10 @@ export const BoundaryListItem = ({
   boundary: Boundary;
   refresh?: () => void;
 }) => {
+  const zoned = useZonedFormat();
   return (
     <div className="flex items-center justify-between rounded-md border p-2">
-      <span className="font-medium">{format(boundary.boundaryDate, 'MMM dd, yyyy')}</span>
+      <span className="font-medium">{zoned(boundary.boundaryDate, 'MMM dd, yyyy')}</span>
       <div className="flex items-center gap-1">
         <UpdateBoundaryForm
           boundaryId={boundary.id}

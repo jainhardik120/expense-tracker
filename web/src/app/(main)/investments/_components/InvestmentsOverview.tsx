@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import { format, startOfDay, subDays } from 'date-fns';
+import { startOfDay, subDays } from 'date-fns';
 
 import LineChart from '@/components/line-chart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
 import {
   investmentCategoryLabels,
@@ -103,6 +104,7 @@ export const InvestmentsOverview = ({
 }) => {
   const [viewSelection, setViewSelection] = useState(PORTFOLIO_VIEW);
   const [timeRange, setTimeRange] = useState<InvestmentTimelineRangeValue>('1m');
+  const zoned = useZonedFormat();
 
   const groupedOptions = useMemo(() => {
     const map = new Map<InvestmentKindValue, DashboardData['instrumentOptions']>();
@@ -244,7 +246,7 @@ export const InvestmentsOverview = ({
       })
       .map((point) => ({
         ...point,
-        date: format(point.date, timeRange === 'lifetime' ? 'dd MMM yyyy' : 'dd MMM'),
+        date: zoned(point.date, timeRange === 'lifetime' ? 'dd MMM yyyy' : 'dd MMM'),
       }));
   }, [
     instrumentTimelineMap,
@@ -253,6 +255,7 @@ export const InvestmentsOverview = ({
     requiresRemoteTimeline,
     timeRange,
     viewSelection,
+    zoned,
   ]);
 
   const isLoadingTimeline =

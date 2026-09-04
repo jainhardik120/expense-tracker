@@ -12,6 +12,7 @@ import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useDataTable } from '@/hooks/use-data-table';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
 import {
   compareInvestmentCategories,
@@ -420,9 +421,10 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     () => mergeDashboard(data.dashboard, marketData),
     [data.dashboard, marketData],
   );
+  const zoned = useZonedFormat();
   const columns = createInvestmentColumns(() => {
     router.refresh();
-  });
+  }, zoned);
 
   const { table } = useDataTable({
     data: tableData,

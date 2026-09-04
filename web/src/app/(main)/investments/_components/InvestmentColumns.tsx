@@ -1,13 +1,13 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { format } from 'date-fns';
 import { Info, Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { type ZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
 import { investmentKindLabels } from '@/lib/investments';
 import { api } from '@/server/react';
@@ -106,7 +106,10 @@ const CurrencyDetailsPopover = ({ row }: { row: InvestmentRow }) => {
   );
 };
 
-export const createInvestmentColumns = (refresh: () => void): ColumnDef<InvestmentRow>[] => [
+export const createInvestmentColumns = (
+  refresh: () => void,
+  zoned: ZonedFormat,
+): ColumnDef<InvestmentRow>[] => [
   {
     accessorKey: 'normalizedKind',
     header: 'Type',
@@ -143,7 +146,7 @@ export const createInvestmentColumns = (refresh: () => void): ColumnDef<Investme
   {
     accessorKey: 'investmentDate',
     header: 'Investment Date',
-    cell: ({ row }) => format(row.original.investmentDate, 'PP'),
+    cell: ({ row }) => zoned(row.original.investmentDate, 'PP'),
   },
   {
     accessorKey: 'investmentAmount',
