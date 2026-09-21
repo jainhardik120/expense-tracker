@@ -1,0 +1,2746 @@
+{
+  "version": 2,
+  "schemaVersion": 2,
+  "source": "mantis",
+  "sourceVersion": "0.2.222-debug.1",
+  "generatedAt": "2026-09-21T08:25:21.213Z",
+  "files": [
+    {
+      "file": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "action": "edited",
+      "linesAffected": 77,
+      "linesAdded": 77,
+      "linesDeleted": 13,
+      "totalLines": 541,
+      "assistant": "codex"
+    },
+    {
+      "file": "web/src/app/(main)/investments/_components/table.tsx",
+      "action": "edited",
+      "linesAffected": 9,
+      "linesAdded": 9,
+      "linesDeleted": 0,
+      "totalLines": 502,
+      "assistant": "codex"
+    },
+    {
+      "file": "web/src/server/helpers/investment/dashboard.ts",
+      "action": "edited",
+      "linesAffected": 5,
+      "linesAdded": 5,
+      "linesDeleted": 3,
+      "totalLines": 489,
+      "assistant": "codex"
+    },
+    {
+      "file": "web/src/server/helpers/investment/index.ts",
+      "action": "edited",
+      "linesAffected": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "totalLines": 17,
+      "assistant": "codex"
+    },
+    {
+      "file": "web/src/server/helpers/investment/models.ts",
+      "action": "edited",
+      "linesAffected": 7,
+      "linesAdded": 7,
+      "linesDeleted": 0,
+      "totalLines": 183,
+      "assistant": "codex"
+    },
+    {
+      "file": "web/src/server/helpers/investment/page-data.ts",
+      "action": "edited",
+      "linesAffected": 102,
+      "linesAdded": 102,
+      "linesDeleted": 30,
+      "totalLines": 206,
+      "assistant": "codex"
+    }
+  ],
+  "hunks": [
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:1:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 20,
+      "oldLines": 0,
+      "newStart": 21,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "573994e72fa3140bfba3d019ac64bff086bd2f91c5a15df334873e35e3a0195f"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:2:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 36,
+      "oldLines": 0,
+      "newStart": 38,
+      "newLines": 2,
+      "linesAdded": 2,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "8c5440facead22ec8ee78a78c4e51694fe6ffe186e91b98c78248e83064bd8aa",
+          "821ced0e94304ff1a71b9ef4549cd6965ca167738e7d6fb104ff53e01f4ca8ab"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:3:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 45,
+      "oldLines": 0,
+      "newStart": 49,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "bb8bcf3a5bdd98d2deeab43a8855644f518a403ecae42ffd85402d6eceff79d5"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:4:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 59,
+      "oldLines": 0,
+      "newStart": 64,
+      "newLines": 11,
+      "linesAdded": 11,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "aa1f8b572e22e4dbb9d89b9eac1c81cf9c472641a77c80e68ec50d9de5c1774e",
+          "a765816d6d2fdb02003d798143b5fccd2b71b58d0b6e0d54cfc229b1046e49a7",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "aac22b136c2987c2630e6ed7ad46153f3760981bcc055accca51c7056d6865a2",
+          "8b5a6ab83ec2fda835983a0500d4d7447db18fefc78a7c0120efcad1bff6589d",
+          "36c1cd1be1d4451c76e5d538ce6b4f91933647a951bc881d2df15ff6009db203",
+          "737db166c79ae98e44bbe5ad43e03bf3774f7b3696068842d56a72e863dfeb20",
+          "37cabc8968ec0dad87302e696457cabc6daf4a3b9dd8fb1d8204729c6c334564",
+          "391a269e6199a684932898e1dfcd8b8c00ecc097de555b4faf05a62c7be4f1ce",
+          "df3982fd610173599241fca93c7c866683f58f541eced1c2098102145477164c",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:5:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 91,
+      "oldLines": 0,
+      "newStart": 107,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "fff8399155e7ee268db50b2fe101299be49ca2b6ec51e537265015fbf5f607af"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:6:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 97,
+      "oldLines": 0,
+      "newStart": 114,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "704f54bc4fa05bd1d294d5b6b86f5835cb1c5c4175c08416a61d0eb6cc68f6af"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:7:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 130,
+      "oldLines": 0,
+      "newStart": 148,
+      "newLines": 5,
+      "linesAdded": 5,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "ccf6c451cafe1b6ff1238d8ad454a97c568f986c97bc8fcf2057b5899671f8a7",
+          "51743b76d10a798e3f3d088a4a2ef7713138ef95d2ca0cd3a5613fc1c2a4f2e7",
+          "c401ee90f4035db452ae43b19c74fa305db81b3fa5b38e79f34345ab8b12b590",
+          "3a5d0b9c2fd82493b66bba108059e333b190a7c3f488eab80fbab6a853f4473a",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 3,
+        "matchedHunkCount": 3,
+        "matchedOperationIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 5,
+            "deleted": 0,
+            "changed": 5,
+            "touched": 5
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:8:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 131,
+      "oldLines": 0,
+      "newStart": 154,
+      "newLines": 2,
+      "linesAdded": 2,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "c8bb47c86cbb0fe0acfd8cea925a88f4082f68bcffa72360e56d9edc6973022f",
+          "ab9d2601b186007259c6e320f5f42e709c89c5917cb8200f3493114e08e35cb8"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 3,
+        "matchedHunkCount": 3,
+        "matchedOperationIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 2,
+            "deleted": 0,
+            "changed": 2,
+            "touched": 2
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:9:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 201,
+      "oldLines": 0,
+      "newStart": 226,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "70a8fc49a5b05719028f1d4036b8d0ceb684ff7125516c10cd0a6ce8c722f339"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 4,
+        "matchedHunkCount": 4,
+        "matchedOperationIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 1,
+            "deleted": 0,
+            "changed": 1,
+            "touched": 1
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:10:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 204,
+      "oldLines": 0,
+      "newStart": 230,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "d0e0babad6cf25f0e79f49a816c228345721f123b3f9e18cb74877161b7f2f6c"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 5,
+        "matchedHunkCount": 5,
+        "matchedOperationIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 1,
+            "deleted": 0,
+            "changed": 1,
+            "touched": 1
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:11:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 217,
+      "oldLines": 0,
+      "newStart": 244,
+      "newLines": 6,
+      "linesAdded": 6,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "21b907f9ac17e6538e96eab497f661de5795d184493151b8d40114ee39f3bd77",
+          "a4a9034c472e37473f119a41bad122d72d857956e3bdb83eed6e36d5c1826223",
+          "10b5b105853e3e403d2ffdab3b03c0f0d549a68d109aa19ac74f8d45c5bd1cde",
+          "67694c125cca8ca0a62725dfef58e8526eab4d227697d733f055295d901fc772",
+          "aebe45e88502f439ed4fda4c400adc9808e1699c20c8ddbffcdcc74f2110ce31",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 5,
+        "matchedHunkCount": 5,
+        "matchedOperationIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfor1c1:12:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 6,
+            "deleted": 0,
+            "changed": 6,
+            "touched": 6
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:12:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 219,
+      "oldLines": 12,
+      "newStart": 251,
+      "newLines": 19,
+      "linesAdded": 19,
+      "linesDeleted": 12,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "cc6f0f5c154706d648eefab20a0bc7590a58094888e65f35aa889199b81db2f5",
+          "08d5be0b3cc7d3e5a67fc8e54b8015bbb682244cda5073d88d1626f2b44109bd",
+          "71e5b6ce5ec0dfde51be6e5b3b76a31a939ee4880628448229ad042bfe691cef",
+          "bbd23be6114fd095dad1246881f35a31e4f030afd1ab3e19471a8041e8f1b9cd",
+          "612c9f66f942d03789b0c09bd7a30d7ae518e77a3b5b5492c62813d8f2b6884c",
+          "28d86778615f6af47bb1bc4f40face756749768e5111f114cfa234a5060c25af",
+          "7f9f311d27f6a2bdb1f91c0ed931b13bd54e254fd7bf3e55b9945e29b58e7f60",
+          "953cec1ab1fdcc2f71d9015a5cc1ec8ace69a85addfde8dbe824587d997bb2a1",
+          "d66b70251894e4f404cb1f5df6a6c9e3e1a04ce508e1c615e6c184cbd3583e0a",
+          "5ceb6371449801517bcbf9d8e2cd102187a2645777f020275ccb0e50417e0dc3",
+          "168772f12c219a956c30e710f69cef98091df73c4052a830862bed683b4abcf4",
+          "62093c913dff4661be098dd13d8f84754c168cb7e1b1e8f8d9ed3e447dbe0a44",
+          "a7ce8f686e529bb57a16076bd70f80fd9d299e948962b827605aa432f66b5c0f",
+          "5adf7b3804f8bded51c28b66e5db1cc0cdd90880b23143564a4f28d7e688d83c",
+          "5ceb6371449801517bcbf9d8e2cd102187a2645777f020275ccb0e50417e0dc3",
+          "832a25445e784d3023c40fd78879067360afc46bf2e98730cdcd08ab33fbf4c1",
+          "364b1002f9bc8c535034a46d1b89f026dcfd271bbe8443697363b07a4f9722e2",
+          "2cde6c807b3db29fde48c965ce537bd0465c5caddb13a8cfde1ecc6957a63da5",
+          "b164db01bab4bfb5532d75fbbf173a3621042c13d52d5711b88177a2e28553d8"
+        ],
+        "deletedLineHashes": [
+          "9598408180e3b7f0d26a5fbc3bb49b8559267a65e86660e250b7068d739584c4",
+          "7be2e5bb175daf669f56d55b4e326c9126f12b45245ac789a503bf4e50feb873",
+          "bf67094cbf780c4e0d8fe0dd6709c80caf086e9dedcbd3fb95c897d1eb8bd0c4",
+          "9f9264ec79cd5ed7edde9edda3fa5911451efaaf920a295ca01052f6eea933e2",
+          "9e2c03cd1ee25034c819f6f4fe935df32c32122bd83874aac0a7d6f6b8171831",
+          "6a8fcfa69b65ff114ff9633b1cab87ab8d1498d50ede1818618ce646269bbca3",
+          "01521b001e3a23f1aa479bc8360c453fe76ae5b6f2ef350805db46eccdfd150f",
+          "7ca839ba47771a6c6b4867b2d71e745c10a73aca4e15946300705cbd9ccc0112",
+          "bf67094cbf780c4e0d8fe0dd6709c80caf086e9dedcbd3fb95c897d1eb8bd0c4",
+          "d524c0db6c32362a21c02e7e8bce833dd84eaae8bdd002fd4a296f4e2c05fdf0",
+          "eee66b5696646cacfdb6eb276cfb0d0aad092eb43c26a4a251a63b32baa6e2d9",
+          "e6eea074e7f9cb9e5ef29c298a4a527a9352b17d17a45449979abf5abb3846a6"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 6,
+        "matchedHunkCount": 6,
+        "matchedOperationIds": [
+          "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqnvak:46:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqvdvw:58:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfosx2j:16:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode:1",
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqnvak:46:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqvdvw:58:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 19,
+            "deleted": 12,
+            "changed": 31,
+            "touched": 31
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:13:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 250,
+      "oldLines": 0,
+      "newStart": 290,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "0d97ea9890a8e87a3d82a4c5fb070090ea5895eb7c210c478bde55603724705a"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 3,
+        "matchedHunkCount": 3,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:14:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 253,
+      "oldLines": 0,
+      "newStart": 294,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqvdvw:58:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "b4e184af26fabc225aa45fa0f832f83e08ea7e96d9797d2fb4aa98650204390c"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 4,
+        "matchedHunkCount": 4,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqvdvw:58:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqvdvw:58:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:15:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 346,
+      "oldLines": 0,
+      "newStart": 388,
+      "newLines": 11,
+      "linesAdded": 11,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "dcc7d504e6fe35ad31aeb5851b430008156ead44266e752fad4b3f44e57a5105",
+          "0db303b33e105e266040f750ea74a51099eddfa36c64f773b549483b1fd501ba",
+          "aa7f6a14477fc08511923c937c07a460fb93f33d44f9edd88a8d3f2a62ab6dbf",
+          "ee57ee452e3867c336edd623face60c397a1e7a618753a1fd3f1661c52cba54c",
+          "b09269ce16e3e26325e1f6a4aad9e1a6bee3e4e4433e2dd5b83f0f01aa39068c",
+          "45f2ec6f8ba43cd6f06dd1efb0b875e8fd5447124b582b3f70b0e76550bfd8de",
+          "61f3514da2b9b65312bfa5265e8d13446296a3fc154e0cc2c1077600cb87e513",
+          "78a26cdff3b5b7cc57ba1fcf2cfb8fa293925bd9921d800997fc5d2e0163113b",
+          "d49a45b37498782a5bcb3cde13010a34005e6c9e4ab6af3ed9c110c444e2fbbb",
+          "8890c176cd9d9adc4709f32d01483b963b1f007174ab02fd1e16a9f251d669f7",
+          "3376f471a9a23b2cd67ae7e109fba714a6e695f49991416d2dc0a863c2aa2035"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 3,
+        "matchedHunkCount": 3,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:16:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 367,
+      "oldLines": 0,
+      "newStart": 420,
+      "newLines": 12,
+      "linesAdded": 12,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "2175aed69bb7931ecd22073e91f6f90afa45fd16d0444cd06bdf1f31949676fa",
+          "30ebd41e4dd14df7262abb6d238f034cfc010bd7840ad911530258f5256818a2",
+          "1062e938ee774038e72c04ea24244d6bd8a6b08ebb95ea552a55057ea58bdd04",
+          "9bcc0ba0a11191d20fa87c672dc409383df3ac16533d4e4b53910fe03a4c2b8e",
+          "6332f17a2773cd72fa8772108128418bae8ca07d034ef7772fb166496e0877d6",
+          "8f6edc422bc5522584248010ef202828013bee3b45876bcad8c225184e4f2874",
+          "6d7c80e35051674a3c261c887668af38ad0e7a08801906ca0f178a15a55b847f",
+          "1cfffe2f1606476677c35aa0db5b255a176853c7116d7e204b43540e7a748077",
+          "14f726474b49b5b676067b2e8e12885bfa6bb41d9184f1a8372019208254ab82",
+          "75bb900165e33f227732ef26506656e3d150a00c313ed9d0c73c6ab3d5144200",
+          "df1f9fa56d55e21212695794f5beb88017d129f986adaae74bed63e77a78ed17",
+          "768d36f7d20f35ebd289d774398939b91319846a0dcbb6067a8f1c6a41f323d9"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 3,
+        "matchedHunkCount": 3,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:17:web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "oldStart": 401,
+      "oldLines": 1,
+      "newStart": 465,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 1,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "c1239c209cc4486250d12d25a83d2f0efe2788e0006adbd25b2227688ce5b3a4"
+        ],
+        "deletedLineHashes": [
+          "3c658eff97545588cee5b10f0ac81f9288ffc3ec5da300c11fcdd73e675e7ad4"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+        "matchedOperationCount": 3,
+        "matchedHunkCount": 3,
+        "matchedOperationIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwb8g:37:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqunqp:53:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqutxi:56:expense-tracker:InvestmentsOverview.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:18:web/src/app/(main)/investments/_components/table.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/table.tsx",
+      "oldStart": 422,
+      "oldLines": 0,
+      "newStart": 423,
+      "newLines": 8,
+      "linesAdded": 8,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "human_only",
+        "contributors": [
+          {
+            "actor": "human",
+            "tool": null,
+            "source": "editor.action.clipboardPasteAction",
+            "operationId": "vscode:mtfpwa9s:36:expense-tracker:table.tsx:editor.action.clipboardPasteAction",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "human"
+        ],
+        "aiInvolved": false,
+        "humanInvolved": true,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "13810beb0c0cf57c83132fa7fe6dd64a07c4f4ab77dd83eb3e294ed6b311cb94",
+          "7903e603a75589677119fbec447c5d98961cf049f25fb6e8cfe6e1e7b0f87920",
+          "08b561cbe76ed727456e562e910f283895be00848a8d0ce6c67eb5fdc4f32cfa",
+          "a3a6c00cba98083237518a6e32e00c9cb0bb7e70543413eb781dbc080f25fe89",
+          "514c64f8d7dbdc0e02d20c03933465612dfea58d9727a3a877f123436e9df464",
+          "67694c125cca8ca0a62725dfef58e8526eab4d227697d733f055295d901fc772",
+          "0e79c9937e9a4f7205382c471fa0f36b56955ed7d97237e64a73c4e627313f66",
+          "5b4843b338e7509ddb7bf1a69d3269153889a648c5f698c02311a67e8c560620"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/table.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/table.tsx",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpwa9s:36:expense-tracker:table.tsx:editor.action.clipboardPasteAction",
+          "vscode:mtfquoh8:54:expense-tracker:table.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwa9s:36:expense-tracker:table.tsx:editor.action.clipboardPasteAction:1",
+          "vscode:mtfquoh8:54:expense-tracker:table.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "manual": {
+            "added": 8,
+            "deleted": 0,
+            "changed": 8,
+            "touched": 8
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:19:web/src/app/(main)/investments/_components/table.tsx",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/app/(main)/investments/_components/table.tsx",
+      "oldStart": 461,
+      "oldLines": 0,
+      "newStart": 470,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "human_only",
+        "contributors": [
+          {
+            "actor": "human",
+            "tool": null,
+            "source": "editor.action.clipboardPasteAction",
+            "operationId": "vscode:mtfpwa9s:36:expense-tracker:table.tsx:editor.action.clipboardPasteAction",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "human"
+        ],
+        "aiInvolved": false,
+        "humanInvolved": true,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "37b1f8ba451f4d80e48a9704cde79bb63e3b6554862128abb3986b08e58caaec"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/app/(main)/investments/_components/table.tsx",
+        "newPath": "web/src/app/(main)/investments/_components/table.tsx",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpwa9s:36:expense-tracker:table.tsx:editor.action.clipboardPasteAction",
+          "vscode:mtfquoh8:54:expense-tracker:table.tsx:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpwa9s:36:expense-tracker:table.tsx:editor.action.clipboardPasteAction:1",
+          "vscode:mtfquoh8:54:expense-tracker:table.tsx:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "manual": {
+            "added": 1,
+            "deleted": 0,
+            "changed": 1,
+            "touched": 1
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:20:web/src/server/helpers/investment/dashboard.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/dashboard.ts",
+      "oldStart": 234,
+      "oldLines": 0,
+      "newStart": 235,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "b9fb6047a6bd07e7ece7e1729fb654e39e026d18e4e2dd08631e5425a0c7f602"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/dashboard.ts",
+        "newPath": "web/src/server/helpers/investment/dashboard.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 1,
+            "deleted": 0,
+            "changed": 1,
+            "touched": 1
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:21:web/src/server/helpers/investment/dashboard.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/dashboard.ts",
+      "oldStart": 240,
+      "oldLines": 0,
+      "newStart": 242,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "d7924acdc7f45c6261c885be79ca86bd343af78ff827679ef7ce161605fe2a26"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/dashboard.ts",
+        "newPath": "web/src/server/helpers/investment/dashboard.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 1,
+            "deleted": 0,
+            "changed": 1,
+            "touched": 1
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:22:web/src/server/helpers/investment/dashboard.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/dashboard.ts",
+      "oldStart": 244,
+      "oldLines": 3,
+      "newStart": 246,
+      "newLines": 3,
+      "linesAdded": 3,
+      "linesDeleted": 3,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "3c7d3dfcf76e7916f1d4dd53f2b1da54f89e7135522c58ebd95abded25557710",
+          "4acbd4cfd666e221801b91f965cbd975dd9153a308478cd624515e8fb4a51d16",
+          "87f0e3eb339c1ba78773035bf11ce82cc14138d73bc1dfc918f68466dd096268"
+        ],
+        "deletedLineHashes": [
+          "da434f98a3cf4edc8e1715b9bcc1010d65d2f56da90e54ca58d4e04c6d982c8e",
+          "cc3607a6de5ad61d3dfec18bef0d5752a379e58de20ab92b9cf4f06cabe101b1",
+          "67694c125cca8ca0a62725dfef58e8526eab4d227697d733f055295d901fc772"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/dashboard.ts",
+        "newPath": "web/src/server/helpers/investment/dashboard.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpva96:34:expense-tracker:dashboard.ts:codex-session.vscode:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 3,
+            "deleted": 3,
+            "changed": 6,
+            "touched": 5
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:23:web/src/server/helpers/investment/index.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/index.ts",
+      "oldStart": 4,
+      "oldLines": 0,
+      "newStart": 5,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqtw6d:51:expense-tracker:index.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "81c9a8a1cdc0d0be6149a556f51373d629eee36ed8047ba370dd9829810f0228"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/index.ts",
+        "newPath": "web/src/server/helpers/investment/index.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfqtw6d:51:expense-tracker:index.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfqtw6d:51:expense-tracker:index.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:24:web/src/server/helpers/investment/models.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/models.ts",
+      "oldStart": 18,
+      "oldLines": 0,
+      "newStart": 19,
+      "newLines": 5,
+      "linesAdded": 5,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfpvavd:35:expense-tracker:models.ts:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "9551820ae1ce6576f1d43962ca4568269f183f45dff5efd9a7b2ddfc42aa0eee",
+          "9a3d5d1505d2c93964062d2a26592c5e82b7134b4398e7137746d3ff5ecd6bfa",
+          "febad0a9956520c31bbab496f5ddb71bbd6986b40bdf22feddc895fc9d57555f",
+          "df3982fd610173599241fca93c7c866683f58f541eced1c2098102145477164c",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/models.ts",
+        "newPath": "web/src/server/helpers/investment/models.ts",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfpvavd:35:expense-tracker:models.ts:codex-session.vscode",
+          "vscode:mtfqtwv0:52:expense-tracker:models.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfpvavd:35:expense-tracker:models.ts:codex-session.vscode:1",
+          "vscode:mtfqtwv0:52:expense-tracker:models.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 5,
+            "deleted": 0,
+            "changed": 5,
+            "touched": 5
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:25:web/src/server/helpers/investment/models.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/models.ts",
+      "oldStart": 128,
+      "oldLines": 0,
+      "newStart": 134,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqtwv0:52:expense-tracker:models.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "704f54bc4fa05bd1d294d5b6b86f5835cb1c5c4175c08416a61d0eb6cc68f6af"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/models.ts",
+        "newPath": "web/src/server/helpers/investment/models.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfqtwv0:52:expense-tracker:models.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfqtwv0:52:expense-tracker:models.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:26:web/src/server/helpers/investment/models.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/models.ts",
+      "oldStart": 141,
+      "oldLines": 0,
+      "newStart": 148,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqtwv0:52:expense-tracker:models.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "704f54bc4fa05bd1d294d5b6b86f5835cb1c5c4175c08416a61d0eb6cc68f6af"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/models.ts",
+        "newPath": "web/src/server/helpers/investment/models.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfqtwv0:52:expense-tracker:models.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfqtwv0:52:expense-tracker:models.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:27:web/src/server/helpers/investment/page-data.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/page-data.ts",
+      "oldStart": 2,
+      "oldLines": 1,
+      "newStart": 2,
+      "newLines": 7,
+      "linesAdded": 7,
+      "linesDeleted": 1,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "copilot",
+            "source": "vscode-chat-session.copilot.editor-change.rescan.storage",
+            "operationId": "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "e0cbdab303939db3db5ed1394f8cc7d9c814984d13f730431eb0cabd77c9e204",
+          "041f77cc39dbc0218a082f49d7b762346b4d5977a2c2b394a1daf974cd2b7fb8",
+          "17ac5e41b5438073a3fb040d9925a9a0ae5487e784ca8c717c7b7ad7b0d3e497",
+          "09d30fc275e7936e2c405fdd1192e7af2e7ca0b494ea8b32aa1ce50261efae59",
+          "fb79cf0c2950b5a2c47f8b5f963048fe723c49bd98afff1945336739d9d1cd5d",
+          "7c142c80e1d2d7161451b2b3d621b2c6588882aea0df2069a0004898f68b9860",
+          "49264d11c773571ea467ea2c116fced4f75a5cb3ced943af4aba4f87702f2378"
+        ],
+        "deletedLineHashes": [
+          "3b4492bbe64173a5cfc5f546ba367711bc8c85be651226521c9c864975358c0c"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/page-data.ts",
+        "newPath": "web/src/server/helpers/investment/page-data.ts",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan",
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan:1",
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:28:web/src/server/helpers/investment/page-data.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/page-data.ts",
+      "oldStart": 10,
+      "oldLines": 1,
+      "newStart": 16,
+      "newLines": 6,
+      "linesAdded": 6,
+      "linesDeleted": 1,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "copilot",
+            "source": "vscode-chat-session.copilot.editor-change.rescan.storage",
+            "operationId": "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "c48b4c6a4e7683d87381d6504767cbee02e936d32851e8632947c2b26d0f9895",
+          "81c9a8a1cdc0d0be6149a556f51373d629eee36ed8047ba370dd9829810f0228",
+          "9e319071988647d15cd1023912a6613993d2c2e0063a284465aa0b73608c4a49",
+          "8b5e5ed67e201b4550bb4d1761d0cc237e33172a261b6f5f0260324d5fc9424b",
+          "7682064e3132df523ea13802777077cda01cfa3d205dde3ccd81135d3d8f7014",
+          "f351d12d5492c96193af07a6905c85441eaef1dd85493fb7d05d780ea167c328"
+        ],
+        "deletedLineHashes": [
+          "da1a43e39f65b3d639f28c4b05b2ad2e42c8394e47879205a154dda4d402633b"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/page-data.ts",
+        "newPath": "web/src/server/helpers/investment/page-data.ts",
+        "matchedOperationCount": 2,
+        "matchedHunkCount": 2,
+        "matchedOperationIds": [
+          "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan",
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan:1",
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:29:web/src/server/helpers/investment/page-data.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/page-data.ts",
+      "oldStart": 12,
+      "oldLines": 0,
+      "newStart": 24,
+      "newLines": 41,
+      "linesAdded": 41,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "copilot",
+            "source": "vscode-chat-session.copilot.editor-change.rescan.storage",
+            "operationId": "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          },
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqut4k:55:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "052c8ef8b7f69e9d4a7568e3ff878dcefbff7515dbecdb60dbc5f0c9e9abe4e2",
+          "18dbb5ce9e9c17f5e34c6b4123f847ca6ea52da28b63e6f330d696c6ced47abc",
+          "7390b6ca69d967f5fac0a2c6928f95305f6d6881d4fdfba21c9d3e8d74725629",
+          "38bf2b9423aea99ef378ec85d792b793127b618cd745f1fcf9e30a25a4711900",
+          "7f6a817b64a8cb17115fd04676ad96086483f081cdafb761c0c3878152315f34",
+          "6ebf5fa3b1316d706305f38947a648fee80970f3cc45f59dedff39e867f2ace2",
+          "9eaffb2bf1c00373e05f8d95ac4ba4fffe1b1ef397a765f6764092372a3bc7cc",
+          "435ff204984d2f4c474021697c8490e0120809b2115b9bac6dc52c96321a82b6",
+          "d8de9252fc0de7d82ddd45905a2d05ee932de6965caa1d1d7ee17ff21c4b293a",
+          "8f367360632d6eb59e6dbebeb04f0e18acd98adce2bb4b3784fb68014ae5e21b",
+          "214afc857b88de3c08ef846105f895a18a1a681392a58b465917895269ccf30c",
+          "426978df754f991fff389377ca58cb3184dee157706c39431ad86e4a24f1c31d",
+          "0d164f9943dcf6f3a67bb08a422b388470e99d90f24b48dab34c0da51cad8c38",
+          "5e07eab7e1dc1eab7dd6dcf609f3c91de4b88089f9c710ea33e173d102a75c55",
+          "cb91bf98131ca6e70c6467757baf470580c8138741c1b9de3569c817b4444dd3",
+          "9845a52046d993e686d6bb1d8cc432adf125c0028d624a83febc2a41f0a0f275",
+          "7a3160f17f7743635b36c2def72878886c91ed61bda7e2fb0fc9fcd59e8e2c28",
+          "9a37cf583df7180d49970e77915e9a585ed3d6dc60a9e12eca36b0ab32781565",
+          "48d45f5cd9285bc73e7e86e4d4060f97d7fdb525e13718112332c61fa5805e9a",
+          "737db166c79ae98e44bbe5ad43e03bf3774f7b3696068842d56a72e863dfeb20",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bf5c05e770d5ed447a7417625fcaf00e35a7c8e1c68c89270a712d10b256be82",
+          "aa16829dbafb6a52d9447347f12852ec7c8af81f5d07c9c07c87c23461b984b8",
+          "ebb31cfa2961b3e720387d8370ffba7b82fda994289b89f27ee296a2fc54a305",
+          "8ed58318010fdd9bb1d19d7d25666f5021aca34487728775200e072a66ad83ab",
+          "15bc490b7b18c3c1ced166b92f473e219a3fa80407063bba5111925b2f9d07cf",
+          "5919fed058bb0865dbab407177950aff6816a172e398dd5c34086a4a48e72521",
+          "cd8329d8deede0db20e1901d3cdf61ef703aebbd1d9757dcfcde7d81ae0c9a6c",
+          "ca288f6a547c4671ff037112b0381058aacb9f2221366564ec5d1a9fe93ec624",
+          "34e33b046b6b94ac3f08c885dd432d6bed4e8343607424e978d882c91e81aed4",
+          "27d84295815422563f2d718aac33d34717be82ec4a8dfa3900cbdcfe1ee4815c",
+          "4786046bc58c3307c430e36c40c0843d2bc5452aba4af57fde9c3f580cc37bc6",
+          "45e1a9eb8301de332233bf108a7c5d46f81d3fa7849e5eb0ed19a33d35c3c7d5",
+          "c06a64e50cce141c9a25eb2ec26e5ce2ef5a66fb692e78095372b45a155ff056",
+          "613ec645e7df4a6dc0a928db2ef57268a8a7d59860088025f74f9be70543a9bb",
+          "20363c1fce2ad16de2300b200868202754c920cc93a8c28fc4008cd5ee04139d",
+          "3a5d0b9c2fd82493b66bba108059e333b190a7c3f488eab80fbab6a853f4473a",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "2b5b59ba49e79901bcda409bb7aba86277a4902aa6958f0be1c75e3658d89b1e",
+          "df3982fd610173599241fca93c7c866683f58f541eced1c2098102145477164c",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/page-data.ts",
+        "newPath": "web/src/server/helpers/investment/page-data.ts",
+        "matchedOperationCount": 3,
+        "matchedHunkCount": 3,
+        "matchedOperationIds": [
+          "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan",
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqut4k:55:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfoodxd:5:expense-tracker:page-data.ts:vscode-chat-session.copilot.editor-change.rescan:1",
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqut4k:55:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:30:web/src/server/helpers/investment/page-data.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/page-data.ts",
+      "oldStart": 50,
+      "oldLines": 14,
+      "newStart": 102,
+      "newLines": 23,
+      "linesAdded": 23,
+      "linesDeleted": 14,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode",
+            "operationId": "vscode:mtfoqywu:11:expense-tracker:page-data.ts:codex-session.vscode",
+            "evidenceLevel": "direct"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "direct",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "c77d8fea6aadb6d8989f9486141aecdcabf39fe64086c6d181815dbffaeeb35b",
+          "6987510c58823b0da64b09ef16d47fba23101215d55eb046642129cca6b74af5",
+          "f20c46c8cf1a0a3fd22ddda1f1c83089545ca9026857426d9690f81ee5359c8e",
+          "44c32e24fa54e979e080c0898db47ccf547bd7b50f6609e2d59d2321b05cb3bb",
+          "2bb9152cac35320c8bee779cc69ecd23f6a5c667621c897d59a340e302fd9854",
+          "7cb4d00ce2188dded1850425a3a69450eda6a5eb0a8cc6ddfa157f3252e16f74",
+          "561c0242235ce3241ce72dfec05b96055fcbcce4ddba24d69705e9f637d4e069",
+          "ed326465be2180c17f507f21262d62474f7a2fa038b78ab2773c0b17dbfa4ad7",
+          "5ce952e91a829f65540ef93ac9dbfa2acf25debcdfef27596ed81fb217b536f4",
+          "f20c46c8cf1a0a3fd22ddda1f1c83089545ca9026857426d9690f81ee5359c8e",
+          "f1aac2337f500364f402119888e55d36601e456c2c3e9cdcf6c200a87abc1d80",
+          "b87b67a58b2d1323efe55d33bace3b93e8afc44f19cb98ae3905c916c1da6cee",
+          "7cb4d00ce2188dded1850425a3a69450eda6a5eb0a8cc6ddfa157f3252e16f74",
+          "561c0242235ce3241ce72dfec05b96055fcbcce4ddba24d69705e9f637d4e069",
+          "ed326465be2180c17f507f21262d62474f7a2fa038b78ab2773c0b17dbfa4ad7",
+          "2ec6f8e8dd870ad5e194a24b742b260ca72f05274f8508aa7d22840dd6c1c897",
+          "f20c46c8cf1a0a3fd22ddda1f1c83089545ca9026857426d9690f81ee5359c8e",
+          "f1aac2337f500364f402119888e55d36601e456c2c3e9cdcf6c200a87abc1d80",
+          "b87b67a58b2d1323efe55d33bace3b93e8afc44f19cb98ae3905c916c1da6cee",
+          "7cb4d00ce2188dded1850425a3a69450eda6a5eb0a8cc6ddfa157f3252e16f74",
+          "561c0242235ce3241ce72dfec05b96055fcbcce4ddba24d69705e9f637d4e069",
+          "ed326465be2180c17f507f21262d62474f7a2fa038b78ab2773c0b17dbfa4ad7",
+          "38526ac9aaeb6db0095b42b119af73396ef86fa8ee9239257ebbee59697ac73a"
+        ],
+        "deletedLineHashes": [
+          "6334a105ce9630dba8baad47229dd39c49d56c9481b2a7496a90ee0b264283cf",
+          "bb3636354d564482f612617acd6c84ca6cbb628979284869095a0373c8141b40",
+          "741af7131311cbcec551e9151cef21cfb4af3b1a5b18391ec940e7826eaa559c",
+          "39afc0daf28f64d64d1f2d365bf5588d01b02c7f282a3824e417b5c60a2707b8",
+          "74733e2473e96af5c2c315c43302ea8ff788b2b82b4cea84f56dd781fe9ba8d1",
+          "f22dba2685fdc46dd00438916d5d1f788e1ec4cce400c100d84ff3b599dc021d",
+          "275a923163c40021b18d55557a9627fd01a87b44bc2258b504d65c31f5e06a9d",
+          "a9413de03ebc75cc5c215ca2ad06808922618d6d7e30a3165131377ba174ed13",
+          "bb3636354d564482f612617acd6c84ca6cbb628979284869095a0373c8141b40",
+          "38b918f90bdc848449719471b64c8368d075ee0b52e5408bea6bdd60a42d6cfb",
+          "8a27d40e3dcda4b190c018134672d1ae76b5c51cdb62d3609c81429048eef687",
+          "74733e2473e96af5c2c315c43302ea8ff788b2b82b4cea84f56dd781fe9ba8d1",
+          "f22dba2685fdc46dd00438916d5d1f788e1ec4cce400c100d84ff3b599dc021d",
+          "275a923163c40021b18d55557a9627fd01a87b44bc2258b504d65c31f5e06a9d"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/page-data.ts",
+        "newPath": "web/src/server/helpers/investment/page-data.ts",
+        "matchedOperationCount": 3,
+        "matchedHunkCount": 3,
+        "matchedOperationIds": [
+          "vscode:mtfoqywu:11:expense-tracker:page-data.ts:codex-session.vscode",
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+          "vscode:mtfqut4k:55:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfoqywu:11:expense-tracker:page-data.ts:codex-session.vscode:1",
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1",
+          "vscode:mtfqut4k:55:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "actorLineCounts": {
+          "ai": {
+            "added": 23,
+            "deleted": 14,
+            "changed": 37,
+            "touched": 37
+          }
+        },
+        "actorLineCountsSource": "staged-diff-hunk-overlap-v1"
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:31:web/src/server/helpers/investment/page-data.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/page-data.ts",
+      "oldStart": 71,
+      "oldLines": 0,
+      "newStart": 133,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "2fc84b7d2473b06966f1b138914b2044470dfc715a4bcb265e17126d982e9bce"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/page-data.ts",
+        "newPath": "web/src/server/helpers/investment/page-data.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:32:web/src/server/helpers/investment/page-data.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/page-data.ts",
+      "oldStart": 112,
+      "oldLines": 14,
+      "newStart": 174,
+      "newLines": 23,
+      "linesAdded": 23,
+      "linesDeleted": 14,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "c77d8fea6aadb6d8989f9486141aecdcabf39fe64086c6d181815dbffaeeb35b",
+          "6987510c58823b0da64b09ef16d47fba23101215d55eb046642129cca6b74af5",
+          "f20c46c8cf1a0a3fd22ddda1f1c83089545ca9026857426d9690f81ee5359c8e",
+          "8be9d7ad94d081cc577b790bcae90826cab0f3b6d4c4c5fdb1c81b21929676dc",
+          "4727714850973c9143c4ef457c045571aaa5ce1ee81cde47e8b40b292f21c940",
+          "7cb4d00ce2188dded1850425a3a69450eda6a5eb0a8cc6ddfa157f3252e16f74",
+          "561c0242235ce3241ce72dfec05b96055fcbcce4ddba24d69705e9f637d4e069",
+          "ed326465be2180c17f507f21262d62474f7a2fa038b78ab2773c0b17dbfa4ad7",
+          "5ce952e91a829f65540ef93ac9dbfa2acf25debcdfef27596ed81fb217b536f4",
+          "f20c46c8cf1a0a3fd22ddda1f1c83089545ca9026857426d9690f81ee5359c8e",
+          "ad48ed9cfcfeb1ea843d6daa92b4a519b9f1ba5d0b50b8b4cfcfed26b4c3f283",
+          "d0d0bef54560d6631944854ead67110a48a2aba1e835d35a45ad0438e0084e54",
+          "7cb4d00ce2188dded1850425a3a69450eda6a5eb0a8cc6ddfa157f3252e16f74",
+          "561c0242235ce3241ce72dfec05b96055fcbcce4ddba24d69705e9f637d4e069",
+          "ed326465be2180c17f507f21262d62474f7a2fa038b78ab2773c0b17dbfa4ad7",
+          "2ec6f8e8dd870ad5e194a24b742b260ca72f05274f8508aa7d22840dd6c1c897",
+          "f20c46c8cf1a0a3fd22ddda1f1c83089545ca9026857426d9690f81ee5359c8e",
+          "ad48ed9cfcfeb1ea843d6daa92b4a519b9f1ba5d0b50b8b4cfcfed26b4c3f283",
+          "d0d0bef54560d6631944854ead67110a48a2aba1e835d35a45ad0438e0084e54",
+          "7cb4d00ce2188dded1850425a3a69450eda6a5eb0a8cc6ddfa157f3252e16f74",
+          "561c0242235ce3241ce72dfec05b96055fcbcce4ddba24d69705e9f637d4e069",
+          "ed326465be2180c17f507f21262d62474f7a2fa038b78ab2773c0b17dbfa4ad7",
+          "38526ac9aaeb6db0095b42b119af73396ef86fa8ee9239257ebbee59697ac73a"
+        ],
+        "deletedLineHashes": [
+          "6334a105ce9630dba8baad47229dd39c49d56c9481b2a7496a90ee0b264283cf",
+          "bb3636354d564482f612617acd6c84ca6cbb628979284869095a0373c8141b40",
+          "45f13e8fb9175e31c05ed781eebd207639850c205b3fa68b5e8b0e690db3842c",
+          "c940acd3c2e46001b5e69435d88b0d020a1d777eea8fe8577ae2c913bd85073c",
+          "74733e2473e96af5c2c315c43302ea8ff788b2b82b4cea84f56dd781fe9ba8d1",
+          "f22dba2685fdc46dd00438916d5d1f788e1ec4cce400c100d84ff3b599dc021d",
+          "275a923163c40021b18d55557a9627fd01a87b44bc2258b504d65c31f5e06a9d",
+          "a9413de03ebc75cc5c215ca2ad06808922618d6d7e30a3165131377ba174ed13",
+          "bb3636354d564482f612617acd6c84ca6cbb628979284869095a0373c8141b40",
+          "69aec68a91c0c65d849fbb7235f4eac1f069024e56226aa49609aac8f81c0792",
+          "4d2352805f6b4b54e20ddc658cf9e47a366a10c873f75fa604b0f342b6a13d08",
+          "74733e2473e96af5c2c315c43302ea8ff788b2b82b4cea84f56dd781fe9ba8d1",
+          "f22dba2685fdc46dd00438916d5d1f788e1ec4cce400c100d84ff3b599dc021d",
+          "275a923163c40021b18d55557a9627fd01a87b44bc2258b504d65c31f5e06a9d"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/page-data.ts",
+        "newPath": "web/src/server/helpers/investment/page-data.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    },
+    {
+      "schemaVersion": 2,
+      "recordType": "hunk",
+      "hunkId": "staged:33:web/src/server/helpers/investment/page-data.ts",
+      "operationId": null,
+      "filePath": null,
+      "relativePath": "web/src/server/helpers/investment/page-data.ts",
+      "oldStart": 130,
+      "oldLines": 0,
+      "newStart": 202,
+      "newLines": 1,
+      "linesAdded": 1,
+      "linesDeleted": 0,
+      "attribution": {
+        "bucket": "ai_only",
+        "contributors": [
+          {
+            "actor": "ai",
+            "tool": "codex",
+            "source": "codex-session.vscode.editor-change.rescan.codex-storage",
+            "operationId": "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-",
+            "evidenceLevel": "inferred"
+          }
+        ],
+        "actors": [
+          "ai"
+        ],
+        "aiInvolved": true,
+        "humanInvolved": false,
+        "toolInvolved": false,
+        "unknownInvolved": false
+      },
+      "evidence": {
+        "level": "inferred",
+        "kind": "vscode_change_event",
+        "source": "staged-diff-hunk-overlap-v1",
+        "commandId": null,
+        "sessionId": null,
+        "reason": null
+      },
+      "contentHash": null,
+      "metadata": {
+        "addedLineHashes": [
+          "2fc84b7d2473b06966f1b138914b2044470dfc715a4bcb265e17126d982e9bce"
+        ],
+        "strategy": "staged-diff-hunk-overlap-v1",
+        "stagedStatus": "M",
+        "oldPath": "web/src/server/helpers/investment/page-data.ts",
+        "newPath": "web/src/server/helpers/investment/page-data.ts",
+        "matchedOperationCount": 1,
+        "matchedHunkCount": 1,
+        "matchedOperationIds": [
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-"
+        ],
+        "matchedHunkIds": [
+          "vscode:mtfqttz8:49:expense-tracker:page-data.ts:codex-session.vscode.editor-change.rescan.codex-:1"
+        ],
+        "matchedInheritedHunkCount": 0,
+        "recoveredFromWeakAssistant": true
+      }
+    }
+  ],
+  "summary": {
+    "totalHunks": 33,
+    "buckets": {
+      "ai_only": 31,
+      "human_only": 2,
+      "tool_only": 0,
+      "mixed_ai_human": 0,
+      "mixed_ai_tool": 0,
+      "mixed_human_tool": 0,
+      "mixed_ai_human_tool": 0,
+      "unknown": 0
+    },
+    "aiInvolved": 31,
+    "humanInvolved": 2,
+    "toolInvolved": 0,
+    "unknownInvolved": 0,
+    "linesAdded": 201,
+    "linesDeleted": 46
+  },
+  "reconciliation": {
+    "schemaVersion": 2,
+    "strategy": "staged-diff-hunk-overlap-v1",
+    "stagedHunkCount": 33,
+    "matchedHunkCount": 33,
+    "unknownHunkCount": 0,
+    "files": [
+      "web/src/app/(main)/investments/_components/InvestmentsOverview.tsx",
+      "web/src/app/(main)/investments/_components/table.tsx",
+      "web/src/server/helpers/investment/dashboard.ts",
+      "web/src/server/helpers/investment/index.ts",
+      "web/src/server/helpers/investment/models.ts",
+      "web/src/server/helpers/investment/page-data.ts"
+    ],
+    "lineSummaryByBucket": {
+      "ai_only": {
+        "hunks": 31,
+        "linesAdded": 192,
+        "linesDeleted": 46
+      },
+      "human_only": {
+        "hunks": 2,
+        "linesAdded": 9,
+        "linesDeleted": 0
+      },
+      "tool_only": {
+        "hunks": 0,
+        "linesAdded": 0,
+        "linesDeleted": 0
+      },
+      "mixed_ai_human": {
+        "hunks": 0,
+        "linesAdded": 0,
+        "linesDeleted": 0
+      },
+      "mixed_ai_tool": {
+        "hunks": 0,
+        "linesAdded": 0,
+        "linesDeleted": 0
+      },
+      "mixed_human_tool": {
+        "hunks": 0,
+        "linesAdded": 0,
+        "linesDeleted": 0
+      },
+      "mixed_ai_human_tool": {
+        "hunks": 0,
+        "linesAdded": 0,
+        "linesDeleted": 0
+      },
+      "unknown": {
+        "hunks": 0,
+        "linesAdded": 0,
+        "linesDeleted": 0
+      }
+    }
+  }
+}
