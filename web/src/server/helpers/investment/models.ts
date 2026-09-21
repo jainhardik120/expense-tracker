@@ -16,6 +16,11 @@ export type InvestmentTimelinePoint = {
   pnl: number;
 };
 
+export type CategoryTimelineEntry = {
+  category: InvestmentCategoryValue;
+  timeline: InvestmentTimelinePoint[];
+};
+
 export type DashboardInstrumentOption = {
   kind: InvestmentKindValue;
   code: string;
@@ -126,6 +131,7 @@ export type InvestmentsPageData = {
     rowsCount: number;
   };
   dashboard: InvestmentsDashboard;
+  categoryTimelines: CategoryTimelineEntry[];
   instrumentTimelines: InstrumentTimelineEntry[];
   defaultRange: {
     range: '1m';
@@ -139,6 +145,7 @@ export type InvestmentsRangeTimelines = {
   startDate: Date;
   endDate: Date;
   timeline: InvestmentTimelinePoint[];
+  categoryTimelines: CategoryTimelineEntry[];
   instrumentTimelines: InstrumentTimelineEntry[];
 };
 

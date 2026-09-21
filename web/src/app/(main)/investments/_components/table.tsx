@@ -420,6 +420,14 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     () => mergeDashboard(data.dashboard, marketData),
     [data.dashboard, marketData],
   );
+  const categoryTimelines = useMemo(() => {
+    const updatedTimelines = new Map(
+      marketData.flatMap((result) =>
+        result.categoryTimelines.map((entry) => [entry.category, entry]),
+      ),
+    );
+    return data.categoryTimelines.map((entry) => updatedTimelines.get(entry.category) ?? entry);
+  }, [data.categoryTimelines, marketData]);
   const columns = createInvestmentColumns(() => {
     router.refresh();
   });
@@ -459,6 +467,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
   return (
     <div className="grid gap-4">
       <InvestmentsOverview
+        categoryTimelines={categoryTimelines}
         dashboard={dashboard}
         filters={filters}
         instrumentTimelines={data.instrumentTimelines}

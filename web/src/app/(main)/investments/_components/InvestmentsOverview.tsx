@@ -18,6 +18,7 @@ import {
 import { formatCurrency } from '@/lib/format';
 import {
   investmentCategoryLabels,
+  investmentCategoryValues,
   type InvestmentCategoryValue,
   investmentKindLabels,
   investmentKindValues,
@@ -34,6 +35,8 @@ import { type RouterOutput } from '@/server/routers';
 import { getExcludedPortfolioDescription, getExcludedPortfolioTag } from './display';
 
 type DashboardData = RouterOutput['investments']['getInvestmentsPageData']['dashboard'];
+type CategoryTimelineEntry =
+  RouterOutput['investments']['getInvestmentsPageData']['categoryTimelines'][number];
 type InstrumentTimelineEntry =
   RouterOutput['investments']['getInvestmentsPageData']['instrumentTimelines'][number];
 type TimelineFilters = {
@@ -43,6 +46,7 @@ type TimelineFilters = {
 };
 
 const PORTFOLIO_VIEW = '__portfolio__';
+const CATEGORY_VIEW_PREFIX = '__category__|';
 const POSITIVE_TONE = 'text-green-600';
 const NEGATIVE_TONE = 'text-red-600';
 const UNITS_DECIMALS = 4;
@@ -56,6 +60,17 @@ const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: st
   { value: '6m', label: '6M' },
   { value: 'lifetime', label: 'Lifetime' },
 ];
+
+const toCategoryViewValue = (category: InvestmentCategoryValue) =>
+  `${CATEGORY_VIEW_PREFIX}${category}`;
+
+const parseCategoryViewValue = (value: string): InvestmentCategoryValue | null => {
+  if (!value.startsWith(CATEGORY_VIEW_PREFIX)) {
+    return null;
+  }
+  const category = value.slice(CATEGORY_VIEW_PREFIX.length) as InvestmentCategoryValue;
+  return investmentCategoryValues.includes(category) ? category : null;
+};
 
 const toViewValue = (
   kind: InvestmentKindValue,
@@ -89,12 +104,14 @@ const formatByCurrency = (amount: number, currency: string) => {
 };
 
 export const InvestmentsOverview = ({
+  categoryTimelines,
   dashboard,
   instrumentTimelines,
   filters,
   selectedCategories,
   onCategoryToggle,
 }: {
+  categoryTimelines: CategoryTimelineEntry[];
   dashboard: DashboardData;
   instrumentTimelines: InstrumentTimelineEntry[];
   filters: TimelineFilters;
@@ -128,7 +145,14 @@ export const InvestmentsOverview = ({
     });
   }, [dashboard.instrumentOptions, viewSelection]);
 
+  const selectedCategory = parseCategoryViewValue(viewSelection);
+  const selectedCategorySummary = dashboard.categoryBreakdown.find(
+    (item) => item.category === selectedCategory,
+  );
+
   const isPortfolioView = viewSelection === PORTFOLIO_VIEW;
+  const isCategoryView = selectedCategory !== null;
+  const isAggregateView = isPortfolioView || isCategoryView;
   const requiresRemoteTimeline =
     timeRange === '3m' || timeRange === '6m' || timeRange === 'lifetime';
 
@@ -199,9 +223,11 @@ export const InvestmentsOverview = ({
   ].sort((left, right) => left.date.getTime() - right.date.getTime());
 
   let selectedTimelineEntries = instrumentTimelines;
+  let selectedCategoryTimelineEntries = categoryTimelines;
   let portfolioTimeline = dashboard.timeline;
   if (requiresRemoteTimeline) {
     selectedTimelineEntries = remoteTimelineData.flatMap((data) => data.instrumentTimelines);
+    selectedCategoryTimelineEntries = remoteTimelineData.flatMap((data) => data.categoryTimelines);
     if (remotePortfolioTimeline.length > 0) {
       portfolioTimeline = remotePortfolioTimeline;
     }
@@ -215,19 +241,32 @@ export const InvestmentsOverview = ({
     return map;
   }, [selectedTimelineEntries]);
 
+  const categoryTimelineMap = useMemo(() => {
+    return new Map(
+      selectedCategoryTimelineEntries.map((entry) => [entry.category, entry.timeline]),
+    );
+  }, [selectedCategoryTimelineEntries]);
+
   const chartRows = useMemo(() => {
-    const sourcePoints = isPortfolioView
-      ? portfolioTimeline.map((point) => ({
-          date: point.date,
-          investedAmount: point.investedAmount,
-          valuationAmount: point.valuationAmount,
-          pnl: point.pnl,
-        }))
-      : (instrumentTimelineMap.get(viewSelection)?.points ?? []).map((point) => ({
-          date: point.date,
-          holdingValue: point.holdingValue,
-          unitPrice: point.unitPrice,
-        }));
+    let aggregateTimeline: DashboardData['timeline'] | null = null;
+    if (isPortfolioView) {
+      aggregateTimeline = portfolioTimeline;
+    } else if (selectedCategory !== null) {
+      aggregateTimeline = categoryTimelineMap.get(selectedCategory) ?? [];
+    }
+    const sourcePoints =
+      aggregateTimeline === null
+        ? (instrumentTimelineMap.get(viewSelection)?.points ?? []).map((point) => ({
+            date: point.date,
+            holdingValue: point.holdingValue,
+            unitPrice: point.unitPrice,
+          }))
+        : aggregateTimeline.map((point) => ({
+            date: point.date,
+            investedAmount: point.investedAmount,
+            valuationAmount: point.valuationAmount,
+            pnl: point.pnl,
+          }));
 
     const days = investmentTimelineRangeDays[timeRange];
     const cutoffDate =
@@ -248,9 +287,11 @@ export const InvestmentsOverview = ({
       }));
   }, [
     instrumentTimelineMap,
+    categoryTimelineMap,
     isPortfolioView,
     portfolioTimeline,
     requiresRemoteTimeline,
+    selectedCategory,
     timeRange,
     viewSelection,
   ]);
@@ -344,6 +385,17 @@ export const InvestmentsOverview = ({
                     <SelectLabel>Portfolio</SelectLabel>
                     <SelectItem value={PORTFOLIO_VIEW}>All Investments</SelectItem>
                   </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Categories</SelectLabel>
+                    {dashboard.categoryBreakdown.map((item) => (
+                      <SelectItem
+                        key={toCategoryViewValue(item.category)}
+                        value={toCategoryViewValue(item.category)}
+                      >
+                        {investmentCategoryLabels[item.category]}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                   {[...groupedOptions.entries()].map(([kind, options]) => (
                     <SelectGroup key={kind}>
                       <SelectLabel>{investmentKindLabels[kind]}</SelectLabel>
@@ -365,6 +417,18 @@ export const InvestmentsOverview = ({
               </Select>
             </div>
           </div>
+          {isCategoryView && selectedCategorySummary !== undefined ? (
+            <div className="text-muted-foreground text-sm">
+              {investmentCategoryLabels[selectedCategorySummary.category]} -{' '}
+              {selectedCategorySummary.openPositions} open /{' '}
+              {selectedCategorySummary.closedPositions} closed - Invested{' '}
+              {formatCurrency(selectedCategorySummary.investedAmount)} - Value{' '}
+              {formatCurrency(selectedCategorySummary.valuationAmount)} - P/L{' '}
+              <span className={selectedCategorySummary.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                {formatCurrency(selectedCategorySummary.pnl)}
+              </span>
+            </div>
+          ) : null}
           {!isPortfolioView && selectedInstrument !== null && selectedInstrument !== undefined ? (
             <div className="text-muted-foreground text-sm">
               {selectedInstrument.name} ({selectedInstrument.code}
@@ -398,7 +462,7 @@ export const InvestmentsOverview = ({
                   key: 'date',
                   label: 'Date',
                 },
-                secondaryAxes: isPortfolioView
+                secondaryAxes: isAggregateView
                   ? {
                       investedAmount: { label: 'Invested' },
                       valuationAmount: { label: 'Current Value' },

@@ -232,18 +232,20 @@ export const getInvestmentsDashboard = instrumentedFunction(
     end,
     historyByInstrumentKey,
     usdInrHistory,
+    includeExcludedFromPortfolio = false,
   }: {
     investmentsList: EnrichedInvestment[];
     start?: Date;
     end?: Date;
     historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
     usdInrHistory?: Array<{ date: Date; price: number }>;
+    includeExcludedFromPortfolio?: boolean;
   }): Promise<InvestmentsDashboard> => {
     const kindMap = new Map<InvestmentKindValue, BreakdownAggregate>();
     const categoryMap = new Map<InvestmentCategoryValue, BreakdownAggregate>();
-    const portfolioInvestments = investmentsList.filter(
-      (investment) => !investment.isExcludedFromPortfolioPosition,
-    );
+    const portfolioInvestments = includeExcludedFromPortfolio
+      ? investmentsList
+      : investmentsList.filter((investment) => !investment.isExcludedFromPortfolioPosition);
     const instrumentBreakdown = buildInstrumentBreakdown(investmentsList);
     const instrumentOptions: DashboardInstrumentOption[] = instrumentBreakdown.map((item) => ({
       kind: item.kind,
