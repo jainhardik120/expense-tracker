@@ -8,6 +8,7 @@ import { friendsRouter } from './friends';
 import { investmentsRouter } from './investments';
 import { recurringPaymentsRouter } from './recurring-payments';
 import { reportsRouter } from './reports';
+import { salaryRouter } from './salary';
 import { smsNotificationsRouter } from './sms-notifications';
 import { statementsRouter } from './statements';
 import { summaryRouter } from './summary';
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   emis: emisRouter,
   recurringPayments: recurringPaymentsRouter,
   reports: reportsRouter,
+  salary: salaryRouter,
   smsNotifications: smsNotificationsRouter,
 });
 

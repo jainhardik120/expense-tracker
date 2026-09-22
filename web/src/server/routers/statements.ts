@@ -1,7 +1,13 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { selfTransferStatements, splits, statementKindEnum, statements } from '@/db/schema';
+import {
+  salaryPayments,
+  selfTransferStatements,
+  splits,
+  statementKindEnum,
+  statements,
+} from '@/db/schema';
 import { buildQueryConditions } from '@/server/helpers';
 import { accountBelongToUser, friendBelongToUser } from '@/server/helpers/account';
 import {
@@ -20,6 +26,7 @@ import {
   ONE_HUNDRED_PERCENTAGE,
   statementParserSchema,
   statementsResponseSchema,
+  updateStatementTaxableIncomeSchema,
 } from '@/types';
 
 const ACCOUNT_NOT_FOUND_ERROR = 'Account not found';
@@ -148,6 +155,16 @@ export const statementsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const currentStatement = (
+        await ctx.db
+          .select({ amount: statements.amount, taxableAmount: statements.taxableAmount })
+          .from(statements)
+          .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)))
+          .limit(1)
+      ).at(0);
+      if (currentStatement === undefined) {
+        throw new Error('Statement not found');
+      }
       if (
         input.createStatementSchema.accountId !== undefined &&
         input.createStatementSchema.accountId !== '' &&
@@ -162,10 +179,26 @@ export const statementsRouter = createTRPCRouter({
       ) {
         throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
+      const nextAmount = Number(input.createStatementSchema.amount);
+      const remainsTaxableCandidate =
+        input.createStatementSchema.statementKind === 'outside_transaction' && nextAmount > 0;
+      let { taxableAmount } = currentStatement;
+      if (!remainsTaxableCandidate) {
+        taxableAmount = null;
+      } else if (taxableAmount !== null) {
+        const previousAmount = Number(currentStatement.amount);
+        const previousTaxableAmount = Number(taxableAmount);
+        if (previousTaxableAmount === previousAmount) {
+          taxableAmount = input.createStatementSchema.amount;
+        } else if (previousTaxableAmount > nextAmount) {
+          taxableAmount = null;
+        }
+      }
       return ctx.db
         .update(statements)
         .set({
           ...input.createStatementSchema,
+          taxableAmount,
           accountId:
             input.createStatementSchema.accountId === undefined ||
             input.createStatementSchema.accountId === ''
@@ -179,6 +212,43 @@ export const statementsRouter = createTRPCRouter({
         })
         .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)))
         .returning({ id: statements.id });
+    }),
+  updateTaxableIncome: protectedProcedure
+    .input(updateStatementTaxableIncomeSchema)
+    .mutation(async ({ ctx, input }) => {
+      const statement = (
+        await ctx.db
+          .select({
+            amount: statements.amount,
+            statementKind: statements.statementKind,
+            salaryPaymentId: salaryPayments.id,
+          })
+          .from(statements)
+          .leftJoin(salaryPayments, eq(salaryPayments.statementId, statements.id))
+          .where(and(eq(statements.id, input.statementId), eq(statements.userId, ctx.user.id)))
+          .limit(1)
+      ).at(0);
+      if (statement === undefined) {
+        throw new Error('Statement not found');
+      }
+      const statementAmount = Number(statement.amount);
+      if (statement.statementKind !== 'outside_transaction' || statementAmount <= 0) {
+        throw new Error('Only incoming outside transactions can be marked as taxable income');
+      }
+      if (statement.salaryPaymentId !== null) {
+        throw new Error('Salary-linked statements are already included in the tax projection');
+      }
+      if (input.taxableAmount !== null) {
+        const taxableAmount = Number(input.taxableAmount);
+        if (taxableAmount <= 0 || taxableAmount > statementAmount) {
+          throw new Error('Taxable amount must be greater than zero and no more than the credit');
+        }
+      }
+      return ctx.db
+        .update(statements)
+        .set({ taxableAmount: input.taxableAmount })
+        .where(and(eq(statements.id, input.statementId), eq(statements.userId, ctx.user.id)))
+        .returning({ id: statements.id, taxableAmount: statements.taxableAmount });
     }),
   deleteStatement: protectedProcedure
     .meta({

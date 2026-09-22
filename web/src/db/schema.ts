@@ -11,6 +11,8 @@ import {
   index,
   jsonb,
   boolean,
+  primaryKey,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 import { user } from './auth-schema';
@@ -58,6 +60,7 @@ export const statements = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     statementKind: statementKindEnum().notNull().default('expense'),
+    taxableAmount: numeric('taxable_amount'),
     createdAt: timestamp('created_at')
       .notNull()
       .$defaultFn(() => new Date()),
@@ -86,6 +89,16 @@ export const statements = pgTable(
       sql`
       (${table.statementKind} != 'outside_transaction') OR 
       (${table.accountId} IS NOT NULL AND ${table.friendId} IS NULL)
+    `,
+    ),
+    check(
+      'statement_taxable_amount_check',
+      sql`
+      (${table.taxableAmount} IS NULL) OR
+      (${table.statementKind} = 'outside_transaction' AND
+       ${table.amount} > 0 AND
+       ${table.taxableAmount} > 0 AND
+       ${table.taxableAmount} <= ${table.amount})
     `,
     ),
     index('statements_created_at_idx').on(desc(table.createdAt)),
@@ -287,3 +300,161 @@ export const reportTemplates = pgTable('report_templates', {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const salaryComponentKindEnum = pgEnum('salary_component_kind', ['earning', 'deduction']);
+
+export const salaryComponentFrequencyEnum = pgEnum('salary_component_frequency', [
+  'monthly',
+  'one_time',
+]);
+
+export const salaryComponentClassificationEnum = pgEnum('salary_component_classification', [
+  'regular',
+  'tax_withholding',
+  'provident_fund',
+  'other',
+]);
+
+export const salaryPayDateRuleEnum = pgEnum('salary_pay_date_rule', ['exact', 'previous_weekday']);
+
+export const salaryComponents = pgTable(
+  'salary_components',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    kind: salaryComponentKindEnum().notNull(),
+    frequency: salaryComponentFrequencyEnum().notNull().default('monthly'),
+    classification: salaryComponentClassificationEnum().notNull().default('regular'),
+    affectsTaxableIncome: boolean('affects_taxable_income').notNull().default(false),
+    proratable: boolean('proratable').notNull().default(true),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex('salary_components_user_name_idx').on(table.userId, table.name)],
+);
+
+export const salaryRevisions = pgTable(
+  'salary_revisions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    effectiveFrom: timestamp('effective_from').notNull(),
+    payDay: integer('pay_day').notNull().default(25),
+    payDateRule: salaryPayDateRuleEnum('pay_date_rule').notNull().default('previous_weekday'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [index('salary_revisions_user_effective_idx').on(table.userId, table.effectiveFrom)],
+);
+
+export const salaryRevisionComponents = pgTable(
+  'salary_revision_components',
+  {
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => salaryRevisions.id, { onDelete: 'cascade' }),
+    componentId: uuid('component_id')
+      .notNull()
+      .references(() => salaryComponents.id, { onDelete: 'restrict' }),
+    amount: numeric('amount').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.revisionId, table.componentId] })],
+);
+
+export const salaryBonuses = pgTable(
+  'salary_bonuses',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    componentId: uuid('component_id')
+      .notNull()
+      .references(() => salaryComponents.id, { onDelete: 'restrict' }),
+    expectedDate: timestamp('expected_date').notNull(),
+    estimatedAmount: numeric('estimated_amount').notNull(),
+    actualAmount: numeric('actual_amount'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [index('salary_bonuses_user_date_idx').on(table.userId, table.expectedDate)],
+);
+
+export const salaryPayments = pgTable(
+  'salary_payments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    revisionId: uuid('revision_id')
+      .notNull()
+      .references(() => salaryRevisions.id, { onDelete: 'restrict' }),
+    statementId: uuid('statement_id')
+      .unique()
+      .references(() => statements.id, { onDelete: 'set null' }),
+    periodStart: timestamp('period_start').notNull(),
+    paymentDate: timestamp('payment_date').notNull(),
+    daysPaid: integer('days_paid').notNull(),
+    daysInPeriod: integer('days_in_period').notNull(),
+    notes: text('notes'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('salary_payments_user_revision_period_idx').on(
+      table.userId,
+      table.revisionId,
+      table.periodStart,
+    ),
+    index('salary_payments_user_date_idx').on(table.userId, table.paymentDate),
+  ],
+);
+
+export const salaryPaymentComponents = pgTable(
+  'salary_payment_components',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    paymentId: uuid('payment_id')
+      .notNull()
+      .references(() => salaryPayments.id, { onDelete: 'cascade' }),
+    componentId: uuid('component_id').references(() => salaryComponents.id, {
+      onDelete: 'set null',
+    }),
+    bonusId: uuid('bonus_id').references(() => salaryBonuses.id, { onDelete: 'set null' }),
+    name: text('name').notNull(),
+    kind: salaryComponentKindEnum().notNull(),
+    classification: salaryComponentClassificationEnum().notNull().default('regular'),
+    affectsTaxableIncome: boolean('affects_taxable_income').notNull().default(false),
+    amount: numeric('amount').notNull(),
+  },
+  (table) => [index('salary_payment_components_payment_idx').on(table.paymentId)],
+);
+
+export const salaryTaxSettings = pgTable(
+  'salary_tax_settings',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    financialYearStart: integer('financial_year_start').notNull(),
+    standardDeduction: numeric('standard_deduction').notNull().default('75000'),
+    otherTaxableIncome: numeric('other_taxable_income').notNull().default('0'),
+    otherDeductions: numeric('other_deductions').notNull().default('0'),
+    updatedAt: timestamp('updated_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.financialYearStart] })],
+);

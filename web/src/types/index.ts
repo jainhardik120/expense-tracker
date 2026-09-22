@@ -153,7 +153,10 @@ export type StatementKind = (typeof statementKindEnum.enumValues)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
 export type SMSNotification = typeof smsNotifications.$inferSelect;
-export type Statement = Omit<typeof statements.$inferSelect, 'statementKind' | 'additionalAttributes'> & {
+export type Statement = Omit<
+  typeof statements.$inferSelect,
+  'statementKind' | 'additionalAttributes'
+> & {
   type: 'statement';
   statementKind: 'expense' | 'outside_transaction' | 'friend_transaction';
   additionalAttributes: Record<string, unknown>;
@@ -189,6 +192,7 @@ export const statementSchema = z.object({
   createdAt: z.date(),
   userId: z.string(),
   amount: z.string(),
+  taxableAmount: z.string().nullable(),
   type: z.literal('statement'),
   statementKind: z.enum(['expense', 'outside_transaction', 'friend_transaction']),
   accountId: z.string().nullable(),
@@ -204,6 +208,15 @@ export const statementSchema = z.object({
   toAccount: z.null(),
   additionalAttributes: z.record(z.string(), z.unknown()),
   finalBalance: z.number().optional(),
+});
+
+export const updateStatementTaxableIncomeSchema = z.object({
+  statementId: z.uuidv4(),
+  taxableAmount: z
+    .string()
+    .trim()
+    .refine((value) => Number.isFinite(Number(value)), 'Enter a valid taxable amount')
+    .nullable(),
 });
 export const selfTransferStatementSchema = z.object({
   id: z.string(),
@@ -611,3 +624,5 @@ export const smsNotificationListSchema = z.object({
   ...dateSchema,
   status: z.array(z.enum(['pending', 'inserted', 'junked'])).default([]),
 });
+
+export * from './salary';
