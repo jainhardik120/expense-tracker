@@ -1,8 +1,13 @@
 import { endOfMonth } from 'date-fns';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { emis, statements, recurringPayments } from '@/db/schema';
+import { emis, selfTransferStatements, statements, recurringPayments } from '@/db/schema';
+import {
+  calculateGeneratedCreditCardBills,
+  getStatementBalanceDelta,
+  type CreditCardActivity,
+} from '@/lib/credit-card-bills';
 import { getTimezone, startOfDayLocal } from '@/lib/date';
 import { type Database } from '@/lib/db';
 import { getCreditCards } from '@/server/helpers/account';
@@ -22,6 +27,7 @@ import {
   calculateCardBalances,
   groupPaymentsByMonth,
 } from '@/server/helpers/emi-calculations';
+import { generatePaymentSchedule } from '@/server/helpers/recurring-calculations';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
 
@@ -326,17 +332,132 @@ export const emisRouter = createTRPCRouter({
         futurePayments.push(...cardFuturePayments);
       }
       const paymentsByMonth = groupPaymentsByMonth(futurePayments);
+      const cardAccountIds = cards.map((card) => card.accountId);
+      const cardStatements =
+        cardAccountIds.length === 0
+          ? []
+          : await ctx.db
+              .select({
+                accountId: statements.accountId,
+                amount: statements.amount,
+                statementKind: statements.statementKind,
+                createdAt: statements.createdAt,
+              })
+              .from(statements)
+              .where(
+                and(
+                  eq(statements.userId, ctx.user.id),
+                  inArray(statements.accountId, cardAccountIds),
+                ),
+              );
+      const cardTransfers =
+        cardAccountIds.length === 0
+          ? []
+          : await ctx.db
+              .select({
+                fromAccountId: selfTransferStatements.fromAccountId,
+                toAccountId: selfTransferStatements.toAccountId,
+                amount: selfTransferStatements.amount,
+                createdAt: selfTransferStatements.createdAt,
+              })
+              .from(selfTransferStatements)
+              .where(
+                and(
+                  eq(selfTransferStatements.userId, ctx.user.id),
+                  or(
+                    inArray(selfTransferStatements.fromAccountId, cardAccountIds),
+                    inArray(selfTransferStatements.toAccountId, cardAccountIds),
+                  ),
+                ),
+              );
+      const cardActivities: CreditCardActivity[] = [
+        ...cardStatements.flatMap((statement) =>
+          statement.accountId === null
+            ? []
+            : [
+                {
+                  accountId: statement.accountId,
+                  createdAt: statement.createdAt,
+                  balanceDelta: getStatementBalanceDelta(
+                    statement.statementKind,
+                    Number(statement.amount),
+                  ),
+                },
+              ],
+        ),
+        ...cardTransfers.flatMap((transfer) => {
+          const activity: CreditCardActivity[] = [];
+          if (cardAccountIds.includes(transfer.toAccountId)) {
+            activity.push({
+              accountId: transfer.toAccountId,
+              createdAt: transfer.createdAt,
+              balanceDelta: Number(transfer.amount),
+            });
+          }
+          if (cardAccountIds.includes(transfer.fromAccountId)) {
+            activity.push({
+              accountId: transfer.fromAccountId,
+              createdAt: transfer.createdAt,
+              balanceDelta: -Number(transfer.amount),
+            });
+          }
+          return activity;
+        }),
+      ];
+      const generatedCardBills = calculateGeneratedCreditCardBills(
+        cards.map((card) => ({
+          ...card,
+          startingBalance: Number(card.startingBalance),
+        })),
+        cardActivities,
+        new Date(),
+        timezone,
+      );
       const activeRecurringPayments = await ctx.db
         .select()
         .from(recurringPayments)
         .where(eq(recurringPayments.userId, ctx.user.id))
         .orderBy(desc(recurringPayments.startDate));
+      const linkedRecurringStatements = await ctx.db
+        .select({
+          id: statements.id,
+          amount: statements.amount,
+          createdAt: statements.createdAt,
+          recurringPaymentId: sql<string>`${statements.additionalAttributes}->>'recurringPaymentId'`,
+        })
+        .from(statements)
+        .where(
+          and(
+            eq(statements.userId, ctx.user.id),
+            sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
+          ),
+        );
+      const scheduleEnd = input?.uptoDate ?? monthEnd;
+      const recurringPaymentSchedules = activeRecurringPayments.flatMap((recurringPayment) => {
+        const linkedStatements = linkedRecurringStatements.filter(
+          (statement) => statement.recurringPaymentId === recurringPayment.id,
+        );
+        const { schedule } = generatePaymentSchedule(
+          recurringPayment,
+          linkedStatements,
+          timezone,
+          scheduleEnd,
+        );
+        return schedule.map((entry) => ({
+          ...entry,
+          id: recurringPayment.id,
+          name: recurringPayment.name,
+          category: recurringPayment.category,
+        }));
+      });
       return {
         cards,
         cardDetails,
+        generatedCardBills,
         currentMonthPayments,
         paymentsByMonth,
         recurringPayments: activeRecurringPayments,
+        recurringPaymentSchedules,
         uptoDate: input?.uptoDate,
       };
     }),

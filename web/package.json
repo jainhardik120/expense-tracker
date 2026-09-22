@@ -16,6 +16,7 @@
     "lint:report": "ts-node ./src/scripts/eslint-out.ts",
     "start": "next start",
     "test:salary": "node --experimental-strip-types --test src/lib/salary.test.ts",
+    "test:credit-card-bills": "node --experimental-strip-types --test src/lib/credit-card-bills.test.ts",
     "typecheck": "tsc --noEmit",
     "unused": "knip",
     "update:check": "npm-check-updates"

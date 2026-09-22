@@ -6,6 +6,7 @@ import { addDays, endOfDay, format, getDaysInMonth, startOfDay } from 'date-fns'
 import { toZonedTime } from 'date-fns-tz';
 
 import { useTimezone } from '@/components/time-zone-setter';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -15,49 +16,66 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/format';
-import {
-  getFutureRecurringPayments,
-  type RecurringPaymentSchedule,
-} from '@/server/helpers/recurring-calculations';
 import { type RouterOutput } from '@/server/routers';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
+type DashboardCreditCardData = Omit<CreditCardData, 'generatedCardBills'> &
+  Partial<Pick<CreditCardData, 'generatedCardBills'>>;
 type SummaryData = RouterOutput['summary']['getAggregatedData'];
+type RecurringSchedule = CreditCardData['recurringPaymentSchedules'][number];
+type OutstandingRecurringSchedule = RecurringSchedule & { status: 'missed' | 'upcoming' };
 
-type UpcomingPayment = {
+type PaymentItem = {
   id: string;
   type: 'EMI' | 'Recurring' | 'Credit Card Bill';
   name: string;
   date: Date;
   amount: number;
+  status: 'missed' | 'upcoming';
 };
 
 const DAYS_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
+const EMPTY_GENERATED_CARD_BILLS: CreditCardData['generatedCardBills'] = {};
 
 const getBillingDateInMonth = (year: number, month: number, billingDate: number) => {
   const dayInMonth = Math.min(billingDate, getDaysInMonth(new Date(year, month, 1)));
   return new Date(year, month, dayInMonth);
 };
 
-const getNextBillingDate = (billingDate: number, now: Date) => {
-  const currentMonthDate = getBillingDateInMonth(now.getFullYear(), now.getMonth(), billingDate);
-  if (currentMonthDate >= now) {
-    return currentMonthDate;
-  }
-  return getBillingDateInMonth(now.getFullYear(), now.getMonth() + 1, billingDate);
-};
-
 const isWithinRange = (date: Date, start: Date, end: Date) => date >= start && date <= end;
+
+const PaymentList = ({ payments }: { payments: PaymentItem[] }) => (
+  <div className="space-y-2">
+    {payments.map((payment) => (
+      <div
+        key={`${payment.type}-${payment.id}`}
+        className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2"
+      >
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium">{payment.name}</p>
+            {payment.status === 'missed' ? <Badge variant="destructive">Missed</Badge> : null}
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {payment.type} • {format(payment.date, 'MMM dd')}
+          </p>
+        </div>
+        <p className="text-sm font-semibold">{formatCurrency(payment.amount)}</p>
+      </div>
+    ))}
+  </div>
+);
 
 export const DashboardPaymentOverview = ({
   creditData,
   summaryData,
 }: {
-  creditData: CreditCardData;
+  creditData: DashboardCreditCardData;
   summaryData: SummaryData;
 }) => {
   const timezone = useTimezone();
   const [days, setDays] = useState<number>(7);
+  const generatedCardBills = creditData.generatedCardBills ?? EMPTY_GENERATED_CARD_BILLS;
 
   const { rangeStart, rangeEnd } = useMemo(() => {
     const now = toZonedTime(new Date(), timezone);
@@ -75,32 +93,39 @@ export const DashboardPaymentOverview = ({
     return allEmiPayments.filter((payment) => isWithinRange(payment.date, rangeStart, rangeEnd));
   }, [creditData.currentMonthPayments, creditData.paymentsByMonth, rangeEnd, rangeStart]);
 
-  const recurringPayments = useMemo(() => {
-    const recurringByMonth = getFutureRecurringPayments(
-      creditData.recurringPayments,
-      addDays(rangeEnd, 1),
-      timezone,
-    );
-    const allRecurringPayments = Object.values(recurringByMonth).flat();
-    return allRecurringPayments.filter((payment) =>
-      isWithinRange(payment.date, rangeStart, rangeEnd),
-    );
-  }, [creditData.recurringPayments, rangeEnd, rangeStart, timezone]);
+  const recurringPayments = useMemo(
+    () =>
+      creditData.recurringPaymentSchedules.filter(
+        (payment): payment is OutstandingRecurringSchedule =>
+          payment.status === 'missed' ||
+          (payment.status === 'upcoming' &&
+            isWithinRange(payment.scheduledDate, rangeStart, rangeEnd)),
+      ),
+    [creditData.recurringPaymentSchedules, rangeEnd, rangeStart],
+  );
 
   const creditCardBillPayments = useMemo(() => {
     return creditData.cards.flatMap((card) => {
-      const dueDate = getNextBillingDate(card.billingDate, rangeStart);
-      if (!isWithinRange(dueDate, rangeStart, rangeEnd)) {
-        return [];
-      }
       const accountSummary = summaryData.accountsSummary.find(
         (summary) => summary.account.id === card.accountId,
       );
       const currentUtilization = Math.max(-(accountSummary?.finalBalance ?? 0), 0);
+      const dueDate = getBillingDateInMonth(
+        rangeStart.getFullYear(),
+        rangeStart.getMonth(),
+        card.billingDate,
+      );
+      const status = dueDate < rangeStart ? ('missed' as const) : ('upcoming' as const);
+      if (status === 'upcoming' && !isWithinRange(dueDate, rangeStart, rangeEnd)) {
+        return [];
+      }
       const upcomingEmiForCard = emiPayments
         .filter((payment) => payment.cardName === card.accountName)
         .reduce((sum, payment) => sum + payment.myShare, 0);
-      const amount = currentUtilization + upcomingEmiForCard;
+      const amount =
+        status === 'missed'
+          ? (generatedCardBills[card.id]?.remainingAmount ?? 0)
+          : currentUtilization + upcomingEmiForCard;
       if (amount <= 0) {
         return [];
       }
@@ -111,14 +136,25 @@ export const DashboardPaymentOverview = ({
           name: card.accountName,
           date: dueDate,
           amount,
+          status,
         },
       ];
     });
-  }, [creditData.cards, emiPayments, rangeEnd, rangeStart, summaryData.accountsSummary]);
+  }, [
+    creditData.cards,
+    emiPayments,
+    generatedCardBills,
+    rangeEnd,
+    rangeStart,
+    summaryData.accountsSummary,
+  ]);
 
   const totals = useMemo(() => {
     const emiTotal = emiPayments.reduce((sum, payment) => sum + payment.myShare, 0);
-    const recurringTotal = recurringPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const recurringTotal = recurringPayments.reduce(
+      (sum, payment) => sum + payment.expectedAmount,
+      0,
+    );
     const creditCardTotal = creditCardBillPayments.reduce(
       (sum, payment) => sum + payment.amount,
       0,
@@ -140,28 +176,30 @@ export const DashboardPaymentOverview = ({
     };
   }, [creditCardBillPayments, creditData.cards, emiPayments, recurringPayments, summaryData]);
 
-  const upcomingPayments = useMemo(() => {
-    const emiItems: UpcomingPayment[] = emiPayments.map((payment) => ({
+  const paymentItems = useMemo(() => {
+    const emiItems: PaymentItem[] = emiPayments.map((payment) => ({
       id: `${payment.emiId}-${payment.date.toISOString()}`,
       type: 'EMI',
       name: `${payment.emiName} (${payment.cardName})`,
       date: payment.date,
       amount: payment.myShare,
+      status: 'upcoming',
     }));
-    const recurringItems: UpcomingPayment[] = recurringPayments.map(
-      (payment: RecurringPaymentSchedule) => ({
-        id: `${payment.id}-${payment.date.toISOString()}`,
-        type: 'Recurring',
-        name: payment.name,
-        date: payment.date,
-        amount: payment.amount,
-      }),
-    );
+    const recurringItems: PaymentItem[] = recurringPayments.map((payment) => ({
+      id: `${payment.id}-${payment.scheduledDate.toISOString()}`,
+      type: 'Recurring',
+      name: payment.name,
+      date: payment.scheduledDate,
+      amount: payment.expectedAmount,
+      status: payment.status,
+    }));
 
     return [...emiItems, ...recurringItems, ...creditCardBillPayments].sort(
       (a, b) => a.date.getTime() - b.date.getTime(),
     );
   }, [creditCardBillPayments, emiPayments, recurringPayments]);
+  const missedPayments = paymentItems.filter((payment) => payment.status === 'missed');
+  const upcomingPayments = paymentItems.filter((payment) => payment.status === 'upcoming');
 
   const BALANCE_BUFFER_RATIO = 1.2;
 
@@ -169,7 +207,7 @@ export const DashboardPaymentOverview = ({
     if (totals.shortfall > 0) {
       return {
         label: 'Low balance warning',
-        message: `You are short by ${formatCurrency(totals.shortfall)} for the selected period.`,
+        message: `You are short by ${formatCurrency(totals.shortfall)} for overdue and selected upcoming payments.`,
         className: 'text-red-600',
       };
     }
@@ -180,14 +218,14 @@ export const DashboardPaymentOverview = ({
     if (isTightBalance) {
       return {
         label: 'Low balance warning',
-        message: 'Available balance is tight for upcoming payments.',
+        message: 'Available balance is tight for overdue and upcoming payments.',
         className: 'text-amber-600',
       };
     }
 
     return {
       label: 'Balance status',
-      message: 'Available balance is healthy for upcoming payments.',
+      message: 'Available balance is healthy for overdue and upcoming payments.',
       className: 'text-green-600',
     };
   }, [totals]);
@@ -198,7 +236,7 @@ export const DashboardPaymentOverview = ({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle>Payment Overview</CardTitle>
-            <CardDescription>Upcoming commitments and available cash position</CardDescription>
+            <CardDescription>Outstanding commitments and available cash position</CardDescription>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Window</span>
@@ -253,6 +291,15 @@ export const DashboardPaymentOverview = ({
           <p className={`text-sm ${warning.className}`}>{warning.message}</p>
         </div>
 
+        {missedPayments.length === 0 ? null : (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-red-600">
+              Missed Payments ({missedPayments.length})
+            </p>
+            <PaymentList payments={missedPayments} />
+          </div>
+        )}
+
         <div className="space-y-2">
           <p className="text-sm font-medium">
             Upcoming Payments ({format(rangeStart, 'MMM dd')} - {format(rangeEnd, 'MMM dd')})
@@ -260,22 +307,7 @@ export const DashboardPaymentOverview = ({
           {upcomingPayments.length === 0 ? (
             <p className="text-muted-foreground text-sm">No upcoming payments in this window.</p>
           ) : (
-            <div className="space-y-2">
-              {upcomingPayments.map((payment) => (
-                <div
-                  key={`${payment.type}-${payment.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{payment.name}</p>
-                    <p className="text-muted-foreground text-xs">
-                      {payment.type} • {format(payment.date, 'MMM dd')}
-                    </p>
-                  </div>
-                  <p className="text-sm font-semibold">{formatCurrency(payment.amount)}</p>
-                </div>
-              ))}
-            </div>
+            <PaymentList payments={upcomingPayments} />
           )}
         </div>
       </CardContent>
