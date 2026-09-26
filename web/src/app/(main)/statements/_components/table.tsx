@@ -4,6 +4,7 @@ import { startTransition, useOptimistic } from 'react';
 
 import { useRouter } from 'next/navigation';
 
+import { useQueryStates } from 'nuqs';
 import { toast } from 'sonner';
 
 import { DataTable } from '@/components/data-table/data-table';
@@ -19,6 +20,7 @@ import {
   type Account,
   type Friend,
   MINUTES,
+  statementParser,
 } from '@/types';
 
 import { BulkImportDialog } from './bulk-import-dialog';
@@ -28,6 +30,7 @@ import { createStatementColumns } from './StatementColumns';
 import { CreateStatementForm } from './StatementForms';
 
 type StatementData = RouterOutput['statements']['getStatements'];
+type FacetCounts = RouterOutput['statements']['getFacetCounts'];
 
 type OptimisticUpdateAction =
   | { action: 'update_all_items'; items: (Statement | SelfTransferStatement)[] }
@@ -46,12 +49,14 @@ const Table = ({
   friendsData,
   categories,
   tags,
+  facetCounts,
 }: {
   data: StatementData;
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
   tags: string[];
+  facetCounts: FacetCounts;
 }) => {
   const [optimisticData, updateOptimisticData] = useOptimistic<
     (Statement | SelfTransferStatement)[],
@@ -70,6 +75,7 @@ const Table = ({
         return prevData;
     }
   });
+  const [searchParams] = useQueryStates(statementParser);
   const router = useRouter();
   const columns = createStatementColumns({
     onRefreshStatements: () => {
@@ -79,6 +85,8 @@ const Table = ({
     friendsData,
     categories,
     tags,
+    facetCounts,
+    activeFilters: { category: searchParams.category, tags: searchParams.tags },
     startingBalance:
       data.summary === null
         ? undefined

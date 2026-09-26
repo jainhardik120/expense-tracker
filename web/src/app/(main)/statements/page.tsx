@@ -49,16 +49,24 @@ export default async function Page({
     start: pageParams.date[0],
     end: pageParams.date[1],
   };
-  const data = await api.statements.getStatements(queryParams);
-  const friends = await api.friends.getFriends();
-  const accounts = await api.accounts.getAccounts();
-  const categories = await api.statements.getCategories(queryParams);
-  const tags = await api.statements.getTags(queryParams);
+  // Independent of each other, so they run together rather than in a chain --
+  // the facet counts alone are four grouped queries.
+  const [data, friends, accounts, categories, tags, facetCounts] = await Promise.all([
+    api.statements.getStatements(queryParams),
+    api.friends.getFriends(),
+    api.accounts.getAccounts(),
+    // Unfiltered: these feed the create and edit forms, which must offer every
+    // category and tag that exists, not just the ones the current filter admits.
+    api.statements.getCategories({}),
+    api.statements.getTags({}),
+    api.statements.getFacetCounts(queryParams),
+  ]);
   return (
     <Table
       accountsData={accounts}
       categories={categories}
       data={data}
+      facetCounts={facetCounts}
       friendsData={friends}
       tags={tags}
     />

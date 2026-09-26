@@ -119,12 +119,42 @@ const DateCell = ({ date }: { date: Date }) => {
     : '-';
 };
 
+type FacetCount = { value: string; count: number };
+type FacetCounts = Record<'account' | 'category' | 'tags' | 'statementKind', FacetCount[]>;
+
+type FilterOption = { label: string; value: string; count: number };
+
+/**
+ * Filter options annotated with how many rows each value currently matches.
+ *
+ * Top-level filters keep every value and let the zeroes show: their value sets
+ * are small, and a list that silently shrinks reads as broken. The ones below
+ * them drop what no longer matches -- with a category chosen, the tags outside
+ * it are noise rather than information, and there are hundreds of them.
+ *
+ * A value that is currently selected is always kept, whatever its count, so a
+ * filter can still be seen and cleared after something above it narrowed it away.
+ */
+const withCounts = (
+  options: { label: string; value: string }[],
+  counts: FacetCount[],
+  { cascade, selected = [] }: { cascade: boolean; selected?: string[] },
+): FilterOption[] => {
+  const byValue = new Map(counts.map((entry) => [entry.value, entry.count]));
+  const selectedValues = new Set(selected);
+  return options
+    .map((option) => ({ ...option, count: byValue.get(option.value) ?? 0 }))
+    .filter((option) => !cascade || option.count > 0 || selectedValues.has(option.value));
+};
+
 export const createStatementColumns = ({
   onRefreshStatements,
   accountsData,
   friendsData,
   categories,
   tags,
+  facetCounts,
+  activeFilters,
   startingBalance,
 }: {
   onRefreshStatements: () => void;
@@ -132,6 +162,8 @@ export const createStatementColumns = ({
   friendsData: Friend[];
   categories: string[];
   tags: string[];
+  facetCounts: FacetCounts;
+  activeFilters: { category: string[]; tags: string[] };
   startingBalance?: {
     name: string;
     amount: number;
@@ -193,10 +225,11 @@ export const createStatementColumns = ({
     meta: {
       label: 'Statement Kind',
       variant: 'multiSelect',
-      options: Object.entries(statementKindMap).map(([key, value]) => ({
-        label: value,
-        value: key,
-      })),
+      options: withCounts(
+        Object.entries(statementKindMap).map(([key, value]) => ({ label: value, value: key })),
+        facetCounts.statementKind,
+        { cascade: false },
+      ),
     },
     enableColumnFilter: true,
   },
@@ -228,7 +261,11 @@ export const createStatementColumns = ({
     meta: {
       label: 'Category',
       variant: 'multiSelect',
-      options: categories.map((category) => ({ label: category, value: category })),
+      options: withCounts(
+        categories.map((category) => ({ label: category, value: category })),
+        facetCounts.category,
+        { cascade: true, selected: activeFilters.category },
+      ),
     },
     enableColumnFilter: true,
   },
@@ -240,10 +277,14 @@ export const createStatementColumns = ({
     meta: {
       label: 'Account',
       variant: 'multiSelect',
-      options: [
-        ...accountsData.map((account) => ({ label: account.accountName, value: account.id })),
-        ...friendsData.map((friend) => ({ label: friend.name, value: friend.id })),
-      ],
+      options: withCounts(
+        [
+          ...accountsData.map((account) => ({ label: account.accountName, value: account.id })),
+          ...friendsData.map((friend) => ({ label: friend.name, value: friend.id })),
+        ],
+        facetCounts.account,
+        { cascade: false },
+      ),
     },
     enableColumnFilter: true,
   },
@@ -317,7 +358,11 @@ export const createStatementColumns = ({
     meta: {
       label: 'Tags',
       variant: 'multiSelect',
-      options: tags.map((tag) => ({ label: tag, value: tag })),
+      options: withCounts(
+        tags.map((tag) => ({ label: tag, value: tag })),
+        facetCounts.tags,
+        { cascade: true, selected: activeFilters.tags },
+      ),
     },
     enableColumnFilter: true,
   },

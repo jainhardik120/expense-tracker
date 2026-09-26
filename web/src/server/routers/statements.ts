@@ -14,6 +14,7 @@ import {
   getMergedStatements,
   getRowsCount,
   getStatementAmountAndSplits,
+  getStatementFacetCounts,
   mergeRawStatementsWithSummary,
 } from '@/server/helpers/statement';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
@@ -77,6 +78,13 @@ export const statementsRouter = createTRPCRouter({
         .orderBy(sql<string>`tag`);
       return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
     }),
+  /**
+   * How many rows each filter value would match under the other active filters.
+   * Drives the counts in the filter dropdowns.
+   */
+  getFacetCounts: protectedProcedure
+    .input(statementParserSchema.omit({ page: true, perPage: true }))
+    .query(async ({ ctx, input }) => getStatementFacetCounts(ctx.db, ctx.user.id, input)),
   getStatements: protectedProcedure
     .meta({
       openapi: {

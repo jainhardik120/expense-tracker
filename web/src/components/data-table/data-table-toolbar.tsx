@@ -28,9 +28,15 @@ export const DataTableToolbar = <TData,>({
 }: DataTableToolbarProps<TData>) => {
   const isFiltered = table.getState().columnFilters.length > 0;
 
+  // Keyed on the columns themselves, not on `table`. The table instance is
+  // stable for the life of the component, so memoising on it pinned the filter
+  // options to whatever the first render produced -- new options arriving from
+  // the server were built but never read. getAllColumns is itself memoised on
+  // the column definitions, so this recomputes exactly when they change.
+  const allColumns = table.getAllColumns();
   const columns = React.useMemo(
-    () => table.getAllColumns().filter((column) => column.getCanFilter()),
-    [table],
+    () => allColumns.filter((column) => column.getCanFilter()),
+    [allColumns],
   );
 
   const onReset = React.useCallback(() => {

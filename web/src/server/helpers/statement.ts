@@ -1,4 +1,4 @@
-import { and, eq, sql, inArray, gte, lt, ne, asc, desc, or } from 'drizzle-orm';
+import { and, eq, sql, inArray, gte, lt, ne, asc, desc, or, type SQL } from 'drizzle-orm';
 import { unionAll, alias } from 'drizzle-orm/pg-core';
 import { type z } from 'zod';
 
@@ -615,5 +615,143 @@ export const mergeRawStatementsWithSummary = instrumentedFunction(
         })
         .reverse(),
     };
+  },
+);
+
+type FacetInput = Omit<z.infer<typeof statementParserSchema>, 'page' | 'perPage'>;
+type FacetName = 'account' | 'category' | 'tags' | 'statementKind';
+export type FacetCount = { value: string; count: number };
+
+/**
+ * Filters are a hierarchy, and narrowing only ever runs downhill.
+ *
+ * Statement kind and account sit at the top: their value sets are small, fixed
+ * and worth seeing in full, so nothing below them removes an option. Category
+ * sits under those, and tags under everything -- tags run to the hundreds, and
+ * once you are looking at one category the rest are noise.
+ *
+ * The reverse would be the confusing direction: picking a tag should not quietly
+ * delete categories from the list you picked it under.
+ */
+const FACET_LEVEL: Record<FacetName, number> = {
+  statementKind: 0,
+  account: 0,
+  category: 1,
+  tags: 2,
+};
+
+/**
+ * Conditions for the union query, applying only the filters above this facet.
+ *
+ * Its own selection is left out too, or picking "Food" would remove every other
+ * category from the list and a second one could never be added.
+ */
+const buildFacetConditions = (
+  db: Database,
+  union: ReturnType<typeof generateStatementUnionDetailedQuery>,
+  userId: string,
+  input: FacetInput,
+  facet: FacetName,
+) => {
+  const applies = (other: FacetName) => FACET_LEVEL[other] < FACET_LEVEL[facet];
+  const conditions: SQL<unknown>[] = [eq(union.userId, userId)];
+  if (input.start !== undefined) {
+    conditions.push(gte(union.createdAt, input.start));
+  }
+  if (input.end !== undefined) {
+    conditions.push(lt(union.createdAt, input.end));
+  }
+  if (applies('account') && input.account.length > 0) {
+    const statementIdsWithSplits = db
+      .select({ statementId: splits.statementId })
+      .from(splits)
+      .where(inArray(splits.friendId, input.account));
+    const accountMatch = or(
+      inArray(union.accountId, input.account),
+      inArray(union.fromAccountId, input.account),
+      inArray(union.toAccountId, input.account),
+      inArray(union.friendId, input.account),
+      inArray(union.id, statementIdsWithSplits),
+    );
+    if (accountMatch !== undefined) {
+      conditions.push(accountMatch);
+    }
+  }
+  if (applies('category') && input.category.length > 0) {
+    conditions.push(inArray(union.category, input.category));
+  }
+  if (applies('tags') && input.tags.length > 0) {
+    conditions.push(inArray(union.tag, input.tags));
+  }
+  if (applies('statementKind') && input.statementKind.length > 0) {
+    conditions.push(inArray(union.statementKind, input.statementKind));
+  }
+  return conditions;
+};
+
+/**
+ * How many rows each filter value would match under the filters above it.
+ *
+ * Only values that still match are returned. The caller decides what to do with
+ * that: the top-level filters keep their full option list and use the counts to
+ * mark the empty ones, while the ones below them drop what is missing.
+ */
+export const getStatementFacetCounts = instrumentedFunction(
+  'getStatementFacetCounts',
+  async (
+    db: Database,
+    userId: string,
+    input: FacetInput,
+  ): Promise<Record<FacetName, FacetCount[]>> => {
+    const countRows = async (
+      exclude: FacetName,
+      pick: (union: ReturnType<typeof generateStatementUnionDetailedQuery>) => {
+        value: ReturnType<typeof sql<string | null>>;
+      },
+      unnestTags: boolean,
+    ): Promise<FacetCount[]> => {
+      const union = generateStatementUnionDetailedQuery(db, unnestTags);
+      const { value } = pick(union);
+      const rows = await db
+        .select({ value, count: sql<number>`count(distinct ${union.id})::int` })
+        .from(union)
+        .where(and(...buildFacetConditions(db, union, userId, input, exclude)))
+        .groupBy(value);
+      return rows
+        .filter((row): row is { value: string; count: number } => row.value !== null)
+        .map((row) => ({ value: row.value, count: Number(row.count) }));
+    };
+
+    const [statementKind, category, tags, account] = await Promise.all([
+      countRows(
+        'statementKind',
+        (union) => ({ value: sql<string>`${union.statementKind}` }),
+        false,
+      ),
+      countRows('category', (union) => ({ value: sql<string | null>`${union.category}` }), false),
+      countRows('tags', (union) => ({ value: sql<string | null>`${union.tag}` }), true),
+      (async () => {
+        // A row can name an account in several places at once -- the account it
+        // sits on, either side of a transfer, the friend it involves -- so the
+        // account dimension is unnested before grouping.
+        const union = generateStatementUnionDetailedQuery(db, false);
+        const rows = await db
+          .select({
+            value: sql<string | null>`account_ref`,
+            count: sql<number>`count(distinct ${union.id})::int`,
+          })
+          .from(union)
+          .crossJoin(
+            sql`unnest(ARRAY[${union.accountId}, ${union.fromAccountId}, ${union.toAccountId}, ${union.friendId}]) AS account_ref`,
+          )
+          .where(and(...buildFacetConditions(db, union, userId, input, 'account')))
+          .groupBy(sql`account_ref`);
+        return rows
+          .filter((row): row is { value: string; count: number } => row.value !== null)
+          .map((row) => ({ value: row.value, count: Number(row.count) }));
+      })(),
+    ]);
+
+    return { statementKind, category, tags, account };
   },
 );
