@@ -25,7 +25,11 @@ export const DataTablePagination = <TData,>({
 }: DataTablePaginationProps<TData>) => (
   <div
     className={cn(
-      'flex w-full flex-col-reverse items-center justify-between gap-4 overflow-auto p-1 sm:flex-row sm:gap-8',
+      // Wrapping, not scrolling: the breakpoints here read the viewport while
+      // the row is laid out in whatever the sidebar leaves behind, so `sm:`
+      // turns these into a row well before there is room for one. A scrollbar
+      // for the last few pixels of a pager is worse than a second line.
+      'flex w-full flex-col-reverse flex-wrap items-center justify-between gap-4 p-1 sm:flex-row sm:gap-8',
       className,
     )}
     {...props}
@@ -34,7 +38,7 @@ export const DataTablePagination = <TData,>({
       {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length}{' '}
       row(s) selected.
     </div>
-    <div className="flex flex-col-reverse items-center gap-4 sm:flex-row sm:gap-6 lg:gap-8">
+    <div className="flex flex-col-reverse flex-wrap items-center justify-end gap-4 sm:flex-row sm:gap-6 lg:gap-8">
       <div className="flex items-center space-x-2">
         <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
         <Select

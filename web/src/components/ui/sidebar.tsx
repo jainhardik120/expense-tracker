@@ -302,7 +302,11 @@ const SidebarRail = ({ className, ...props }: React.ComponentProps<'button'>) =>
 const SidebarInset = ({ className, ...props }: React.ComponentProps<'main'>) => (
   <main
     className={cn(
-      'bg-background relative flex w-full flex-1 flex-col',
+      // `min-w-0`: as a flex item this defaults to a minimum of its content's
+      // min-content width, so one wide table refuses to shrink and pushes the
+      // whole page sideways next to the sidebar — a second horizontal scroll
+      // on top of the table's own. Let it shrink and the table scrolls alone.
+      'bg-background relative flex w-full min-w-0 flex-1 flex-col',
       'md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2',
       className,
     )}
