@@ -17,10 +17,8 @@ type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance
 type FutureMonthData = {
   month: string;
   emiTotal: number;
-  emiMyTotal: number;
   recurringTotal: number;
   total: number;
-  myTotal: number;
 };
 
 export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
@@ -43,17 +41,16 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
         const emiPayments = paymentsByMonth[month] ?? [];
         const recurringPaymentsList = recurringPaymentsByMonth[month] ?? [];
 
-        const emiTotal = emiPayments.reduce((sum, p) => sum + p.amount, 0);
-        const emiMyTotal = emiPayments.reduce((sum, p) => sum + p.myShare, 0);
+        // myShare, not the full installment: a split EMI bills the friends' portions
+        // to the card too, but only my share is money I actually owe.
+        const emiTotal = emiPayments.reduce((sum, p) => sum + p.myShare, 0);
         const recurringTotal = recurringPaymentsList.reduce((sum, p) => sum + p.amount, 0);
 
         return {
           month,
           emiTotal,
-          emiMyTotal,
           recurringTotal,
           total: emiTotal + recurringTotal,
-          myTotal: emiMyTotal + recurringTotal,
         };
       });
   }, [paymentsByMonth, recurringPaymentsByMonth]);
@@ -81,11 +78,6 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
         id: 'total',
         header: 'Total',
         accessorFn: (row: FutureMonthData) => formatCurrency(row.total),
-      },
-      {
-        id: 'myTotal',
-        header: 'My Payment',
-        accessorFn: (row: FutureMonthData) => formatCurrency(row.myTotal),
       },
     ],
     pageCount: -1,
