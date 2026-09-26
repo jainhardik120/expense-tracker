@@ -97,6 +97,7 @@ const Table = ({
     data: optimisticData,
     columns,
     pageCount: data.pageCount,
+    persistPageSizeKey: 'statements',
     shallow: false,
   });
   const { rows } = table.getRowModel();

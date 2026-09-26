@@ -7,13 +7,9 @@ import { AppSidebar } from '@/components/app-sidebar';
 import ThemeToggle from '@/components/theme-toggle';
 import TimeZoneSetter from '@/components/time-zone-setter';
 import { Separator } from '@/components/ui/separator';
-import {
-  SIDEBAR_COOKIE_NAME,
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { auth } from '@/lib/auth';
+import { SIDEBAR_COOKIE_NAME } from '@/lib/sidebar';
 
 import AdminSession from './_components/admin-session';
 import FloatingChatbot from './_components/floating-chatbot';

@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 
+import { useSearchParams } from 'next/navigation';
+
 import {
   type ColumnFiltersState,
   getCoreRowModel,
@@ -31,6 +33,7 @@ import {
 } from 'nuqs';
 
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
+import { readStoredPageSize, writeStoredPageSize } from '@/lib/page-size';
 import { getSortingStateParser } from '@/lib/parsers';
 import type { ExtendedColumnSort } from '@/types/data-table';
 
@@ -60,6 +63,11 @@ interface UseDataTableProps<TData>
   scroll?: boolean;
   shallow?: boolean;
   startTransition?: React.TransitionStartFunction;
+  /**
+   * Opt in to remembering the page size under this key. Left unset, the table
+   * behaves as before and the size lasts only as long as the URL does.
+   */
+  persistPageSizeKey?: string;
 }
 
 export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
@@ -75,6 +83,7 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
     shallow = true,
     startTransition,
     manualFiltering = true,
+    persistPageSizeKey,
     ...tableProps
   } = props;
 
@@ -109,6 +118,23 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
       .withDefault(initialState?.pagination?.pageSize ?? DEFAULT_PAGE_SIZE),
   );
 
+  // Seeded in an effect, not during render: reading localStorage while rendering
+  // makes the server and client disagree on first paint. Replacing the history
+  // entry rather than pushing keeps the back button from stepping through a URL
+  // the user never navigated to.
+  const hasExplicitPerPage = useSearchParams().has(PER_PAGE_KEY);
+  React.useEffect(() => {
+    if (persistPageSizeKey === undefined || hasExplicitPerPage) {
+      return;
+    }
+    const stored = readStoredPageSize(persistPageSizeKey);
+    if (stored !== null) {
+      void setPerPage(stored, { history: 'replace' });
+    }
+    // Mount only: re-running would fight a size the user just picked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const pagination: PaginationState = React.useMemo(() => {
     return {
       pageIndex: page - 1,
@@ -118,16 +144,15 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
 
   const onPaginationChange = React.useCallback(
     (updaterOrValue: Updater<PaginationState>) => {
-      if (typeof updaterOrValue === 'function') {
-        const newPagination = updaterOrValue(pagination);
-        void setPage(newPagination.pageIndex + 1);
-        void setPerPage(newPagination.pageSize);
-      } else {
-        void setPage(updaterOrValue.pageIndex + 1);
-        void setPerPage(updaterOrValue.pageSize);
+      const next =
+        typeof updaterOrValue === 'function' ? updaterOrValue(pagination) : updaterOrValue;
+      void setPage(next.pageIndex + 1);
+      void setPerPage(next.pageSize);
+      if (persistPageSizeKey !== undefined) {
+        writeStoredPageSize(persistPageSizeKey, next.pageSize);
       }
     },
-    [pagination, setPage, setPerPage],
+    [pagination, setPage, setPerPage, persistPageSizeKey],
   );
 
   const columnIds = React.useMemo(() => {
