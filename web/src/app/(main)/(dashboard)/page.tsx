@@ -5,13 +5,13 @@ import { getDefaultDateRange, getTimezone } from '@/lib/date';
 import { api } from '@/server/server';
 import { aggregationParser } from '@/types';
 
-import AggregationTable from './_components/aggregation-table';
-import { CategoryExpensesPieChart, ExpensesLineChart, SummaryCard } from './_components/charts';
-import { CreditCardsCard } from './_components/credit-cards-card';
-import FilterPanel from './_components/filter-panel';
-import { FutureMonthsPaymentsCard } from './_components/future-months-payments-card';
-import { PeriodPaymentsCard } from './_components/period-payments-card';
-import SummaryTable from './_components/summary-table';
+import AggregationTable from '../_components/aggregation-table';
+import { CategoryExpensesPieChart, ExpensesLineChart, SummaryCard } from '../_components/charts';
+import { CreditCardsCard } from '../_components/credit-cards-card';
+import FilterPanel from '../_components/filter-panel';
+import { FutureMonthsPaymentsCard } from '../_components/future-months-payments-card';
+import { PeriodPaymentsCard } from '../_components/period-payments-card';
+import SummaryTable from '../_components/summary-table';
 
 const loader = createLoader(aggregationParser);
 
