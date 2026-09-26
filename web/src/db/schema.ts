@@ -458,3 +458,83 @@ export const salaryTaxSettings = pgTable(
   },
   (table) => [primaryKey({ columns: [table.userId, table.financialYearStart] })],
 );
+
+/**
+ * A budget is a waterfall: income enters at the top, ordered lines take their
+ * share, and whatever survives is the residual -- what you managed to save.
+ *
+ * The year is whatever span the budget covers; it does not have to be a calendar
+ * year, and typically starts on the salary cycle rather than in January.
+ */
+export const budgetYears = pgTable('budget_years', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  startDate: timestamp('start_date').notNull(),
+  endDate: timestamp('end_date').notNull(),
+  createdAt: timestamp('created_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+/** How a line claims money: a fixed sum per month, per year, or whatever is left. */
+export const budgetAllocationKindEnum = pgEnum('budget_allocation_kind', [
+  'monthly',
+  'annual',
+  'residual',
+  // Funded only by income earmarked to it -- a trip paid for out of a bonus.
+  'earmarked',
+]);
+
+/**
+ * Lines are evaluated in `position` order and the first one whose rule matches a
+ * statement claims it, so nothing is counted twice and a catch-all line at the
+ * bottom picks up everything that was not claimed above it.
+ */
+export const budgetLines = pgTable(
+  'budget_lines',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    budgetYearId: uuid('budget_year_id')
+      .notNull()
+      .references(() => budgetYears.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    position: integer('position').notNull(),
+    // Statement filter: categories, tags, friends, accounts, kinds. An empty
+    // rule matches everything, which is what makes a catch-all line work.
+    rule: jsonb('rule').notNull().default({}),
+    allocationKind: budgetAllocationKindEnum('allocation_kind').notNull(),
+    allocationAmount: numeric('allocation_amount').notNull().default('0'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [index('budget_lines_year_position_idx').on(table.budgetYearId, table.position)],
+);
+
+/** Where income goes: down the waterfall, onto one line, or out of the budget. */
+export const budgetIncomeDestinationEnum = pgEnum('budget_income_destination', [
+  'waterfall',
+  'line',
+  'excluded',
+]);
+
+export const budgetIncomeLines = pgTable('budget_income_lines', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  budgetYearId: uuid('budget_year_id')
+    .notNull()
+    .references(() => budgetYears.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  position: integer('position').notNull(),
+  rule: jsonb('rule').notNull().default({}),
+  destination: budgetIncomeDestinationEnum('destination').notNull(),
+  // Set only when destination is 'line'. Cleared with the line it points at.
+  destinationLineId: uuid('destination_line_id').references(() => budgetLines.id, {
+    onDelete: 'set null',
+  }),
+  createdAt: timestamp('created_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
