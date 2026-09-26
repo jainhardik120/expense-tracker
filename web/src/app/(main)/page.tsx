@@ -8,10 +8,9 @@ import { aggregationParser } from '@/types';
 import AggregationTable from './_components/aggregation-table';
 import { CategoryExpensesPieChart, ExpensesLineChart, SummaryCard } from './_components/charts';
 import { CreditCardsCard } from './_components/credit-cards-card';
-import { CurrentMonthPaymentsCard } from './_components/current-month-payments-card';
-import { DashboardPaymentOverview } from './_components/dashboard-payment-overview';
 import FilterPanel from './_components/filter-panel';
 import { FutureMonthsPaymentsCard } from './_components/future-months-payments-card';
+import { PeriodPaymentsCard } from './_components/period-payments-card';
 import SummaryTable from './_components/summary-table';
 
 const loader = createLoader(aggregationParser);
@@ -33,6 +32,8 @@ export default async function Page({
   });
   const creditAccountsPromise = api.emis.getCreditCardsWithOutstandingBalance({
     uptoDate: endOfYear,
+    rangeStart: dateParams.start,
+    rangeEnd: dateParams.end,
   });
 
   return (
@@ -82,19 +83,16 @@ export default async function Page({
           <SummaryTable creditData={creditData.cards} data={summaryData} />
         )}
       </AsyncComponent>
-      <AsyncComponent promise={Promise.all([aggregationPromise, creditAccountsPromise])}>
-        {([summaryData, creditData]) => (
-          <DashboardPaymentOverview creditData={creditData} summaryData={summaryData} />
-        )}
-      </AsyncComponent>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <AsyncComponent promise={Promise.all([creditAccountsPromise, aggregationPromise])}>
           {([creditData, summaryData]) => (
             <CreditCardsCard creditData={creditData} summaryData={summaryData} />
           )}
         </AsyncComponent>
-        <AsyncComponent promise={creditAccountsPromise}>
-          {(creditData) => <CurrentMonthPaymentsCard creditData={creditData} />}
+        <AsyncComponent promise={Promise.all([aggregationPromise, creditAccountsPromise])}>
+          {([summaryData, creditData]) => (
+            <PeriodPaymentsCard creditData={creditData} summaryData={summaryData} />
+          )}
         </AsyncComponent>
         <AsyncComponent promise={creditAccountsPromise}>
           {(creditData) => <FutureMonthsPaymentsCard creditData={creditData} />}

@@ -408,3 +408,70 @@ export const groupPaymentsByMonth = <T extends { month: string }>(
   }
   return paymentsByMonth;
 };
+
+export type PaymentStatus = 'paid' | 'missed' | 'upcoming';
+
+export type ScheduledEmiPayment = {
+  emiId: string;
+  emiName: string;
+  cardName: string;
+  creditId: string;
+  amount: number;
+  myShare: number;
+  date: Date;
+  status: PaymentStatus;
+};
+
+const getMySplitPercentage = (emi: Emi): number => {
+  const attributes = emi.additionalAttributes as Record<string, unknown>;
+  const splits =
+    attributes.splits === undefined
+      ? []
+      : (attributes.splits as Array<{ friendId: string; percentage: string }>);
+  const friendSplitPercentage = splits.reduce((sum, split) => sum + parseFloat(split.percentage), 0);
+  return PERCENTAGE_DIVISOR - friendSplitPercentage;
+};
+
+/**
+ * Every scheduled installment of an EMI that falls inside a date range, paid ones
+ * included, so a past period shows what was due then rather than an empty table.
+ *
+ * Dates stay as true instants here; callers render them in the reader's timezone.
+ */
+export const getEmiPaymentsInRange = (
+  emi: Emi & { maxInstallmentNo: string | null },
+  cardName: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+  now: Date,
+): ScheduledEmiPayment[] => {
+  const installmentPaidTill =
+    emi.maxInstallmentNo === null ? -1 : parseFloatSafe(emi.maxInstallmentNo);
+  const mySplitPercentage = getMySplitPercentage(emi);
+  const { schedule } = calculateSchedule(emi);
+  const payments: ScheduledEmiPayment[] = [];
+
+  for (const row of schedule) {
+    if (row.date === undefined) {
+      continue;
+    }
+    const date = new Date(row.date);
+    if (date < rangeStart || date > rangeEnd) {
+      continue;
+    }
+    const isPaid = row.installment <= installmentPaidTill;
+    const unpaidStatus: PaymentStatus = date < now ? 'missed' : 'upcoming';
+    payments.push({
+      emiId: emi.id,
+      emiName: emi.name,
+      cardName,
+      creditId: emi.creditId,
+      amount: row.totalPayment,
+      myShare: (row.totalPayment * mySplitPercentage) / PERCENTAGE_DIVISOR,
+      date,
+      status: isPaid ? 'paid' : unpaidStatus,
+    });
+  }
+
+  return payments;
+};

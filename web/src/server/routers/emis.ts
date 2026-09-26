@@ -4,11 +4,11 @@ import { z } from 'zod';
 
 import { emis, selfTransferStatements, statements, recurringPayments } from '@/db/schema';
 import {
-  calculateGeneratedCreditCardBills,
+  getCardBillsInRange,
   getStatementBalanceDelta,
   type CreditCardActivity,
 } from '@/lib/credit-card-bills';
-import { getTimezone, startOfDayLocal } from '@/lib/date';
+import { endOfMonthLocal, getTimezone, startOfDayLocal, startOfMonthLocal } from '@/lib/date';
 import { type Database } from '@/lib/db';
 import { getCreditCards } from '@/server/helpers/account';
 import {
@@ -26,8 +26,9 @@ import {
   parseFloatSafe,
   calculateCardBalances,
   groupPaymentsByMonth,
+  getEmiPaymentsInRange,
 } from '@/server/helpers/emi-calculations';
-import { generatePaymentSchedule } from '@/server/helpers/recurring-calculations';
+import { getRecurringPaymentsInRange } from '@/server/helpers/recurring-calculations';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
 
@@ -215,7 +216,7 @@ export const emisRouter = createTRPCRouter({
       }
       const { schedule: payments } = calculateSchedule(emi);
       const firstPayment = payments[0].installment;
-      let lastInstallmentNo = firstPayment -1;
+      let lastInstallmentNo = firstPayment - 1;
       const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.user.id, input.emiId);
       if (maxInstallmentNo !== null) {
         lastInstallmentNo = parseFloatSafe(maxInstallmentNo);
@@ -273,18 +274,23 @@ export const emisRouter = createTRPCRouter({
       z
         .object({
           uptoDate: z.date().optional(),
+          rangeStart: z.date().optional(),
+          rangeEnd: z.date().optional(),
         })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
       const cards = await getCreditCards(ctx.db, ctx.user.id);
-      const pendingEMIs = await getEMIs(ctx.db, ctx.user.id, {
-        completed: false,
+      const emiQuery = {
         perPage: 100,
         page: 1,
         accountId: [],
         creditId: [],
-      });
+      };
+      const pendingEMIs = await getEMIs(ctx.db, ctx.user.id, { ...emiQuery, completed: false });
+      // A period in the past can contain installments of an EMI that has since
+      // finished, so the period view needs the completed ones too.
+      const allEMIs = await getEMIs(ctx.db, ctx.user.id, { ...emiQuery, completed: undefined });
       const timezone = await getTimezone();
       const currentMonthPayments: {
         emiId: string;
@@ -420,15 +426,6 @@ export const emisRouter = createTRPCRouter({
           return activity;
         }),
       ];
-      const generatedCardBills = calculateGeneratedCreditCardBills(
-        cards.map((card) => ({
-          ...card,
-          startingBalance: Number(card.startingBalance),
-        })),
-        cardActivities,
-        new Date(),
-        timezone,
-      );
       const activeRecurringPayments = await ctx.db
         .select()
         .from(recurringPayments)
@@ -448,33 +445,75 @@ export const emisRouter = createTRPCRouter({
             sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
           ),
         );
-      const scheduleEnd = requestedHorizon;
-      const recurringPaymentSchedules = activeRecurringPayments.flatMap((recurringPayment) => {
-        const linkedStatements = linkedRecurringStatements.filter(
-          (statement) => statement.recurringPaymentId === recurringPayment.id,
-        );
-        const { schedule } = generatePaymentSchedule(
+      // Everything falling due inside the period selected at the top of the dashboard.
+      // Defaults to the current month when the caller does not narrow it down.
+      // Snapped to whole months: the dashboard's range ends "today" by default, which
+      // is right for expenses but would hide the rest of this month's payments, and
+      // the period is picked a month at a time anyway.
+      const now = new Date();
+      const periodStart = startOfMonthLocal(input?.rangeStart ?? now, timezone);
+      const periodEnd = endOfMonthLocal(input?.rangeEnd ?? now, timezone);
+
+      const periodEmiPayments = allEMIs.flatMap((emi) =>
+        getEmiPaymentsInRange(emi, emi.creditCardName, periodStart, periodEnd, now),
+      );
+      const periodRecurringPayments = activeRecurringPayments.flatMap((recurringPayment) =>
+        getRecurringPaymentsInRange(
           recurringPayment,
-          linkedStatements,
+          linkedRecurringStatements.filter(
+            (statement) => statement.recurringPaymentId === recurringPayment.id,
+          ),
           timezone,
-          scheduleEnd,
-        );
-        return schedule.map((entry) => ({
-          ...entry,
-          id: recurringPayment.id,
-          name: recurringPayment.name,
-          category: recurringPayment.category,
-        }));
-      });
+          periodStart,
+          periodEnd,
+        ),
+      );
+      const periodCardBills = getCardBillsInRange(
+        cards.map((card) => ({
+          ...card,
+          startingBalance: Number(card.startingBalance),
+          cardName: card.accountName,
+        })),
+        cardActivities,
+        periodStart,
+        periodEnd,
+        now,
+        timezone,
+      )
+        .map((bill) => {
+          if (bill.status !== 'upcoming') {
+            return bill;
+          }
+          // A bill still ahead of us has not absorbed this period's EMI installments
+          // yet, so fold them in -- they will land on the same card before it is due.
+          const emiYetToBill = periodEmiPayments
+            .filter(
+              (payment) =>
+                payment.creditId === bill.cardId &&
+                payment.status !== 'paid' &&
+                payment.date <= bill.dueDate,
+            )
+            .reduce((sum, payment) => sum + payment.amount, 0);
+          return {
+            ...bill,
+            billedAmount: bill.billedAmount + emiYetToBill,
+            remainingAmount: bill.remainingAmount + emiYetToBill,
+          };
+        })
+        .filter((bill) => bill.billedAmount > 0);
+
       return {
         cards,
         cardDetails,
-        generatedCardBills,
         currentMonthPayments,
         paymentsByMonth,
         recurringPayments: activeRecurringPayments,
-        recurringPaymentSchedules,
         recurringHorizon,
+        periodEmiPayments,
+        periodRecurringPayments,
+        periodCardBills,
+        periodStart,
+        periodEnd,
       };
     }),
   getEmiSplits: protectedProcedure

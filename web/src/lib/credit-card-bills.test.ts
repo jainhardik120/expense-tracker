@@ -4,22 +4,31 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  calculateGeneratedCreditCardBills,
+  getCardBillsInRange,
   // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
 } from './credit-card-bills.ts';
 
 const NOW = new Date('2026-09-22T07:30:00.000Z');
 const TIMEZONE = 'Asia/Kolkata';
+// September 2026 in IST.
+const RANGE_START = new Date('2026-08-31T18:30:00.000Z');
+const RANGE_END = new Date('2026-09-30T18:29:59.999Z');
 
 const card = {
   id: 'card',
   accountId: 'account',
+  cardName: 'Test Card',
   billingDate: 12,
   startingBalance: 0,
 };
 
+const billsFor = (
+  cards: (typeof card)[],
+  activities: { accountId: string; createdAt: Date; balanceDelta: number }[],
+) => getCardBillsInRange(cards, activities, RANGE_START, RANGE_END, NOW, TIMEZONE);
+
 test('keeps spending after bill generation in the next cycle', () => {
-  const bills = calculateGeneratedCreditCardBills(
+  const [bill] = billsFor(
     [card],
     [
       {
@@ -33,16 +42,15 @@ test('keeps spending after bill generation in the next cycle', () => {
         balanceDelta: -500,
       },
     ],
-    NOW,
-    TIMEZONE,
   );
 
-  assert.equal(bills[card.id]?.generatedAmount, 1_000);
-  assert.equal(bills[card.id]?.remainingAmount, 1_000);
+  assert.equal(bill.billedAmount, 1_000);
+  assert.equal(bill.remainingAmount, 1_000);
+  assert.equal(bill.status, 'missed');
 });
 
 test('reduces a generated bill by later payments but not by later spending', () => {
-  const bills = calculateGeneratedCreditCardBills(
+  const [bill] = billsFor(
     [card],
     [
       {
@@ -61,16 +69,14 @@ test('reduces a generated bill by later payments but not by later spending', () 
         balanceDelta: -500,
       },
     ],
-    NOW,
-    TIMEZONE,
   );
 
-  assert.equal(bills[card.id]?.generatedAmount, 1_000);
-  assert.equal(bills[card.id]?.remainingAmount, 400);
+  assert.equal(bill.billedAmount, 1_000);
+  assert.equal(bill.remainingAmount, 400);
 });
 
 test('does not create a due amount from spending that starts after the billing date', () => {
-  const bills = calculateGeneratedCreditCardBills(
+  const bills = billsFor(
     [{ ...card, billingDate: 1 }],
     [
       {
@@ -79,19 +85,16 @@ test('does not create a due amount from spending that starts after the billing d
         balanceDelta: -754,
       },
     ],
-    NOW,
-    TIMEZONE,
   );
 
-  assert.equal(bills[card.id]?.generatedAmount, 0);
-  assert.equal(bills[card.id]?.remainingAmount, 0);
+  assert.deepEqual(bills, []);
 });
 
 test('treats a bill paid off to a float residue as fully settled', () => {
   // These four spends sum to 24_836.800000000003, while the single repayment of the
   // billed 24_836.80 is exact -- the difference is a float residue, not money owed.
   const spends = [7_858.54, 13_941.05, 2_921.4, 115.81];
-  const bills = calculateGeneratedCreditCardBills(
+  const [bill] = billsFor(
     [card],
     [
       ...spends.map((amount) => ({
@@ -105,10 +108,31 @@ test('treats a bill paid off to a float residue as fully settled', () => {
         balanceDelta: 24_836.8,
       },
     ],
-    NOW,
-    TIMEZONE,
   );
 
-  assert.equal(bills[card.id]?.generatedAmount, 24_836.8);
-  assert.equal(bills[card.id]?.remainingAmount, 0);
+  assert.equal(bill.billedAmount, 24_836.8);
+  assert.equal(bill.remainingAmount, 0);
+  assert.equal(bill.status, 'paid');
+});
+
+test('a bill whose billing day has not arrived is an estimate from current utilisation', () => {
+  const [bill] = billsFor(
+    [{ ...card, billingDate: 28 }],
+    [
+      {
+        accountId: card.accountId,
+        createdAt: new Date('2026-09-20T10:00:00.000Z'),
+        balanceDelta: -3_200,
+      },
+      // After NOW, so not yet reflected in what the card is carrying today.
+      {
+        accountId: card.accountId,
+        createdAt: new Date('2026-09-25T10:00:00.000Z'),
+        balanceDelta: -900,
+      },
+    ],
+  );
+
+  assert.equal(bill.status, 'upcoming');
+  assert.equal(bill.billedAmount, 3_200);
 });

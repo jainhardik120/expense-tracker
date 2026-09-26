@@ -1,4 +1,4 @@
-import { format, startOfDay } from 'date-fns';
+import { endOfMonth, format, startOfDay, startOfMonth } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { getCookies } from 'next-client-cookies/server';
 
@@ -97,4 +97,14 @@ export const startOfDayLocal = (date: Date, timeZone: string = 'UTC') => {
   const zoned = toZonedTime(date, timeZone);
   const start = startOfDay(zoned);
   return fromZonedTime(start, timeZone);
+};
+
+export const startOfMonthLocal = (date: Date, timeZone: string = 'UTC') => {
+  const zoned = toZonedTime(date, timeZone);
+  return fromZonedTime(startOfMonth(zoned), timeZone);
+};
+
+export const endOfMonthLocal = (date: Date, timeZone: string = 'UTC') => {
+  const zoned = toZonedTime(date, timeZone);
+  return fromZonedTime(endOfMonth(zoned), timeZone);
 };

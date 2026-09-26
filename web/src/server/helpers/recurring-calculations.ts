@@ -1,5 +1,5 @@
 import { addDays, addMonths, addWeeks, addYears, format, isBefore, startOfDay } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 import type { RecurringPayment, RecurringPaymentFrequency } from '@/types';
 
@@ -160,32 +160,6 @@ const groupRecurringPaymentsByMonth = (
   }
 
   return grouped;
-};
-
-/**
- * Get upcoming recurring payments for the current month
- */
-export const getCurrentMonthRecurringPayments = (
-  recurringPayments: RecurringPayment[],
-  currentMonthEnd: Date,
-  timezone: string,
-): RecurringPaymentSchedule[] => {
-  const currentMonthPayments: RecurringPaymentSchedule[] = [];
-
-  for (const rp of recurringPayments) {
-    const upcomingDates = getUpcomingPaymentDates(rp, currentMonthEnd, timezone);
-    for (const payment of upcomingDates) {
-      currentMonthPayments.push({
-        id: rp.id,
-        name: rp.name,
-        category: rp.category,
-        amount: payment.amount,
-        date: payment.date,
-      });
-    }
-  }
-
-  return currentMonthPayments;
 };
 
 /**
@@ -358,4 +332,52 @@ export const generatePaymentSchedule = (
   }
 
   return { schedule, nextPaymentDate };
+};
+
+export type ScheduledRecurringPayment = {
+  id: string;
+  name: string;
+  category: string;
+  amount: number;
+  date: Date;
+  status: 'paid' | 'missed' | 'upcoming';
+};
+
+/**
+ * Recurring payments due inside a date range, paid ones included.
+ *
+ * generatePaymentSchedule walks in zoned wall-clock time so "the 5th of each month"
+ * stays the 5th; the dates are converted back to true instants here so callers can
+ * render them in the reader's timezone without shifting twice.
+ */
+export const getRecurringPaymentsInRange = (
+  recurringPayment: RecurringPayment,
+  linkedStatements: LinkedStatement[],
+  timezone: string,
+  rangeStart: Date,
+  rangeEnd: Date,
+): ScheduledRecurringPayment[] => {
+  const { schedule } = generatePaymentSchedule(
+    recurringPayment,
+    linkedStatements,
+    timezone,
+    rangeEnd,
+  );
+
+  return schedule.flatMap((entry) => {
+    const date = fromZonedTime(entry.scheduledDate, timezone);
+    if (date < rangeStart || date > rangeEnd) {
+      return [];
+    }
+    return [
+      {
+        id: recurringPayment.id,
+        name: recurringPayment.name,
+        category: recurringPayment.category,
+        amount: entry.expectedAmount,
+        date,
+        status: entry.status,
+      },
+    ];
+  });
 };
