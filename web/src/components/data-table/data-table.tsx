@@ -23,7 +23,12 @@ type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
   enablePagination?: boolean;
   showBorder?: boolean;
   background?: boolean;
+  onRowClick?: (item: TData) => void;
 };
+
+// A row can hold its own buttons, links and dialog triggers; a click on one of
+// those is meant for the control, not for the row.
+const INTERACTIVE_SELECTOR = 'a, button, input, select, textarea, [role="checkbox"]';
 
 export const DataTable = <TData extends object>({
   table,
@@ -35,6 +40,7 @@ export const DataTable = <TData extends object>({
   enablePagination = true,
   showBorder = true,
   background = true,
+  onRowClick,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -80,7 +86,25 @@ export const DataTable = <TData extends object>({
                       asChild
                       value={getItemValue(row.original)}
                     >
-                      <TableRow data-state={row.getIsSelected() && 'selected'}>
+                      <TableRow
+                        className={cn(
+                          onRowClick !== undefined && 'hover:bg-muted/50 cursor-pointer',
+                        )}
+                        data-state={row.getIsSelected() && 'selected'}
+                        onClick={
+                          onRowClick === undefined
+                            ? undefined
+                            : (event) => {
+                                if (
+                                  (event.target as HTMLElement).closest(INTERACTIVE_SELECTOR) !==
+                                  null
+                                ) {
+                                  return;
+                                }
+                                onRowClick(row.original);
+                              }
+                        }
+                      >
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}

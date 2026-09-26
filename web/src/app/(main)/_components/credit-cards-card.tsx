@@ -1,7 +1,9 @@
 'use client';
 
+import Link from 'next/link';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 
@@ -63,9 +65,12 @@ export const CreditCardsCard = ({
             const availableLimit = totalLimit - limitUtilized;
 
             return [
-              <Popover key={card.id}>
-                <PopoverTrigger asChild>
-                  <div className="hover:bg-muted/50 cursor-pointer rounded-lg border p-3 transition-colors">
+              <HoverCard key={card.id} closeDelay={100} openDelay={150}>
+                <HoverCardTrigger asChild>
+                  <Link
+                    className="hover:bg-muted/50 focus-visible:ring-ring block rounded-lg border p-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                    href={`/statements?account=${card.accountId}`}
+                  >
                     <div className="mb-2 flex items-center justify-between">
                       <span className="font-medium">{card.accountName}</span>
                       <span className="text-muted-foreground text-sm">
@@ -94,9 +99,9 @@ export const CreditCardsCard = ({
                         style={{ width: `${Math.min((limitUtilized / totalLimit) * 100, 100)}%` }}
                       />
                     </div>
-                  </div>
-                </PopoverTrigger>
-                <PopoverContent className="w-80">
+                  </Link>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-80">
                   <div className="space-y-2">
                     <h4 className="font-semibold">{card.accountName}</h4>
                     <div className="space-y-1 text-sm">
@@ -133,8 +138,8 @@ export const CreditCardsCard = ({
                       </div>
                     </div>
                   </div>
-                </PopoverContent>
-              </Popover>,
+                </HoverCardContent>
+              </HoverCard>,
             ];
           })}
         </div>

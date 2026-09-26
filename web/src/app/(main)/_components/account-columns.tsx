@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { type ColumnDef } from '@tanstack/react-table';
 import { Trash } from 'lucide-react';
 
@@ -100,6 +102,22 @@ const FriendActions = ({ row, onRefresh }: { row: FriendSummary; onRefresh: () =
   );
 };
 
+const StatementsLink = ({
+  item,
+}: {
+  item: (AccountSummary & CreditCardAccount) | FriendSummary;
+}) => {
+  const isFriend = isFriendSummary(item);
+  return (
+    <Link
+      className="hover:underline"
+      href={`/statements?account=${isFriend ? item.friend.id : item.account.id}`}
+    >
+      {isFriend ? item.friend.name : item.account.accountName}
+    </Link>
+  );
+};
+
 export const createAccountColumns = (
   onRefresh: () => void,
 ): ColumnDef<(AccountSummary & CreditCardAccount) | FriendSummary>[] => {
@@ -108,6 +126,9 @@ export const createAccountColumns = (
       id: 'name',
       header: 'Account Name',
       accessorFn: (row) => (isFriendSummary(row) ? row.friend.name : row.account.accountName),
+      // A real link, so the row is reachable by keyboard and opens in a new tab on
+      // middle click -- the row-level handler only covers pointer clicks.
+      cell: ({ row }) => <StatementsLink item={row.original} />,
     },
     {
       id: 'startingBalance',
