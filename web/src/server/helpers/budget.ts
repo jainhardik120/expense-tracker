@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lt } from 'drizzle-orm';
+import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
 
 import {
   type budgetIncomeLines,
@@ -26,6 +26,8 @@ export const parseRule = (value: unknown): BudgetRule => {
 
 type ScopedStatement = MatchableStatement & {
   id: string;
+  /** Set when the statement is a loan instalment, which is how a line finds its loans. */
+  emiId: string | null;
   createdAt: Date;
   /** What this cost me: the amount less whatever friends owe on it. */
   myAmount: number;
@@ -51,6 +53,7 @@ export const getStatementsInWindow = instrumentedFunction(
         accountId: statements.accountId,
         friendId: statements.friendId,
         amount: statements.amount,
+        emiId: sql<string | null>`${statements.additionalAttributes}->>'emiId'`,
       })
       .from(statements)
       .where(
@@ -90,6 +93,7 @@ export const getStatementsInWindow = instrumentedFunction(
       tags: row.tags,
       statementKind: row.statementKind,
       amount: Number(row.amount),
+      emiId: row.emiId,
       accountRefs: [row.accountId, row.friendId],
       myAmount: Number(row.amount) - (owedByFriends.get(row.id) ?? 0),
     }));
@@ -257,3 +261,61 @@ export const summariseByCycle = (
       total: Object.values(perLine).reduce((sum, value) => sum + value, 0),
     }));
 };
+
+/**
+ * What the loan schedule says a line will cost inside the window.
+ *
+ * An instalment plan rarely lines up with a budget year -- a holiday taken in
+ * March runs nine of its twenty-four months before December, a gym subscription
+ * is annual but paid off in nine -- so there is no honest monthly figure to type
+ * in. The schedule already knows; it is asked rather than guessed at.
+ *
+ * Which loans a line covers is decided the same way everything else is: by the
+ * statements its rule claims. An instalment already paid is a statement carrying
+ * its loan's id, so the loans a line owns are the ones behind its own rows.
+ */
+export const getScheduledTotals = instrumentedFunction(
+  'getScheduledTotals',
+  async (
+    db: Database,
+    userId: string,
+    lines: BudgetLineRow[],
+    scoped: ScopedStatement[],
+    from: Date,
+    to: Date,
+    now: Date,
+  ): Promise<Map<string, { year: number; toDate: number }>> => {
+    const scheduleLines = lines.filter((line) => line.allocationKind === 'schedule');
+    const totals = new Map<string, { year: number; toDate: number }>();
+    if (scheduleLines.length === 0) {
+      return totals;
+    }
+
+    const emis = await getEMIs(db, userId, {
+      completed: undefined,
+      perPage: 100,
+      page: 1,
+      accountId: [],
+      creditId: [],
+    });
+
+    for (const line of scheduleLines) {
+      const rule = parseRule(line.rule);
+      const emiIds = new Set(
+        scoped
+          .filter((statement) => matchesRule(statement, rule) && statement.emiId !== null)
+          .map((statement) => statement.emiId),
+      );
+      const payments = emis
+        .filter((emi) => emiIds.has(emi.id))
+        .flatMap((emi) => getEmiPaymentsInRange(emi, emi.creditCardName, from, to, now));
+      totals.set(line.id, {
+        year: payments.reduce((sum, payment) => sum + payment.myShare, 0),
+        toDate: payments
+          .filter((payment) => payment.date <= now)
+          .reduce((sum, payment) => sum + payment.myShare, 0),
+      });
+    }
+    return totals;
+  },
+);

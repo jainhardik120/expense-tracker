@@ -89,11 +89,17 @@ export const BudgetVariance = ({ detail }: { detail: Detail }) => {
   const over = spendLines
     .filter((line) => line.variance > 0.5)
     .sort((a, b) => b.variance - a.variance);
-  const under = spendLines
-    .filter((line) => line.variance < -0.5)
+  const under = spendLines.filter((line) => line.variance < -0.5);
+  // Money not spent is only saved if nothing is still coming for it. An envelope
+  // holds its balance for the trip yet to be booked; rent paid under budget is
+  // not a plan to overpay later.
+  const reserved = under
+    .filter((line) => !line.unspentIsSaved)
     .sort((a, b) => a.variance - b.variance);
+  const saved = under.filter((line) => line.unspentIsSaved).sort((a, b) => a.variance - b.variance);
   const overTotal = over.reduce((sum, line) => sum + line.variance, 0);
-  const underTotal = under.reduce((sum, line) => sum + line.variance, 0);
+  const reservedTotal = reserved.reduce((sum, line) => sum + line.variance, 0);
+  const savedTotal = saved.reduce((sum, line) => sum + line.variance, 0);
 
   return (
     <Card>
@@ -113,13 +119,22 @@ export const BudgetVariance = ({ detail }: { detail: Detail }) => {
           tone="over"
           total={overTotal}
         />
-        {under.length === 0 ? null : (
+        {saved.length === 0 ? null : (
           <Section
-            blurb="Still in the budget. Not saving — most of it is reserved and will be spent."
-            rows={under}
-            title="Not spent yet"
+            blurb="Spent less than planned with nothing still to come for it, so this went straight to investment."
+            rows={saved}
+            title="Saved by spending less"
             tone="under"
-            total={underTotal}
+            total={savedTotal}
+          />
+        )}
+        {reserved.length === 0 ? null : (
+          <Section
+            blurb="Still in the envelope and still to be spent — held back, not saved."
+            rows={reserved}
+            title="Set aside, not yet spent"
+            tone="under"
+            total={reservedTotal}
           />
         )}
       </CardContent>

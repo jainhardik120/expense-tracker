@@ -1,0 +1,1 @@
+ALTER TYPE "public"."budget_allocation_kind" ADD VALUE 'schedule';

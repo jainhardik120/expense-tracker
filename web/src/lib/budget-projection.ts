@@ -4,15 +4,23 @@ const MONTHS_PER_YEAR = 12;
 export type LineForProjection = {
   lineId: string;
   name: string;
-  allocationKind: 'monthly' | 'annual' | 'residual' | 'earmarked';
+  allocationKind: 'monthly' | 'annual' | 'residual' | 'earmarked' | 'schedule';
   allocationAmount: number;
   discretionary: boolean;
   actual: number;
   /** Income routed specifically at this line -- a trip paid for out of a bonus. */
   earmarkedIncome: number;
+  /** For schedule lines: what the loan schedule says falls inside the window. */
+  scheduled: { year: number; toDate: number };
 };
 
 export type ProjectedLine = LineForProjection & {
+  /**
+   * Whether money not spent here is reserved for later or simply saved. An
+   * envelope holds its balance for the trip still to be booked; paying less rent
+   * than budgeted is not a plan to pay more rent later, it is money saved.
+   */
+  unspentIsSaved: boolean;
   /** What this line gets for the whole year. */
   yearBudget: number;
   /**
@@ -78,6 +86,8 @@ export const project = (
         return line.allocationAmount + line.earmarkedIncome;
       case 'earmarked':
         return line.earmarkedIncome;
+      case 'schedule':
+        return line.scheduled.year + line.earmarkedIncome;
       case 'residual':
       default:
         return 0;
@@ -88,6 +98,19 @@ export const project = (
     .filter((line) => line.allocationKind !== 'residual')
     .reduce((sum, line) => sum + yearBudgetFor(line), 0);
 
+  const budgetToDateFor = (line: LineForProjection, yearBudget: number): number => {
+    // A monthly rate accrues a twelfth at a time. A schedule knows exactly which
+    // instalments have fallen. An envelope is a pot for the whole year, so
+    // spending it in March is early rather than excessive.
+    if (line.allocationKind === 'monthly') {
+      return line.allocationAmount * elapsedMonths + line.earmarkedIncome;
+    }
+    if (line.allocationKind === 'schedule') {
+      return line.scheduled.toDate + line.earmarkedIncome;
+    }
+    return yearBudget;
+  };
+
   const projected = lines.map<ProjectedLine>((line) => {
     const yearBudget =
       line.allocationKind === 'residual'
@@ -97,12 +120,10 @@ export const project = (
     // Monthly lines accrue a twelfth at a time, so only what has accrued counts.
     // An envelope is a pot for the whole year: spending it in March is early,
     // not excessive, and pro-rating it would call that overspending.
-    const budgetToDate =
-      line.allocationKind === 'monthly'
-        ? line.allocationAmount * elapsedMonths + line.earmarkedIncome
-        : yearBudget;
+    const budgetToDate = budgetToDateFor(line, yearBudget);
     return {
       ...line,
+      unspentIsSaved: line.allocationKind !== 'annual',
       yearBudget,
       budgetToDate,
       variance: line.actual - budgetToDate,

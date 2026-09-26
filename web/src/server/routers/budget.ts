@@ -7,6 +7,7 @@ import { monthsBetween, project } from '@/lib/budget-projection';
 import { matchesRule } from '@/lib/budget-rules';
 import {
   getRemainingEmiCash,
+  getScheduledTotals,
   getStatementsInWindow,
   parseRule,
   summariseByCycle,
@@ -116,6 +117,16 @@ export const budgetRouter = createTRPCRouter({
         0,
       );
 
+      const scheduled = await getScheduledTotals(
+        ctx.db,
+        ctx.user.id,
+        lines,
+        scoped,
+        year.startDate,
+        year.endDate,
+        now,
+      );
+
       const projection = project(
         totals.map((line) => ({
           lineId: line.lineId,
@@ -125,6 +136,7 @@ export const budgetRouter = createTRPCRouter({
           discretionary: line.discretionary,
           actual: line.actual,
           earmarkedIncome: income.earmarked.get(line.lineId) ?? 0,
+          scheduled: scheduled.get(line.lineId) ?? { year: 0, toDate: 0 },
         })),
         income.waterfall,
         cyclesElapsed,

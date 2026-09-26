@@ -17,6 +17,7 @@ const line = (over = {}) => ({
   discretionary: true,
   actual: 0,
   earmarkedIncome: 0,
+  scheduled: { year: 0, toDate: 0 },
   ...over,
 });
 
@@ -157,4 +158,38 @@ test('spending an envelope early is not overspending it', () => {
     12,
   );
   assert.equal(lines[0].variance, 0);
+});
+
+test('a schedule line is budgeted from the instalments that fall inside the year', () => {
+  // a plan started in March runs nine of its months before the year closes
+  const { lines } = project(
+    [
+      line({
+        allocationKind: 'schedule',
+        allocationAmount: 0,
+        scheduled: { year: 36900, toDate: 24903 },
+        actual: 24903,
+      }),
+    ],
+    0,
+    10,
+    12,
+  );
+  assert.equal(lines[0].yearBudget, 36900);
+  assert.equal(lines[0].budgetToDate, 24903);
+  assert.equal(lines[0].variance, 0);
+});
+
+test('unspent rent is saved, unspent envelope is reserved', () => {
+  const { lines } = project(
+    [
+      line({ lineId: 'rent', allocationKind: 'monthly', allocationAmount: 22000, actual: 219000 }),
+      line({ lineId: 'flights', allocationKind: 'annual', allocationAmount: 60000, actual: 37640 }),
+    ],
+    0,
+    10,
+    12,
+  );
+  assert.equal(lines[0].unspentIsSaved, true);
+  assert.equal(lines[1].unspentIsSaved, false);
 });

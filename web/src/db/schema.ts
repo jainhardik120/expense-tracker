@@ -486,6 +486,10 @@ export const budgetAllocationKindEnum = pgEnum('budget_allocation_kind', [
   'residual',
   // Funded only by income earmarked to it -- a trip paid for out of a bonus.
   'earmarked',
+  // Taken from the loan schedule rather than typed in. An instalment plan that
+  // starts in March or runs nine months of a twelve month year has no sensible
+  // monthly figure for the year, so the schedule is asked instead.
+  'schedule',
 ]);
 
 /**

@@ -34,7 +34,13 @@ export const emptyBudgetRule: BudgetRule = {
   minAmount: null,
 };
 
-export const budgetAllocationKinds = ['monthly', 'annual', 'residual', 'earmarked'] as const;
+export const budgetAllocationKinds = [
+  'monthly',
+  'annual',
+  'residual',
+  'earmarked',
+  'schedule',
+] as const;
 export const budgetIncomeDestinations = ['waterfall', 'line', 'excluded'] as const;
 
 const NAME_REQUIRED = 'Name is required';
