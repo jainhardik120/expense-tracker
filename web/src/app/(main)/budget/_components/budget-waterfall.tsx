@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 
-import { Trash } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pencil, Trash } from 'lucide-react';
+import { z } from 'zod';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import MutationModal from '@/components/mutation-modal';
@@ -76,6 +77,99 @@ const describeAllocation = (kind: string, amount: number): string => {
   return suffix === undefined ? '—' : `${formatCurrency(amount)} ${suffix}`;
 };
 
+const EditLine = ({
+  line,
+  budgetYearId,
+}: {
+  line: Detail['lines'][number] | undefined;
+  budgetYearId: string;
+}) => {
+  const router = useRouter();
+  const mutation = api.budget.updateLine.useMutation();
+  if (line === undefined) {
+    return null;
+  }
+  return (
+    <MutationModal
+      button={
+        <Button className="size-8" size="icon" variant="ghost">
+          <Pencil />
+        </Button>
+      }
+      defaultValues={{
+        id: line.id,
+        budgetYearId,
+        name: line.name,
+        rule: line.rule as BudgetRule,
+        allocationKind: line.allocationKind,
+        allocationAmount: line.allocationAmount,
+        discretionary: line.discretionary,
+      }}
+      fields={lineFields}
+      mutation={mutation}
+      refresh={() => {
+        router.refresh();
+      }}
+      schema={budgetLineFormSchema.extend({ id: z.string() })}
+      successToast={() => 'Line updated'}
+      titleText={`Edit ${line.name}`}
+    />
+  );
+};
+
+/** Order is the semantics, so moving a line is a first class action. */
+const MoveLine = ({
+  orderedIds,
+  index,
+  budgetYearId,
+}: {
+  orderedIds: string[];
+  index: number;
+  budgetYearId: string;
+}) => {
+  const router = useRouter();
+  const mutation = api.budget.reorderLines.useMutation();
+  const move = (to: number) => {
+    const next = [...orderedIds];
+    const [moved] = next.splice(index, 1);
+    next.splice(to, 0, moved);
+    mutation.mutate(
+      { budgetYearId, orderedIds: next },
+      {
+        onSuccess: () => {
+          router.refresh();
+        },
+      },
+    );
+  };
+  return (
+    <div className="flex">
+      <Button
+        className="size-8"
+        disabled={index === 0}
+        size="icon"
+        variant="ghost"
+        onClick={() => {
+          move(index - 1);
+        }}
+      >
+        <ChevronUp />
+      </Button>
+      <Button
+        className="size-8"
+        disabled={index === orderedIds.length - 1}
+        size="icon"
+        variant="ghost"
+        onClick={() => {
+          move(index + 1);
+        }}
+      >
+        <ChevronDown />
+      </Button>
+    </div>
+  );
+};
+
 const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) => {
   const router = useRouter();
   const mutation = api.budget.deleteLine.useMutation();
@@ -100,6 +194,8 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
   const { year, lines, totals, projection, unclaimedCount, unclaimedTotal } = detail;
   const projected = new Map(projection.lines.map((line) => [line.lineId, line]));
   const ruleById = new Map(lines.map((line) => [line.id, line.rule as BudgetRule]));
+  const lineById = new Map(lines.map((line) => [line.id, line]));
+  const orderedIds = totals.map((line) => line.lineId);
 
   return (
     <Card>
@@ -175,8 +271,12 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
                 <TableCell className="text-muted-foreground text-right tabular-nums">
                   {formatCurrency(projected.get(line.lineId)?.perMonthRemaining ?? 0)}
                 </TableCell>
-                <TableCell className="text-right">
-                  <DeleteLine budgetYearId={year.id} id={line.lineId} />
+                <TableCell>
+                  <div className="flex justify-end">
+                    <MoveLine budgetYearId={year.id} index={index} orderedIds={orderedIds} />
+                    <EditLine budgetYearId={year.id} line={lineById.get(line.lineId)} />
+                    <DeleteLine budgetYearId={year.id} id={line.lineId} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
