@@ -264,6 +264,9 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
     defaultColumn: {
       ...tableProps.defaultColumn,
       enableColumnFilter: false,
+      // Opt in, like filtering. Sorting is done in SQL, so a column is only
+      // sortable once the server knows how to order by it.
+      enableSorting: false,
     },
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,

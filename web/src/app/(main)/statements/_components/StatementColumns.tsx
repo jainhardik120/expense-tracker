@@ -3,6 +3,7 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { GripVertical, Trash } from 'lucide-react';
 
+import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -199,7 +200,7 @@ export const createStatementColumns = ({
   },
   {
     accessorKey: 'createdAt',
-    header: 'Date',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
     cell: ({ row }) => {
       const date = row.original.createdAt;
       return <DateCell date={date} />;
@@ -210,6 +211,7 @@ export const createStatementColumns = ({
       variant: 'dateRange',
     },
     enableColumnFilter: true,
+    enableSorting: true,
   },
   {
     id: 'statementKind',
@@ -235,7 +237,8 @@ export const createStatementColumns = ({
   },
   {
     accessorKey: 'amount',
-    header: 'Amount',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
+    enableSorting: true,
     cell: ({ row }) => {
       const amount = Number.parseFloat(row.original.amount);
       return (
@@ -256,7 +259,8 @@ export const createStatementColumns = ({
   {
     id: 'category',
     accessorKey: 'category',
-    header: 'Category',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
+    enableSorting: true,
     cell: ({ row }) => <>{isSelfTransfer(row.original) ? '-' : row.original.category}</>,
     meta: {
       label: 'Category',

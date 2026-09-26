@@ -12,6 +12,7 @@ import {
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
+  type StatementSort,
   type StatementKind,
   type accountFriendStatementsParserSchema,
   type SelfTransferStatement,
@@ -159,6 +160,18 @@ const generateStatementUnionOverviewQuery = (db: Database) => {
   ).as('union_query');
 };
 
+/**
+ * Sortable columns, mapped to what the union query can order on.
+ *
+ * Ordering happens in SQL because the table is paginated -- sorting the page in
+ * the browser would only reorder the rows that happened to land on it.
+ */
+const sortableColumns = (union: ReturnType<typeof generateStatementUnionDetailedQuery>) => ({
+  date: union.createdAt,
+  amount: union.amount,
+  category: union.category,
+});
+
 const getMergedStatementsDetailedRaw = (
   db: Database,
   userId: string,
@@ -166,6 +179,7 @@ const getMergedStatementsDetailedRaw = (
   category: string[],
   tags: string[],
   statementKind: StatementKind[],
+  sort: StatementSort,
   start?: Date,
   end?: Date,
 ) => {
@@ -202,11 +216,20 @@ const getMergedStatementsDetailedRaw = (
   if (statementKind.length > 0) {
     conditions.push(inArray(union.statementKind, statementKind));
   }
-  return db
-    .select()
-    .from(union)
-    .where(and(...conditions))
-    .orderBy(desc(union.createdAt), asc(union.id));
+  const columns = sortableColumns(union);
+  const ordering =
+    sort.length > 0
+      ? sort.map((entry) => (entry.desc ? desc(columns[entry.id]) : asc(columns[entry.id])))
+      : [desc(union.createdAt)];
+  return (
+    db
+      .select()
+      .from(union)
+      .where(and(...conditions))
+      // Id last as a tiebreaker: without it rows that compare equal can swap
+      // between pages and the same row shows up twice, or not at all.
+      .orderBy(...ordering, asc(union.id))
+  );
 };
 
 export const getMergedStatements = instrumentedFunction(
@@ -224,6 +247,7 @@ export const getMergedStatements = instrumentedFunction(
       input.category,
       input.tags,
       input.statementKind,
+      input.sort,
       input.start,
       input.end,
     );
@@ -403,7 +427,9 @@ const getFriendSplitsLimited = instrumentedFunction(
   async (
     db: Database,
     userId: string,
-    limit: number,
+    page: number,
+    perPage: number,
+    ascending: boolean,
     account: string,
     start?: Date,
     end?: Date,
@@ -426,14 +452,16 @@ const getFriendSplitsLimited = instrumentedFunction(
         or(inArray(union.friendId, [account]), inArray(union.id, statementIdsWithSplits)),
       );
     }
-    const selectedStatements = db.$with('selected_statements').as(
-      db
-        .select()
-        .from(union)
-        .where(and(...conditions))
-        .orderBy(desc(union.createdAt), asc(union.id))
-        .offset(limit),
-    );
+    // Same "everything before this page" slice as the balance query, picked from
+    // whichever end the current direction puts the earlier rows at.
+    const ordered = db
+      .select()
+      .from(union)
+      .where(and(...conditions))
+      .orderBy(ascending ? asc(union.createdAt) : desc(union.createdAt), asc(union.id));
+    const selectedStatements = db
+      .$with('selected_statements')
+      .as(ascending ? ordered.limit((page - 1) * perPage) : ordered.offset(page * perPage));
     return db
       .with(selectedStatements)
       .select({
@@ -457,6 +485,7 @@ const getStartingBalancesPaginated = instrumentedFunction(
     db: Database,
     userId: string,
     input: z.infer<typeof accountFriendStatementsParserSchema>,
+    ascending: boolean,
   ) => {
     const accountStartingBalanceBeforeStart = (
       await getAccountsAndStartingBalances(db, userId, input.start)
@@ -464,7 +493,10 @@ const getStartingBalancesPaginated = instrumentedFunction(
     const friendsStartingBalanceBeforeStart = (
       await getFriendsAndStartingBalances(db, userId, input.start)
     ).find((friend) => friend.friend.id === input.account);
-    const limit = input.page * input.perPage;
+    // Everything that happened before the page, summed, gives the balance the
+    // page opens on. Which rows those are depends on the direction: reading
+    // newest first they are the ones past the page, reading oldest first they
+    // are the ones before it.
     const rawQuery = getMergedStatementsDetailedRaw(
       db,
       userId,
@@ -472,10 +504,14 @@ const getStartingBalancesPaginated = instrumentedFunction(
       [],
       [],
       [],
+      ascending ? [{ id: 'date', desc: false }] : [],
       input.start,
       input.end,
     );
-    const selectedRows = db.$with('selected_rows').as(rawQuery.offset(limit));
+    const priorRows = ascending
+      ? rawQuery.limit((input.page - 1) * input.perPage)
+      : rawQuery.offset(input.page * input.perPage);
+    const selectedRows = db.$with('selected_rows').as(priorRows);
     const aggregatedStatementsSummary = await db
       .with(selectedRows)
       .select({
@@ -528,7 +564,9 @@ const getStartingBalancesPaginated = instrumentedFunction(
       const friendSplits = await getFriendSplitsLimited(
         db,
         userId,
-        limit,
+        input.page,
+        input.perPage,
+        ascending,
         input.account,
         input.start,
         input.end,
@@ -562,15 +600,18 @@ export const mergeRawStatementsWithSummary = instrumentedFunction(
     mergeWithAccountFriendId: string,
     rawStatements: (Statement | SelfTransferStatement)[],
     input: Omit<z.infer<typeof statementParserSchema>, 'account'>,
+    ascending: boolean,
   ) => {
     let splitTotal: {
       statementId: string;
       total: number;
     }[] = [];
-    const summary = await getStartingBalancesPaginated(db, userId, {
-      ...input,
-      account: mergeWithAccountFriendId,
-    });
+    const summary = await getStartingBalancesPaginated(
+      db,
+      userId,
+      { ...input, account: mergeWithAccountFriendId },
+      ascending,
+    );
     if ('friend' in summary) {
       splitTotal = await db
         .select({
@@ -590,30 +631,24 @@ export const mergeRawStatementsWithSummary = instrumentedFunction(
         .groupBy(splits.statementId);
     }
     let startingBalance = summary.finalBalance;
+    // Accumulate oldest to newest, then put the rows back the way they came.
+    const chronological = ascending ? rawStatements : rawStatements.toReversed();
+    const withBalances = chronological.map((statement) => {
+      if ('account' in summary && mergeWithAccountFriendId === summary.account.id) {
+        const change = getChangeForAccount(mergeWithAccountFriendId, statement);
+        startingBalance += change;
+        return { ...statement, finalBalance: startingBalance };
+      }
+      if ('friend' in summary && mergeWithAccountFriendId === summary.friend.id) {
+        const change = getChangeForFriend(mergeWithAccountFriendId, statement, splitTotal);
+        startingBalance += change;
+        return { ...statement, finalBalance: startingBalance };
+      }
+      return statement;
+    });
     return {
       summary,
-      statements: rawStatements
-        .toReversed()
-        .map((statement) => {
-          if ('account' in summary && mergeWithAccountFriendId === summary.account.id) {
-            const change = getChangeForAccount(mergeWithAccountFriendId, statement);
-            startingBalance += change;
-            return {
-              ...statement,
-              finalBalance: startingBalance,
-            };
-          }
-          if ('friend' in summary && mergeWithAccountFriendId === summary.friend.id) {
-            const change = getChangeForFriend(mergeWithAccountFriendId, statement, splitTotal);
-            startingBalance += change;
-            return {
-              ...statement,
-              finalBalance: startingBalance,
-            };
-          }
-          return statement;
-        })
-        .reverse(),
+      statements: ascending ? withBalances : withBalances.toReversed(),
     };
   },
 );

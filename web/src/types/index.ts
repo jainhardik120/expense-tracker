@@ -26,6 +26,7 @@ import {
   type smsNotifications,
 } from '@/db/schema';
 import { investmentKindValues, isUnitBasedInvestment, stockMarketValues } from '@/lib/investments';
+import { sortStateParser } from '@/lib/parsers';
 
 export const statementKindMap = {
   expense: 'Expense',
@@ -430,8 +431,20 @@ export const aggregationParser = {
   ...dateParser,
 };
 
+/**
+ * Columns the statements table can be ordered by. Sorting is done in SQL, so a
+ * column is only sortable if it maps to something the query can order on.
+ */
+export const STATEMENT_SORTABLE_COLUMNS = ['date', 'amount', 'category'] as const;
+
+export const statementSortSchema = z
+  .array(z.object({ id: z.enum(STATEMENT_SORTABLE_COLUMNS), desc: z.boolean() }))
+  .optional()
+  .default([]);
+
 export const statementParser = {
   ...pageParser,
+  sort: sortStateParser(STATEMENT_SORTABLE_COLUMNS).withDefault([]),
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
   account: parseAsArrayOf(parseAsString, ',').withDefault([]),
   category: parseAsArrayOf(parseAsString, ',').withDefault([]),
@@ -466,9 +479,12 @@ export const summaryParser = {
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
 
+export type StatementSort = z.infer<typeof statementSortSchema>;
+
 export const statementParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
+  sort: statementSortSchema,
   statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional().default([]),
   account: z.string().array().optional().default([]),
   category: z.string().array().optional().default([]),
