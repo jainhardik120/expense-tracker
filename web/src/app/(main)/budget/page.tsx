@@ -1,6 +1,7 @@
 import { api } from '@/server/server';
 
 import { BudgetHeadline } from './_components/budget-headline';
+import { BudgetCycles } from './_components/budget-cycles';
 import { BudgetVariance } from './_components/budget-variance';
 import { BudgetWaterfall } from './_components/budget-waterfall';
 import { BudgetYearPicker } from './_components/budget-year-picker';
@@ -24,6 +25,7 @@ export default async function BudgetPage({
       <BudgetHeadline detail={detail} />
       <BudgetVariance detail={detail} />
       <BudgetWaterfall detail={detail} />
+      <BudgetCycles detail={detail} />
     </div>
   );
 }

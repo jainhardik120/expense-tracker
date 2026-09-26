@@ -9,6 +9,7 @@ import {
   getRemainingEmiCash,
   getStatementsInWindow,
   parseRule,
+  summariseByCycle,
   summariseIncome,
   summariseLines,
 } from '@/server/helpers/budget';
@@ -167,6 +168,7 @@ export const budgetRouter = createTRPCRouter({
         totals,
         projection,
         outlook,
+        cycles: summariseByCycle(lines, scoped, year.startDate.getDate()),
         unclaimedCount: unclaimed.length,
         unclaimedTotal: unclaimed.reduce((sum, s) => sum + s.myAmount, 0),
       };

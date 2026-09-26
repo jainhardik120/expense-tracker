@@ -209,3 +209,51 @@ export const getRemainingEmiCash = instrumentedFunction(
       .reduce((sum, payment) => sum + payment.myShare, 0);
   },
 );
+
+export type CycleRow = {
+  cycle: string;
+  perLine: Record<string, number>;
+  total: number;
+};
+
+/**
+ * Spending per pay cycle rather than per calendar month.
+ *
+ * A salary arriving on the 24th makes the 24th the start of the month that
+ * matters: rent, money home and everything else are paid out of it. Bucketing
+ * by calendar month would split a single cycle's spending across two rows.
+ */
+export const summariseByCycle = (
+  lines: BudgetLineRow[],
+  scoped: ScopedStatement[],
+  cycleStartDay: number,
+): CycleRow[] => {
+  const ordered = [...lines].sort((a, b) => a.position - b.position);
+  const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
+  const byCycle = new Map<string, Record<string, number>>();
+
+  for (const statement of scoped) {
+    const index = assignToLine(statement, parsed);
+    if (index === -1) {
+      continue;
+    }
+    const date = statement.createdAt;
+    // Anything before the cycle day belongs to the cycle that opened last month.
+    const shifted = new Date(date);
+    if (shifted.getDate() < cycleStartDay) {
+      shifted.setMonth(shifted.getMonth() - 1);
+    }
+    const key = `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
+    const row = byCycle.get(key) ?? {};
+    row[parsed[index].name] = (row[parsed[index].name] ?? 0) + statement.myAmount;
+    byCycle.set(key, row);
+  }
+
+  return [...byCycle.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([cycle, perLine]) => ({
+      cycle,
+      perLine,
+      total: Object.values(perLine).reduce((sum, value) => sum + value, 0),
+    }));
+};

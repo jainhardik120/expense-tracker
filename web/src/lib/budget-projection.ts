@@ -81,6 +81,8 @@ export const project = (
     }
   };
 
+  const elapsedFraction = totalMonths > 0 ? elapsedMonths / totalMonths : 0;
+
   const claimedByOthers = lines
     .filter((line) => line.allocationKind !== 'residual')
     .reduce((sum, line) => sum + yearBudgetFor(line), 0);
@@ -97,9 +99,7 @@ export const project = (
     const budgetToDate =
       line.allocationKind === 'monthly'
         ? line.allocationAmount * elapsedMonths
-        : totalMonths > 0
-          ? (yearBudget * elapsedMonths) / totalMonths
-          : 0;
+        : yearBudget * elapsedFraction;
     return {
       ...line,
       yearBudget,
