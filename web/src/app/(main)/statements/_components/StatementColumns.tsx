@@ -263,14 +263,18 @@ export const createStatementColumns = ({
       label: 'Expense',
     },
   },
-  {
-    id: 'finalBalance',
-    accessorFn: (row) => (row.finalBalance ?? 0).toFixed(2),
-    header: startingBalance?.name ?? '-',
-    meta: {
-      label: 'Final Balance',
-    },
-  },
+  ...((startingBalance === undefined
+    ? []
+    : [
+        {
+          id: 'finalBalance',
+          accessorFn: (row) => (row.finalBalance ?? 0).toFixed(2),
+          header: startingBalance.name,
+          meta: {
+            label: 'Final Balance',
+          },
+        },
+      ]) satisfies ColumnDef<Statement | SelfTransferStatement>[]),
   {
     id: 'tags',
     accessorKey: 'tags',
