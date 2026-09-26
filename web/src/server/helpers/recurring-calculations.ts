@@ -381,3 +381,79 @@ export const getRecurringPaymentsInRange = (
     ];
   });
 };
+
+const MAX_SCHEDULE_ITERATIONS = 10000;
+
+/**
+ * Find the scheduled occurrence a statement could belong to.
+ *
+ * Returns the occurrence closest to the statement date when it falls inside the
+ * payment's active window and within the frequency tolerance, otherwise null.
+ */
+export const findScheduledOccurrence = (
+  recurringPayment: RecurringPayment,
+  statementDate: Date,
+  timezone: string,
+): Date | null => {
+  const multiplier = parseFloat(recurringPayment.frequencyMultiplier);
+  const startDate = startOfDay(toZonedTime(recurringPayment.startDate, timezone));
+  const endDate =
+    recurringPayment.endDate === null
+      ? null
+      : startOfDay(toZonedTime(recurringPayment.endDate, timezone));
+  // Compare at day granularity: a statement's time of day says nothing about
+  // which occurrence it settles, and sub-day tolerances would reject every
+  // match for daily payments.
+  const target = startOfDay(toZonedTime(statementDate, timezone));
+
+  let currentDate = startDate;
+  let closest: Date | null = null;
+  let closestDiff = Number.POSITIVE_INFINITY;
+
+  for (let iteration = 0; iteration < MAX_SCHEDULE_ITERATIONS; iteration++) {
+    if (endDate !== null && isBefore(endDate, currentDate)) {
+      break;
+    }
+    const diff = Math.abs(currentDate.getTime() - target.getTime());
+    if (diff < closestDiff) {
+      closestDiff = diff;
+      closest = currentDate;
+    }
+    if (isBefore(target, currentDate)) {
+      break;
+    }
+    const nextDate = getNextPaymentDate(currentDate, recurringPayment.frequency, multiplier);
+    if (nextDate.getTime() <= currentDate.getTime()) {
+      break;
+    }
+    currentDate = nextDate;
+  }
+
+  if (
+    closest === null ||
+    !isPaymentWithinTolerance(target, closest, recurringPayment.frequency, multiplier)
+  ) {
+    return null;
+  }
+  return closest;
+};
+
+/**
+ * Whether an occurrence already has a statement linked against it.
+ */
+export const isOccurrenceSettled = (
+  recurringPayment: RecurringPayment,
+  occurrence: Date,
+  linkedStatements: LinkedStatement[],
+  timezone: string,
+): boolean => {
+  const multiplier = parseFloat(recurringPayment.frequencyMultiplier);
+  return linkedStatements.some((stmt) =>
+    isPaymentWithinTolerance(
+      startOfDay(toZonedTime(new Date(stmt.createdAt), timezone)),
+      startOfDay(occurrence),
+      recurringPayment.frequency,
+      multiplier,
+    ),
+  );
+};

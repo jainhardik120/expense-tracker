@@ -7,6 +7,8 @@ import {
   isRecurringPaymentActive,
   getPeriodInDays,
   generatePaymentSchedule,
+  findScheduledOccurrence,
+  isOccurrenceSettled,
 } from '@/server/helpers/recurring-calculations';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { createRecurringPaymentSchema, recurringPaymentParserSchema } from '@/types';
@@ -114,6 +116,69 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }
 
       return result;
+    }),
+
+  getLinkCandidates: protectedProcedure
+    .input(z.object({ statementDate: z.date() }))
+    .query(async ({ ctx, input }) => {
+      const timezone = await getTimezone();
+      const allRecurringPayments = await ctx.db
+        .select()
+        .from(recurringPayments)
+        .where(eq(recurringPayments.userId, ctx.user.id));
+      const linkedStatements = await ctx.db
+        .select({
+          id: statements.id,
+          amount: statements.amount,
+          createdAt: statements.createdAt,
+          recurringPaymentId: sql<string>`${statements.additionalAttributes}->>'recurringPaymentId'`,
+        })
+        .from(statements)
+        .where(
+          and(
+            eq(statements.userId, ctx.user.id),
+            sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
+          ),
+        );
+      const linkedByPayment = new Map<string, typeof linkedStatements>();
+      for (const statement of linkedStatements) {
+        const existing = linkedByPayment.get(statement.recurringPaymentId) ?? [];
+        existing.push(statement);
+        linkedByPayment.set(statement.recurringPaymentId, existing);
+      }
+      return allRecurringPayments
+        .map((recurringPayment) => {
+          const occurrence = findScheduledOccurrence(
+            recurringPayment,
+            input.statementDate,
+            timezone,
+          );
+          if (occurrence === null) {
+            return null;
+          }
+          const settled = isOccurrenceSettled(
+            recurringPayment,
+            occurrence,
+            linkedByPayment.get(recurringPayment.id) ?? [],
+            timezone,
+          );
+          if (settled) {
+            return null;
+          }
+          return {
+            id: recurringPayment.id,
+            name: recurringPayment.name,
+            category: recurringPayment.category,
+            amount: recurringPayment.amount,
+            scheduledDate: occurrence,
+          };
+        })
+        .filter((candidate) => candidate !== null)
+        .sort(
+          (left, right) =>
+            Math.abs(left.scheduledDate.getTime() - input.statementDate.getTime()) -
+            Math.abs(right.scheduledDate.getTime() - input.statementDate.getTime()),
+        );
     }),
 
   linkStatement: protectedProcedure

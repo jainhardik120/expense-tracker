@@ -12,7 +12,6 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import {
-  type CreditCardAccount,
   isSelfTransfer,
   type SelfTransferStatement,
   type Statement,
@@ -46,14 +45,12 @@ const Table = ({
   friendsData,
   categories,
   tags,
-  creditAccounts,
 }: {
   data: StatementData;
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
   tags: string[];
-  creditAccounts: CreditCardAccount[];
 }) => {
   const [optimisticData, updateOptimisticData] = useOptimistic<
     (Statement | SelfTransferStatement)[],
@@ -81,8 +78,7 @@ const Table = ({
     friendsData,
     categories,
     tags,
-    creditAccounts,
-    startingBalance:
+      startingBalance:
       data.summary === null
         ? undefined
         : {

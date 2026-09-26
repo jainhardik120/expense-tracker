@@ -18,7 +18,6 @@ import {
   type Account,
   type Friend,
   isSelfTransfer,
-  type CreditCardAccount,
 } from '@/types';
 
 import { LinkToRecurringPaymentDialog } from './RecurringPaymentLink';
@@ -48,14 +47,12 @@ const StatementActions = ({
   accountsData,
   friendsData,
   categories,
-  creditAccounts,
 }: {
   statement: Statement;
   onRefresh: () => void;
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
-  creditAccounts: CreditCardAccount[];
 }) => {
   const mutation = api.statements.deleteStatement.useMutation();
   const { id } = statement;
@@ -66,7 +63,6 @@ const StatementActions = ({
         <StatementSplitsDialog statementData={statement} statementId={id} />
       )}
       <LinkToRecurringPaymentDialog
-        creditAccounts={creditAccounts}
         statement={statement}
         onRefresh={onRefresh}
       />
@@ -126,7 +122,6 @@ export const createStatementColumns = ({
   friendsData,
   categories,
   tags,
-  creditAccounts,
   startingBalance,
 }: {
   onRefreshStatements: () => void;
@@ -134,7 +129,6 @@ export const createStatementColumns = ({
   friendsData: Friend[];
   categories: string[];
   tags: string[];
-  creditAccounts: CreditCardAccount[];
   startingBalance?: {
     name: string;
     amount: number;
@@ -317,8 +311,7 @@ export const createStatementColumns = ({
             <StatementActions
               accountsData={accountsData}
               categories={categories}
-              creditAccounts={creditAccounts}
-              friendsData={friendsData}
+                    friendsData={friendsData}
               statement={row.original}
               onRefresh={onRefreshStatements}
             />

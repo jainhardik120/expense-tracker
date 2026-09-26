@@ -10,7 +10,7 @@ import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
-import type { CreditCardAccount, Emi, RecurringPayment, Statement } from '@/types';
+import type { Statement } from '@/types';
 
 import { TaxableIncomeLinkOption } from './TaxableIncomeLinkOption';
 
@@ -37,37 +37,25 @@ const isAlreadyLinked = (
 
 export const LinkToRecurringPaymentDialog = ({
   statement,
-  creditAccounts,
   onRefresh,
 }: {
   statement: Statement;
-  creditAccounts: CreditCardAccount[];
   onRefresh: () => void;
 }) => {
   const alreadyLinked = isAlreadyLinked(statement);
-  return (
-    <LinkDialog
-      alreadyLinked={alreadyLinked}
-      creditAccounts={creditAccounts}
-      statement={statement}
-      onRefresh={onRefresh}
-    />
-  );
+  return <LinkDialog alreadyLinked={alreadyLinked} statement={statement} onRefresh={onRefresh} />;
 };
 
 export const LinkDialog = ({
   statement,
-  creditAccounts,
   onRefresh,
   alreadyLinked,
 }: {
   statement: Statement;
-  creditAccounts: CreditCardAccount[];
   onRefresh: () => void;
   alreadyLinked: ReturnType<typeof isAlreadyLinked>;
 }) => {
   const [open, setOpen] = useState(false);
-  const creditCard = creditAccounts.find((cc) => cc.accountId === statement.accountId);
   const canLinkSalary =
     statement.statementKind === 'outside_transaction' && Number(statement.amount) > 0;
   const canManageTaxableIncome =
@@ -100,7 +88,6 @@ export const LinkDialog = ({
         ) : (
           <LinkToRecurringPaymentContent
             canLinkSalary={canLinkSalary}
-            creditId={creditCard?.id}
             statementDate={statement.createdAt}
             statementId={statement.id}
             onSuccess={finish}
@@ -151,38 +138,22 @@ const UnlinkContent = ({
   );
 };
 
-const isEMI = (rp: RecurringPayment | Emi): rp is Emi => 'creditId' in rp;
-
 const LinkToRecurringPaymentContent = ({
-  creditId,
   statementDate,
   statementId,
   onSuccess,
   canLinkSalary,
 }: {
-  creditId?: string;
   statementDate: Date;
   statementId: string;
   onSuccess: () => void;
   canLinkSalary: boolean;
 }) => {
-  const { data: recurringPaymentsData, isLoading: recurringLoading } =
-    api.recurringPayments.getRecurringPayments.useQuery({
-      page: 1,
-      perPage: 100,
-      category: [],
-      frequency: [],
-    });
-  const { data: emisData, isLoading: emisLoading } = api.emis.getEmis.useQuery(
-    {
-      creditId: [creditId ?? ''],
-      page: 1,
-      perPage: 100,
-    },
-    {
-      enabled: creditId !== undefined,
-    },
-  );
+  const { data: recurringCandidates, isLoading: recurringLoading } =
+    api.recurringPayments.getLinkCandidates.useQuery({ statementDate });
+  const { data: emiCandidates, isLoading: emisLoading } = api.emis.getLinkCandidates.useQuery({
+    statementId,
+  });
 
   const linkRecurringMutation = api.recurringPayments.linkStatement.useMutation();
   const linkEMIMutation = api.emis.linkStatement.useMutation();
@@ -196,14 +167,15 @@ const LinkToRecurringPaymentContent = ({
     );
   }
 
-  const paymentOptions = [
-    recurringPaymentsData?.recurringPayments ?? [],
-    emisData?.emis ?? [],
-  ].flat();
-  if (paymentOptions.length === 0 && (salaryCandidates?.length ?? 0) === 0) {
+  const candidateCount =
+    (recurringCandidates?.length ?? 0) +
+    (emiCandidates?.length ?? 0) +
+    (salaryCandidates?.length ?? 0);
+  if (candidateCount === 0) {
     return (
       <div className="text-muted-foreground py-8 text-center text-sm">
-        No link targets found. Create a recurring payment, EMI, or salary revision first.
+        No payment is due around this statement&apos;s date and amount. Completed EMIs, ended
+        recurring payments, and instalments already settled are not shown.
       </div>
     );
   }
@@ -242,29 +214,55 @@ const LinkToRecurringPaymentContent = ({
           </Button>
         </div>
       ))}
-      {paymentOptions.map((rp) => (
+      {emiCandidates?.map((candidate) => (
         <div
-          key={rp.id}
+          key={candidate.id}
           className="hover:bg-muted/50 flex items-center justify-between gap-4 rounded-lg border p-4"
         >
           <div className="space-y-1">
-            <div className="font-medium">{rp.name}</div>
+            <div className="font-medium">{candidate.name}</div>
+            <div className="text-muted-foreground text-sm">
+              Instalment {candidate.installmentNo} of {candidate.tenure}
+              {candidate.amount === null ? null : ` · ${formatCurrency(candidate.amount)}`}
+              {candidate.scheduledDate === null ? null : ` · due ${formatDate(candidate.scheduledDate)}`}
+            </div>
           </div>
           <Button
-            disabled={linkRecurringMutation.isPending || linkEMIMutation.isPending}
+            disabled={linkEMIMutation.isPending}
             onClick={async () => {
               try {
-                if (isEMI(rp)) {
-                  await linkEMIMutation.mutateAsync({
-                    emiId: rp.id,
-                    statementId,
-                  });
-                } else {
-                  await linkRecurringMutation.mutateAsync({
-                    recurringPaymentId: rp.id,
-                    statementId,
-                  });
-                }
+                await linkEMIMutation.mutateAsync({ emiId: candidate.id, statementId });
+                toast.success('Statement linked successfully');
+                onSuccess();
+              } catch (error) {
+                toast.error((error as Error).message);
+              }
+            }}
+          >
+            Link
+          </Button>
+        </div>
+      ))}
+      {recurringCandidates?.map((candidate) => (
+        <div
+          key={candidate.id}
+          className="hover:bg-muted/50 flex items-center justify-between gap-4 rounded-lg border p-4"
+        >
+          <div className="space-y-1">
+            <div className="font-medium">{candidate.name}</div>
+            <div className="text-muted-foreground text-sm">
+              {candidate.category} · {formatCurrency(Number(candidate.amount))} · due{' '}
+              {formatDate(candidate.scheduledDate)}
+            </div>
+          </div>
+          <Button
+            disabled={linkRecurringMutation.isPending}
+            onClick={async () => {
+              try {
+                await linkRecurringMutation.mutateAsync({
+                  recurringPaymentId: candidate.id,
+                  statementId,
+                });
                 toast.success('Statement linked successfully');
                 onSuccess();
               } catch (error) {

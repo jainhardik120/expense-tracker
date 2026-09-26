@@ -245,6 +245,59 @@ export const emisRouter = createTRPCRouter({
         installmentNo: lastInstallmentNo + 1,
       };
     }),
+  getLinkCandidates: protectedProcedure
+    .input(z.object({ statementId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const statementData = await ctx.db
+        .select({
+          accountId: statements.accountId,
+          amount: statements.amount,
+          createdAt: statements.createdAt,
+        })
+        .from(statements)
+        .where(and(eq(statements.id, input.statementId), eq(statements.userId, ctx.user.id)))
+        .limit(1);
+      if (statementData.length === 0) {
+        throw new Error('Statement not found or access denied');
+      }
+      const statement = statementData[0];
+      if (statement.accountId === null) {
+        return [];
+      }
+      // Only EMIs with installments still due can accept another payment.
+      const pendingEMIs = await getEMIs(ctx.db, ctx.user.id, {
+        page: 1,
+        perPage: 100,
+        creditId: [],
+        accountId: [statement.accountId],
+        completed: false,
+      });
+      const statementAmount = Math.abs(parseFloatSafe(statement.amount));
+      return pendingEMIs
+        .map((emi) => {
+          const { schedule } = calculateSchedule(emi);
+          const lastInstallmentNo =
+            emi.maxInstallmentNo === null
+              ? schedule[0].installment - 1
+              : parseFloatSafe(emi.maxInstallmentNo);
+          const nextInstallmentNo = lastInstallmentNo + 1;
+          if (!confirmMatch(schedule, statementAmount, statement.createdAt, nextInstallmentNo)) {
+            return null;
+          }
+          const nextInstallment = schedule.find((row) => row.installment === nextInstallmentNo);
+          return {
+            id: emi.id,
+            name: emi.name,
+            creditCardName: emi.creditCardName,
+            installmentNo: nextInstallmentNo,
+            tenure: parseFloatSafe(emi.tenure),
+            amount: nextInstallment?.totalPayment ?? null,
+            scheduledDate: nextInstallment?.date ?? null,
+          };
+        })
+        .filter((candidate) => candidate !== null);
+    }),
+
   getLinkedStatements: protectedProcedure
     .input(
       z.object({
