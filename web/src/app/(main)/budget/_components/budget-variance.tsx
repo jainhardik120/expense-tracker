@@ -118,7 +118,7 @@ export const BudgetVariance = ({ detail }: { detail: Detail }) => {
         <CardDescription>
           The whole year, reconciled: what was budgeted against what will actually have been spent
           by December. Commitments still to come — loan instalments, recurring payments, the flight
-          not yet booked — are counted, so this is the year-end position rather than today's.
+          not yet booked — are counted, so this is the year-end position rather than the one today.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
