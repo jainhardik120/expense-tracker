@@ -66,27 +66,26 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
         )
         val processor = entryPoint.smsTransactionProcessor()
 
-        // Process each unique SMS
-        for ((sender, smsData) in smsMap) {
-            val body = smsData.body.toString()
-            val timestamp = smsData.timestamp
-            Log.d(TAG, "Received SMS from: $sender at timestamp: $timestamp")
-
-            processIncomingSms(processor, sender, body, timestamp)
-        }
-    }
-
-    private fun processIncomingSms(
-        processor: SmsTransactionProcessor,
-        sender: String,
-        body: String,
-        timestamp: Long
-    ) {
+        // Hold the broadcast open for the upload. Without this, onReceive
+        // returns while the coroutine is still talking to the server, and a
+        // process with no running component is the first thing Android kills:
+        // the upload dies mid-flight, and worse, a token refresh that the
+        // server has already committed is lost, leaving this device holding a
+        // token the server has retired.
+        val pendingResult = goAsync()
         receiverScope.launch {
             try {
-                processor.processAndSaveTransaction(sender, body, timestamp)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error processing SMS", e)
+                for ((sender, smsData) in smsMap) {
+                    val body = smsData.body.toString()
+                    Log.d(TAG, "Received SMS from: $sender at timestamp: ${smsData.timestamp}")
+                    try {
+                        processor.processAndSaveTransaction(sender, body, smsData.timestamp)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error processing SMS", e)
+                    }
+                }
+            } finally {
+                pendingResult.finish()
             }
         }
     }
