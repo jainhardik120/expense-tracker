@@ -1,4 +1,16 @@
-import { endOfMonth, format, startOfDay, startOfMonth } from 'date-fns';
+import {
+  endOfDay,
+  endOfHour,
+  endOfMinute,
+  endOfMonth,
+  endOfQuarter,
+  endOfSecond,
+  endOfWeek,
+  endOfYear,
+  format,
+  startOfDay,
+  startOfMonth,
+} from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { getCookies } from 'next-client-cookies/server';
 
@@ -13,6 +25,19 @@ const truncFormatMap: Record<DateTruncUnit, string> = {
   month: 'MMM yyyy',
   quarter: "yyyy 'Q'q",
   year: 'yyyy',
+};
+
+// Postgres `date_trunc('week', ...)` starts its weeks on Monday, so the
+// matching end has to as well.
+const truncEndMap: Record<DateTruncUnit, (date: Date) => Date> = {
+  second: endOfSecond,
+  minute: endOfMinute,
+  hour: endOfHour,
+  day: endOfDay,
+  week: (date) => endOfWeek(date, { weekStartsOn: 1 }),
+  month: endOfMonth,
+  quarter: endOfQuarter,
+  year: endOfYear,
 };
 
 export const formatTruncatedDate = (
@@ -60,6 +85,39 @@ export const localWallClock = (date: Date, timeZone: string): string => {
 export const zonedFormat = (date: Date | string, pattern: string, timeZone: string): string => {
   const value = typeof date === 'string' ? new Date(date) : date;
   return format(toZonedTime(value, timeZone), pattern);
+};
+
+/**
+ * The calendar days a bucket actually covers, clipped to the range that was
+ * asked for. A label like `2026 W39` says nothing about where the week fell,
+ * and the first and last buckets of a range are usually partial ones, so the
+ * clipped span is what a reader needs to make sense of the number.
+ */
+export const formatTruncatedPeriodSpan = (
+  date: Date | string,
+  trunc: DateTruncUnit,
+  timezone: string,
+  range: { start: Date; end: Date },
+): string => {
+  const periodStart = typeof date === 'string' ? new Date(date) : date;
+  const zonedStart = toZonedTime(periodStart, timezone);
+  const start = new Date(
+    Math.max(fromZonedTime(zonedStart, timezone).getTime(), range.start.getTime()),
+  );
+  const end = new Date(
+    Math.min(
+      fromZonedTime(truncEndMap[trunc](zonedStart), timezone).getTime(),
+      range.end.getTime(),
+    ),
+  );
+  const startText = zonedFormat(start, 'dd MMM yyyy', timezone);
+  const endText = zonedFormat(end, 'dd MMM yyyy', timezone);
+  if (startText === endText) {
+    return endText;
+  }
+  const YEAR_LENGTH = 5;
+  const sameYear = startText.slice(-YEAR_LENGTH) === endText.slice(-YEAR_LENGTH);
+  return `${sameYear ? startText.slice(0, -YEAR_LENGTH) : startText} – ${endText}`;
 };
 
 /** Just the reader's calendar day, `YYYY-MM-DD`. */

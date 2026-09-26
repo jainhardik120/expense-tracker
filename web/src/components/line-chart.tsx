@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { type ComponentProps, useMemo } from 'react';
 
 import { CartesianGrid, Line, LineChart as RechartsLineChart, XAxis } from 'recharts';
 import { type LineDot } from 'recharts/types/cartesian/Line';
@@ -46,7 +46,17 @@ const addColorsToChartData = (data: ChartData) => {
   };
 };
 
-const LineChart = ({ data, dot, type }: { data: ChartData; dot?: LineDot; type?: CurveType }) => {
+const LineChart = ({
+  data,
+  dot,
+  type,
+  tooltipLabelFormatter,
+}: {
+  data: ChartData;
+  dot?: LineDot;
+  type?: CurveType;
+  tooltipLabelFormatter?: ComponentProps<typeof ChartTooltipContent>['labelFormatter'];
+}) => {
   const dataWithColors = useMemo(() => addColorsToChartData(data), [data]);
   return (
     <ChartContainer config={dataWithColors.secondaryAxes}>
@@ -65,7 +75,7 @@ const LineChart = ({ data, dot, type }: { data: ChartData; dot?: LineDot; type?:
           tickLine={false}
           tickMargin={8}
         />
-        <ChartTooltip content={<ChartTooltipContent />} />
+        <ChartTooltip content={<ChartTooltipContent labelFormatter={tooltipLabelFormatter} />} />
         {Object.keys(dataWithColors.secondaryAxes).map((key) => (
           <Line
             key={key}

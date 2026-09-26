@@ -13,13 +13,48 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ChartContainer } from '@/components/ui/chart';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { formatTruncatedDate } from '@/lib/date';
+import { formatTruncatedDate, formatTruncatedPeriodSpan } from '@/lib/date';
 import type {
   AggregatedAccountTransferSummary,
   AggregatedFriendTransferSummary,
   DateRange,
   DateTruncUnit,
 } from '@/types';
+
+// Carried on each row so the tooltip can name the days a point covers: a
+// bucket label like `2026 W39` does not say where the week fell, and the first
+// and last buckets of a range are usually partial ones.
+const PERIOD_SPAN_KEY = 'periodSpan';
+
+const periodSpanFromPayload = (payload: unknown): string | null => {
+  if (!Array.isArray(payload)) {
+    return null;
+  }
+  const [first] = payload as unknown[];
+  if (typeof first !== 'object' || first === null || !('payload' in first)) {
+    return null;
+  }
+  const row = (first as { payload: unknown }).payload;
+  if (typeof row !== 'object' || row === null || !(PERIOD_SPAN_KEY in row)) {
+    return null;
+  }
+  const span = (row as Record<string, unknown>)[PERIOD_SPAN_KEY];
+  return typeof span === 'string' ? span : null;
+};
+
+const renderPeriodTooltipLabel = (value: unknown, payload: unknown) => {
+  const label = typeof value === 'string' ? value : '';
+  const span = periodSpanFromPayload(payload);
+  if (span === null) {
+    return <>{label}</>;
+  }
+  return (
+    <div className="flex flex-col">
+      <span>{span}</span>
+      <span className="text-muted-foreground font-normal">{label}</span>
+    </div>
+  );
+};
 
 export const ExpensesLineChart = ({
   data,
@@ -76,6 +111,11 @@ export const ExpensesLineChart = ({
       const filteredData: Record<string, string | number> = {
         date: formatTruncatedDate(d.date, unit, timezone),
       };
+      // A day bucket spans exactly the day its own label names, so the span
+      // would just repeat it.
+      if (unit !== 'day') {
+        filteredData[PERIOD_SPAN_KEY] = formatTruncatedPeriodSpan(d.date, unit, timezone, range);
+      }
 
       let total = 0;
       for (const category of selectedCategories) {
@@ -90,7 +130,7 @@ export const ExpensesLineChart = ({
 
       return filteredData;
     });
-  }, [data, selectedCategories, unit, timezone]);
+  }, [data, selectedCategories, unit, timezone, range]);
 
   const finalDataLabels = useMemo(() => {
     if (selectedCategories.size === 0) {
@@ -161,6 +201,7 @@ export const ExpensesLineChart = ({
             secondaryAxes: finalDataLabels,
             data: chartData,
           }}
+          tooltipLabelFormatter={renderPeriodTooltipLabel}
         />
       </CardContent>
     </Card>
