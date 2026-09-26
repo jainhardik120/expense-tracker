@@ -67,12 +67,15 @@ export const project = (
   const runRate = elapsedMonths > 0 ? incomeToDate / elapsedMonths : 0;
   const expectedTotalIncome = incomeToDate + runRate * remainingMonths;
 
+  // Income pointed at a line raises its budget whatever kind it is. A trip paid
+  // for out of a bonus is funded, not overspent, and a shopping envelope topped
+  // up by cashbacks is bigger than the figure typed into it.
   const yearBudgetFor = (line: LineForProjection): number => {
     switch (line.allocationKind) {
       case 'monthly':
-        return line.allocationAmount * totalMonths;
+        return line.allocationAmount * totalMonths + line.earmarkedIncome;
       case 'annual':
-        return line.allocationAmount;
+        return line.allocationAmount + line.earmarkedIncome;
       case 'earmarked':
         return line.earmarkedIncome;
       case 'residual':
@@ -80,8 +83,6 @@ export const project = (
         return 0;
     }
   };
-
-  const elapsedFraction = totalMonths > 0 ? elapsedMonths / totalMonths : 0;
 
   const claimedByOthers = lines
     .filter((line) => line.allocationKind !== 'residual')
@@ -93,13 +94,13 @@ export const project = (
         ? Math.max(expectedTotalIncome - claimedByOthers, 0)
         : yearBudgetFor(line);
     const remaining = yearBudget - line.actual;
-    // Monthly lines accrue with each cycle. Annual envelopes are a pot for the
-    // whole year rather than a monthly rate, so they are pro-rated by how much
-    // of the year has run.
+    // Monthly lines accrue a twelfth at a time, so only what has accrued counts.
+    // An envelope is a pot for the whole year: spending it in March is early,
+    // not excessive, and pro-rating it would call that overspending.
     const budgetToDate =
       line.allocationKind === 'monthly'
-        ? line.allocationAmount * elapsedMonths
-        : yearBudget * elapsedFraction;
+        ? line.allocationAmount * elapsedMonths + line.earmarkedIncome
+        : yearBudget;
     return {
       ...line,
       yearBudget,

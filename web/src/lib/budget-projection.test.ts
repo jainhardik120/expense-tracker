@@ -32,14 +32,26 @@ test('what is left is paced over the months that remain', () => {
 });
 
 test('overspending is reported rather than floored at zero', () => {
-  const { lines } = project([line({ allocationKind: 'annual', allocationAmount: 60000, actual: 68740 })], 0, 10, 12);
+  const { lines } = project(
+    [line({ allocationKind: 'annual', allocationAmount: 60000, actual: 68740 })],
+    0,
+    10,
+    12,
+  );
   assert.equal(lines[0].remaining, -8740);
   assert.equal(lines[0].overspent, true);
 });
 
 test('an earmarked line is funded only by the income pointed at it', () => {
   const { lines } = project(
-    [line({ allocationKind: 'earmarked', allocationAmount: 0, earmarkedIncome: 28948, actual: 32460 })],
+    [
+      line({
+        allocationKind: 'earmarked',
+        allocationAmount: 0,
+        earmarkedIncome: 28948,
+        actual: 32460,
+      }),
+    ],
     0,
     10,
     12,
@@ -57,13 +69,19 @@ test('income still to come is projected from the rate so far', () => {
 
 test('the residual is whatever the lines above it leave, and shrinks when they overspend', () => {
   const thrifty = project(
-    [line({ allocationAmount: 1000, actual: 10000 }), line({ lineId: 'r', allocationKind: 'residual' })],
+    [
+      line({ allocationAmount: 1000, actual: 10000 }),
+      line({ lineId: 'r', allocationKind: 'residual' }),
+    ],
     24000,
     10,
     12,
   );
   const spendy = project(
-    [line({ allocationAmount: 1000, actual: 16000 }), line({ lineId: 'r', allocationKind: 'residual' })],
+    [
+      line({ allocationAmount: 1000, actual: 16000 }),
+      line({ lineId: 'r', allocationKind: 'residual' }),
+    ],
     24000,
     10,
     12,
@@ -91,4 +109,52 @@ test('overspending a monthly line is what it cost the residual', () => {
   // ten months at 13,000 is 130,000, so a little over 20,957 went somewhere else
   assert.equal(lines[0].budgetToDate, 130000);
   assert.equal(Math.round(lines[0].variance), 20957);
+});
+
+test('income earmarked at a line funds it rather than showing as overspend', () => {
+  // a trip paid for out of a bonus: 28,948 pointed at it, 32,460 spent
+  const { lines } = project(
+    [
+      line({
+        allocationKind: 'earmarked',
+        allocationAmount: 0,
+        earmarkedIncome: 28948,
+        actual: 32460,
+      }),
+    ],
+    0,
+    10,
+    12,
+  );
+  assert.equal(lines[0].budgetToDate, 28948);
+  assert.equal(lines[0].variance, 3512);
+});
+
+test('an envelope topped up by earmarked income is bigger than the figure typed in', () => {
+  // 60,000 shopping plus 9,580 of cashbacks, 68,740 spent: under, not over
+  const { lines } = project(
+    [
+      line({
+        allocationKind: 'annual',
+        allocationAmount: 60000,
+        earmarkedIncome: 9579.71,
+        actual: 68739.85,
+      }),
+    ],
+    0,
+    10,
+    12,
+  );
+  assert.equal(Math.round(lines[0].variance), -840);
+});
+
+test('spending an envelope early is not overspending it', () => {
+  // the whole year's flight budget used by March
+  const { lines } = project(
+    [line({ allocationKind: 'annual', allocationAmount: 60000, actual: 60000 })],
+    0,
+    3,
+    12,
+  );
+  assert.equal(lines[0].variance, 0);
 });
