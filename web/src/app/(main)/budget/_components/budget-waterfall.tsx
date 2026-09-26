@@ -38,6 +38,11 @@ const lineFields = [
     ],
   },
   { name: 'allocationAmount' as const, label: 'Amount', type: 'text' as const },
+  {
+    name: 'discretionary' as const,
+    label: 'I can choose to spend less on this',
+    type: 'checkbox' as const,
+  },
   { name: 'rule.categories' as const, label: 'Categories', type: 'stringArray' as const },
   { name: 'rule.tags' as const, label: 'Tags', type: 'stringArray' as const },
   { name: 'rule.statementKinds' as const, label: 'Statement kinds', type: 'stringArray' as const },
@@ -92,7 +97,8 @@ const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) 
 export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
   const router = useRouter();
   const addLine = api.budget.addLine.useMutation();
-  const { year, lines, totals, unclaimedCount, unclaimedTotal } = detail;
+  const { year, lines, totals, projection, unclaimedCount, unclaimedTotal } = detail;
+  const projected = new Map(projection.lines.map((line) => [line.lineId, line]));
   const ruleById = new Map(lines.map((line) => [line.id, line.rule as BudgetRule]));
 
   return (
@@ -113,6 +119,7 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
               rule: emptyBudgetRule,
               allocationKind: 'monthly' as const,
               allocationAmount: '0',
+              discretionary: true,
               budgetYearId: year.id,
             }}
             fields={lineFields}
@@ -133,9 +140,11 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
               <TableHead>#</TableHead>
               <TableHead>Line</TableHead>
               <TableHead>Claims</TableHead>
-              <TableHead className="text-right">Budget</TableHead>
+              <TableHead className="text-right">Allocation</TableHead>
+              <TableHead className="text-right">Year budget</TableHead>
               <TableHead className="text-right">Actual</TableHead>
-              <TableHead className="text-right">Txns</TableHead>
+              <TableHead className="text-right">Remaining</TableHead>
+              <TableHead className="text-right">Per month</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -150,11 +159,21 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
                 <TableCell className="text-right tabular-nums">
                   {describeAllocation(line.allocationKind, line.allocationAmount)}
                 </TableCell>
+                <TableCell className="text-muted-foreground text-right tabular-nums">
+                  {formatCurrency(projected.get(line.lineId)?.yearBudget ?? 0)}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {formatCurrency(line.actual)}
                 </TableCell>
+                <TableCell
+                  className={`text-right tabular-nums ${
+                    (projected.get(line.lineId)?.overspent ?? false) ? 'text-red-600' : ''
+                  }`}
+                >
+                  {formatCurrency(projected.get(line.lineId)?.remaining ?? 0)}
+                </TableCell>
                 <TableCell className="text-muted-foreground text-right tabular-nums">
-                  {line.matchedCount}
+                  {formatCurrency(projected.get(line.lineId)?.perMonthRemaining ?? 0)}
                 </TableCell>
                 <TableCell className="text-right">
                   <DeleteLine budgetYearId={year.id} id={line.lineId} />

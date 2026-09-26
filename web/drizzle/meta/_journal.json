@@ -330,6 +330,13 @@
       "when": 1790443181302,
       "tag": "0046_dark_forgotten_one",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1790444685382,
+      "tag": "0047_equal_leopardon",
+      "breakpoints": true
     }
   ]
 }

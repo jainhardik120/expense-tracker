@@ -7,7 +7,7 @@ import {
   splits,
   statements,
 } from '@/db/schema';
-import { assignToLine, type MatchableStatement } from '@/lib/budget-rules';
+import { assignToLine, matchesRule, type MatchableStatement } from '@/lib/budget-rules';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { budgetRuleSchema, type BudgetRule } from '@/types/budget';
@@ -101,6 +101,7 @@ export type LineTotals = {
   position: number;
   allocationKind: BudgetLineRow['allocationKind'];
   allocationAmount: number;
+  discretionary: boolean;
   /** Spent against this line so far, my share only. */
   actual: number;
   matchedCount: number;
@@ -115,6 +116,40 @@ export type LineTotals = {
  * catch-all line is expected to say `statementKinds: ['expense']` so it does not
  * swallow the lending and settling flows, which are not budget items at all.
  */
+/**
+ * Income by destination: what flows down the waterfall, and what is pointed at
+ * a specific line. Excluded income is simply not returned -- a bonus kept out of
+ * the budget should not appear in it at all.
+ */
+export const summariseIncome = (
+  incomeLines: BudgetIncomeLineRow[],
+  scoped: ScopedStatement[],
+): { waterfall: number; earmarked: Map<string, number> } => {
+  const ordered = [...incomeLines].sort((a, b) => a.position - b.position);
+  const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
+  const earmarked = new Map<string, number>();
+  let waterfall = 0;
+
+  for (const statement of scoped) {
+    const match = parsed.find((line) => matchesRule(statement, line.rule));
+    if (match === undefined || match.destination === 'excluded') {
+      continue;
+    }
+    if (match.destination === 'waterfall') {
+      waterfall += statement.myAmount;
+      continue;
+    }
+    if (match.destinationLineId !== null) {
+      earmarked.set(
+        match.destinationLineId,
+        (earmarked.get(match.destinationLineId) ?? 0) + statement.myAmount,
+      );
+    }
+  }
+
+  return { waterfall, earmarked };
+};
+
 export const summariseLines = (
   lines: BudgetLineRow[],
   scoped: ScopedStatement[],
@@ -127,6 +162,7 @@ export const summariseLines = (
     position: line.position,
     allocationKind: line.allocationKind,
     allocationAmount: Number(line.allocationAmount),
+    discretionary: line.discretionary,
     actual: 0,
     matchedCount: 0,
   }));

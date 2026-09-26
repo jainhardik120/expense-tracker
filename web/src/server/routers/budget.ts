@@ -2,8 +2,14 @@ import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
+import { monthsBetween, project } from '@/lib/budget-projection';
 import { matchesRule } from '@/lib/budget-rules';
-import { getStatementsInWindow, parseRule, summariseLines } from '@/server/helpers/budget';
+import {
+  getStatementsInWindow,
+  parseRule,
+  summariseIncome,
+  summariseLines,
+} from '@/server/helpers/budget';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   budgetIncomeLineSchema,
@@ -79,11 +85,35 @@ export const budgetRouter = createTRPCRouter({
         .orderBy(asc(budgetIncomeLines.position));
       const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, year.startDate, year.endDate);
       const { totals, unclaimed } = summariseLines(lines, scoped);
+      const income = summariseIncome(incomeLines, scoped);
+      const now = new Date();
+      // Clamped to the window: before it starts nothing has elapsed, after it
+      // ends the year is simply over and the pace is no longer meaningful.
+      const totalMonths = monthsBetween(year.startDate, year.endDate);
+      const elapsedMonths = Math.min(
+        monthsBetween(year.startDate, now < year.endDate ? now : year.endDate),
+        totalMonths,
+      );
+      const projection = project(
+        totals.map((line) => ({
+          lineId: line.lineId,
+          name: line.name,
+          allocationKind: line.allocationKind,
+          allocationAmount: line.allocationAmount,
+          discretionary: line.discretionary,
+          actual: line.actual,
+          earmarkedIncome: income.earmarked.get(line.lineId) ?? 0,
+        })),
+        income.waterfall,
+        elapsedMonths,
+        totalMonths,
+      );
       return {
         year,
         lines,
         incomeLines,
         totals,
+        projection,
         unclaimedCount: unclaimed.length,
         unclaimedTotal: unclaimed.reduce((sum, s) => sum + s.myAmount, 0),
       };

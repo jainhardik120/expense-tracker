@@ -507,6 +507,10 @@ export const budgetLines = pgTable(
     rule: jsonb('rule').notNull().default({}),
     allocationKind: budgetAllocationKindEnum('allocation_kind').notNull(),
     allocationAmount: numeric('allocation_amount').notNull().default('0'),
+    // Whether day to day choices move this. Rent and money sent home are fixed
+    // commitments, so counting them as money you could spend would tell you that
+    // you can afford things you cannot.
+    discretionary: boolean('discretionary').notNull().default(true),
     createdAt: timestamp('created_at')
       .notNull()
       .$defaultFn(() => new Date()),
