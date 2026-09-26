@@ -24,14 +24,12 @@ type FutureMonthData = {
 };
 
 export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
-  const { paymentsByMonth, recurringPayments, uptoDate } = creditData;
+  const { paymentsByMonth, recurringPayments, recurringHorizon } = creditData;
   const timezone = useTimezone();
-  const recurringPaymentsByMonth = useMemo(() => {
-    if (uptoDate === undefined) {
-      return {};
-    }
-    return getFutureRecurringPayments(recurringPayments, uptoDate, timezone);
-  }, [recurringPayments, uptoDate, timezone]);
+  const recurringPaymentsByMonth = useMemo(
+    () => getFutureRecurringPayments(recurringPayments, recurringHorizon, timezone),
+    [recurringPayments, recurringHorizon, timezone],
+  );
 
   const futureMonthsData = useMemo(() => {
     const allMonths = new Set([

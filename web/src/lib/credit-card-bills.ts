@@ -24,6 +24,11 @@ const LAST_HOUR_OF_DAY = 23;
 const LAST_MINUTE_OF_HOUR = 59;
 const LAST_SECOND_OF_MINUTE = 59;
 const LAST_MILLISECOND_OF_SECOND = 999;
+const PAISE_PER_RUPEE = 100;
+
+// Balances are summed from decimal strings, so a fully paid bill lands on a float
+// residue like 1.4e-11 instead of 0. Round to paise so "paid off" reads as zero.
+export const roundToPaise = (amount: number) => Math.round(amount * PAISE_PER_RUPEE) / PAISE_PER_RUPEE;
 
 export const getStatementBalanceDelta = (
   statementKind: 'expense' | 'outside_transaction' | 'friend_transaction' | 'self_transfer',
@@ -66,7 +71,7 @@ export const calculateGeneratedCreditCardBills = (
     const balanceAtGeneration = cardActivities
       .filter((activity) => activity.createdAt <= generatedAt)
       .reduce((balance, activity) => balance + activity.balanceDelta, card.startingBalance);
-    const generatedAmount = Math.max(-balanceAtGeneration, 0);
+    const generatedAmount = roundToPaise(Math.max(-balanceAtGeneration, 0));
     const creditsAfterGeneration = cardActivities
       .filter((activity) => activity.createdAt > generatedAt && activity.balanceDelta > 0)
       .reduce((total, activity) => total + activity.balanceDelta, 0);
@@ -74,7 +79,7 @@ export const calculateGeneratedCreditCardBills = (
     bills[card.id] = {
       generatedAt,
       generatedAmount,
-      remainingAmount: Math.max(generatedAmount - creditsAfterGeneration, 0),
+      remainingAmount: roundToPaise(Math.max(generatedAmount - creditsAfterGeneration, 0)),
     };
   }
 

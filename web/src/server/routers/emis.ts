@@ -1,4 +1,4 @@
-import { endOfMonth } from 'date-fns';
+import { endOfMonth, parse } from 'date-fns';
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -332,6 +332,22 @@ export const emisRouter = createTRPCRouter({
         futurePayments.push(...cardFuturePayments);
       }
       const paymentsByMonth = groupPaymentsByMonth(futurePayments);
+      // EMIs project until they finish, so recurring payments have to project at least
+      // that far too, otherwise the future-months table shows a bare EMI column with
+      // zero recurring for every month past the requested horizon.
+      const requestedHorizon = input?.uptoDate ?? monthEnd;
+      const lastEmiMonth = Object.keys(paymentsByMonth)
+        .sort((a, b) => a.localeCompare(b))
+        .at(-1);
+      const recurringHorizon =
+        lastEmiMonth === undefined
+          ? requestedHorizon
+          : new Date(
+              Math.max(
+                requestedHorizon.getTime(),
+                endOfMonth(parse(lastEmiMonth, 'yyyy-MM', new Date())).getTime(),
+              ),
+            );
       const cardAccountIds = cards.map((card) => card.accountId);
       const cardStatements =
         cardAccountIds.length === 0
@@ -432,7 +448,7 @@ export const emisRouter = createTRPCRouter({
             sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
           ),
         );
-      const scheduleEnd = input?.uptoDate ?? monthEnd;
+      const scheduleEnd = requestedHorizon;
       const recurringPaymentSchedules = activeRecurringPayments.flatMap((recurringPayment) => {
         const linkedStatements = linkedRecurringStatements.filter(
           (statement) => statement.recurringPaymentId === recurringPayment.id,
@@ -458,7 +474,7 @@ export const emisRouter = createTRPCRouter({
         paymentsByMonth,
         recurringPayments: activeRecurringPayments,
         recurringPaymentSchedules,
-        uptoDate: input?.uptoDate,
+        recurringHorizon,
       };
     }),
   getEmiSplits: protectedProcedure

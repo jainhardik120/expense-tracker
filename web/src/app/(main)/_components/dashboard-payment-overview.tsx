@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
+import { roundToPaise } from '@/lib/credit-card-bills';
 import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 
@@ -127,10 +128,13 @@ export const DashboardPaymentOverview = ({
       const upcomingEmiForCard = emiPayments
         .filter((payment) => payment.cardName === card.accountName)
         .reduce((sum, payment) => sum + payment.myShare, 0);
-      const amount =
+      // Round to paise before the zero check: these totals are summed from decimal
+      // strings, so a settled card lands on a float residue rather than exactly 0.
+      const amount = roundToPaise(
         status === 'missed'
           ? (generatedCardBills[card.id]?.remainingAmount ?? 0)
-          : currentUtilization + upcomingEmiForCard;
+          : currentUtilization + upcomingEmiForCard,
+      );
       if (amount <= 0) {
         return [];
       }

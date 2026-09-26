@@ -86,3 +86,29 @@ test('does not create a due amount from spending that starts after the billing d
   assert.equal(bills[card.id]?.generatedAmount, 0);
   assert.equal(bills[card.id]?.remainingAmount, 0);
 });
+
+test('treats a bill paid off to a float residue as fully settled', () => {
+  // These four spends sum to 24_836.800000000003, while the single repayment of the
+  // billed 24_836.80 is exact -- the difference is a float residue, not money owed.
+  const spends = [7_858.54, 13_941.05, 2_921.4, 115.81];
+  const bills = calculateGeneratedCreditCardBills(
+    [card],
+    [
+      ...spends.map((amount) => ({
+        accountId: card.accountId,
+        createdAt: new Date('2026-09-10T10:00:00.000Z'),
+        balanceDelta: -amount,
+      })),
+      {
+        accountId: card.accountId,
+        createdAt: new Date('2026-09-15T10:00:00.000Z'),
+        balanceDelta: 24_836.8,
+      },
+    ],
+    NOW,
+    TIMEZONE,
+  );
+
+  assert.equal(bills[card.id]?.generatedAmount, 24_836.8);
+  assert.equal(bills[card.id]?.remainingAmount, 0);
+});
