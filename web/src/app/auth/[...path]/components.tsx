@@ -23,7 +23,6 @@ import type { Route } from 'next';
 const loginSchema = z.object({
   email: z.email(),
   password: z.string(),
-  remember: z.boolean(),
 });
 
 const registerSchema = z.object({
@@ -146,7 +145,6 @@ export const LoginForm = () => {
       defaultValues={{
         email: '',
         password: '',
-        remember: false,
       }}
       fields={[
         {
@@ -189,11 +187,6 @@ export const LoginForm = () => {
             />
           ),
         },
-        {
-          name: 'remember',
-          label: 'Remember me',
-          type: 'checkbox',
-        },
       ]}
       schema={loginSchema}
       showSubmitButton
@@ -204,7 +197,7 @@ export const LoginForm = () => {
           {
             email: values.email,
             password: values.password,
-            rememberMe: values.remember,
+            rememberMe: true,
             callbackURL: searchParams.redirect,
           },
           {
