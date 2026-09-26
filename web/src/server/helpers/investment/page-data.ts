@@ -1,5 +1,11 @@
 import { instrumentedFunction } from '@/lib/instrumentation';
-import type { InvestmentKindValue, InvestmentTimelineRangeValue } from '@/lib/investments';
+import {
+  compareInvestmentCategories,
+  getInvestmentCategory,
+  type InvestmentCategoryValue,
+  type InvestmentKindValue,
+  type InvestmentTimelineRangeValue,
+} from '@/lib/investments';
 
 import { enrichInvestments } from './enrichment';
 import { buildInvestmentMarketDataContext } from './market-data';
@@ -7,8 +13,54 @@ import { getTimeRangeBounds } from './range';
 import { startOfDay } from './shared';
 import { buildInstrumentTimelineEntries, getInvestmentsDashboard } from './timeline';
 
-import type { InvestmentsPageData, InvestmentsRangeTimelines } from './models';
+import type {
+  CategoryTimelineEntry,
+  EnrichedInvestment,
+  InvestmentsPageData,
+  InvestmentsRangeTimelines,
+} from './models';
 import type { InvestmentRow } from './types';
+
+const buildCategoryTimelineEntries = async ({
+  investmentsList,
+  startDate,
+  endDate,
+  historyByInstrumentKey,
+  usdInrHistory,
+}: {
+  investmentsList: EnrichedInvestment[];
+  startDate: Date;
+  endDate: Date;
+  historyByInstrumentKey: Map<string, Array<{ date: Date; price: number }>>;
+  usdInrHistory: Array<{ date: Date; price: number }>;
+}): Promise<CategoryTimelineEntry[]> => {
+  const investmentsByCategory = new Map<InvestmentCategoryValue, EnrichedInvestment[]>();
+  for (const investment of investmentsList) {
+    const category = getInvestmentCategory(investment.normalizedKind, investment.isRsuPosition);
+    const categoryInvestments = investmentsByCategory.get(category) ?? [];
+    categoryInvestments.push(investment);
+    investmentsByCategory.set(category, categoryInvestments);
+  }
+
+  const entries = await Promise.all(
+    [...investmentsByCategory.entries()].map(async ([category, categoryInvestments]) => {
+      const dashboard = await getInvestmentsDashboard({
+        investmentsList: categoryInvestments,
+        start: startDate,
+        end: endDate,
+        historyByInstrumentKey,
+        usdInrHistory,
+        includeExcludedFromPortfolio: true,
+      });
+      return {
+        category,
+        timeline: dashboard.timeline,
+      };
+    }),
+  );
+
+  return entries.sort((left, right) => compareInvestmentCategories(left.category, right.category));
+};
 
 export const buildInvestmentsPageData = instrumentedFunction(
   'buildInvestmentsPageData',
@@ -47,20 +99,29 @@ export const buildInvestmentsPageData = instrumentedFunction(
     const pageCount = Math.max(1, Math.ceil(rowsCount / perPage));
     const offset = Math.max(page - 1, 0) * perPage;
     const investments = enrichedAll.slice(offset, offset + perPage);
-    const dashboard = await getInvestmentsDashboard({
-      investmentsList: enrichedAll,
-      start: defaultRange.startDate,
-      end: defaultRange.endDate,
-      historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
-      usdInrHistory: marketDataContext.usdInrHistory,
-    });
-    const instrumentTimelines = await buildInstrumentTimelineEntries({
-      investmentsList: enrichedAll,
-      startDate: defaultRange.startDate,
-      endDate: defaultRange.endDate,
-      historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
-      usdInrHistory: marketDataContext.usdInrHistory,
-    });
+    const [dashboard, categoryTimelines, instrumentTimelines] = await Promise.all([
+      getInvestmentsDashboard({
+        investmentsList: enrichedAll,
+        start: defaultRange.startDate,
+        end: defaultRange.endDate,
+        historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+        usdInrHistory: marketDataContext.usdInrHistory,
+      }),
+      buildCategoryTimelineEntries({
+        investmentsList: enrichedAll,
+        startDate: defaultRange.startDate,
+        endDate: defaultRange.endDate,
+        historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+        usdInrHistory: marketDataContext.usdInrHistory,
+      }),
+      buildInstrumentTimelineEntries({
+        investmentsList: enrichedAll,
+        startDate: defaultRange.startDate,
+        endDate: defaultRange.endDate,
+        historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+        usdInrHistory: marketDataContext.usdInrHistory,
+      }),
+    ]);
 
     return {
       table: {
@@ -69,6 +130,7 @@ export const buildInvestmentsPageData = instrumentedFunction(
         rowsCount,
       },
       dashboard,
+      categoryTimelines,
       instrumentTimelines,
       defaultRange: {
         range: '1m',
@@ -109,25 +171,35 @@ export const buildInvestmentsRangeTimelines = instrumentedFunction(
       marketDataContext,
       valuationDate: endDate,
     });
-    const dashboard = await getInvestmentsDashboard({
-      investmentsList: enrichedAll,
-      start: rangeBounds.startDate,
-      end: rangeBounds.endDate,
-      historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
-      usdInrHistory: marketDataContext.usdInrHistory,
-    });
-    const instrumentTimelines = await buildInstrumentTimelineEntries({
-      investmentsList: enrichedAll,
-      startDate: rangeBounds.startDate,
-      endDate: rangeBounds.endDate,
-      historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
-      usdInrHistory: marketDataContext.usdInrHistory,
-    });
+    const [dashboard, categoryTimelines, instrumentTimelines] = await Promise.all([
+      getInvestmentsDashboard({
+        investmentsList: enrichedAll,
+        start: rangeBounds.startDate,
+        end: rangeBounds.endDate,
+        historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+        usdInrHistory: marketDataContext.usdInrHistory,
+      }),
+      buildCategoryTimelineEntries({
+        investmentsList: enrichedAll,
+        startDate: rangeBounds.startDate,
+        endDate: rangeBounds.endDate,
+        historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+        usdInrHistory: marketDataContext.usdInrHistory,
+      }),
+      buildInstrumentTimelineEntries({
+        investmentsList: enrichedAll,
+        startDate: rangeBounds.startDate,
+        endDate: rangeBounds.endDate,
+        historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
+        usdInrHistory: marketDataContext.usdInrHistory,
+      }),
+    ]);
     return {
       range,
       startDate: rangeBounds.startDate,
       endDate: rangeBounds.endDate,
       timeline: dashboard.timeline,
+      categoryTimelines,
       instrumentTimelines,
     };
   },
