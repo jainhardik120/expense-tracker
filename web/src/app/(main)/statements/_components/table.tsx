@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { useDataTable } from '@/hooks/use-data-table';
+import { STATEMENTS_PAGE_SIZE_KEY } from '@/lib/page-size';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import {
@@ -93,7 +94,7 @@ const Table = ({
     data: optimisticData,
     columns,
     pageCount: data.pageCount,
-    persistPageSizeKey: 'statements',
+    persistPageSizeKey: STATEMENTS_PAGE_SIZE_KEY,
     shallow: false,
   });
   const { rows } = table.getRowModel();

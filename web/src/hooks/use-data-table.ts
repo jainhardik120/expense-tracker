@@ -2,8 +2,6 @@
 
 import * as React from 'react';
 
-import { useSearchParams } from 'next/navigation';
-
 import {
   type ColumnFiltersState,
   getCoreRowModel,
@@ -33,7 +31,7 @@ import {
 } from 'nuqs';
 
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
-import { readStoredPageSize, writeStoredPageSize } from '@/lib/page-size';
+import { writePageSizeCookie } from '@/lib/page-size';
 import { getSortingStateParser } from '@/lib/parsers';
 import type { ExtendedColumnSort } from '@/types/data-table';
 
@@ -64,8 +62,9 @@ interface UseDataTableProps<TData>
   shallow?: boolean;
   startTransition?: React.TransitionStartFunction;
   /**
-   * Opt in to remembering the page size under this key. Left unset, the table
-   * behaves as before and the size lasts only as long as the URL does.
+   * Opt in to remembering the page size under this key. The choice is written to
+   * a cookie; the server decides what to do with it on the next visit. Left
+   * unset, the size lasts only as long as the URL does.
    */
   persistPageSizeKey?: string;
 }
@@ -118,23 +117,6 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
       .withDefault(initialState?.pagination?.pageSize ?? DEFAULT_PAGE_SIZE),
   );
 
-  // Seeded in an effect, not during render: reading localStorage while rendering
-  // makes the server and client disagree on first paint. Replacing the history
-  // entry rather than pushing keeps the back button from stepping through a URL
-  // the user never navigated to.
-  const hasExplicitPerPage = useSearchParams().has(PER_PAGE_KEY);
-  React.useEffect(() => {
-    if (persistPageSizeKey === undefined || hasExplicitPerPage) {
-      return;
-    }
-    const stored = readStoredPageSize(persistPageSizeKey);
-    if (stored !== null) {
-      void setPerPage(stored, { history: 'replace' });
-    }
-    // Mount only: re-running would fight a size the user just picked.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const pagination: PaginationState = React.useMemo(() => {
     return {
       pageIndex: page - 1,
@@ -149,7 +131,7 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
       void setPage(next.pageIndex + 1);
       void setPerPage(next.pageSize);
       if (persistPageSizeKey !== undefined) {
-        writeStoredPageSize(persistPageSizeKey, next.pageSize);
+        writePageSizeCookie(persistPageSizeKey, next.pageSize);
       }
     },
     [pagination, setPage, setPerPage, persistPageSizeKey],
