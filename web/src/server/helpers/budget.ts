@@ -274,6 +274,20 @@ export const summariseByCycle = (
  * statements its rule claims. An instalment already paid is a statement carrying
  * its loan's id, so the loans a line owns are the ones behind its own rows.
  */
+export type ScheduleTotals = { year: number; toDate: number; remaining: number };
+
+/**
+ * What the loan and recurring schedules say a line will cost inside the window.
+ *
+ * Computed for every line, not just the schedule-derived ones: a gift bought on
+ * instalments is still going to take two more payments before December, and a
+ * reconciliation that stops at today would miss them.
+ *
+ * Which commitments a line covers is decided the way everything else is -- by
+ * the statements its rule claims. A paid instalment carries its loan's id, and a
+ * settled recurring payment carries its own, so the commitments behind a line
+ * are the ones behind its own rows.
+ */
 export const getScheduledTotals = instrumentedFunction(
   'getScheduledTotals',
   async (
@@ -284,10 +298,9 @@ export const getScheduledTotals = instrumentedFunction(
     from: Date,
     to: Date,
     now: Date,
-  ): Promise<Map<string, { year: number; toDate: number }>> => {
-    const scheduleLines = lines.filter((line) => line.allocationKind === 'schedule');
-    const totals = new Map<string, { year: number; toDate: number }>();
-    if (scheduleLines.length === 0) {
+  ): Promise<Map<string, ScheduleTotals>> => {
+    const totals = new Map<string, ScheduleTotals>();
+    if (lines.length === 0) {
       return totals;
     }
 
@@ -299,13 +312,10 @@ export const getScheduledTotals = instrumentedFunction(
       creditId: [],
     });
 
-    for (const line of scheduleLines) {
+    for (const line of lines) {
       const rule = parseRule(line.rule);
-      const emiIds = new Set(
-        scoped
-          .filter((statement) => matchesRule(statement, rule) && statement.emiId !== null)
-          .map((statement) => statement.emiId),
-      );
+      const claimed = scoped.filter((statement) => matchesRule(statement, rule));
+      const emiIds = new Set(claimed.filter((s) => s.emiId !== null).map((s) => s.emiId as string));
       const payments = emis
         .filter((emi) => emiIds.has(emi.id))
         .flatMap((emi) => getEmiPaymentsInRange(emi, emi.creditCardName, from, to, now));
@@ -313,6 +323,9 @@ export const getScheduledTotals = instrumentedFunction(
         year: payments.reduce((sum, payment) => sum + payment.myShare, 0),
         toDate: payments
           .filter((payment) => payment.date <= now)
+          .reduce((sum, payment) => sum + payment.myShare, 0),
+        remaining: payments
+          .filter((payment) => payment.date > now)
           .reduce((sum, payment) => sum + payment.myShare, 0),
       });
     }

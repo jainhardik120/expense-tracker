@@ -17,7 +17,8 @@ const line = (over = {}) => ({
   discretionary: true,
   actual: 0,
   earmarkedIncome: 0,
-  scheduled: { year: 0, toDate: 0 },
+  scheduled: { year: 0, toDate: 0, remaining: 0 },
+  pacePerMonth: 0,
   ...over,
 });
 
@@ -98,18 +99,30 @@ test('months between dates counts part months', () => {
   assert.equal(Math.round(monthsBetween(new Date('2025-12-24'), new Date('2026-09-26'))), 9);
 });
 
-test('a full year allowance is not held against ten months of spending', () => {
-  // 1,000 a month, ten cycles paid, 10,000 spent: on budget, not 2,000 under
-  const { lines } = project([line({ allocationAmount: 1000, actual: 10000 })], 0, 10, 12);
-  assert.equal(lines[0].budgetToDate, 10000);
+test('a fixed monthly line is projected to keep costing its rate', () => {
+  // 1,000 a month, ten paid, two to run: 12,000 by December, exactly its budget
+  const { lines } = project(
+    [line({ allocationAmount: 1000, actual: 10000, discretionary: false })],
+    0,
+    10,
+    12,
+  );
+  assert.equal(lines[0].forecastRemaining, 2000);
+  assert.equal(lines[0].projectedSpend, 12000);
   assert.equal(lines[0].variance, 0);
 });
 
-test('overspending a monthly line is what it cost the residual', () => {
-  const { lines } = project([line({ allocationAmount: 13000, actual: 150957.27 })], 0, 10, 12);
-  // ten months at 13,000 is 130,000, so a little over 20,957 went somewhere else
-  assert.equal(lines[0].budgetToDate, 130000);
-  assert.equal(Math.round(lines[0].variance), 20957);
+test('a discretionary line is forecast at the rate it is actually running at', () => {
+  // budget 9,300 a month; running at 11,400 with two months to go
+  const { lines } = project(
+    [line({ allocationAmount: 9300, actual: 113968, pacePerMonth: 11400 })],
+    0,
+    10,
+    12,
+  );
+  assert.equal(lines[0].yearBudget, 111600);
+  assert.equal(lines[0].forecastRemaining, 22800);
+  assert.equal(Math.round(lines[0].variance), 25168);
 });
 
 test('income earmarked at a line funds it rather than showing as overspend', () => {
@@ -127,7 +140,7 @@ test('income earmarked at a line funds it rather than showing as overspend', () 
     10,
     12,
   );
-  assert.equal(lines[0].budgetToDate, 28948);
+  assert.equal(lines[0].yearBudget, 28948);
   assert.equal(lines[0].variance, 3512);
 });
 
@@ -146,7 +159,8 @@ test('an envelope topped up by earmarked income is bigger than the figure typed 
     10,
     12,
   );
-  assert.equal(Math.round(lines[0].variance), -840);
+  // spent a touch under and nothing more planned, so it closes just under
+  assert.equal(Math.round(lines[0].variance), 0);
 });
 
 test('spending an envelope early is not overspending it', () => {
@@ -167,7 +181,7 @@ test('a schedule line is budgeted from the instalments that fall inside the year
       line({
         allocationKind: 'schedule',
         allocationAmount: 0,
-        scheduled: { year: 36900, toDate: 24903 },
+        scheduled: { year: 36900, toDate: 24903, remaining: 11997 },
         actual: 24903,
       }),
     ],
@@ -176,7 +190,8 @@ test('a schedule line is budgeted from the instalments that fall inside the year
     12,
   );
   assert.equal(lines[0].yearBudget, 36900);
-  assert.equal(lines[0].budgetToDate, 24903);
+  // the instalments still to fall are added, so it lands exactly on its schedule
+  assert.equal(lines[0].projectedSpend, 36900);
   assert.equal(lines[0].variance, 0);
 });
 

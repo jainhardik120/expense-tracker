@@ -44,8 +44,10 @@ const Section = ({
       <TableHeader>
         <TableRow>
           <TableHead>Line</TableHead>
-          <TableHead className="text-right">Allowed so far</TableHead>
-          <TableHead className="text-right">Spent</TableHead>
+          <TableHead className="text-right">Year budget</TableHead>
+          <TableHead className="text-right">Spent so far</TableHead>
+          <TableHead className="text-right">Still to come</TableHead>
+          <TableHead className="text-right">Year total</TableHead>
           <TableHead className="text-right">Difference</TableHead>
         </TableRow>
       </TableHeader>
@@ -54,9 +56,15 @@ const Section = ({
           <TableRow key={line.lineId}>
             <TableCell className="font-medium">{line.name}</TableCell>
             <TableCell className="text-muted-foreground text-right tabular-nums">
-              {formatCurrency(line.budgetToDate)}
+              {formatCurrency(line.yearBudget)}
             </TableCell>
             <TableCell className="text-right tabular-nums">{formatCurrency(line.actual)}</TableCell>
+            <TableCell className="text-muted-foreground text-right tabular-nums">
+              {line.forecastRemaining === 0 ? '—' : formatCurrency(line.forecastRemaining)}
+            </TableCell>
+            <TableCell className="text-right tabular-nums">
+              {formatCurrency(line.projectedSpend)}
+            </TableCell>
             <TableCell
               className={`text-right tabular-nums ${
                 tone === 'over' ? 'text-red-600' : 'text-green-600'
@@ -68,6 +76,8 @@ const Section = ({
         ))}
         <TableRow>
           <TableCell className="font-semibold">Total</TableCell>
+          <TableCell />
+          <TableCell />
           <TableCell />
           <TableCell />
           <TableCell
@@ -106,22 +116,22 @@ export const BudgetVariance = ({ detail }: { detail: Detail }) => {
       <CardHeader>
         <CardTitle>Where the saving went</CardTitle>
         <CardDescription>
-          Measured against {projection.elapsedMonths} cycles of allowance, not the whole year.
-          Monthly lines accrue as they go; an envelope is a pot for the year, so spending it early
-          is not overspending it.
+          The whole year, reconciled: what was budgeted against what will actually have been spent
+          by December. Commitments still to come — loan instalments, recurring payments, the flight
+          not yet booked — are counted, so this is the year-end position rather than today's.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <Section
-          blurb="This came out of what would otherwise have been invested."
+          blurb="By the end of the year this will have come out of what would otherwise have been invested."
           rows={over}
-          title="Spent above the plan"
+          title="Over the plan for the year"
           tone="over"
           total={overTotal}
         />
         {saved.length === 0 ? null : (
           <Section
-            blurb="Spent less than planned with nothing still to come for it, so this went straight to investment."
+            blurb="Will close under its budget with nothing more owed, so this goes to investment."
             rows={saved}
             title="Saved by spending less"
             tone="under"
@@ -130,9 +140,9 @@ export const BudgetVariance = ({ detail }: { detail: Detail }) => {
         )}
         {reserved.length === 0 ? null : (
           <Section
-            blurb="Still in the envelope and still to be spent — held back, not saved."
+            blurb="Closes on budget once what is still owed has been paid."
             rows={reserved}
-            title="Set aside, not yet spent"
+            title="On plan"
             tone="under"
             total={reservedTotal}
           />

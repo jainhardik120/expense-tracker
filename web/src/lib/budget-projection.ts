@@ -10,11 +10,17 @@ export type LineForProjection = {
   actual: number;
   /** Income routed specifically at this line -- a trip paid for out of a bonus. */
   earmarkedIncome: number;
-  /** For schedule lines: what the loan schedule says falls inside the window. */
-  scheduled: { year: number; toDate: number };
+  /** What the loan and recurring schedules say still falls inside the window. */
+  scheduled: { year: number; toDate: number; remaining: number };
+  /** Spend per month at the rate so far, used to forecast discretionary lines. */
+  pacePerMonth: number;
 };
 
 export type ProjectedLine = LineForProjection & {
+  /** What is still expected to be spent before the year closes. */
+  forecastRemaining: number;
+  /** Actual so far plus that forecast: what this line will cost by December. */
+  projectedSpend: number;
   /**
    * Whether money not spent here is reserved for later or simply saved. An
    * envelope holds its balance for the trip still to be booked; paying less rent
@@ -23,12 +29,7 @@ export type ProjectedLine = LineForProjection & {
   unspentIsSaved: boolean;
   /** What this line gets for the whole year. */
   yearBudget: number;
-  /**
-   * What it should have had by now. Comparing a full year's allowance against
-   * ten months of spending would call every line under budget.
-   */
-  budgetToDate: number;
-  /** Over (positive) or under (negative) that allowance so far. */
+  /** Over (positive) or under (negative) the year's budget, once the year ends. */
   variance: number;
   remaining: number;
   /** What is left to spend per month over the rest of the year. */
@@ -87,6 +88,7 @@ export const project = (
       case 'earmarked':
         return line.earmarkedIncome;
       case 'schedule':
+        // The schedule is the budget: an instalment cannot be overspent.
         return line.scheduled.year + line.earmarkedIncome;
       case 'residual':
       default:
@@ -98,17 +100,25 @@ export const project = (
     .filter((line) => line.allocationKind !== 'residual')
     .reduce((sum, line) => sum + yearBudgetFor(line), 0);
 
-  const budgetToDateFor = (line: LineForProjection, yearBudget: number): number => {
-    // A monthly rate accrues a twelfth at a time. A schedule knows exactly which
-    // instalments have fallen. An envelope is a pot for the whole year, so
-    // spending it in March is early rather than excessive.
+  /**
+   * What a line still has to pay before December.
+   *
+   * Commitments are known: the instalments left on a loan are a fact, not a
+   * guess. A fixed monthly line will go on costing its rate. A discretionary one
+   * is forecast at the rate it has actually been running at, not the rate it was
+   * supposed to -- the point is what will happen, not what was hoped. Envelopes
+   * are assumed to be used, because the flight home is still going to be booked.
+   */
+  const forecastFor = (line: LineForProjection, yearBudget: number): number => {
+    if (line.allocationKind === 'annual') {
+      return Math.max(yearBudget - line.actual, 0);
+    }
     if (line.allocationKind === 'monthly') {
-      return line.allocationAmount * elapsedMonths + line.earmarkedIncome;
+      const rate = line.discretionary ? line.pacePerMonth : line.allocationAmount;
+      return rate * remainingMonths;
     }
-    if (line.allocationKind === 'schedule') {
-      return line.scheduled.toDate + line.earmarkedIncome;
-    }
-    return yearBudget;
+    // Earmarked, schedule and residual lines only owe what is already scheduled.
+    return line.scheduled.remaining;
   };
 
   const projected = lines.map<ProjectedLine>((line) => {
@@ -116,17 +126,16 @@ export const project = (
       line.allocationKind === 'residual'
         ? Math.max(expectedTotalIncome - claimedByOthers, 0)
         : yearBudgetFor(line);
+    const forecastRemaining = forecastFor(line, yearBudget);
+    const projectedSpend = line.actual + forecastRemaining;
     const remaining = yearBudget - line.actual;
-    // Monthly lines accrue a twelfth at a time, so only what has accrued counts.
-    // An envelope is a pot for the whole year: spending it in March is early,
-    // not excessive, and pro-rating it would call that overspending.
-    const budgetToDate = budgetToDateFor(line, yearBudget);
     return {
       ...line,
       unspentIsSaved: line.allocationKind !== 'annual',
       yearBudget,
-      budgetToDate,
-      variance: line.actual - budgetToDate,
+      forecastRemaining,
+      projectedSpend,
+      variance: projectedSpend - yearBudget,
       remaining,
       perMonthRemaining: remainingMonths > 0 ? remaining / remainingMonths : remaining,
       overspent: remaining < 0,
