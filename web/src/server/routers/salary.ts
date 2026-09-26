@@ -1,4 +1,15 @@
-import { and, asc, eq, getTableColumns, gte, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  getTableColumns,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  sql,
+} from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -94,7 +105,15 @@ const getSalaryPageData = async (db: Database, userId: string, financialYearStar
     db
       .select({
         ...getTableColumns(salaryPayments),
-        statementAmount: statements.amount,
+        // A month's pay does not always arrive as one credit: a bonus can land
+        // beside the salary on the same day. Every statement linked to a payment
+        // already carries its id, so they are summed rather than the single
+        // statement named on the payment being taken as the whole of it.
+        statementAmount: sql<string | null>`(
+          SELECT SUM(credit.amount) FROM ${statements} credit
+          WHERE credit.user_id = ${salaryPayments.userId}
+            AND credit.additional_attributes->>'salaryPaymentId' = ${salaryPayments.id}::text
+        )`,
       })
       .from(salaryPayments)
       .leftJoin(statements, eq(salaryPayments.statementId, statements.id))
@@ -160,6 +179,8 @@ const getSalaryPageData = async (db: Database, userId: string, financialYearStar
           lt(statements.createdAt, financialYear.end),
           isNotNull(statements.taxableAmount),
           isNull(salaryPayments.id),
+          // Already part of a month's pay, so not income from outside it.
+          sql`${statements.additionalAttributes}->>'salaryPaymentId' IS NULL`,
         ),
       )
       .orderBy(asc(statements.createdAt)),
