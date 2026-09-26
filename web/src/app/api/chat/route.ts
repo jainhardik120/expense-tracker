@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { statementKindEnum } from '@/db/schema';
 import { db } from '@/lib/db';
+import { isAiAssistantEnabled } from '@/lib/features';
 import { setCookieHeader } from '@/lib/set-cookie-header';
 import { createCaller } from '@/server/routers';
 
@@ -226,6 +227,13 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
 };
 
 export const POST = async (req: Request) => {
+  // The assistant is experimental and off by default. Refuse here rather than
+  // only hiding the button: this is the half that spends the AI gateway key,
+  // and it is reachable by anyone holding a session.
+  if (!isAiAssistantEnabled()) {
+    return new Response('AI assistant is disabled', { status: 404 });
+  }
+
   const heads = await headers();
   const responseHeaders = new Headers();
   const caller = createCaller({

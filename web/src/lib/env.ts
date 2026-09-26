@@ -22,6 +22,14 @@ export const env = createEnv({
     GITHUB_CLIENT_SECRET: z.string(),
     COINGECKO_API_KEY: z.string(),
     REDIS_URL: z.string().optional(),
+    /**
+     * Opt in to the experimental AI assistant. Off unless set to 'true'.
+     *
+     * The assistant proxies an AI gateway key and hands the model a caller with
+     * full read and write access to the account, so it stays off by default and
+     * has to be turned on deliberately rather than left on by forgetting.
+     */
+    AI_ASSISTANT_ENABLED: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
@@ -46,6 +54,7 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_KEY: process.env['NEXT_PUBLIC_POSTHOG_KEY'],
     COINGECKO_API_KEY: process.env['COINGECKO_API_KEY'],
     REDIS_URL: process.env['REDIS_URL'],
+    AI_ASSISTANT_ENABLED: process.env['AI_ASSISTANT_ENABLED'],
   },
   skipValidation:
     process.env['SKIP_ENV_VALIDATION'] !== undefined &&

@@ -9,6 +9,7 @@ import TimeZoneSetter from '@/components/time-zone-setter';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { auth } from '@/lib/auth';
+import { isAiAssistantEnabled } from '@/lib/features';
 import { SIDEBAR_COOKIE_NAME } from '@/lib/sidebar';
 
 import AdminSession from './_components/admin-session';
@@ -43,7 +44,7 @@ export default async function Layout({ children }: Readonly<{ children: React.Re
             </div>
           </header>
           <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
-          <FloatingChatbot />
+          {isAiAssistantEnabled() ? <FloatingChatbot /> : null}
         </SidebarInset>
       </SidebarProvider>
       <TimeZoneSetter />
