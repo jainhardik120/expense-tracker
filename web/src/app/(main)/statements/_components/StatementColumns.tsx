@@ -258,14 +258,24 @@ export const createStatementColumns = ({
   {
     accessorKey: 'expense',
     header: 'Expense',
-    cell: ({ row }) =>
-      !isSelfTransfer(row.original) && row.original.statementKind === 'expense' ? (
-        <span className="tabular-nums">
-          {(parseFloat(row.original.amount) - row.original.splitAmount).toFixed(2)}
+    cell: ({ row }) => {
+      if (isSelfTransfer(row.original) || row.original.statementKind !== 'expense') {
+        return <span className="text-muted-foreground">-</span>;
+      }
+      const { splitAmount } = row.original;
+      // Without a split this just repeats the amount, so it stays quiet; once a
+      // split makes the two differ, this is the number that is actually yours.
+      return (
+        <span
+          className={cn(
+            'tabular-nums',
+            splitAmount === 0 ? 'text-muted-foreground' : 'font-medium',
+          )}
+        >
+          {(parseFloat(row.original.amount) - splitAmount).toFixed(2)}
         </span>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      ),
+      );
+    },
     meta: {
       label: 'Expense',
     },
