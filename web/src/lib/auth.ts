@@ -2,6 +2,7 @@ import { oauthProvider } from '@better-auth/oauth-provider';
 import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { createAuthMiddleware } from 'better-auth/api';
 import { admin, apiKey, twoFactor, jwt } from 'better-auth/plugins';
 
 import * as schema from '@/db/auth-schema';
@@ -11,12 +12,18 @@ import { env } from '@/lib/env';
 import { sendSESEmail } from '@/lib/send-email';
 
 import { getBaseUrl } from './getBaseUrl';
+import { recoverRotatedRefreshToken } from './oauth-refresh-recovery';
 
 const COOKIE_CACHE_MAX_AGE_MINUTES = 5;
 const SECONDS_PER_MINUTE = 60;
 
 export const auth = betterAuth({
   appName: 'Expense Tracker',
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      await recoverRotatedRefreshToken(ctx);
+    }),
+  },
   plugins: [
     jwt({
       disableSettingJwtHeader: true,
