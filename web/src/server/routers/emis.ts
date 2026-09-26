@@ -340,10 +340,18 @@ export const emisRouter = createTRPCRouter({
         accountId: [],
         creditId: [],
       };
-      const pendingEMIs = await getEMIs(ctx.db, ctx.user.id, { ...emiQuery, completed: false });
       // A period in the past can contain installments of an EMI that has since
-      // finished, so the period view needs the completed ones too.
+      // finished, so the period view needs the completed ones too. The pending
+      // set is a subset of this one, so it is narrowed here rather than fetched
+      // again -- the second query cost a round trip to re-read the same rows.
       const allEMIs = await getEMIs(ctx.db, ctx.user.id, { ...emiQuery, completed: undefined });
+      // The same test getEMIs applies for `completed: false`: an EMI is still
+      // running while it has installments left, or no payment recorded at all.
+      const pendingEMIs = allEMIs.filter(
+        (emi) =>
+          emi.maxInstallmentNo === null ||
+          parseFloatSafe(emi.maxInstallmentNo) < parseFloatSafe(emi.tenure),
+      );
       const timezone = await getTimezone();
       const currentMonthPayments: {
         emiId: string;
