@@ -5,6 +5,8 @@ export type MatchableStatement = {
   category: string | null;
   tags: string[];
   statementKind: string;
+  /** The full amount, before splits -- bounds describe the transaction itself. */
+  amount: number;
   /** Account, friend, and transfer counterparty ids -- any one of them can match. */
   accountRefs: (string | null)[];
 };
@@ -23,7 +25,9 @@ export const matchesRule = (statement: MatchableStatement, rule: BudgetRule): bo
   matchesSet(rule.categories, [statement.category]) &&
   matchesSet(rule.tags, statement.tags) &&
   matchesSet(rule.accounts, statement.accountRefs) &&
-  matchesSet(rule.statementKinds, [statement.statementKind]);
+  matchesSet(rule.statementKinds, [statement.statementKind]) &&
+  (rule.maxAmount === null || statement.amount <= rule.maxAmount) &&
+  (rule.minAmount === null || statement.amount >= rule.minAmount);
 
 /**
  * The first line that claims each statement, in order.

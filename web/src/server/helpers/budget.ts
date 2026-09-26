@@ -10,7 +10,9 @@ import {
 import { assignToLine, matchesRule, type MatchableStatement } from '@/lib/budget-rules';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { budgetRuleSchema, type BudgetRule } from '@/types/budget';
+import { getEMIs } from '@/server/helpers/emi';
+import { getEmiPaymentsInRange } from '@/server/helpers/emi-calculations';
+import { budgetRuleSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
 export type BudgetLineRow = typeof budgetLines.$inferSelect;
 export type BudgetIncomeLineRow = typeof budgetIncomeLines.$inferSelect;
@@ -19,9 +21,7 @@ export type BudgetYearRow = typeof budgetYears.$inferSelect;
 /** Rules are stored as jsonb, so they are parsed rather than trusted on the way out. */
 export const parseRule = (value: unknown): BudgetRule => {
   const result = budgetRuleSchema.safeParse(value);
-  return result.success
-    ? result.data
-    : { categories: [], tags: [], accounts: [], statementKinds: [] };
+  return result.success ? result.data : emptyBudgetRule;
 };
 
 type ScopedStatement = MatchableStatement & {
@@ -89,6 +89,7 @@ export const getStatementsInWindow = instrumentedFunction(
       category: row.category,
       tags: row.tags,
       statementKind: row.statementKind,
+      amount: Number(row.amount),
       accountRefs: [row.accountId, row.friendId],
       myAmount: Number(row.amount) - (owedByFriends.get(row.id) ?? 0),
     }));
@@ -124,11 +125,14 @@ export type LineTotals = {
 export const summariseIncome = (
   incomeLines: BudgetIncomeLineRow[],
   scoped: ScopedStatement[],
-): { waterfall: number; earmarked: Map<string, number> } => {
+): { waterfall: number; waterfallCount: number; earmarked: Map<string, number> } => {
   const ordered = [...incomeLines].sort((a, b) => a.position - b.position);
   const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
   const earmarked = new Map<string, number>();
   let waterfall = 0;
+  // Counted, not just summed: the budget runs on pay cycles rather than calendar
+  // months, and how many have landed is what says how many are left.
+  let waterfallCount = 0;
 
   for (const statement of scoped) {
     const match = parsed.find((line) => matchesRule(statement, line.rule));
@@ -137,6 +141,7 @@ export const summariseIncome = (
     }
     if (match.destination === 'waterfall') {
       waterfall += statement.myAmount;
+      waterfallCount += 1;
       continue;
     }
     if (match.destinationLineId !== null) {
@@ -147,7 +152,7 @@ export const summariseIncome = (
     }
   }
 
-  return { waterfall, earmarked };
+  return { waterfall, waterfallCount, earmarked };
 };
 
 export const summariseLines = (
@@ -180,3 +185,27 @@ export const summariseLines = (
 
   return { totals, unclaimed };
 };
+
+/**
+ * Loan installments still to be paid before the year is out.
+ *
+ * Cash, not commitment: a loan running past the window contributes only the
+ * installments that fall inside it. Already-paid installments are statements
+ * and are counted by the lines, so only the unpaid ones belong here.
+ */
+export const getRemainingEmiCash = instrumentedFunction(
+  'getRemainingEmiCash',
+  async (db: Database, userId: string, from: Date, to: Date): Promise<number> => {
+    const emis = await getEMIs(db, userId, {
+      completed: undefined,
+      perPage: 100,
+      page: 1,
+      accountId: [],
+      creditId: [],
+    });
+    return emis
+      .flatMap((emi) => getEmiPaymentsInRange(emi, emi.creditCardName, from, to, from))
+      .filter((payment) => payment.status !== 'paid')
+      .reduce((sum, payment) => sum + payment.myShare, 0);
+  },
+);

@@ -9,11 +9,19 @@ import {
   // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
 } from './budget-rules.ts';
 
-const empty = { categories: [], tags: [], accounts: [], statementKinds: [] };
+const empty = {
+  categories: [],
+  tags: [],
+  accounts: [],
+  statementKinds: [],
+  maxAmount: null,
+  minAmount: null,
+};
 const stmt = (over = {}) => ({
   category: 'Shopping',
   tags: ['Gift'],
   statementKind: 'expense',
+  amount: 500,
   accountRefs: ['acct-1'],
   ...over,
 });
@@ -53,4 +61,12 @@ test('first line wins, so a gift does not also count as shopping', () => {
 test('nothing claims a statement when no line matches and there is no catch-all', () => {
   const lines = [{ name: 'Flights', rule: { ...empty, tags: ['Flight'] } }];
   assert.equal(assignToLine(stmt(), lines), -1);
+});
+
+test('an amount ceiling tells a regular salary apart from the bonus it arrives with', () => {
+  const regular = stmt({ amount: 125183, category: 'Salary' });
+  const withBonus = stmt({ amount: 368035, category: 'Salary' });
+  const rule = { ...empty, categories: ['Salary'], maxAmount: 140000 };
+  assert.equal(matchesRule(regular, rule), true);
+  assert.equal(matchesRule(withBonus, rule), false);
 });

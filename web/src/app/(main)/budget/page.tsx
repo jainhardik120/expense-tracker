@@ -20,7 +20,7 @@ export default async function BudgetPage({
   return (
     <div className="flex flex-col gap-4">
       <BudgetYearPicker selectedId={selectedId} years={years} />
-      <BudgetHeadline projection={detail.projection} />
+      <BudgetHeadline detail={detail} />
       <BudgetWaterfall detail={detail} />
     </div>
   );

@@ -15,6 +15,12 @@ export const budgetRuleSchema = z.object({
   /** Account or friend ids, matched the same way the statements filter does. */
   accounts: z.array(z.string()).default([]),
   statementKinds: z.array(z.enum(statementKindEnum.enumValues)).default([]),
+  /**
+   * Bounds on the amount, which is how a bonus is told apart from the salary it
+   * arrives with: both are salary, only one is regular.
+   */
+  maxAmount: z.number().nullable().default(null),
+  minAmount: z.number().nullable().default(null),
 });
 
 export type BudgetRule = z.infer<typeof budgetRuleSchema>;
@@ -24,6 +30,8 @@ export const emptyBudgetRule: BudgetRule = {
   tags: [],
   accounts: [],
   statementKinds: [],
+  maxAmount: null,
+  minAmount: null,
 };
 
 export const budgetAllocationKinds = ['monthly', 'annual', 'residual', 'earmarked'] as const;

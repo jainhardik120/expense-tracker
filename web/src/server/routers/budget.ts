@@ -2,14 +2,20 @@ import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
+import { buildOutlook } from '@/lib/budget-outlook';
 import { monthsBetween, project } from '@/lib/budget-projection';
 import { matchesRule } from '@/lib/budget-rules';
 import {
+  getRemainingEmiCash,
   getStatementsInWindow,
   parseRule,
   summariseIncome,
   summariseLines,
 } from '@/server/helpers/budget';
+import {
+  getAccountsSummaryBetweenDates,
+  getFriendsSummaryBetweenDates,
+} from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   budgetIncomeLineSchema,
@@ -87,13 +93,28 @@ export const budgetRouter = createTRPCRouter({
       const { totals, unclaimed } = summariseLines(lines, scoped);
       const income = summariseIncome(incomeLines, scoped);
       const now = new Date();
-      // Clamped to the window: before it starts nothing has elapsed, after it
-      // ends the year is simply over and the pace is no longer meaningful.
       const totalMonths = monthsBetween(year.startDate, year.endDate);
-      const elapsedMonths = Math.min(
-        monthsBetween(year.startDate, now < year.endDate ? now : year.endDate),
-        totalMonths,
+
+      // --- the cash outlook: what is left, and what it means for investing ---
+      const accountsSummary = await getAccountsSummaryBetweenDates(ctx.db, ctx.user.id);
+      const friendsSummary = await getFriendsSummaryBetweenDates(ctx.db, ctx.user.id);
+      const balanceToday =
+        accountsSummary.reduce((sum, a) => sum + a.finalBalance, 0) -
+        friendsSummary.reduce((sum, f) => sum + f.finalBalance, 0);
+
+      // Pay cycles, not calendar months. The first salary of the year can land on
+      // day one, so after nine calendar months ten have been paid -- and it is the
+      // count of those, not the elapsed time, that says how many are still coming.
+      const cyclesTotal = Math.round(totalMonths);
+      const cyclesElapsed = Math.min(income.waterfallCount, cyclesTotal);
+      const incomeCyclesRemaining = Math.max(cyclesTotal - cyclesElapsed, 0);
+      // Months still to be spent in, which is a different count: the last salary
+      // of the year can arrive well before the year is over.
+      const monthsRemaining = Math.max(
+        monthsBetween(now, year.endDate > now ? year.endDate : now),
+        0,
       );
+
       const projection = project(
         totals.map((line) => ({
           lineId: line.lineId,
@@ -105,15 +126,47 @@ export const budgetRouter = createTRPCRouter({
           earmarkedIncome: income.earmarked.get(line.lineId) ?? 0,
         })),
         income.waterfall,
-        elapsedMonths,
-        totalMonths,
+        cyclesElapsed,
+        cyclesTotal,
       );
+      const byKind = (pred: (t: (typeof totals)[number]) => boolean) =>
+        totals.filter(pred).reduce((sum, t) => sum + t.allocationAmount, 0);
+
+      const fixedPerMonth = byKind((t) => !t.discretionary && t.allocationKind === 'monthly');
+      const livingPerMonthBudget = byKind((t) => t.discretionary && t.allocationKind === 'monthly');
+      const livingActualTotal = totals
+        .filter((t) => t.discretionary && t.allocationKind === 'monthly')
+        .reduce((sum, t) => sum + t.actual, 0);
+      const envelopesRemaining = projection.lines
+        .filter((line) => line.discretionary && line.allocationKind === 'annual')
+        .reduce((sum, line) => sum + Math.max(line.remaining, 0), 0);
+      const residual = totals.find((t) => t.allocationKind === 'residual');
+      // Investments are recorded as money leaving, so the sign is flipped here.
+      const investedSoFar = Math.abs(residual?.actual ?? 0);
+
+      const emiRemaining = await getRemainingEmiCash(ctx.db, ctx.user.id, now, year.endDate);
+
+      const outlook = buildOutlook({
+        balanceToday,
+        monthlyIncome: cyclesElapsed > 0 ? income.waterfall / cyclesElapsed : 0,
+        incomeCyclesRemaining,
+        monthsRemaining,
+        fixedPerMonth,
+        emiRemaining,
+        envelopesRemaining,
+        livingPerMonthActual: cyclesElapsed > 0 ? livingActualTotal / cyclesElapsed : 0,
+        livingPerMonthBudget,
+        investedSoFar,
+        investmentGoal: residual?.allocationAmount ?? 0,
+      });
+
       return {
         year,
         lines,
         incomeLines,
         totals,
         projection,
+        outlook,
         unclaimedCount: unclaimed.length,
         unclaimedTotal: unclaimed.reduce((sum, s) => sum + s.myAmount, 0),
       };
