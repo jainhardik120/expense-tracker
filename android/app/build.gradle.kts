@@ -128,6 +128,9 @@ dependencies {
     implementation(libs.androidx.security.crypto)
     implementation(libs.ktor.client.auth)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.material.icons.extended)
 }

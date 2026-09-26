@@ -23,6 +23,27 @@ export const smsNotificationsRouter = createTRPCRouter({
     .input(createSmsNotificationSchema)
     .output(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      // The phone retries an upload it never got an answer to, so the same
+      // message can arrive twice: once from the attempt that did land, once
+      // from the retry. A message is identified by who sent it, what it said
+      // and for how much -- the timestamp is not part of that, because the
+      // broadcast and the inbox disagree about it by a second or two.
+      const existing = await ctx.db
+        .select({ id: smsNotifications.id })
+        .from(smsNotifications)
+        .where(
+          and(
+            eq(smsNotifications.userId, ctx.user.id),
+            eq(smsNotifications.sender, input.sender),
+            eq(smsNotifications.smsBody, input.smsBody),
+            eq(smsNotifications.amount, input.amount),
+          ),
+        )
+        .limit(1);
+      const alreadyStored = existing.at(0);
+      if (alreadyStored !== undefined) {
+        return alreadyStored;
+      }
       const ids = await ctx.db
         .insert(smsNotifications)
         .values({

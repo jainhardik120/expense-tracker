@@ -40,11 +40,16 @@ class AppNotificationManager @Inject constructor(
     }
 
     fun notifySmsSyncError(parsedTransaction: ParsedTransaction, reason: String?) {
+        notifySmsSyncError(buildTransactionMessage(parsedTransaction), reason)
+    }
+
+    /** For the upload worker, which has the request but not the parse it came from. */
+    fun notifySmsSyncError(summary: String, reason: String?) {
         val errorSuffix = reason?.takeIf { it.isNotBlank() } ?: "Please open the app and try again."
         showNotification(
             channelId = ERROR_CHANNEL_ID,
             title = "Failed to sync transaction",
-            message = "${buildTransactionMessage(parsedTransaction)}. $errorSuffix",
+            message = "$summary. $errorSuffix",
             smallIcon = android.R.drawable.stat_notify_error,
             priority = NotificationCompat.PRIORITY_HIGH
         )

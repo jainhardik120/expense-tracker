@@ -6,18 +6,15 @@ import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
 import com.jainhardik120.expensetracker.manager.SmsTransactionProcessor
+import com.jainhardik120.expensetracker.work.SmsUploadWorker
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
-import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import dagger.hilt.android.EntryPointAccessors
 
 /**
  * BroadcastReceiver that intercepts incoming SMS messages in real-time
- * and processes them for transaction data using the shared SmsTransactionProcessor.
+ * and hands any transaction it finds to the upload worker.
  */
 class SmsBroadcastReceiver : BroadcastReceiver() {
 
@@ -30,8 +27,6 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "SmsBroadcastReceiver"
     }
-
-    private val receiverScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
@@ -66,27 +61,27 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
         )
         val processor = entryPoint.smsTransactionProcessor()
 
-        // Hold the broadcast open for the upload. Without this, onReceive
-        // returns while the coroutine is still talking to the server, and a
-        // process with no running component is the first thing Android kills:
-        // the upload dies mid-flight, and worse, a token refresh that the
-        // server has already committed is lost, leaving this device holding a
-        // token the server has retired.
+        // Parse here, where the message is, and upload from a worker. Holding
+        // the broadcast open until the work is on disk is the whole job: once
+        // onReceive returns, this process has no running component and is the
+        // first thing Android kills — and anything still in flight dies with
+        // it, uploads and token refreshes alike.
         val pendingResult = goAsync()
-        receiverScope.launch {
-            try {
-                for ((sender, smsData) in smsMap) {
-                    val body = smsData.body.toString()
-                    Log.d(TAG, "Received SMS from: $sender at timestamp: ${smsData.timestamp}")
-                    try {
-                        processor.processAndSaveTransaction(sender, body, smsData.timestamp)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error processing SMS", e)
-                    }
-                }
-            } finally {
-                pendingResult.finish()
+        try {
+            for ((sender, smsData) in smsMap) {
+                Log.d(TAG, "Received SMS from: $sender at timestamp: ${smsData.timestamp}")
+                val body = try {
+                    processor.parse(sender, smsData.body.toString(), smsData.timestamp)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing SMS", e)
+                    null
+                } ?: continue
+                SmsUploadWorker.enqueue(context, body).result.get()
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error queueing SMS upload", e)
+        } finally {
+            pendingResult.finish()
         }
     }
 }

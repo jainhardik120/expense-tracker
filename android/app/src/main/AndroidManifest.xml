@@ -47,6 +47,20 @@
             </intent-filter>
         </activity>
 
+        <!-- WorkManager is configured by the Application class, so it can build
+             workers with their dependencies injected. That means the default
+             initializer has to go. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <receiver
             android:name=".receiver.SmsBroadcastReceiver"
             android:exported="true"
