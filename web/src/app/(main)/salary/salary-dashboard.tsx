@@ -40,6 +40,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { hasMaterialSalaryNetMismatch } from '@/lib/salary';
@@ -724,41 +733,39 @@ const TaxProjectionDialog = ({ data }: { data: SalaryData }) => {
               Each rate applies only to the portion of taxable income falling within that slab.
             </p>
           </div>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[620px] text-sm">
-              <thead className="bg-muted/40 text-muted-foreground text-left text-xs uppercase">
-                <tr>
-                  <th className="px-4 py-3">Income slab</th>
-                  <th className="px-4 py-3 text-right">Rate</th>
-                  <th className="px-4 py-3 text-right">Income in slab</th>
-                  <th className="px-4 py-3 text-right">Tax</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Income slab</TableHead>
+                  <TableHead className="text-right">Rate</TableHead>
+                  <TableHead className="text-right">Income in slab</TableHead>
+                  <TableHead className="text-right">Tax</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {tax.slabs.map((slab) => (
-                  <tr key={slab.lower} className="border-t">
-                    <td className="px-4 py-3">{formatSlabRange(slab.lower, slab.upper)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{slab.rate * 100}%</td>
-                    <td className="px-4 py-3 text-right tabular-nums">
+                  <TableRow key={slab.lower}>
+                    <TableCell>{formatSlabRange(slab.lower, slab.upper)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{slab.rate * 100}%</TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {formatCurrency(slab.taxableAmount)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-medium tabular-nums">
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
                       {formatCurrency(slab.tax)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-muted/30 border-t font-semibold">
-                  <td className="px-4 py-3" colSpan={3}>
-                    Slab tax
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={3}>Slab tax</TableCell>
+                  <TableCell className="text-right tabular-nums">
                     {formatCurrency(tax.slabTax)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
           </div>
         </section>
 
@@ -890,45 +897,43 @@ const OutsideTaxableIncomeCard = ({ data }: { data: SalaryData }) => (
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[680px] text-sm">
-            <thead className="bg-muted/40 text-muted-foreground text-left text-xs uppercase">
-              <tr>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3">Statement</th>
-                <th className="px-4 py-3">Account</th>
-                <th className="px-4 py-3 text-right">Bank credit</th>
-                <th className="px-4 py-3 text-right">Taxable portion</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Statement</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead className="text-right">Bank credit</TableHead>
+                <TableHead className="text-right">Taxable portion</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {data.taxableStatements.map((statement) => (
-                <tr key={statement.id} className="border-t">
-                  <td className="px-4 py-3">{formatDate(statement.createdAt)}</td>
-                  <td className="px-4 py-3 font-medium">{statement.category}</td>
-                  <td className="text-muted-foreground px-4 py-3">
+                <TableRow key={statement.id}>
+                  <TableCell>{formatDate(statement.createdAt)}</TableCell>
+                  <TableCell className="font-medium">{statement.category}</TableCell>
+                  <TableCell className="text-muted-foreground">
                     {statement.accountName ?? 'Unknown account'}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
                     {formatCurrency(statement.creditedAmount)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
                     {formatCurrency(statement.taxableAmount)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-            <tfoot>
-              <tr className="bg-muted/30 border-t font-semibold">
-                <td className="px-4 py-3" colSpan={4}>
-                  Marked statements total
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={4}>Marked statements total</TableCell>
+                <TableCell className="text-right tabular-nums">
                   {formatCurrency(data.summary.statementTaxableIncome)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
         </div>
       )}
       <p className="text-muted-foreground text-xs">
@@ -1282,7 +1287,7 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
             <TaxSettingsDialog data={data} onSaved={refresh} />
           </CardAction>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent>
           {!hasSetup ? (
             <div className="bg-muted/30 rounded-lg border border-dashed p-8 text-center">
               <p className="font-medium">
@@ -1293,21 +1298,21 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
               </p>
             </div>
           ) : (
-            <table className="w-full min-w-[1020px] text-sm">
-              <thead className="text-muted-foreground border-b text-left text-xs uppercase">
-                <tr>
-                  <th className="py-3">Period / revision</th>
-                  <th>Pay date</th>
-                  <th>Status</th>
-                  <th className="text-right">Earnings</th>
-                  <th className="text-right">Deductions</th>
-                  <th className="text-right">TDS</th>
-                  <th className="text-right">Net</th>
-                  <th className="text-right">Taxable</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Period / revision</TableHead>
+                  <TableHead>Pay date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Earnings</TableHead>
+                  <TableHead className="text-right">Deductions</TableHead>
+                  <TableHead className="text-right">TDS</TableHead>
+                  <TableHead className="text-right">Net</TableHead>
+                  <TableHead className="text-right">Taxable</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {data.rows.map((row) => {
                   const mismatch = hasMaterialSalaryNetMismatch(
                     row.statementAmount,
@@ -1332,11 +1337,8 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
                   }, 0);
                   const presentation = statusPresentation[row.status];
                   return (
-                    <tr
-                      key={`${row.revisionId}-${row.periodStart.toISOString()}`}
-                      className="border-b last:border-0"
-                    >
-                      <td className="py-3">
+                    <TableRow key={`${row.revisionId}-${row.periodStart.toISOString()}`}>
+                      <TableCell>
                         <p className="font-medium">
                           {new Intl.DateTimeFormat('en-IN', {
                             month: 'long',
@@ -1350,18 +1352,18 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
                             ? ''
                             : ` · ${row.daysPaid}/${row.daysInPeriod} days`}
                         </p>
-                      </td>
-                      <td>{formatDate(row.paymentDate)}</td>
-                      <td>
+                      </TableCell>
+                      <TableCell>{formatDate(row.paymentDate)}</TableCell>
+                      <TableCell>
                         <Badge variant={presentation.variant}>{presentation.label}</Badge>
-                      </td>
-                      <td className="text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(row.totals.earnings)}
-                      </td>
-                      <td className="text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(row.totals.deductions)}
-                      </td>
-                      <td className="text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         <span className="font-medium">{formatCurrency(row.totals.tds)}</span>
                         {bonusTdsAdjustment === 0 ? null : (
                           <p className="text-muted-foreground text-xs">
@@ -1373,8 +1375,8 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
                             Tax balance {formatSignedCurrency(reconciliationTdsAdjustment)}
                           </p>
                         )}
-                      </td>
-                      <td className="text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         <span
                           className={mismatch ? 'text-destructive font-semibold' : 'font-semibold'}
                         >
@@ -1385,28 +1387,28 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
                             Bank: {formatCurrency(row.statementAmount as number)}
                           </p>
                         ) : null}
-                      </td>
-                      <td className="text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatCurrency(row.totals.taxableIncome)}
-                      </td>
-                      <td className="text-right">
+                      </TableCell>
+                      <TableCell className="text-right">
                         <PaymentDialog
                           bonuses={data.bonuses}
                           components={data.components}
                           row={row}
                           onSaved={refresh}
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>One-time bonuses</CardTitle>
@@ -1422,52 +1424,52 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
             {data.bonuses.length === 0 ? (
               <p className="text-muted-foreground text-sm">No bonuses planned.</p>
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full min-w-[720px] text-sm">
-                  <thead className="bg-muted/40 text-muted-foreground text-left text-xs uppercase">
-                    <tr>
-                      <th className="px-4 py-3">Bonus</th>
-                      <th className="px-4 py-3 text-right">Total</th>
-                      <th className="px-4 py-3 text-right">Tax deduction</th>
-                      <th className="px-4 py-3 text-right">Net pay</th>
-                      <th className="w-12 px-2 py-3">
+              <div className="rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Bonus</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead className="text-right">Tax deduction</TableHead>
+                      <TableHead className="text-right">Net pay</TableHead>
+                      <TableHead className="w-12">
                         <span className="sr-only">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {data.bonuses.map((bonus) => (
-                      <tr key={bonus.id} className="border-t">
-                        <td className="px-4 py-3">
+                      <TableRow key={bonus.id}>
+                        <TableCell>
                           <p className="font-medium">{bonus.componentName}</p>
                           <p className="text-muted-foreground text-xs">
                             Expected {formatDate(bonus.expectedDate)} ·{' '}
                             {bonus.actualAmount === null ? 'estimate' : 'reconciled'}
                           </p>
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums">
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
                           {formatCurrency(bonus.actualAmount ?? bonus.estimatedAmount)}
                           {bonus.actualAmount === null ? null : (
                             <p className="text-muted-foreground text-xs font-normal">
                               Est. {formatCurrency(bonus.estimatedAmount)}
                             </p>
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
                           {bonus.estimatedTax === null ? (
                             <span className="text-muted-foreground text-xs">In actual payroll</span>
                           ) : (
                             formatCurrency(bonus.estimatedTax)
                           )}
-                        </td>
-                        <td className="px-4 py-3 text-right font-medium tabular-nums">
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
                           {bonus.estimatedNet === null ? (
                             <span className="text-muted-foreground text-xs">See actual salary</span>
                           ) : (
                             formatCurrency(bonus.estimatedNet)
                           )}
-                        </td>
-                        <td className="px-2 py-3 text-right">
+                        </TableCell>
+                        <TableCell className="text-right">
                           <DeleteConfirmationDialog
                             mutation={deleteBonus}
                             mutationInput={{ id: bonus.id }}
@@ -1481,28 +1483,28 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
                               <Trash2 />
                             </Button>
                           </DeleteConfirmationDialog>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
+                  </TableBody>
                   {estimatedBonusTotals.count === 0 ? null : (
-                    <tfoot>
-                      <tr className="bg-muted/30 border-t font-semibold">
-                        <td className="px-4 py-3">Pending estimates total</td>
-                        <td className="px-4 py-3 text-right tabular-nums">
+                    <TableFooter>
+                      <TableRow>
+                        <TableCell>Pending estimates total</TableCell>
+                        <TableCell className="text-right tabular-nums">
                           {formatCurrency(estimatedBonusTotals.gross)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
                           {formatCurrency(estimatedBonusTotals.tax)}
-                        </td>
-                        <td className="px-4 py-3 text-right tabular-nums">
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
                           {formatCurrency(estimatedBonusTotals.net)}
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableFooter>
                   )}
-                </table>
+                </Table>
               </div>
             )}
           </CardContent>
