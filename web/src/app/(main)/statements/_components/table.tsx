@@ -78,7 +78,7 @@ const Table = ({
     friendsData,
     categories,
     tags,
-      startingBalance:
+    startingBalance:
       data.summary === null
         ? undefined
         : {

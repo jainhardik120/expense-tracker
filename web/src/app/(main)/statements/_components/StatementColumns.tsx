@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SortableItemHandle } from '@/components/ui/sortable';
 import { useIsMounted } from '@/hooks/use-is-mounted';
+import { cn } from '@/lib/utils';
 import { getFromAccount, getToAccount } from '@/server/helpers/account';
 import { api } from '@/server/react';
 import {
@@ -22,6 +23,11 @@ import {
 
 import { LinkToRecurringPaymentDialog } from './RecurringPaymentLink';
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
+import {
+  hasSignedAmount,
+  signedAmountClassName,
+  statementKindClassName,
+} from './statement-appearance';
 import { UpdateStatementForm } from './StatementForms';
 import { StatementSplitsDialog } from './StatementSplits';
 
@@ -62,10 +68,7 @@ const StatementActions = ({
       {statement.statementKind === 'expense' && (
         <StatementSplitsDialog statementData={statement} statementId={id} />
       )}
-      <LinkToRecurringPaymentDialog
-        statement={statement}
-        onRefresh={onRefresh}
-      />
+      <LinkToRecurringPaymentDialog statement={statement} onRefresh={onRefresh} />
       <UpdateStatementForm
         accountsData={accountsData}
         categories={categories}
@@ -181,11 +184,11 @@ export const createStatementColumns = ({
     accessorKey: 'statementKind',
     header: 'Statement Kind',
     cell: ({ row }) => (
-      <>
+      <span className={cn('font-medium', statementKindClassName(row.original))}>
         {isSelfTransfer(row.original)
           ? 'Self Transfer'
           : statementKindMap[row.original.statementKind]}
-      </>
+      </span>
     ),
     meta: {
       label: 'Statement Kind',
@@ -201,8 +204,17 @@ export const createStatementColumns = ({
     accessorKey: 'amount',
     header: 'Amount',
     cell: ({ row }) => {
-      const { amount } = row.original;
-      return Number.parseFloat(amount).toFixed(2);
+      const amount = Number.parseFloat(row.original.amount);
+      return (
+        <span
+          className={cn(
+            'font-medium tabular-nums',
+            hasSignedAmount(row.original) && signedAmountClassName(amount),
+          )}
+        >
+          {amount.toFixed(2)}
+        </span>
+      );
     },
     meta: {
       label: 'Amount',
@@ -246,13 +258,14 @@ export const createStatementColumns = ({
   {
     accessorKey: 'expense',
     header: 'Expense',
-    cell: ({ row }) => (
-      <>
-        {!isSelfTransfer(row.original) && row.original.statementKind === 'expense'
-          ? (parseFloat(row.original.amount) - row.original.splitAmount).toFixed(2)
-          : '-'}
-      </>
-    ),
+    cell: ({ row }) =>
+      !isSelfTransfer(row.original) && row.original.statementKind === 'expense' ? (
+        <span className="tabular-nums">
+          {(parseFloat(row.original.amount) - row.original.splitAmount).toFixed(2)}
+        </span>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      ),
     meta: {
       label: 'Expense',
     },
@@ -264,6 +277,9 @@ export const createStatementColumns = ({
           id: 'finalBalance',
           accessorFn: (row) => (row.finalBalance ?? 0).toFixed(2),
           header: startingBalance.name,
+          cell: ({ row }) => (
+            <span className="tabular-nums">{(row.original.finalBalance ?? 0).toFixed(2)}</span>
+          ),
           meta: {
             label: 'Final Balance',
           },
@@ -311,7 +327,7 @@ export const createStatementColumns = ({
             <StatementActions
               accountsData={accountsData}
               categories={categories}
-                    friendsData={friendsData}
+              friendsData={friendsData}
               statement={row.original}
               onRefresh={onRefreshStatements}
             />
