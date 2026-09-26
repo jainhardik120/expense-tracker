@@ -1,7 +1,7 @@
 'use client';
 
 import { startOfMonth, endOfMonth } from 'date-fns';
-import { fromZonedTime } from 'date-fns-tz';
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { useQueryStates } from 'nuqs';
 
 import {
@@ -35,14 +35,18 @@ const MonthSelector = () => {
   const [params, setParams] = useQueryStates(dateParser);
   const tz = useTimezone();
 
-  const currentYear = new Date().getFullYear();
   const { start: defaultStart } = getDefaultDateRange(tz);
 
-  const selectedMonthIndex = new Date(params.start ?? defaultStart).getMonth();
+  // Anchored to the year already in the filter, not to today's: the range can be
+  // set to another year from elsewhere on the page, and the selector has to agree
+  // with it rather than silently claim the month belongs to this year.
+  const selectedStart = toZonedTime(params.start ?? defaultStart, tz);
+  const selectedYear = selectedStart.getFullYear();
+  const selectedMonthIndex = selectedStart.getMonth();
 
   const handleMonthChange = (monthIndex: number) => {
-    const start = startOfMonth(new Date(currentYear, monthIndex, 1));
-    const end = endOfMonth(new Date(currentYear, monthIndex, 1));
+    const start = startOfMonth(new Date(selectedYear, monthIndex, 1));
+    const end = endOfMonth(new Date(selectedYear, monthIndex, 1));
 
     const zonedStart = fromZonedTime(start, tz);
     const zonedEnd = fromZonedTime(end, tz);
@@ -65,7 +69,7 @@ const MonthSelector = () => {
         <SelectContent>
           {months.map((month, idx) => (
             <SelectItem key={month} value={String(idx)}>
-              {month} {currentYear}
+              {month} {selectedYear}
             </SelectItem>
           ))}
         </SelectContent>

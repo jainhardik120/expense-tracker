@@ -2,7 +2,9 @@
 
 import { useMemo } from 'react';
 
-import { format, parse } from 'date-fns';
+import { endOfMonth, format, parse, startOfMonth } from 'date-fns';
+import { fromZonedTime } from 'date-fns-tz';
+import { useQueryStates } from 'nuqs';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { useTimezone } from '@/components/time-zone-setter';
@@ -11,6 +13,7 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
 import { getFutureRecurringPayments } from '@/server/helpers/recurring-calculations';
 import { type RouterOutput } from '@/server/routers';
+import { dateParser } from '@/types';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
 
@@ -21,9 +24,57 @@ type FutureMonthData = {
   total: number;
 };
 
+const MonthButton = ({ month, onSelect }: { month: string; onSelect: (month: string) => void }) => (
+  <button
+    className="underline-offset-4 hover:underline"
+    type="button"
+    onClick={() => {
+      onSelect(month);
+    }}
+  >
+    {format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy')}
+  </button>
+);
+
+const createFutureMonthColumns = (onSelectMonth: (month: string) => void) => [
+  {
+    id: 'month',
+    header: 'Month',
+    cell: ({ row }: { row: { original: FutureMonthData } }) => (
+      <MonthButton month={row.original.month} onSelect={onSelectMonth} />
+    ),
+  },
+  {
+    id: 'emiTotal',
+    header: 'EMI',
+    accessorFn: (row: FutureMonthData) => formatCurrency(row.emiTotal),
+  },
+  {
+    id: 'recurringTotal',
+    header: 'Recurring',
+    accessorFn: (row: FutureMonthData) => formatCurrency(row.recurringTotal),
+  },
+  {
+    id: 'total',
+    header: 'Total',
+    accessorFn: (row: FutureMonthData) => formatCurrency(row.total),
+  },
+];
+
 export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
   const { paymentsByMonth, recurringPayments, recurringHorizon } = creditData;
   const timezone = useTimezone();
+  const [, setDateRange] = useQueryStates(dateParser, { shallow: false });
+
+  // Picking a month here drives the page's date filter, so the rest of the
+  // dashboard -- the Payments card especially -- follows along to that month.
+  const selectMonth = (month: string) => {
+    const monthStart = parse(month, 'yyyy-MM', new Date());
+    void setDateRange({
+      start: fromZonedTime(startOfMonth(monthStart), timezone),
+      end: fromZonedTime(endOfMonth(monthStart), timezone),
+    });
+  };
   const recurringPaymentsByMonth = useMemo(
     () => getFutureRecurringPayments(recurringPayments, recurringHorizon, timezone),
     [recurringPayments, recurringHorizon, timezone],
@@ -57,29 +108,7 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
 
   const { table } = useDataTable({
     data: futureMonthsData,
-    columns: [
-      {
-        id: 'month',
-        header: 'Month',
-        accessorFn: (row: FutureMonthData) =>
-          format(parse(row.month, 'yyyy-MM', new Date()), 'MMMM yyyy'),
-      },
-      {
-        id: 'emiTotal',
-        header: 'EMI',
-        accessorFn: (row: FutureMonthData) => formatCurrency(row.emiTotal),
-      },
-      {
-        id: 'recurringTotal',
-        header: 'Recurring',
-        accessorFn: (row: FutureMonthData) => formatCurrency(row.recurringTotal),
-      },
-      {
-        id: 'total',
-        header: 'Total',
-        accessorFn: (row: FutureMonthData) => formatCurrency(row.total),
-      },
-    ],
+    columns: createFutureMonthColumns(selectMonth),
     pageCount: -1,
   });
 
