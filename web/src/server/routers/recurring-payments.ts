@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { recurringPayments, statements } from '@/db/schema';
@@ -20,6 +20,9 @@ import {
 } from '../helpers/emi';
 
 const RECURRING_PAYMENT_NOT_FOUND = 'Recurring payment not found';
+
+/** Mirrors isRecurringPaymentActive: a payment is done once its end date has passed. */
+const isEnded = sql`(${recurringPayments.endDate} IS NOT NULL AND ${recurringPayments.endDate} <= now())`;
 
 export const recurringPaymentsRouter = createTRPCRouter({
   getRecurringPayments: protectedProcedure
@@ -45,7 +48,8 @@ export const recurringPaymentsRouter = createTRPCRouter({
         .select()
         .from(recurringPayments)
         .where(and(...conditions))
-        .orderBy(desc(recurringPayments.createdAt))
+        // Ended payments sink to the bottom; everything else reads alphabetically.
+        .orderBy(sql`${isEnded} ASC`, asc(recurringPayments.name))
         .limit(input.perPage)
         .offset(offset);
 
