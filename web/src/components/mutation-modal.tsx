@@ -20,6 +20,9 @@ type Props<Input extends FieldValues, Output extends FieldValues, MutationResult
   refresh?: (values: MutationResult) => Promise<void> | void;
   successToast: (mutationResult: MutationResult) => string;
   customDescription?: React.ReactNode;
+  /** Header description, and a width for forms that need more than the default. */
+  modalDescription?: React.ReactNode;
+  modalClassName?: string;
 };
 
 const MutationModal = <T extends FieldValues, U extends FieldValues, MutationResult>(
@@ -40,7 +43,14 @@ const MutationModal = <T extends FieldValues, U extends FieldValues, MutationRes
       });
   };
   return (
-    <Modal open={open} setOpen={setOpen} title={props.titleText} trigger={props.button}>
+    <Modal
+      className={props.modalClassName}
+      description={props.modalDescription}
+      open={open}
+      setOpen={setOpen}
+      title={props.titleText}
+      trigger={props.button}
+    >
       {props.customDescription}
       <DynamicForm {...props} showSubmitButton onSubmit={onSubmit} />
     </Modal>

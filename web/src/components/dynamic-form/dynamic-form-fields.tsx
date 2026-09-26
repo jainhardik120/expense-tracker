@@ -240,6 +240,25 @@ const RenderedColorInput = <T extends FieldValues = FieldValues>(props: FieldPro
   <Input type="color" {...props.field} />
 );
 
+// `number` hands the browser's string straight through, which is what the
+// money schemas in this app expect; this one keeps the value a number, for
+// the schemas that ask for one.
+const RenderedIntegerInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
+  <Input
+    max={props.formField.max}
+    min={props.formField.min}
+    placeholder={props.formField.placeholder}
+    step={props.formField.step ?? 1}
+    type="number"
+    {...props.field}
+    id={props.id}
+    value={(props.field.value as number | undefined) ?? ''}
+    onChange={(event) => {
+      props.field.onChange(event.target.value === '' ? undefined : event.target.valueAsNumber);
+    }}
+  />
+);
+
 const RenderedCheckboxInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
   <Checkbox
     checked={props.field.value as boolean}
@@ -294,6 +313,7 @@ export const RenderedFormFields: {
   url: (props) => (
     <Input placeholder={props.formField.placeholder} type="url" {...props.field} id={props.id} />
   ),
+  integer: RenderedIntegerInput,
   date: RenderedDateInput,
   time: RenderedTimeInput,
   datetime: RenderedDatetimeInput,
