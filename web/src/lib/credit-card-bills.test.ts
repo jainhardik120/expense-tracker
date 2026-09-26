@@ -136,3 +136,35 @@ test('a bill whose billing day has not arrived is an estimate from current utili
   assert.equal(bill.status, 'upcoming');
   assert.equal(bill.billedAmount, 3_200);
 });
+
+test('projects bills no further than next month', () => {
+  // NOW is September, so an October bill is still grounded in what the card is
+  // carrying today, but a November one would be invented.
+  const activity = [
+    {
+      accountId: card.accountId,
+      createdAt: new Date('2026-09-20T10:00:00.000Z'),
+      balanceDelta: -5_000,
+    },
+  ];
+  const octoberBills = getCardBillsInRange(
+    [card],
+    activity,
+    new Date('2026-09-30T18:30:00.000Z'),
+    new Date('2026-10-31T18:29:59.999Z'),
+    NOW,
+    TIMEZONE,
+  );
+  const novemberBills = getCardBillsInRange(
+    [card],
+    activity,
+    new Date('2026-10-31T18:30:00.000Z'),
+    new Date('2026-11-30T18:29:59.999Z'),
+    NOW,
+    TIMEZONE,
+  );
+
+  assert.equal(octoberBills.length, 1);
+  assert.equal(octoberBills[0].status, 'upcoming');
+  assert.deepEqual(novemberBills, []);
+});

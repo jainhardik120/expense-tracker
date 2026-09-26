@@ -468,6 +468,13 @@ export const emisRouter = createTRPCRouter({
           periodEnd,
         ),
       );
+      // EMI installments are billed to the card, so a bill that will include one
+      // stands in for it. Beyond next month there are no bills, and then the
+      // installment is the only concrete figure we have.
+      const emiKey = (payment: (typeof periodEmiPayments)[number]) =>
+        `${payment.emiId}-${payment.date.toISOString()}`;
+      const absorbedEmiKeys = new Set<string>();
+
       const periodCardBills = getCardBillsInRange(
         cards.map((card) => ({
           ...card,
@@ -486,14 +493,16 @@ export const emisRouter = createTRPCRouter({
           }
           // A bill still ahead of us has not absorbed this period's EMI installments
           // yet, so fold them in -- they will land on the same card before it is due.
-          const emiYetToBill = periodEmiPayments
-            .filter(
-              (payment) =>
-                payment.creditId === bill.cardId &&
-                payment.status !== 'paid' &&
-                payment.date <= bill.dueDate,
-            )
-            .reduce((sum, payment) => sum + payment.amount, 0);
+          const yetToBill = periodEmiPayments.filter(
+            (payment) =>
+              payment.creditId === bill.cardId &&
+              payment.status !== 'paid' &&
+              payment.date <= bill.dueDate,
+          );
+          for (const payment of yetToBill) {
+            absorbedEmiKeys.add(emiKey(payment));
+          }
+          const emiYetToBill = yetToBill.reduce((sum, payment) => sum + payment.amount, 0);
           return {
             ...bill,
             billedAmount: bill.billedAmount + emiYetToBill,
@@ -509,7 +518,10 @@ export const emisRouter = createTRPCRouter({
         paymentsByMonth,
         recurringPayments: activeRecurringPayments,
         recurringHorizon,
-        periodEmiPayments,
+        periodEmiPayments: periodEmiPayments.map((payment) => ({
+          ...payment,
+          absorbedByBill: absorbedEmiKeys.has(emiKey(payment)),
+        })),
         periodRecurringPayments,
         periodCardBills,
         periodStart,

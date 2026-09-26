@@ -23,6 +23,7 @@ type PeriodPayment = {
   amount: number;
   myShare: number;
   status: PaymentStatus;
+  absorbedByBill: boolean;
 };
 
 const BALANCE_BUFFER_RATIO = 1.2;
@@ -108,6 +109,7 @@ export const PeriodPaymentsCard = ({
       amount: payment.amount,
       myShare: payment.myShare,
       status: payment.status,
+      absorbedByBill: payment.absorbedByBill,
     }));
     const recurringItems = periodRecurringPayments.map((payment) => ({
       key: `recurring-${payment.id}-${payment.date.toISOString()}`,
@@ -118,6 +120,7 @@ export const PeriodPaymentsCard = ({
       amount: payment.amount,
       myShare: payment.amount,
       status: payment.status,
+      absorbedByBill: false,
     }));
     const billItems = periodCardBills.map((bill) => ({
       key: `bill-${bill.cardId}-${bill.dueDate.toISOString()}`,
@@ -128,6 +131,7 @@ export const PeriodPaymentsCard = ({
       amount: bill.billedAmount,
       myShare: bill.status === 'paid' ? bill.billedAmount : bill.remainingAmount,
       status: bill.status,
+      absorbedByBill: false,
     }));
 
     return [...emiItems, ...recurringItems, ...billItems].sort(
@@ -145,11 +149,12 @@ export const PeriodPaymentsCard = ({
     const recurringTotal = sumMine('Recurring');
     const cardBillTotal = sumMine('Credit Card Bill');
 
-    // EMI installments are billed to the card, so they are already inside the card
-    // bill figure -- counting both would ask for the same money twice.
+    // An EMI billed to a card in this period is already inside that bill, so counting
+    // it again would ask for the same money twice. Past next month there are no bill
+    // projections, and then the installment itself is what is owed.
     const outstanding = payments
-      .filter((payment) => payment.status !== 'paid')
-      .reduce((sum, payment) => (payment.type === 'EMI' ? sum : sum + payment.myShare), 0);
+      .filter((payment) => payment.status !== 'paid' && !payment.absorbedByBill)
+      .reduce((sum, payment) => sum + payment.myShare, 0);
 
     const creditCardAccountIds = new Set(creditData.cards.map((card) => card.accountId));
     const availableNonCreditBalance = summaryData.accountsSummary
@@ -214,7 +219,7 @@ export const PeriodPaymentsCard = ({
             <p className="text-base font-semibold">{formatCurrency(totals.recurringTotal)}</p>
           </div>
           <div className="rounded-lg border p-2">
-            <p className="text-muted-foreground text-xs">EMI (billed to cards)</p>
+            <p className="text-muted-foreground text-xs">EMI</p>
             <p className="text-base font-semibold">{formatCurrency(totals.emiTotal)}</p>
           </div>
           <div className="rounded-lg border p-2">

@@ -1,4 +1,4 @@
-import { getDaysInMonth } from 'date-fns';
+import { endOfMonth, getDaysInMonth } from 'date-fns';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 export type CreditCardActivity = {
@@ -82,6 +82,11 @@ export const getCardBillsInRange = (
   const bills: PeriodCardBill[] = [];
   const localStart = toZonedTime(rangeStart, timezone);
   const localEnd = toZonedTime(rangeEnd, timezone);
+  // Projecting a bill past next month is guesswork: what a card will be carrying
+  // then depends on spending that has not happened. This month's balance does roll
+  // into next month's bill, so that one is grounded -- nothing beyond it is.
+  const localNow = toZonedTime(now, timezone);
+  const billHorizon = endOfMonth(new Date(localNow.getFullYear(), localNow.getMonth() + 1, 1));
 
   for (const card of cards) {
     const cardActivities = activities.filter((activity) => activity.accountId === card.accountId);
@@ -99,6 +104,10 @@ export const getCardBillsInRange = (
 
       if (dueDate < rangeStart || dueDate > rangeEnd) {
         continue;
+      }
+
+      if (toZonedTime(dueDate, timezone) > billHorizon) {
+        break;
       }
 
       if (dueDate >= now) {
