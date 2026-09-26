@@ -17,6 +17,7 @@
     "start": "TZ=UTC next start",
     "test:salary": "node --experimental-strip-types --test src/lib/salary.test.ts",
     "test:credit-card-bills": "node --experimental-strip-types --test src/lib/credit-card-bills.test.ts",
+    "test:date-part": "node --experimental-strip-types --test src/lib/date-part.test.ts",
     "typecheck": "tsc --noEmit",
     "unused": "knip",
     "update:check": "npm-check-updates"

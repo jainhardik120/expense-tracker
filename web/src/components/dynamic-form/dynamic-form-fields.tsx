@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { withDatePart } from '@/lib/date-part';
 
 import { Autocomplete } from '../ui/autocomplete';
 import { Button } from '../ui/button';
@@ -134,11 +135,7 @@ const RenderedDateInput = <T extends FieldValues = FieldValues>(props: FieldProp
     <DateInput
       date={fieldDate}
       onChange={(date) => {
-        const updatedDate = new Date(fieldDate);
-        updatedDate.setDate(date.getDate());
-        updatedDate.setMonth(date.getMonth());
-        updatedDate.setFullYear(date.getFullYear());
-        props.field.onChange(updatedDate);
+        props.field.onChange(withDatePart(fieldDate, date));
       }}
     />
   );
@@ -153,11 +150,7 @@ const RenderedDatetimeInput = <T extends FieldValues = FieldValues>(props: Field
       <DateInput
         date={fieldDate}
         onChange={(date) => {
-          const updatedDate = new Date(fieldDate);
-          updatedDate.setDate(date.getDate());
-          updatedDate.setMonth(date.getMonth());
-          updatedDate.setFullYear(date.getFullYear());
-          props.field.onChange(updatedDate);
+          props.field.onChange(withDatePart(fieldDate, date));
         }}
       />
       <Input

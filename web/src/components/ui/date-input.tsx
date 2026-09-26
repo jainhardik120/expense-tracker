@@ -24,7 +24,7 @@ const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
 
   const handleInputBlur = () => {
     const parsed = parse(dateString, DATE_FORMAT, new Date());
-    if (!isNaN(parsed.getTime()) && RegExp(/^\d{4}-\d{2}-\d{2}$/).test(dateString)) {
+    if (!isNaN(parsed.getTime()) && RegExp(/^\d{2}-\d{2}-\d{4}$/).test(dateString)) {
       props.onChange(parsed);
     } else {
       setDateString(format(props.date, DATE_FORMAT));
