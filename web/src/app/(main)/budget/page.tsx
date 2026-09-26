@@ -1,0 +1,25 @@
+import { api } from '@/server/server';
+
+import { BudgetWaterfall } from './_components/budget-waterfall';
+import { BudgetYearPicker } from './_components/budget-year-picker';
+
+export default async function BudgetPage({
+  searchParams,
+}: Readonly<{ searchParams: Promise<{ year?: string }> }>) {
+  const { year } = await searchParams;
+  const years = await api.budget.getYears();
+  // Whatever was asked for, else the most recent year that exists.
+  const selectedId = year ?? years.at(-1)?.id;
+
+  if (selectedId === undefined) {
+    return <BudgetYearPicker selectedId={null} years={years} />;
+  }
+
+  const detail = await api.budget.getYearDetail({ budgetYearId: selectedId });
+  return (
+    <div className="flex flex-col gap-4">
+      <BudgetYearPicker selectedId={selectedId} years={years} />
+      <BudgetWaterfall detail={detail} />
+    </div>
+  );
+}

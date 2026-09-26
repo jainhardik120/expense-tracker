@@ -1,0 +1,146 @@
+import { and, eq, gte, inArray, lt } from 'drizzle-orm';
+
+import {
+  type budgetIncomeLines,
+  type budgetLines,
+  type budgetYears,
+  splits,
+  statements,
+} from '@/db/schema';
+import { assignToLine, type MatchableStatement } from '@/lib/budget-rules';
+import { type Database } from '@/lib/db';
+import { instrumentedFunction } from '@/lib/instrumentation';
+import { budgetRuleSchema, type BudgetRule } from '@/types/budget';
+
+export type BudgetLineRow = typeof budgetLines.$inferSelect;
+export type BudgetIncomeLineRow = typeof budgetIncomeLines.$inferSelect;
+export type BudgetYearRow = typeof budgetYears.$inferSelect;
+
+/** Rules are stored as jsonb, so they are parsed rather than trusted on the way out. */
+export const parseRule = (value: unknown): BudgetRule => {
+  const result = budgetRuleSchema.safeParse(value);
+  return result.success
+    ? result.data
+    : { categories: [], tags: [], accounts: [], statementKinds: [] };
+};
+
+type ScopedStatement = MatchableStatement & {
+  id: string;
+  createdAt: Date;
+  /** What this cost me: the amount less whatever friends owe on it. */
+  myAmount: number;
+};
+
+/**
+ * Every statement in the window, with friends' share already removed.
+ *
+ * Cash basis: EMI installments are ordinary statements dated when they are paid,
+ * so only the ones actually falling inside the window are here -- a 24 month
+ * loan contributes the installments it reached, not its whole principal.
+ */
+export const getStatementsInWindow = instrumentedFunction(
+  'getStatementsInWindow',
+  async (db: Database, userId: string, start: Date, end: Date): Promise<ScopedStatement[]> => {
+    const rows = await db
+      .select({
+        id: statements.id,
+        createdAt: statements.createdAt,
+        category: statements.category,
+        tags: statements.tags,
+        statementKind: statements.statementKind,
+        accountId: statements.accountId,
+        friendId: statements.friendId,
+        amount: statements.amount,
+      })
+      .from(statements)
+      .where(
+        and(
+          eq(statements.userId, userId),
+          gte(statements.createdAt, start),
+          lt(statements.createdAt, end),
+        ),
+      );
+
+    // Fetched separately and joined here rather than as a correlated subquery:
+    // one extra round trip, and the arithmetic is somewhere it can be read.
+    const splitRows =
+      rows.length === 0
+        ? []
+        : await db
+            .select({ statementId: splits.statementId, amount: splits.amount })
+            .from(splits)
+            .where(
+              inArray(
+                splits.statementId,
+                rows.map((row) => row.id),
+              ),
+            );
+    const owedByFriends = new Map<string, number>();
+    for (const split of splitRows) {
+      owedByFriends.set(
+        split.statementId,
+        (owedByFriends.get(split.statementId) ?? 0) + Number(split.amount),
+      );
+    }
+
+    return rows.map((row) => ({
+      id: row.id,
+      createdAt: row.createdAt,
+      category: row.category,
+      tags: row.tags,
+      statementKind: row.statementKind,
+      accountRefs: [row.accountId, row.friendId],
+      myAmount: Number(row.amount) - (owedByFriends.get(row.id) ?? 0),
+    }));
+  },
+);
+
+export type LineTotals = {
+  lineId: string;
+  name: string;
+  position: number;
+  allocationKind: BudgetLineRow['allocationKind'];
+  allocationAmount: number;
+  /** Spent against this line so far, my share only. */
+  actual: number;
+  matchedCount: number;
+};
+
+/**
+ * Walk the lines in order and hand each statement to the first that claims it.
+ *
+ * Every kind is offered, not just expenses: money sent home is a friend
+ * transaction rather than an expense, but it is unquestionably spending and has
+ * to be able to land on a line. Rules narrow by kind where that matters, and a
+ * catch-all line is expected to say `statementKinds: ['expense']` so it does not
+ * swallow the lending and settling flows, which are not budget items at all.
+ */
+export const summariseLines = (
+  lines: BudgetLineRow[],
+  scoped: ScopedStatement[],
+): { totals: LineTotals[]; unclaimed: ScopedStatement[] } => {
+  const ordered = [...lines].sort((a, b) => a.position - b.position);
+  const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
+  const totals: LineTotals[] = parsed.map((line) => ({
+    lineId: line.id,
+    name: line.name,
+    position: line.position,
+    allocationKind: line.allocationKind,
+    allocationAmount: Number(line.allocationAmount),
+    actual: 0,
+    matchedCount: 0,
+  }));
+  const unclaimed: ScopedStatement[] = [];
+
+  for (const statement of scoped) {
+    const index = assignToLine(statement, parsed);
+    if (index === -1) {
+      unclaimed.push(statement);
+      continue;
+    }
+    totals[index].actual += statement.myAmount;
+    totals[index].matchedCount += 1;
+  }
+
+  return { totals, unclaimed };
+};

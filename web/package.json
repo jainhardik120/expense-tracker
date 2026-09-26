@@ -16,6 +16,7 @@
     "lint:report": "ts-node ./src/scripts/eslint-out.ts",
     "start": "TZ=UTC next start",
     "test:salary": "node --experimental-strip-types --test src/lib/salary.test.ts",
+    "test:budget-rules": "node --experimental-strip-types --test src/lib/budget-rules.test.ts",
     "test:credit-card-bills": "node --experimental-strip-types --test src/lib/credit-card-bills.test.ts",
     "test:date-part": "node --experimental-strip-types --test src/lib/date-part.test.ts",
     "typecheck": "tsc --noEmit",

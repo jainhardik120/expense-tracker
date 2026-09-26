@@ -15,6 +15,7 @@ import {
   MessageSquareMore,
   FileBarChart,
   Banknote,
+  Target,
 } from 'lucide-react';
 
 import {
@@ -53,6 +54,11 @@ const links = [
     label: 'Salary & Tax',
     href: '/salary',
     icon: Banknote,
+  },
+  {
+    label: 'Budget',
+    href: '/budget',
+    icon: Target,
   },
   {
     label: 'Recurring Payments',
