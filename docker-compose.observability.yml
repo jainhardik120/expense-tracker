@@ -1,0 +1,20 @@
+# Local observability for the dev server. The app already emits OTLP traces --
+# this gives them somewhere to land and a UI to read them in.
+#
+#   docker compose -f docker-compose.observability.yml up -d
+#   open http://localhost:16686
+#
+# Nothing here is persisted: traces live in memory and go away with the container.
+
+services:
+  jaeger:
+    image: jaegertracing/jaeger:2.11.0
+    container_name: expense-tracker-jaeger
+    ports:
+      - '16686:16686' # Jaeger UI
+      - '4318:4318' # OTLP over HTTP -- what the app exports to
+      - '4317:4317' # OTLP over gRPC
+    environment:
+      # Keep a decent scrollback; the default window is small for a dev session.
+      - JAEGER_MEMORY_MAX_TRACES=20000
+    restart: unless-stopped
