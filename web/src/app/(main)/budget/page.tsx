@@ -1,6 +1,7 @@
 import { api } from '@/server/server';
 
 import { BudgetHeadline } from './_components/budget-headline';
+import { BudgetVariance } from './_components/budget-variance';
 import { BudgetWaterfall } from './_components/budget-waterfall';
 import { BudgetYearPicker } from './_components/budget-year-picker';
 
@@ -21,6 +22,7 @@ export default async function BudgetPage({
     <div className="flex flex-col gap-4">
       <BudgetYearPicker selectedId={selectedId} years={years} />
       <BudgetHeadline detail={detail} />
+      <BudgetVariance detail={detail} />
       <BudgetWaterfall detail={detail} />
     </div>
   );

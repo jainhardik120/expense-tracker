@@ -25,7 +25,7 @@ import { budgetLineFormSchema, emptyBudgetRule, type BudgetRule } from '@/types/
 type Detail = RouterOutput['budget']['getYearDetail'];
 
 const lineFields = [
-  { name: 'name' as const, label: 'Name', type: 'text' as const },
+  { name: 'name' as const, label: 'Name', type: 'input' as const },
   {
     name: 'allocationKind' as const,
     label: 'Allocation',
@@ -37,7 +37,7 @@ const lineFields = [
       { label: 'Residual — whatever is left', value: 'residual' },
     ],
   },
-  { name: 'allocationAmount' as const, label: 'Amount', type: 'text' as const },
+  { name: 'allocationAmount' as const, label: 'Amount', type: 'input' as const },
   {
     name: 'discretionary' as const,
     label: 'I can choose to spend less on this',

@@ -19,7 +19,7 @@ import { budgetYearSchema } from '@/types/budget';
 type Years = RouterOutput['budget']['getYears'];
 
 const yearFields = [
-  { name: 'name' as const, label: 'Name', type: 'text' as const },
+  { name: 'name' as const, label: 'Name', type: 'input' as const },
   { name: 'startDate' as const, label: 'Starts', type: 'date' as const },
   { name: 'endDate' as const, label: 'Ends', type: 'date' as const },
 ];

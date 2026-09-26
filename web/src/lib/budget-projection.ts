@@ -15,6 +15,13 @@ export type LineForProjection = {
 export type ProjectedLine = LineForProjection & {
   /** What this line gets for the whole year. */
   yearBudget: number;
+  /**
+   * What it should have had by now. Comparing a full year's allowance against
+   * ten months of spending would call every line under budget.
+   */
+  budgetToDate: number;
+  /** Over (positive) or under (negative) that allowance so far. */
+  variance: number;
   remaining: number;
   /** What is left to spend per month over the rest of the year. */
   perMonthRemaining: number;
@@ -84,9 +91,20 @@ export const project = (
         ? Math.max(expectedTotalIncome - claimedByOthers, 0)
         : yearBudgetFor(line);
     const remaining = yearBudget - line.actual;
+    // Monthly lines accrue with each cycle. Annual envelopes are a pot for the
+    // whole year rather than a monthly rate, so they are pro-rated by how much
+    // of the year has run.
+    const budgetToDate =
+      line.allocationKind === 'monthly'
+        ? line.allocationAmount * elapsedMonths
+        : totalMonths > 0
+          ? (yearBudget * elapsedMonths) / totalMonths
+          : 0;
     return {
       ...line,
       yearBudget,
+      budgetToDate,
+      variance: line.actual - budgetToDate,
       remaining,
       perMonthRemaining: remainingMonths > 0 ? remaining / remainingMonths : remaining,
       overspent: remaining < 0,

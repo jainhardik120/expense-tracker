@@ -78,3 +78,17 @@ test('months between dates counts part months', () => {
   assert.equal(monthsBetween(new Date('2026-01-01'), new Date('2026-04-01')), 3);
   assert.equal(Math.round(monthsBetween(new Date('2025-12-24'), new Date('2026-09-26'))), 9);
 });
+
+test('a full year allowance is not held against ten months of spending', () => {
+  // 1,000 a month, ten cycles paid, 10,000 spent: on budget, not 2,000 under
+  const { lines } = project([line({ allocationAmount: 1000, actual: 10000 })], 0, 10, 12);
+  assert.equal(lines[0].budgetToDate, 10000);
+  assert.equal(lines[0].variance, 0);
+});
+
+test('overspending a monthly line is what it cost the residual', () => {
+  const { lines } = project([line({ allocationAmount: 13000, actual: 150957.27 })], 0, 10, 12);
+  // ten months at 13,000 is 130,000, so a little over 20,957 went somewhere else
+  assert.equal(lines[0].budgetToDate, 130000);
+  assert.equal(Math.round(lines[0].variance), 20957);
+});
