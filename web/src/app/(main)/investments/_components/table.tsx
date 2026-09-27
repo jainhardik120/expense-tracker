@@ -23,9 +23,11 @@ import {
   investmentKindValues,
   type InvestmentCategoryValue,
   type InvestmentKindValue,
+  FX_RATE_DECIMALS,
 } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
+import { PERCENTAGE_DIVISOR } from '@/types';
 
 import { getExcludedPortfolioDescription } from './display';
 import { createInvestmentColumns, getSignedValueTone } from './InvestmentColumns';
@@ -149,11 +151,13 @@ const mergeDashboard = (
     summary: {
       ...summary,
       pnl,
-      pnlPercentage: summary.investedAmount === 0 ? null : (pnl / summary.investedAmount) * 100,
+      pnlPercentage:
+        summary.investedAmount === 0 ? null : (pnl / summary.investedAmount) * PERCENTAGE_DIVISOR,
       dayChangePercentage:
         summary.valuationAmount === summary.dayChange
           ? null
-          : (summary.dayChange / (summary.valuationAmount - summary.dayChange)) * 100,
+          : (summary.dayChange / (summary.valuationAmount - summary.dayChange)) *
+            PERCENTAGE_DIVISOR,
     },
     kindBreakdown,
     categoryBreakdown,
@@ -210,10 +214,14 @@ const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
               : formatByCurrency(row.currentValueInrAtCurrentFx, INR_CURRENCY)}
           </div>
           <div>
-            Purchase FX: {row.buyFxRateToInr === null ? '-' : row.buyFxRateToInr.toFixed(4)}
+            Purchase FX:{' '}
+            {row.buyFxRateToInr === null ? '-' : row.buyFxRateToInr.toFixed(FX_RATE_DECIMALS)}
           </div>
           <div>
-            Today FX: {row.currentFxRateToInr === null ? '-' : row.currentFxRateToInr.toFixed(4)}
+            Today FX:{' '}
+            {row.currentFxRateToInr === null
+              ? '-'
+              : row.currentFxRateToInr.toFixed(FX_RATE_DECIMALS)}
           </div>
         </div>
       </PopoverContent>

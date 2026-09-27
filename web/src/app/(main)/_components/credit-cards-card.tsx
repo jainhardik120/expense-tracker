@@ -4,28 +4,14 @@ import Link from 'next/link';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatOrdinalDay } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
+import { PERCENTAGE_DIVISOR } from '@/types';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
 type SummaryData = RouterOutput['summary']['getAggregatedData'];
 
-const formatBillingDate = (billingDate: number) => {
-  const mod100 = billingDate % 100;
-  if (mod100 >= 11 && mod100 <= 13) {
-    return `${billingDate}th`;
-  }
-  switch (billingDate % 10) {
-    case 1:
-      return `${billingDate}st`;
-    case 2:
-      return `${billingDate}nd`;
-    case 3:
-      return `${billingDate}rd`;
-    default:
-      return `${billingDate}th`;
-  }
-};
+const UTILISATION_DECIMALS = 1;
 
 export const CreditCardsCard = ({
   creditData,
@@ -74,7 +60,10 @@ export const CreditCardsCard = ({
                     <div className="mb-2 flex items-center justify-between">
                       <span className="font-medium">{card.accountName}</span>
                       <span className="text-muted-foreground text-sm">
-                        {((limitUtilized / totalLimit) * 100).toFixed(1)}% used
+                        {((limitUtilized / totalLimit) * PERCENTAGE_DIVISOR).toFixed(
+                          UTILISATION_DECIMALS,
+                        )}
+                        % used
                       </span>
                     </div>
                     <div className="space-y-1 text-sm">
@@ -90,13 +79,15 @@ export const CreditCardsCard = ({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Billing Date:</span>
-                        <span className="font-medium">{formatBillingDate(card.billingDate)}</span>
+                        <span className="font-medium">{formatOrdinalDay(card.billingDate)}</span>
                       </div>
                     </div>
                     <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
                       <div
                         className="bg-primary h-full transition-all"
-                        style={{ width: `${Math.min((limitUtilized / totalLimit) * 100, 100)}%` }}
+                        style={{
+                          width: `${Math.min((limitUtilized / totalLimit) * PERCENTAGE_DIVISOR, PERCENTAGE_DIVISOR)}%`,
+                        }}
                       />
                     </div>
                   </Link>
@@ -134,7 +125,7 @@ export const CreditCardsCard = ({
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Billing Date:</span>
-                        <span className="font-medium">{formatBillingDate(card.billingDate)}</span>
+                        <span className="font-medium">{formatOrdinalDay(card.billingDate)}</span>
                       </div>
                     </div>
                   </div>

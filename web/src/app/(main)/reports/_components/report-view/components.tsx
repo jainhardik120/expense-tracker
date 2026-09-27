@@ -23,6 +23,9 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
+/** Matches the default vertical rhythm of the report layout. */
+const DEFAULT_SPACER_HEIGHT = 8;
+
 /**
  * DOM implementations of the report catalog.
  *
@@ -100,7 +103,7 @@ export const reportViewComponents = {
   Column: Stack,
   Row: Inline,
   Spacer: ({ props }: Props<{ height?: number | null }>) => (
-    <div style={{ height: props.height ?? 8 }} />
+    <div style={{ height: props.height ?? DEFAULT_SPACER_HEIGHT }} />
   ),
   Divider: () => <hr className="border-border my-2" />,
   // Page furniture with no meaning in a scrolling page.

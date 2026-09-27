@@ -17,6 +17,9 @@ import {
 
 import { user } from './auth-schema';
 
+/** Most Indian employers pay towards the end of the month. */
+const DEFAULT_PAY_DAY = 25;
+
 // Expense Tracker Schema
 export const statementKindEnum = pgEnum('statement_kinds', [
   'expense',
@@ -346,7 +349,7 @@ export const salaryRevisions = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     effectiveFrom: timestamp('effective_from').notNull(),
-    payDay: integer('pay_day').notNull().default(25),
+    payDay: integer('pay_day').notNull().default(DEFAULT_PAY_DAY),
     payDateRule: salaryPayDateRuleEnum('pay_date_rule').notNull().default('previous_weekday'),
     createdAt: timestamp('created_at')
       .notNull()

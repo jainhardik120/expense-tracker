@@ -1,5 +1,7 @@
 /** Milliseconds are avoided here: months are what the budget is expressed in. */
 const MONTHS_PER_YEAR = 12;
+/** Nominal month length, used only to prorate a partial month. */
+const DAYS_PER_MONTH = 30;
 
 export type LineForProjection = {
   lineId: string;
@@ -82,7 +84,7 @@ export type Projection = {
 export const monthsBetween = (from: Date, to: Date): number => {
   const whole =
     (to.getFullYear() - from.getFullYear()) * MONTHS_PER_YEAR + (to.getMonth() - from.getMonth());
-  const dayFraction = (to.getDate() - from.getDate()) / 30;
+  const dayFraction = (to.getDate() - from.getDate()) / DAYS_PER_MONTH;
   return Math.max(whole + dayFraction, 0);
 };
 

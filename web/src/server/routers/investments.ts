@@ -18,6 +18,8 @@ import {
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema, investmentParserSchema } from '@/types';
 
+const SEARCH_QUERY_MAX_LENGTH = 120;
+
 const optionalToNull = (value: string | undefined): string | null => {
   if (value === undefined || value.trim() === '') {
     return null;
@@ -201,7 +203,7 @@ export const investmentsRouter = createTRPCRouter({
       z.object({
         kind: z.enum(investmentKindValues),
         stockMarket: z.enum(stockMarketValues).optional().default('IN'),
-        query: z.string().trim().max(120),
+        query: z.string().trim().max(SEARCH_QUERY_MAX_LENGTH),
       }),
     )
     .query(async ({ input }) => {

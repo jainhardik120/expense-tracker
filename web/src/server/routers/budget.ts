@@ -25,6 +25,9 @@ import {
   budgetYearSchema,
 } from '@/types/budget';
 
+/** Enough example statements to show why a line moved, without shipping them all. */
+const SAMPLE_STATEMENT_LIMIT = 10;
+
 const YEAR_NOT_FOUND = 'Budget year not found';
 
 /** Every mutation goes through this: a year id from the client is not trusted. */
@@ -284,7 +287,7 @@ export const budgetRouter = createTRPCRouter({
         total: matched.reduce((sum, statement) => sum + statement.myAmount, 0),
         sample: matched
           .toSorted((a, b) => b.myAmount - a.myAmount)
-          .slice(0, 10)
+          .slice(0, SAMPLE_STATEMENT_LIMIT)
           .map((s) => ({ id: s.id, category: s.category, tags: s.tags, amount: s.myAmount })),
       };
     }),

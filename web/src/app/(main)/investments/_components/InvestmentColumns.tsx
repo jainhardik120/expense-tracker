@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { type ZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
-import { investmentKindLabels } from '@/lib/investments';
+import { FX_RATE_DECIMALS, investmentKindLabels } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
@@ -98,8 +98,10 @@ const CurrencyDetailsPopover = ({ row }: { row: InvestmentRow }) => {
             Current value (INR @ today FX):{' '}
             {currentValueInr === null ? '-' : formatByCurrency(currentValueInr, INR_CURRENCY)}
           </div>
-          <div>Purchase FX: {buyFxRate === null ? '-' : buyFxRate.toFixed(4)}</div>
-          <div>Today FX: {currentFxRate === null ? '-' : currentFxRate.toFixed(4)}</div>
+          <div>Purchase FX: {buyFxRate === null ? '-' : buyFxRate.toFixed(FX_RATE_DECIMALS)}</div>
+          <div>
+            Today FX: {currentFxRate === null ? '-' : currentFxRate.toFixed(FX_RATE_DECIMALS)}
+          </div>
         </div>
       </PopoverContent>
     </Popover>

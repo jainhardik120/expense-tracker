@@ -10,11 +10,13 @@
  * table linkable -- and the cookie only decides where an unparameterised visit
  * lands.
  */
+import { SECONDS_PER_YEAR } from '@/lib/duration';
+
 const COOKIE_PREFIX = 'page-size.';
 
 /** Table keys that opt in to remembering their page size. */
 export const STATEMENTS_PAGE_SIZE_KEY = 'statements';
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const COOKIE_MAX_AGE = SECONDS_PER_YEAR;
 
 export const pageSizeCookieName = (key: string): string => `${COOKIE_PREFIX}${key}`;
 

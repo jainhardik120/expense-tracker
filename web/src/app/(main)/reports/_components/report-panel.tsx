@@ -18,11 +18,15 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { api } from '@/server/react';
+import { MS_PER_MINUTE } from '@/types';
 
 import { useSpanQueryState } from './report-span';
 import { ReportView } from './report-view';
 
 import type { Spec } from '@json-render/core';
+
+const REPORT_STALE_MINUTES = 5;
+const REPORT_STALE_TIME_MS = REPORT_STALE_MINUTES * MS_PER_MINUTE;
 
 type Boundary = { id: string; boundaryDate: Date };
 
@@ -52,7 +56,7 @@ export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
 
   const report = api.reports.renderReport.useQuery(
     { fromBoundaryId: span.from, toBoundaryId: span.to },
-    { enabled: valid, staleTime: 5 * 60 * 1000, refetchOnWindowFocus: false },
+    { enabled: valid, staleTime: REPORT_STALE_TIME_MS, refetchOnWindowFocus: false },
   );
 
   const download = async () => {
@@ -121,9 +125,12 @@ export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
         <CardContent className="flex flex-col gap-4 md:flex-row md:items-end">
           <div className="flex flex-1 flex-col gap-2">
             <Label htmlFor="panel-from">From</Label>
-            <Select value={span.from} onValueChange={(from) => {
+            <Select
+              value={span.from}
+              onValueChange={(from) => {
                 setSpan({ from, to: span.to });
-              }}>
+              }}
+            >
               <SelectTrigger className="w-full" id="panel-from">
                 <SelectValue placeholder="Start" />
               </SelectTrigger>
@@ -138,9 +145,12 @@ export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
           </div>
           <div className="flex flex-1 flex-col gap-2">
             <Label htmlFor="panel-to">To</Label>
-            <Select value={span.to} onValueChange={(to) => {
+            <Select
+              value={span.to}
+              onValueChange={(to) => {
                 setSpan({ from: span.from, to });
-              }}>
+              }}
+            >
               <SelectTrigger className="w-full" id="panel-to">
                 <SelectValue placeholder="End" />
               </SelectTrigger>

@@ -26,6 +26,8 @@ import {
 import { api } from '@/server/react';
 import { amount, createInvestmentSchema, type Investment } from '@/types';
 
+const SEARCH_DEBOUNCE_MS = 300;
+
 const investmentKindOptions = investmentKindValues.map((kind) => ({
   label: investmentKindLabels[kind],
   value: kind,
@@ -88,7 +90,7 @@ const InstrumentCodeAutocomplete = ({
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSetSearchQuery = useDebouncedCallback((next: string) => {
     setSearchQuery(next.trim());
-  }, 300);
+  }, SEARCH_DEBOUNCE_MS);
   const normalizedKind = normalizeInvestmentKind(investmentKind);
   const normalizedStockMarket = normalizeStockMarket(stockMarket);
   const currentValue = typeof field.value === 'string' ? field.value : '';

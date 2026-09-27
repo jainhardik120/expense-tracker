@@ -5,6 +5,8 @@ import { TemplateEditor } from './_components/template-editor';
 
 import type { ReportTemplate } from '@helix-hq/pdf-report';
 
+const PREVIEW_PERIOD_COUNT = 4;
+
 export default async function ReportTemplatePage() {
   const timezone = await getTimezone();
   const [stored, boundaries] = await Promise.all([
@@ -23,7 +25,7 @@ export default async function ReportTemplatePage() {
 
   // The last few periods are enough to exercise every branch of the code without
   // shipping a year of statements into the browser; the picker widens it.
-  const recent = boundaries.slice(-4);
+  const recent = boundaries.slice(-PREVIEW_PERIOD_COUNT);
   const initialFrom = recent[0].id;
   const initialTo = recent[recent.length - 1].id;
   const initialInput = await api.reports.getReportInput({

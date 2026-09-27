@@ -27,6 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { formatFinancialYearLabel } from '@/lib/salary';
 import { api } from '@/server/react';
 import {
   createSalaryBonusSchema,
@@ -35,6 +36,7 @@ import {
   type SalaryPaymentLineInput,
   updateSalaryPaymentSchema,
   updateSalaryTaxSettingsSchema,
+  PERCENTAGE_DIVISOR,
 } from '@/types';
 
 import {
@@ -390,7 +392,7 @@ export const TaxProjectionDialog = ({ data }: { data: SalaryData }) => {
   return (
     <Modal
       className="sm:max-w-4xl"
-      description={`Detailed new-regime estimate for FY ${data.financialYearStart}–${String(data.financialYearStart + 1).slice(-2)}.`}
+      description={`Detailed new-regime estimate for FY ${formatFinancialYearLabel(data.financialYearStart)}.`}
       open={open}
       setOpen={setOpen}
       title="Tax projection breakdown"
@@ -464,7 +466,7 @@ export const TaxProjectionDialog = ({ data }: { data: SalaryData }) => {
                 {tax.slabs.map((slab) => (
                   <TableRow key={slab.lower}>
                     <TableCell>{formatSlabRange(slab.lower, slab.upper)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{slab.rate * 100}%</TableCell>
+                    <TableCell className="text-right tabular-nums">{slab.rate * PERCENTAGE_DIVISOR}%</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatCurrency(slab.taxableAmount)}
                     </TableCell>

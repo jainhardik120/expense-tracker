@@ -93,13 +93,16 @@ const Section = ({
   </div>
 );
 
+/** Rounding noise, not a real over- or underspend. */
+const VARIANCE_EPSILON = 0.5;
+
 export const BudgetVariance = ({ detail }: { detail: Detail }) => {
   const { projection } = detail;
   const spendLines = projection.lines.filter((line) => line.allocationKind !== 'residual');
   const over = spendLines
-    .filter((line) => line.variance > 0.5)
+    .filter((line) => line.variance > VARIANCE_EPSILON)
     .sort((a, b) => b.variance - a.variance);
-  const under = spendLines.filter((line) => line.variance < -0.5);
+  const under = spendLines.filter((line) => line.variance < -VARIANCE_EPSILON);
   // Money not spent is only saved if nothing is still coming for it. An envelope
   // holds its balance for the trip yet to be booked; rent paid under budget is
   // not a plan to overpay later.

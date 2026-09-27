@@ -30,6 +30,7 @@ import {
   getFinancialYearRange,
   getFinancialYearStart,
   getSalaryLineTotals,
+  MIDDAY_UTC_HOUR,
   reconcileSalaryTdsForecast,
   type SalaryScheduleComponent,
 } from '@/lib/salary';
@@ -38,13 +39,17 @@ import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   createSalaryBonusSchema,
   createSalaryComponentSchema,
+  EARLIEST_FINANCIAL_YEAR,
+  LATEST_FINANCIAL_YEAR,
   createSalaryRevisionSchema,
   updateSalaryPaymentSchema,
   updateSalaryRevisionSchema,
   updateSalaryTaxSettingsSchema,
 } from '@/types';
 
-const financialYearInput = z.object({ financialYearStart: z.number().int().min(2000).max(2200) });
+const financialYearInput = z.object({
+  financialYearStart: z.number().int().min(EARLIEST_FINANCIAL_YEAR).max(LATEST_FINANCIAL_YEAR),
+});
 const monthKey = (date: Date) =>
   `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 const paymentKey = (revisionId: string, periodStart: Date) =>
@@ -260,7 +265,9 @@ const getSalaryPageData = async (db: Database, userId: string, financialYearStar
     }),
   );
   const now = new Date();
-  const currentMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 12));
+  const currentMonthStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, MIDDAY_UTC_HOUR),
+  );
 
   const baseRows = scheduledRows.map((scheduled) => {
     const actualPayment = paymentsBySchedule.get(

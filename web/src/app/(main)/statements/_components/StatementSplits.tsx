@@ -23,6 +23,7 @@ import {
   isSelfTransfer,
   type Statement,
   bulkSplitSchema,
+  PERCENTAGE_DIVISOR,
 } from '@/types';
 
 const createAmountSplitFields = (
@@ -165,7 +166,8 @@ export const BulkStatementSplitsDialog = ({
       if (isSelfTransfer(row)) {
         return;
       }
-      const percentage = 100 - (row.splitAmount / parseFloat(row.amount)) * 100;
+      const percentage =
+        PERCENTAGE_DIVISOR - (row.splitAmount / parseFloat(row.amount)) * PERCENTAGE_DIVISOR;
       if (percentage < maxPercentage) {
         maxPercentage = percentage;
       }

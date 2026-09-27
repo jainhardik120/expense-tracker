@@ -23,6 +23,9 @@ import type { ReportTemplate } from '@helix-hq/pdf-report';
 
 import { useSpanQueryState } from '../../_components/report-span';
 
+/** Long enough that a pause in typing, not every keystroke, triggers a save. */
+const SAVE_DEBOUNCE_MS = 1200;
+
 // Monaco touches `window` on import, so none of this can be server rendered.
 const loading = () => <p className="text-muted-foreground p-6 text-sm">Loading editor…</p>;
 const Provider = dynamic(
@@ -116,7 +119,7 @@ export const TemplateEditor = ({
       setSaveState('error');
       toast.error(err instanceof Error ? err.message : String(err));
     }
-  }, 1200);
+  }, SAVE_DEBOUNCE_MS);
 
   // Only ever writes a template that parses; a half-typed brace is not a save.
   useEffect(() => {

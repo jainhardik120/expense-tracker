@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format';
+import { formatFinancialYearLabel } from '@/lib/salary';
 
 import { BonusesCard } from './_components/bonuses-card';
 import { OutsideIncomeCard } from './_components/outside-income-card';
@@ -62,7 +63,7 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
           ← FY {previousYear}
         </Button>
         <Badge className="px-3" variant="secondary">
-          FY {data.financialYearStart}–{String(nextYear).slice(-2)}
+          FY {formatFinancialYearLabel(data.financialYearStart)}
         </Badge>
         <Button
           size="sm"

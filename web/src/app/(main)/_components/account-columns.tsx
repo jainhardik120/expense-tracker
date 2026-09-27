@@ -7,6 +7,7 @@ import { Trash } from 'lucide-react';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Button } from '@/components/ui/button';
+import { formatOrdinalDay } from '@/lib/format';
 import { api } from '@/server/react';
 import { type FriendSummary, type AccountSummary, isFriendSummary } from '@/types';
 
@@ -19,23 +20,6 @@ type CreditCardAccount = {
   creditAccountId?: string;
   cardLimit?: string;
   billingDate?: number;
-};
-
-const formatBillingDate = (billingDate: number) => {
-  const mod100 = billingDate % 100;
-  if (mod100 >= 11 && mod100 <= 13) {
-    return `${billingDate}th`;
-  }
-  switch (billingDate % 10) {
-    case 1:
-      return `${billingDate}st`;
-    case 2:
-      return `${billingDate}nd`;
-    case 3:
-      return `${billingDate}rd`;
-    default:
-      return `${billingDate}th`;
-  }
 };
 
 const DeleteButton = ({
@@ -141,7 +125,7 @@ export const createAccountColumns = (
       accessorFn: (row) =>
         isFriendSummary(row) || row.billingDate === undefined
           ? '-'
-          : formatBillingDate(row.billingDate),
+          : formatOrdinalDay(row.billingDate),
     },
     {
       id: 'expenses',

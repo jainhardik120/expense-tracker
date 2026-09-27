@@ -620,7 +620,7 @@ export const emisRouter = createTRPCRouter({
 
       const newPercentage = parseFloat(input.percentage);
 
-      if (totalPercentage + newPercentage > 100) {
+      if (totalPercentage + newPercentage > PERCENTAGE_DIVISOR) {
         throw new Error(
           `Cannot add split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
         );
@@ -673,7 +673,7 @@ export const emisRouter = createTRPCRouter({
 
       const newPercentage = parseFloat(input.percentage);
 
-      if (totalPercentage + newPercentage > 100) {
+      if (totalPercentage + newPercentage > PERCENTAGE_DIVISOR) {
         throw new Error(
           `Cannot update split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
         );

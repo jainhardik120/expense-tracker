@@ -17,7 +17,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { api } from '@/server/react';
-import { createEmiSplitSchema, type Emi } from '@/types';
+import { createEmiSplitSchema, type Emi, PERCENTAGE_DIVISOR } from '@/types';
+
+const PERCENTAGE_DECIMALS = 2;
 
 const createEmiSplitFields = (
   friends: Array<{ id: string; name: string }>,
@@ -123,7 +125,7 @@ export const EmiSplitsDialog = ({ emiId, emiData }: { emiId: string; emiData: Em
               Total Allocated: {totalPercentage.toFixed(2)}%
             </p>
             <p className="text-muted-foreground text-sm">
-              Remaining: {(100 - totalPercentage).toFixed(2)}%
+              Remaining: {(PERCENTAGE_DIVISOR - totalPercentage).toFixed(PERCENTAGE_DECIMALS)}%
             </p>
           </div>
 

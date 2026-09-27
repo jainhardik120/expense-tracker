@@ -9,6 +9,9 @@ import { isAiAssistantEnabled } from '@/lib/features';
 import { setCookieHeader } from '@/lib/set-cookie-header';
 import { createCaller } from '@/server/routers';
 
+/** Caps a single conversation turn so a tool loop cannot run away. */
+const MAX_AGENT_STEPS = 20;
+
 export const maxDuration = 30;
 
 const tools = (caller: ReturnType<typeof createCaller>) => {
@@ -253,7 +256,7 @@ export const POST = async (req: Request) => {
     model: 'google/gemini-3-flash',
     messages: modelMessages,
     tools: tools(caller),
-    stopWhen: stepCountIs(20),
+    stopWhen: stepCountIs(MAX_AGENT_STEPS),
     system: `You are an accounting expert. You are helpful and honest. You will answer questions about accounting and finance. You will also provide financial advice and guidance. Your answers should be helpful, honest, and informative. You should not provide any financial advice that is not related to the question. If you are unsure of the answer, you should say "I'm not sure" and not "I don't know". You can only answer questions related to accounting and finance. If you are asked about a topic that is not related to accounting or finance, you should say "I'm not sure" and not "I don't know". You should not answer questions that are not related to accounting or finance.`,
   });
   return result.toUIMessageStreamResponse({

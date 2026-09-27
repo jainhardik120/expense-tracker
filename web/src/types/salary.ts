@@ -5,8 +5,8 @@ const REVISION_NAME_MAX_LENGTH = 100;
 const NOTES_MAX_LENGTH = 500;
 /** No calendar month has more days, so this bounds both pay days and day counts. */
 const MAX_DAYS_IN_MONTH = 31;
-const EARLIEST_FINANCIAL_YEAR = 2000;
-const LATEST_FINANCIAL_YEAR = 2200;
+export const EARLIEST_FINANCIAL_YEAR = 2000;
+export const LATEST_FINANCIAL_YEAR = 2200;
 
 const moneyString = z
   .string()

@@ -120,9 +120,12 @@ export const formatTruncatedPeriodSpan = (
   return `${sameYear ? startText.slice(0, -YEAR_LENGTH) : startText} – ${endText}`;
 };
 
+/** Length of a `YYYY-MM-DD` date, as it appears at the head of an ISO timestamp. */
+const ISO_DATE_LENGTH = 10;
+
 /** Just the reader's calendar day, `YYYY-MM-DD`. */
 export const localDay = (date: Date, timeZone: string): string =>
-  localWallClock(date, timeZone).slice(0, 10);
+  localWallClock(date, timeZone).slice(0, ISO_DATE_LENGTH);
 
 export const getDefaultDateRange = (timezone: string) => {
   const now = new Date();
