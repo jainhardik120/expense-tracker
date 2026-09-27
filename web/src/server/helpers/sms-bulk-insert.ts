@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { bankAccount, friendsProfiles, smsNotifications, statements } from '@/db/schema';
-import { withDatePart } from '@/lib/date-part';
+import { withZonedDatePart } from '@/lib/date-part';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
@@ -30,7 +30,7 @@ export type BulkImportQueue = {
  */
 export const getBulkImportRows = instrumentedFunction(
   'getBulkImportRows',
-  async (db: Database, userId: string): Promise<BulkImportQueue> => {
+  async (db: Database, userId: string, timeZone: string): Promise<BulkImportQueue> => {
     const pending = await db
       .select({
         id: smsNotifications.id,
@@ -58,6 +58,7 @@ export const getBulkImportRows = instrumentedFunction(
         buildInitialRow(
           { ...notification, type: notification.type as SmsType },
           getHintsFor(hintsById, notification.id),
+          timeZone,
         ),
       ),
       tagOptions: collectTagVocabulary(history),
@@ -126,7 +127,12 @@ const assertOwnership = async (
  */
 export const bulkInsertFromNotifications = instrumentedFunction(
   'bulkInsertFromNotifications',
-  async (db: Database, userId: string, rows: SubmittedRow[]): Promise<BulkInsertResult> => {
+  async (
+    db: Database,
+    userId: string,
+    rows: SubmittedRow[],
+    timeZone: string,
+  ): Promise<BulkInsertResult> => {
     if (rows.length === 0) {
       throw new Error('Nothing to import');
     }
@@ -180,8 +186,9 @@ export const bulkInsertFromNotifications = instrumentedFunction(
           notificationId: row.id,
           row,
           // The grid only edits the calendar day; the time of day stays as the
-          // moment the message arrived.
-          createdAt: withDatePart(timestamp, day),
+          // moment the message arrived. The day is the one the user was shown,
+          // which is the day in their timezone, not the server's.
+          createdAt: withZonedDatePart(timestamp, day, timeZone),
         };
       });
 

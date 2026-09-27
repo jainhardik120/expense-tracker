@@ -1,3 +1,5 @@
+import { toZonedTime } from 'date-fns-tz';
+
 /**
  * Turning a queue of bank messages into statements, a screenful at a time.
  *
@@ -77,13 +79,30 @@ const KIND_BY_SMS_TYPE: Record<SmsType, { statementKind: BulkImportKind; sign: 1
 
 export const getDefaultsForSmsType = (smsType: SmsType) => KIND_BY_SMS_TYPE[smsType];
 
-/** Formats a moment as the `yyyy-MM-dd` the grid's date cell expects. */
+/**
+ * Formats a moment as the `yyyy-MM-dd` the grid's date cell expects.
+ *
+ * Reads the day off the fields of the Date it is given, so a stored instant has
+ * to be brought into the user's timezone first -- see `formatGridDateInZone`.
+ */
 export const formatGridDate = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+/**
+ * The calendar day an instant fell on, in the timezone the user is reading in.
+ *
+ * Timestamps are stored as UTC instants. Taking the day straight off one puts
+ * every transaction between midnight and 05:29 IST on the day before, which the
+ * grid then offers as the date to file it under -- and if the user corrects it,
+ * the correction is applied in UTC terms and pushes the transaction a day the
+ * other way instead.
+ */
+export const formatGridDateInZone = (date: Date, timeZone: string): string =>
+  formatGridDate(toZonedTime(date, timeZone));
 
 /**
  * Reads a `yyyy-MM-dd` grid value back as a local date, rejecting days that do
@@ -129,13 +148,14 @@ type RowHints = {
 export const buildInitialRow = (
   notification: NotificationForRow,
   hints: RowHints,
+  timeZone: string,
 ): BulkImportRow => {
   const { statementKind, sign } = getDefaultsForSmsType(notification.type);
   const magnitude = Math.abs(Number(notification.amount));
   return {
     id: notification.id,
     include: true,
-    date: formatGridDate(notification.createdAt),
+    date: formatGridDateInZone(notification.createdAt, timeZone),
     amount: Number.isFinite(magnitude) ? magnitude * sign : 0,
     statementKind,
     accountId: hints.accountIds[0] ?? '',

@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   buildInitialRow,
   formatGridDate,
+  formatGridDateInZone,
   getBulkImportReadiness,
   getFieldsProblem,
   getRowProblem,
@@ -19,6 +20,7 @@ import {
 const NO_HINTS = { accountIds: [], categories: [], tags: [] };
 const CATEGORY_REQUIRED = 'Category is required';
 const LAST_OF_SEPTEMBER = '2026-09-30';
+const IST = 'Asia/Kolkata';
 
 // The module is imported through a suppressed .ts specifier, so these factories
 // borrow their parameter types from the functions under test rather than
@@ -58,42 +60,46 @@ const gridRow = (over: Partial<Row> = {}): Row =>
 test('a card spend becomes a positive expense', () => {
   // Expense statements are stored positive and subtracted from the balance, so
   // the amount the message reported carries over untouched.
-  const row = buildInitialRow(notification({ type: 'credit' }), NO_HINTS);
+  const row = buildInitialRow(notification({ type: 'credit' }), NO_HINTS, IST);
   assert.equal(row.statementKind, 'expense');
   assert.equal(row.amount, 450.5);
 });
 
 test('money arriving from outside becomes a positive outside transaction', () => {
-  const row = buildInitialRow(notification({ type: 'income' }), NO_HINTS);
+  const row = buildInitialRow(notification({ type: 'income' }), NO_HINTS, IST);
   assert.equal(row.statementKind, 'outside_transaction');
   assert.equal(row.amount, 450.5);
 });
 
 test('money leaving for an investment becomes a negative outside transaction', () => {
-  const row = buildInitialRow(notification({ type: 'investment' }), NO_HINTS);
+  const row = buildInitialRow(notification({ type: 'investment' }), NO_HINTS, IST);
   assert.equal(row.statementKind, 'outside_transaction');
   assert.equal(row.amount, -450.5);
 });
 
 test('the sign comes from the message type, not from the stored amount', () => {
   // Messages always report a magnitude; a stray sign should not flip the meaning.
-  const row = buildInitialRow(notification({ type: 'investment', amount: '-450.5' }), NO_HINTS);
+  const row = buildInitialRow(notification({ type: 'investment', amount: '-450.5' }), NO_HINTS, IST);
   assert.equal(row.amount, -450.5);
 });
 
 test('the top hint pre-fills account, category and one tag', () => {
-  const row = buildInitialRow(notification(), {
-    accountIds: ['account-a', 'account-b'],
-    categories: ['Food', 'Groceries'],
-    tags: ['delivery', 'weekend'],
-  });
+  const row = buildInitialRow(
+    notification(),
+    {
+      accountIds: ['account-a', 'account-b'],
+      categories: ['Food', 'Groceries'],
+      tags: ['delivery', 'weekend'],
+    },
+    IST,
+  );
   assert.equal(row.accountId, 'account-a');
   assert.equal(row.category, 'Food');
   assert.deepEqual(row.tags, ['delivery']);
 });
 
 test('a row with nothing to go on starts blank but included', () => {
-  const row = buildInitialRow(notification(), NO_HINTS);
+  const row = buildInitialRow(notification(), NO_HINTS, IST);
   assert.equal(row.accountId, '');
   assert.equal(row.category, '');
   assert.deepEqual(row.tags, []);
@@ -102,15 +108,34 @@ test('a row with nothing to go on starts blank but included', () => {
   assert.equal(getRowProblem(row), CATEGORY_REQUIRED);
 });
 
-test('the grid date is the local day of the message', () => {
+test('the grid date is the day the message arrived in the reader\'s timezone', () => {
+  // 18:15 UTC on the 30th is 23:45 on the 30th in IST.
   const row = buildInitialRow(
-    notification({ createdAt: new Date(2026, 8, 30, 23, 45, 0) }),
+    notification({ createdAt: new Date(Date.UTC(2026, 8, 30, 18, 15, 0)) }),
     NO_HINTS,
+    IST,
   );
   assert.equal(row.date, LAST_OF_SEPTEMBER);
-  // The moment itself is kept so the time of day survives the import.
-  assert.equal(row.timestamp.getHours(), 23);
-  assert.equal(row.timestamp.getMinutes(), 45);
+  // The moment itself is kept untouched so the time of day survives the import.
+  assert.equal(row.timestamp.toISOString(), '2026-09-30T18:15:00.000Z');
+});
+
+test('a transaction just after midnight IST is not filed on the previous day', () => {
+  // 18:58 UTC on the 16th is 00:28 on the 17th in IST. Reading the day off the
+  // instant without saying whose day it is offered the 16th, and that is what
+  // the user then imported.
+  const afterMidnightIst = new Date('2026-09-16T18:58:19.000Z');
+  assert.equal(formatGridDate(afterMidnightIst), '2026-09-16');
+  assert.equal(formatGridDateInZone(afterMidnightIst, IST), '2026-09-17');
+
+  const row = buildInitialRow(notification({ createdAt: afterMidnightIst }), NO_HINTS, IST);
+  assert.equal(row.date, '2026-09-17');
+});
+
+test('a transaction just after midnight IST on the 1st stays in its own month', () => {
+  // 19:10 UTC on 31 August is 00:40 on 1 September in IST, and the month a
+  // transaction lands in is the month it is budgeted against.
+  assert.equal(formatGridDateInZone(new Date('2026-08-31T19:10:00.000Z'), IST), '2026-09-01');
 });
 
 test('grid dates round-trip', () => {
