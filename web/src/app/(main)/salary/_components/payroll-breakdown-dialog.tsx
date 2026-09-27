@@ -54,7 +54,7 @@ export const PayrollBreakdownDialog = ({ row }: { row: SalaryRow }) => {
         </Button>
       }
     >
-      <div className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
+      <div className="space-y-4">
         <div className="grid gap-2 rounded-lg border p-4 sm:grid-cols-2">
           <Detail label="Revision" value={row.revisionName} />
           <Detail

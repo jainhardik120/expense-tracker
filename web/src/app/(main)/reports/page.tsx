@@ -11,9 +11,6 @@ export default async function ReportsPage() {
   return (
     <div className="flex flex-col gap-6">
       <ReportsTable initialBoundaries={boundaries} initialReport={reportData.periodAggregations} />
-      {/* The report itself, rendered from the same spec the PDF is drawn from.
-          It sits under the period table rather than replacing it: the table is
-          how boundaries are managed and how a single period is drilled into. */}
       <ReportPanel boundaries={boundaries} />
     </div>
   );

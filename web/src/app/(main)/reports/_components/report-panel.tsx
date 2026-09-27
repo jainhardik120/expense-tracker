@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -121,65 +120,60 @@ export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardContent className="flex flex-col gap-4 md:flex-row md:items-end">
-          <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor="panel-from">From</Label>
-            <Select
-              value={span.from}
-              onValueChange={(from) => {
-                setSpan({ from, to: span.to });
-              }}
-            >
-              <SelectTrigger className="w-full" id="panel-from">
-                <SelectValue placeholder="Start" />
-              </SelectTrigger>
-              <SelectContent>
-                {options.slice(0, -1).map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor="panel-to">To</Label>
-            <Select
-              value={span.to}
-              onValueChange={(to) => {
-                setSpan({ from: span.from, to });
-              }}
-            >
-              <SelectTrigger className="w-full" id="panel-to">
-                <SelectValue placeholder="End" />
-              </SelectTrigger>
-              <SelectContent>
-                {options.slice(1).map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              disabled={report.isFetching}
-              variant="outline"
-              onClick={() => void report.refetch()}
-            >
-              <RefreshCw className="mr-2 size-4" />
-              Refresh
-            </Button>
-            <Button disabled={pending || !valid} onClick={download}>
-              <Download className="mr-2 size-4" />
-              {pending ? 'Generating…' : 'PDF'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
+      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-end">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">From:</span>
+          <Select
+            value={span.from}
+            onValueChange={(from) => {
+              setSpan({ from, to: span.to });
+            }}
+          >
+            <SelectTrigger className="w-full min-w-44" id="panel-from">
+              <SelectValue placeholder="Start" />
+            </SelectTrigger>
+            <SelectContent>
+              {options.slice(0, -1).map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">To:</span>
+          <Select
+            value={span.to}
+            onValueChange={(to) => {
+              setSpan({ from: span.from, to });
+            }}
+          >
+            <SelectTrigger className="w-full min-w-44" id="panel-to">
+              <SelectValue placeholder="End" />
+            </SelectTrigger>
+            <SelectContent>
+              {options.slice(1).map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button
+          disabled={report.isFetching}
+          variant="outline"
+          onClick={() => void report.refetch()}
+        >
+          <RefreshCw className="mr-2 size-4" />
+          Refresh
+        </Button>
+        <Button disabled={pending || !valid} onClick={download}>
+          <Download className="mr-2 size-4" />
+          {pending ? 'Generating…' : 'PDF'}
+        </Button>
+      </div>
       {body}
     </div>
   );

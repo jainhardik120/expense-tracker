@@ -29,7 +29,6 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { PERCENTAGE_DIVISOR } from '@/types';
 
-import { getExcludedPortfolioDescription } from './display';
 import { createInvestmentColumns, getSignedValueTone } from './InvestmentColumns';
 import { CreateInvestmentForm } from './InvestmentForms';
 import { InvestmentsOverview } from './InvestmentsOverview';
@@ -253,20 +252,11 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     enableColumnFilter: true,
   },
   {
-    accessorKey: 'stockMarket',
-    header: 'Market',
-    cell: ({ row }) => (row.original.kind === 'stocks' ? (row.original.stockMarket ?? 'IN') : '-'),
-  },
-  {
     accessorKey: 'name',
     header: 'Instrument',
     cell: ({ row }) => (
       <div>
         <div className="font-medium">{row.original.name}</div>
-        <div className="text-muted-foreground text-xs">
-          {row.original.code}
-          {getExcludedPortfolioDescription(row.original).replace(' totals', '')}
-        </div>
       </div>
     ),
   },
@@ -274,11 +264,6 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     id: 'positionCounts',
     header: 'Open / Closed',
     cell: ({ row }) => `${row.original.openPositions} / ${row.original.closedPositions}`,
-  },
-  {
-    accessorKey: 'displayCurrency',
-    header: 'Currency',
-    cell: ({ row }) => row.original.displayCurrency,
   },
   {
     accessorKey: 'units',

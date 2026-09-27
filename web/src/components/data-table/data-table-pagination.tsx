@@ -15,28 +15,30 @@ import type { Table } from '@tanstack/react-table';
 interface DataTablePaginationProps<TData> extends React.ComponentProps<'div'> {
   table: Table<TData>;
   pageSizeOptions?: number[];
+  enableSelection?: boolean;
 }
 
 export const DataTablePagination = <TData,>({
   table,
   pageSizeOptions = [10, 20, 30, 40, 50],
   className,
+  enableSelection = true,
   ...props
 }: DataTablePaginationProps<TData>) => (
   <div
     className={cn(
-      // Wrapping, not scrolling: the breakpoints here read the viewport while
-      // the row is laid out in whatever the sidebar leaves behind, so `sm:`
-      // turns these into a row well before there is room for one. A scrollbar
-      // for the last few pixels of a pager is worse than a second line.
       'flex w-full flex-col-reverse flex-wrap items-center justify-between gap-4 p-1 sm:flex-row sm:gap-8',
       className,
     )}
     {...props}
   >
     <div className="text-muted-foreground flex-1 text-sm whitespace-nowrap">
-      {table.getFilteredSelectedRowModel().rows.length} of {table.getFilteredRowModel().rows.length}{' '}
-      row(s) selected.
+      {enableSelection === true && table.getFilteredSelectedRowModel().rows.length > 0 ? (
+        <>
+          {table.getFilteredSelectedRowModel().rows.length} of{' '}
+          {table.getFilteredRowModel().rows.length} row(s) selected.
+        </>
+      ) : null}
     </div>
     <div className="flex flex-col-reverse flex-wrap items-center justify-end gap-4 sm:flex-row sm:gap-6 lg:gap-8">
       <div className="flex items-center space-x-2">

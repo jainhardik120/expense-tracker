@@ -402,7 +402,7 @@ export const TaxProjectionDialog = ({ data }: { data: SalaryData }) => {
         </Button>
       }
     >
-      <div className="max-h-[75vh] space-y-6 overflow-y-auto pr-1">
+      <div className="space-y-6">
         <section className="space-y-3">
           <div>
             <h3 className="font-semibold">Taxable income</h3>
@@ -816,7 +816,7 @@ export const SalarySetupDialog = ({ data, onSaved }: { data: SalaryData; onSaved
         </Button>
       }
     >
-      <div className="max-h-[75vh] space-y-6 overflow-y-auto pr-1">
+      <div className="space-y-6">
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">Components</h3>

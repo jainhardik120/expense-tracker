@@ -81,7 +81,18 @@ const DynamicForm = <T extends FieldValues, U extends FieldValues>({
   return (
     <Form {...form}>
       <form className={cn('grid gap-4')} onSubmit={onFormSubmit}>
-        <div className={cn('grid max-h-[70vh] gap-4 overflow-y-auto p-1', className)}>
+        {/*
+          Deliberately not capped or scrollable. Whatever this form is inside
+          owns the scrolling: a dialog and a drawer both bound themselves to the
+          viewport and scroll their own contents, and a page scrolls anyway.
+          Capping here as well produced two nested scrollbars -- the fields
+          scrolled to their end first, and only then did the modal scroll and
+          take the heading with it -- and, because the cap was measured against
+          the viewport rather than against the space actually left inside the
+          modal, the sum of header plus 70vh plus footer overflowed the modal and
+          pushed the submit button out of reach.
+        */}
+        <div className={cn('grid gap-4 p-1', className)}>
           {fields.map((field) => {
             const { displayCondition = true } = field;
             if (

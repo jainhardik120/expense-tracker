@@ -46,8 +46,12 @@ const DrawerContent = ({
     <DrawerPrimitive.Content
       className={cn(
         'group/drawer-content bg-background fixed z-50 flex h-auto flex-col',
-        'data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80vh] data-[vaul-drawer-direction=top]:rounded-b-lg data-[vaul-drawer-direction=top]:border-b',
-        'data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80vh] data-[vaul-drawer-direction=bottom]:rounded-t-lg data-[vaul-drawer-direction=bottom]:border-t',
+        // `dvh` rather than `vh`: on a phone `vh` is measured against the
+        // viewport with the browser chrome hidden, so 80vh can be taller than
+        // what is actually on screen and the drawer is clipped by the browser
+        // rather than by this rule.
+        'data-[vaul-drawer-direction=top]:inset-x-0 data-[vaul-drawer-direction=top]:top-0 data-[vaul-drawer-direction=top]:mb-24 data-[vaul-drawer-direction=top]:max-h-[80dvh] data-[vaul-drawer-direction=top]:rounded-b-lg data-[vaul-drawer-direction=top]:border-b',
+        'data-[vaul-drawer-direction=bottom]:inset-x-0 data-[vaul-drawer-direction=bottom]:bottom-0 data-[vaul-drawer-direction=bottom]:mt-24 data-[vaul-drawer-direction=bottom]:max-h-[80dvh] data-[vaul-drawer-direction=bottom]:rounded-t-lg data-[vaul-drawer-direction=bottom]:border-t',
         'data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0 data-[vaul-drawer-direction=right]:w-3/4 data-[vaul-drawer-direction=right]:border-l data-[vaul-drawer-direction=right]:sm:max-w-sm',
         'data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:left-0 data-[vaul-drawer-direction=left]:w-3/4 data-[vaul-drawer-direction=left]:border-r data-[vaul-drawer-direction=left]:sm:max-w-sm',
         className,
@@ -56,7 +60,18 @@ const DrawerContent = ({
       {...props}
     >
       <div className="bg-muted mx-auto mt-4 hidden h-2 w-[100px] shrink-0 rounded-full group-data-[vaul-drawer-direction=bottom]/drawer-content:block" />
-      {children}
+      {/*
+        The drawer is capped at 80dvh, but a flex child defaults to
+        `min-height: auto` and refuses to shrink below its content -- so
+        anything taller simply overflowed the cap and was unreachable, with no
+        scrollbar to say so. `min-h-0` lets this shrink to the space available
+        and `overflow-y-auto` makes the remainder reachable.
+
+        The drag handle stays outside it, so grabbing the drawer still works
+        once the content has been scrolled, and `flex-col` is kept so a
+        `DrawerFooter` can still push itself to the bottom with `mt-auto`.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
     </DrawerPrimitive.Content>
   </DrawerPortal>
 );
@@ -64,7 +79,11 @@ const DrawerContent = ({
 const DrawerHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      'flex flex-col gap-0.5 p-4 group-data-[vaul-drawer-direction=bottom]/drawer-content:text-center group-data-[vaul-drawer-direction=top]/drawer-content:text-center md:gap-1.5 md:text-left',
+      // Sticky so the title stays put while a long drawer scrolls under it.
+      // The header sits inside the scrolling area rather than above it, because
+      // it arrives as one of the content's children and the drawer has no way
+      // to tell it apart from the rest.
+      'bg-background sticky top-0 z-10 flex flex-col gap-0.5 p-4 group-data-[vaul-drawer-direction=bottom]/drawer-content:text-center group-data-[vaul-drawer-direction=top]/drawer-content:text-center md:gap-1.5 md:text-left',
       className,
     )}
     data-slot="drawer-header"

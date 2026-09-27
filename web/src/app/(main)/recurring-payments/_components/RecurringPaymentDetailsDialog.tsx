@@ -9,7 +9,6 @@ import Modal from '@/components/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -174,84 +173,84 @@ export const RecurringPaymentDetailsDialog = ({
       return null;
     }
 
+    // No scroll container of its own: the modal it opens in bounds itself to
+    // the viewport and scrolls its own contents.
     return (
-      <ScrollArea className="max-h-[70vh]">
-        <div className="space-y-6 pr-4">
-          {/* Summary Card */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Payment Summary</CardTitle>
-              <CardDescription>Overview of this recurring payment</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <div>
-                  <p className="text-muted-foreground text-sm">Expected Amount</p>
-                  <p className="text-lg font-semibold">
-                    {formatCurrency(data.recurringPayment.amount)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Category</p>
-                  <p className="text-lg font-semibold">{data.recurringPayment.category}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Status</p>
-                  <Badge variant={data.isActive ? 'default' : 'secondary'}>
-                    {data.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-muted-foreground text-sm">Next Payment</p>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="text-muted-foreground h-4 w-4" />
-                    <span className="text-lg font-semibold">
-                      {data.nextPaymentDate !== null ? formatDate(data.nextPaymentDate) : 'N/A'}
-                    </span>
-                  </div>
+      <div className="space-y-6">
+        {/* Summary Card */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Payment Summary</CardTitle>
+            <CardDescription>Overview of this recurring payment</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div>
+                <p className="text-muted-foreground text-sm">Expected Amount</p>
+                <p className="text-lg font-semibold">
+                  {formatCurrency(data.recurringPayment.amount)}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-sm">Category</p>
+                <p className="text-lg font-semibold">{data.recurringPayment.category}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-sm">Status</p>
+                <Badge variant={data.isActive ? 'default' : 'secondary'}>
+                  {data.isActive ? 'Active' : 'Inactive'}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-muted-foreground text-sm">Next Payment</p>
+                <div className="flex items-center gap-1">
+                  <Calendar className="text-muted-foreground h-4 w-4" />
+                  <span className="text-lg font-semibold">
+                    {data.nextPaymentDate !== null ? formatDate(data.nextPaymentDate) : 'N/A'}
+                  </span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Payment Schedule Table */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Payment Schedule (Current Year)</CardTitle>
-              <CardDescription>
-                Scheduled payments and their status. Payments within ±25% of the period are matched
-                automatically.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {data.schedule.length === 0 ? (
-                <p className="text-muted-foreground py-4 text-center text-sm">
-                  No scheduled payments for the current year.
-                </p>
-              ) : (
-                <ScheduleTable schedule={data.schedule} />
-              )}
-            </CardContent>
-          </Card>
+        {/* Payment Schedule Table */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Payment Schedule (Current Year)</CardTitle>
+            <CardDescription>
+              Scheduled payments and their status. Payments within ±25% of the period are matched
+              automatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data.schedule.length === 0 ? (
+              <p className="text-muted-foreground py-4 text-center text-sm">
+                No scheduled payments for the current year.
+              </p>
+            ) : (
+              <ScheduleTable schedule={data.schedule} />
+            )}
+          </CardContent>
+        </Card>
 
-          {/* Linked Statements */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Linked Statements</CardTitle>
-              <CardDescription>All statements linked to this recurring payment</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {data.linkedStatements.length === 0 ? (
-                <p className="text-muted-foreground py-4 text-center text-sm">
-                  No statements linked yet. Link statements from the statements page.
-                </p>
-              ) : (
-                <LinkedStatementsTable statements={data.linkedStatements} />
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </ScrollArea>
+        {/* Linked Statements */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Linked Statements</CardTitle>
+            <CardDescription>All statements linked to this recurring payment</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data.linkedStatements.length === 0 ? (
+              <p className="text-muted-foreground py-4 text-center text-sm">
+                No statements linked yet. Link statements from the statements page.
+              </p>
+            ) : (
+              <LinkedStatementsTable statements={data.linkedStatements} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   };
 

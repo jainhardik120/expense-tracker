@@ -33,6 +33,7 @@ export default function SmsNotificationsTable({
   estimate,
 }: SmsNotificationsTableProps) {
   const router = useRouter();
+
   const columns = createSmsNotificationColumns({
     onRefresh: () => {
       router.refresh();

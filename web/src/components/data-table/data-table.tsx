@@ -36,6 +36,7 @@ type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
   showBorder?: boolean;
   background?: boolean;
   onRowClick?: (item: TData) => void;
+  enableSelection?: boolean;
 };
 
 // A row can hold its own buttons, links and dialog triggers; a click on one of
@@ -53,6 +54,7 @@ export const DataTable = <TData extends object>({
   showBorder = true,
   background = true,
   onRowClick,
+  enableSelection = true,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -151,7 +153,7 @@ export const DataTable = <TData extends object>({
         </Sortable>
       </div>
       <div className="flex flex-col gap-2.5">
-        {enablePagination === true && <DataTablePagination table={table} />}
+        {enablePagination === true && <DataTablePagination enableSelection={enableSelection} table={table} />}
         {actionBar !== undefined && hasSelectedRows ? actionBar : null}
       </div>
     </div>
