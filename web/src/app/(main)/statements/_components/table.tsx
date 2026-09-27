@@ -104,6 +104,14 @@ const Table = ({
     pageCount: data.pageCount,
     persistPageSizeKey: STATEMENTS_PAGE_SIZE_KEY,
     shallow: false,
+    // The query orders by date descending when asked for nothing in
+    // particular, so the table says so rather than calling itself unsorted.
+    // Left implicit, the first click on Date applied the descending order that
+    // was already showing, and it took a second click to reach ascending.
+    initialState: { sorting: [{ id: 'date', desc: true }] },
+    // Without this the cycle runs descending, ascending, then back to a state
+    // the header calls unsorted but which is descending all the same.
+    enableSortingRemoval: false,
   });
   const { rows } = table.getRowModel();
   const updateStatement = api.statements.updateStatement.useMutation();
