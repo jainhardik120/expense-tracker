@@ -3,6 +3,11 @@ import { z } from 'zod';
 
 import { smsNotifications, statements } from '@/db/schema';
 import type { Database } from '@/lib/db';
+import { BULK_IMPORT_KINDS } from '@/lib/sms-bulk-import';
+import {
+  bulkInsertFromNotifications,
+  getBulkImportRows,
+} from '@/server/helpers/sms-bulk-insert';
 import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
 import { getAccountsSummaryBetweenDates } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
@@ -13,6 +18,19 @@ import {
 } from '@/types';
 
 import { buildQueryConditions } from '../helpers';
+
+/** One reviewed grid row. The rules it has to satisfy are checked in the helper,
+ * against the same code the grid uses, so the two cannot drift apart. */
+const bulkImportRowSchema = z.object({
+  id: z.string(),
+  date: z.string(),
+  amount: z.number(),
+  statementKind: z.enum(BULK_IMPORT_KINDS),
+  accountId: z.string(),
+  friendId: z.string(),
+  category: z.string(),
+  tags: z.array(z.string()),
+});
 
 export const smsNotificationsRouter = createTRPCRouter({
   /**
@@ -151,6 +169,18 @@ export const smsNotificationsRouter = createTRPCRouter({
       const smsNotification = await getSMSNotification(ctx.db, ctx.user.id, input.id);
       return getHints(ctx.db, smsNotification, ctx.user.id);
     }),
+  /**
+   * The whole pending queue as editable rows, each pre-filled the way
+   * `getInsertHints` fills one — but resolved for every message in one go.
+   */
+  getBulkImportRows: protectedProcedure.query(({ ctx }) =>
+    getBulkImportRows(ctx.db, ctx.user.id),
+  ),
+  bulkImport: protectedProcedure
+    .input(z.object({ rows: z.array(bulkImportRowSchema).min(1) }))
+    .mutation(({ ctx, input }) =>
+      bulkInsertFromNotifications(ctx.db, ctx.user.id, input.rows),
+    ),
 });
 
 const getSMSNotification = async (db: Database, userId: string, id: string) => {

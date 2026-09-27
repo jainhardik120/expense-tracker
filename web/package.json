@@ -20,6 +20,8 @@
     "test:budget-rules": "node --experimental-strip-types --test src/lib/budget-rules.test.ts",
     "test:credit-card-bills": "node --experimental-strip-types --test src/lib/credit-card-bills.test.ts",
     "test:date-part": "node --experimental-strip-types --test src/lib/date-part.test.ts",
+    "test:sms-bulk-import": "node --experimental-strip-types --test src/lib/sms-bulk-import.test.ts",
+    "test:sms-insert-hints": "node --experimental-strip-types --test src/lib/sms-insert-hints.test.ts",
     "test:oauth-refresh": "node --experimental-strip-types --test src/lib/oauth-refresh-chain.test.ts",
     "typecheck": "tsc --noEmit",
     "unused": "knip",

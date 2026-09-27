@@ -1,0 +1,203 @@
+/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises, no-magic-numbers */
+
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  buildInitialRow,
+  formatGridDate,
+  getBulkImportReadiness,
+  getFieldsProblem,
+  getRowProblem,
+  parseGridDate,
+  // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
+} from './sms-bulk-import.ts';
+
+const NO_HINTS = { accountIds: [], categories: [], tags: [] };
+const CATEGORY_REQUIRED = 'Category is required';
+const LAST_OF_SEPTEMBER = '2026-09-30';
+
+// The module is imported through a suppressed .ts specifier, so these factories
+// borrow their parameter types from the functions under test rather than
+// restating them — otherwise every string literal widens and stops matching.
+type Notification = Parameters<typeof buildInitialRow>[0];
+type Fields = Parameters<typeof getFieldsProblem>[0];
+type Row = Parameters<typeof getRowProblem>[0];
+
+const notification = (over: Partial<Notification> = {}): Notification =>
+  ({
+    id: 'n1',
+    amount: '450.5',
+    type: 'expense',
+    merchant: 'SWIGGY',
+    bankName: 'HDFC',
+    accountLast4: '1234',
+    currency: 'INR',
+    createdAt: new Date(2026, 8, 26, 14, 30, 15),
+    ...over,
+  }) as Notification;
+
+const fields = (over: Partial<Fields> = {}): Fields =>
+  ({
+    date: '2026-09-26',
+    amount: 450.5,
+    statementKind: 'expense',
+    accountId: 'account-a',
+    friendId: '',
+    category: 'Food',
+    tags: ['delivery'],
+    ...over,
+  }) as Fields;
+
+const gridRow = (over: Partial<Row> = {}): Row =>
+  ({ ...fields(), id: 'n1', include: true, ...over }) as Row;
+
+test('a card spend becomes a positive expense', () => {
+  // Expense statements are stored positive and subtracted from the balance, so
+  // the amount the message reported carries over untouched.
+  const row = buildInitialRow(notification({ type: 'credit' }), NO_HINTS);
+  assert.equal(row.statementKind, 'expense');
+  assert.equal(row.amount, 450.5);
+});
+
+test('money arriving from outside becomes a positive outside transaction', () => {
+  const row = buildInitialRow(notification({ type: 'income' }), NO_HINTS);
+  assert.equal(row.statementKind, 'outside_transaction');
+  assert.equal(row.amount, 450.5);
+});
+
+test('money leaving for an investment becomes a negative outside transaction', () => {
+  const row = buildInitialRow(notification({ type: 'investment' }), NO_HINTS);
+  assert.equal(row.statementKind, 'outside_transaction');
+  assert.equal(row.amount, -450.5);
+});
+
+test('the sign comes from the message type, not from the stored amount', () => {
+  // Messages always report a magnitude; a stray sign should not flip the meaning.
+  const row = buildInitialRow(notification({ type: 'investment', amount: '-450.5' }), NO_HINTS);
+  assert.equal(row.amount, -450.5);
+});
+
+test('the top hint pre-fills account, category and one tag', () => {
+  const row = buildInitialRow(notification(), {
+    accountIds: ['account-a', 'account-b'],
+    categories: ['Food', 'Groceries'],
+    tags: ['delivery', 'weekend'],
+  });
+  assert.equal(row.accountId, 'account-a');
+  assert.equal(row.category, 'Food');
+  assert.deepEqual(row.tags, ['delivery']);
+});
+
+test('a row with nothing to go on starts blank but included', () => {
+  const row = buildInitialRow(notification(), NO_HINTS);
+  assert.equal(row.accountId, '');
+  assert.equal(row.category, '');
+  assert.deepEqual(row.tags, []);
+  assert.equal(row.include, true);
+  // And is therefore blocked until the user fills it in.
+  assert.equal(getRowProblem(row), CATEGORY_REQUIRED);
+});
+
+test('the grid date is the local day of the message', () => {
+  const row = buildInitialRow(
+    notification({ createdAt: new Date(2026, 8, 30, 23, 45, 0) }),
+    NO_HINTS,
+  );
+  assert.equal(row.date, LAST_OF_SEPTEMBER);
+  // The moment itself is kept so the time of day survives the import.
+  assert.equal(row.timestamp.getHours(), 23);
+  assert.equal(row.timestamp.getMinutes(), 45);
+});
+
+test('grid dates round-trip', () => {
+  assert.equal(formatGridDate(new Date(2026, 0, 1)), '2026-01-01');
+  assert.equal(formatGridDate(new Date(2026, 11, 31)), '2026-12-31');
+  const parsed = parseGridDate(LAST_OF_SEPTEMBER);
+  assert.ok(parsed instanceof Date);
+  assert.equal(formatGridDate(parsed), LAST_OF_SEPTEMBER);
+});
+
+test('a day that does not exist is rejected rather than rolled forward', () => {
+  assert.equal(parseGridDate('2026-02-30'), null);
+  assert.equal(parseGridDate('2026-09-31'), null);
+  assert.equal(parseGridDate('2026-13-01'), null);
+  assert.equal(parseGridDate('26-09-30'), null);
+  assert.equal(parseGridDate(''), null);
+  // A real leap day is fine.
+  assert.notEqual(parseGridDate('2028-02-29'), null);
+});
+
+test('an expense needs an account or a friend, and not both', () => {
+  assert.equal(getFieldsProblem(fields()), null);
+  assert.equal(getFieldsProblem(fields({ accountId: '', friendId: 'friend-a' })), null);
+  assert.equal(
+    getFieldsProblem(fields({ accountId: '', friendId: '' })),
+    'Pick the account it was paid from, or the friend who paid',
+  );
+  assert.equal(
+    getFieldsProblem(fields({ accountId: 'account-a', friendId: 'friend-a' })),
+    'An expense takes either an account or a friend, not both',
+  );
+});
+
+test('an outside transaction needs an account and no friend', () => {
+  const outside = { statementKind: 'outside_transaction' } as const;
+  assert.equal(getFieldsProblem(fields(outside)), null);
+  assert.equal(
+    getFieldsProblem(fields({ ...outside, accountId: '' })),
+    'Pick the account the money moved through',
+  );
+  assert.equal(
+    getFieldsProblem(fields({ ...outside, friendId: 'friend-a' })),
+    'An outside transaction cannot name a friend',
+  );
+});
+
+test('a friend transaction needs a friend', () => {
+  const friend = { statementKind: 'friend_transaction' } as const;
+  assert.equal(getFieldsProblem(fields({ ...friend, friendId: 'friend-a' })), null);
+  assert.equal(getFieldsProblem(fields({ ...friend, friendId: '' })), 'Pick the friend this was with');
+});
+
+test('a row needs a category and a non-zero amount', () => {
+  assert.equal(getFieldsProblem(fields({ category: '' })), CATEGORY_REQUIRED);
+  assert.equal(getFieldsProblem(fields({ category: '   ' })), CATEGORY_REQUIRED);
+  assert.equal(getFieldsProblem(fields({ amount: 0 })), 'Amount is required');
+  assert.equal(getFieldsProblem(fields({ amount: Number.NaN })), 'Amount is required');
+  // A negative amount is meaningful, not an error.
+  assert.equal(getFieldsProblem(fields({ amount: -20 })), null);
+});
+
+test('an unticked row is never a problem, however broken', () => {
+  const broken = gridRow({ ...fields({ category: '', accountId: '' }), include: false });
+  assert.equal(getRowProblem(broken), null);
+});
+
+test('readiness counts what will go in and what is blocking', () => {
+  const rows = [
+    gridRow({ id: 'ok' }),
+    gridRow({ ...fields({ category: '' }), id: 'broken' }),
+    gridRow({ id: 'skipped', include: false }),
+  ];
+  const readiness = getBulkImportReadiness(rows);
+  assert.equal(readiness.included.length, 2);
+  assert.equal(readiness.skipped, 1);
+  assert.deepEqual(readiness.problems, [{ id: 'broken', problem: CATEGORY_REQUIRED }]);
+  assert.equal(readiness.canImport, false);
+});
+
+test('readiness clears once the blocking row is fixed', () => {
+  const rows = [gridRow({ id: 'ok' }), gridRow({ id: 'also-ok' })];
+  const readiness = getBulkImportReadiness(rows);
+  assert.deepEqual(readiness.problems, []);
+  assert.equal(readiness.canImport, true);
+  assert.equal(readiness.included.length, 2);
+});
+
+test('nothing ticked means nothing to import', () => {
+  const rows = [gridRow({ id: 'skipped', include: false })];
+  const readiness = getBulkImportReadiness(rows);
+  assert.equal(readiness.canImport, false);
+  assert.equal(readiness.skipped, 1);
+});
