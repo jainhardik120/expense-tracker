@@ -11,13 +11,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,47 +34,68 @@ import androidx.compose.ui.unit.dp
 import com.jainhardik120.expensetracker.data.entity.AccountSummary
 import com.jainhardik120.expensetracker.data.entity.FriendSummary
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private val MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault())
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SummaryScreen(viewModel: SummaryViewModel) {
-    when {
-        viewModel.isLoading && viewModel.summary == null -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+    val summary = viewModel.summary
+    // Pull to refresh rather than a button in the app bar: the bar belongs to
+    // the whole app and says what the app is, not what this screen can do.
+    PullToRefreshBox(
+        isRefreshing = viewModel.isLoading && summary != null,
+        onRefresh = { viewModel.loadSummary() },
+        modifier = Modifier.fillMaxSize()
+    ) {
+        when {
+            summary == null && viewModel.isLoading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-        }
-        viewModel.errorMessage != null && viewModel.summary == null -> {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = viewModel.errorMessage ?: "An error occurred",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    TextButton(onClick = { viewModel.loadSummary() }) {
-                        Text("Retry")
+
+            summary == null -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = viewModel.errorMessage ?: "An error occurred",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextButton(onClick = { viewModel.loadSummary() }) { Text("Retry") }
                     }
                 }
             }
-        }
-        else -> {
-            viewModel.summary?.let { summary ->
-                SummaryContent(summary = summary, onRefresh = { viewModel.loadSummary() })
-            }
+
+            else -> SummaryContent(
+                summary = summary,
+                month = viewModel.month,
+                isCurrentMonth = viewModel.isCurrentMonth,
+                isLoading = viewModel.isLoading,
+                onPreviousMonth = { viewModel.showPreviousMonth() },
+                onNextMonth = { viewModel.showNextMonth() }
+            )
         }
     }
 }
 
 @Composable
-fun SummaryContent(summary: SummaryResponse, onRefresh: () -> Unit) {
+private fun SummaryContent(
+    summary: SummaryResponse,
+    month: YearMonth,
+    isCurrentMonth: Boolean,
+    isLoading: Boolean,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit
+) {
+    val accounts = summary.aggregatedAccountsSummaryData
+    val friends = summary.aggregatedFriendsSummaryData
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,32 +103,22 @@ fun SummaryContent(summary: SummaryResponse, onRefresh: () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "Total Expenses",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "₹${formatSummaryAmount(summary.myExpensesTotal)}",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-        }
+        BalanceCard(
+            balance = accounts.finalBalance - friends.finalBalance,
+            inAccounts = accounts.finalBalance,
+            withFriends = friends.finalBalance,
+            isCurrentMonth = isCurrentMonth,
+            month = month
+        )
 
-        val aggAccounts = summary.aggregatedAccountsSummaryData
+        MonthSelector(
+            month = month,
+            canGoForward = !isCurrentMonth,
+            isLoading = isLoading,
+            onPreviousMonth = onPreviousMonth,
+            onNextMonth = onNextMonth
+        )
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -108,42 +127,31 @@ fun SummaryContent(summary: SummaryResponse, onRefresh: () -> Unit) {
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Accounts Overview",
+                    text = "This month",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                SummaryRow("Expenses", aggAccounts.expenses)
-                SummaryRow("Self Transfers", aggAccounts.selfTransfers)
-                SummaryRow("Outside Transactions", aggAccounts.outsideTransactions)
-                SummaryRow("Friend Transactions", aggAccounts.friendTransactions)
+                AmountRow("Spent", summary.myExpensesTotal)
+                AmountRow("Money in", accounts.outsideTransactions)
+                AmountRow("With friends", accounts.friendTransactions)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                SummaryRow("Total Transfers", aggAccounts.totalTransfers, bold = true)
+                AmountRow("Net change", accounts.totalTransfers, bold = true)
             }
         }
 
         if (summary.accountsSummaryData.isNotEmpty()) {
-            Text(
-                text = "Accounts",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 4.dp)
+            BalanceListCard(
+                title = "Accounts",
+                entries = summary.accountsSummaryData.map(::accountEntry)
             )
-            summary.accountsSummaryData.forEach { accountSummary ->
-                AccountSummaryCard(accountSummary)
-            }
         }
 
         if (summary.friendsSummaryData.isNotEmpty()) {
-            Text(
-                text = "Friends",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 4.dp)
+            BalanceListCard(
+                title = "Friends",
+                entries = summary.friendsSummaryData.map(::friendEntry)
             )
-            summary.friendsSummaryData.forEach { friendSummary ->
-                FriendSummaryCard(friendSummary)
-            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -151,7 +159,91 @@ fun SummaryContent(summary: SummaryResponse, onRefresh: () -> Unit) {
 }
 
 @Composable
-fun AccountSummaryCard(accountSummary: AccountSummary) {
+private fun BalanceCard(
+    balance: Double,
+    inAccounts: Double,
+    withFriends: Double,
+    isCurrentMonth: Boolean,
+    month: YearMonth
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                // Balances are always as at the end of the month on screen, so
+                // they are only "current" while that month is this one.
+                text = if (isCurrentMonth) "Current balance" else "Balance at end of ${month.format(MONTH_LABEL)}",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = formatAmount(balance),
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "${formatAmount(inAccounts)} in accounts · ${formatAmount(withFriends)} with friends",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        }
+    }
+}
+
+@Composable
+private fun MonthSelector(
+    month: YearMonth,
+    canGoForward: Boolean,
+    isLoading: Boolean,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onPreviousMonth) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous month")
+            }
+            Text(
+                text = month.format(MONTH_LABEL),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            IconButton(onClick = onNextMonth, enabled = canGoForward) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next month")
+            }
+        }
+        if (isLoading) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+private data class BalanceEntry(val name: String, val balance: Double)
+
+private fun accountEntry(summary: AccountSummary) =
+    BalanceEntry(summary.account.accountName, summary.finalBalance)
+
+private fun friendEntry(summary: FriendSummary) =
+    BalanceEntry(summary.friend.name, summary.finalBalance)
+
+@Composable
+private fun BalanceListCard(title: String, entries: List<BalanceEntry>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -160,46 +252,29 @@ fun AccountSummaryCard(accountSummary: AccountSummary) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = accountSummary.account.accountName,
-                style = MaterialTheme.typography.titleSmall,
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(8.dp))
-            SummaryRow("Balance", accountSummary.finalBalance)
-            SummaryRow("Expenses", accountSummary.expenses)
-            SummaryRow("Transfers", accountSummary.totalTransfers)
+            entries.forEach { entry ->
+                AmountRow(entry.name, entry.balance, coloured = true)
+            }
         }
     }
 }
 
 @Composable
-fun FriendSummaryCard(friendSummary: FriendSummary) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = friendSummary.friend.name,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SummaryRow("Balance", friendSummary.finalBalance)
-            SummaryRow("Paid by Friend", friendSummary.paidByFriend)
-            SummaryRow("Splits", friendSummary.splits)
-        }
-    }
-}
-
-@Composable
-fun SummaryRow(label: String, value: Double, bold: Boolean = false) {
+private fun AmountRow(
+    label: String,
+    value: Double,
+    bold: Boolean = false,
+    coloured: Boolean = false
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
@@ -208,17 +283,20 @@ fun SummaryRow(label: String, value: Double, bold: Boolean = false) {
             fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal
         )
         Text(
-            text = "₹${formatSummaryAmount(value)}",
+            text = formatAmount(value),
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal
+            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (coloured && value < 0) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
         )
     }
 }
 
-private fun formatSummaryAmount(value: Double): String {
-    return if (value == value.toLong().toDouble()) {
-        value.toLong().toString()
-    } else {
-        String.format(Locale.getDefault(), "%.2f", value)
-    }
+private fun formatAmount(value: Double): String {
+    val formatter = java.text.NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+    formatter.maximumFractionDigits = 2
+    return formatter.format(value)
 }

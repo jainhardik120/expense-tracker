@@ -14,7 +14,8 @@ import com.jainhardik120.expensetracker.data.entity.SummaryResponse
 interface ExpenseTrackerAPI {
     suspend fun sendNotification(body: SMSNotificationBody): Result<IDResult, MessageError>
     suspend fun getStatements(page: Int, perPage: Int): Result<StatementsResponse, MessageError>
-    suspend fun getSummary(): Result<SummaryResponse, MessageError>
+    /** Balances as at [end], and the movement between [start] and [end]. */
+    suspend fun getSummary(start: String? = null, end: String? = null): Result<SummaryResponse, MessageError>
     suspend fun createStatement(body: CreateStatementBody): Result<List<IDResult>, MessageError>
     suspend fun deleteStatement(id: String): Result<Unit, MessageError>
     suspend fun createSelfTransfer(body: CreateSelfTransferBody): Result<List<IDResult>, MessageError>

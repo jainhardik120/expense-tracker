@@ -1,7 +1,7 @@
 package com.jainhardik120.expensetracker.ui.screens
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,26 +19,28 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,9 +50,19 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatementsScreen(viewModel: StatementsViewModel) {
     val listState = rememberLazyListState()
+    var selectedStatement by remember { mutableStateOf<StatementItem?>(null) }
+
+    selectedStatement?.let { statement ->
+        StatementActionsSheet(
+            statement = statement,
+            onDismiss = { selectedStatement = null },
+            onDelete = { viewModel.deleteStatement(statement) }
+        )
+    }
 
     val shouldLoadMore = remember {
         derivedStateOf {
@@ -133,9 +145,9 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
                     )
                 ) {
                     items(viewModel.statements, key = { it.id }) { statement ->
-                        SwipeToDeleteStatementCard(
+                        StatementCard(
                             statement = statement,
-                            onDelete = { viewModel.deleteStatement(statement) }
+                            onLongPress = { selectedStatement = statement }
                         )
                     }
                     if (viewModel.isLoadingMore) {
@@ -156,58 +168,82 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
     }
 }
 
+/**
+ * What you can do to a statement, on long press.
+ *
+ * Deleting used to be a left swipe, which is far too easy to do by accident
+ * while scrolling — and it deleted immediately, with nothing to undo it.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SwipeToDeleteStatementCard(
+fun StatementActionsSheet(
     statement: StatementItem,
+    onDismiss: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        }
-    )
+    var confirmingDelete by remember { mutableStateOf(false) }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            val color by animateColorAsState(
-                targetValue = when (dismissState.targetValue) {
-                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
-                    else -> Color.Transparent
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 24.dp, end = 24.dp, bottom = 32.dp)
+        ) {
+            Text(
+                text = if (statement.type == "self_transfer") {
+                    "Self Transfer"
+                } else {
+                    statement.category ?: "Uncategorized"
                 },
-                label = "swipeColor"
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(color, MaterialTheme.shapes.medium)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.onErrorContainer
-                    )
+            Text(
+                text = "₹${formatAmount(statement.amount)} · ${formatDate(statement.createdAt)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            if (confirmingDelete) {
+                Text(
+                    text = "Delete this statement? This cannot be undone.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { confirmingDelete = false }) { Text("Cancel") }
+                    Button(
+                        onClick = {
+                            onDelete()
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
+                        )
+                    ) { Text("Delete") }
+                }
+            } else {
+                TextButton(
+                    onClick = { confirmingDelete = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Delete", modifier = Modifier.weight(1f))
                 }
             }
-        },
-        enableDismissFromStartToEnd = false
-    ) {
-        StatementCard(statement)
+        }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun StatementCard(statement: StatementItem) {
+fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = {}, onLongClick = onLongPress),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         )

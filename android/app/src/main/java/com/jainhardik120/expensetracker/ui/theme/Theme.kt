@@ -1,57 +1,83 @@
 package com.jainhardik120.expensetracker.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val DarkColors = darkColorScheme(
+    primary = Rose500,
+    onPrimary = Rose50,
+    primaryContainer = Rose950,
+    onPrimaryContainer = Rose100,
+    secondary = Zinc800,
+    onSecondary = Zinc50,
+    secondaryContainer = Zinc800,
+    onSecondaryContainer = Zinc50,
+    tertiary = Rose400,
+    onTertiary = Zinc950,
+    background = PitchBlack,
+    onBackground = Zinc50,
+    surface = PitchBlack,
+    onSurface = Zinc50,
+    surfaceVariant = Zinc800,
+    onSurfaceVariant = Zinc400,
+    surfaceContainerLowest = PitchBlack,
+    surfaceContainerLow = NearBlack,
+    surfaceContainer = Zinc900,
+    surfaceContainerHigh = Zinc800,
+    surfaceContainerHighest = Zinc800,
+    outline = Zinc700,
+    outlineVariant = Zinc800,
+    error = Red400,
+    onError = Zinc950,
+    errorContainer = Rose950,
+    onErrorContainer = Rose100
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+private val LightColors = lightColorScheme(
+    primary = Rose600,
+    onPrimary = Rose50,
+    primaryContainer = Rose100,
+    onPrimaryContainer = Rose800,
+    secondary = Zinc100,
+    onSecondary = Zinc950,
+    secondaryContainer = Zinc100,
+    onSecondaryContainer = Zinc950,
+    tertiary = Rose500,
+    onTertiary = Rose50,
+    background = Color.White,
+    onBackground = Zinc950,
+    surface = Color.White,
+    onSurface = Zinc950,
+    surfaceVariant = Zinc100,
+    onSurfaceVariant = Zinc500,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Zinc50,
+    surfaceContainer = Zinc100,
+    surfaceContainerHigh = Zinc200,
+    surfaceContainerHighest = Zinc200,
+    outline = Zinc200,
+    outlineVariant = Zinc100,
+    error = Red600,
+    onError = Color.White,
+    errorContainer = Rose100,
+    onErrorContainer = Rose800
 )
 
+/**
+ * No dynamic colour: the point is to look like the product, not like the
+ * wallpaper.
+ */
 @Composable
 fun ExpenseTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = if (darkTheme) DarkColors else LightColors,
         typography = Typography,
         content = content
     )

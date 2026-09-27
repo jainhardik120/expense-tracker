@@ -77,11 +77,16 @@ class ExpenseTrackerAPIImpl(
         }
     }
 
-    override suspend fun getSummary(): Result<SummaryResponse, MessageError> {
+    override suspend fun getSummary(
+        start: String?,
+        end: String?
+    ): Result<SummaryResponse, MessageError> {
         return performApiRequest {
-            requestBuilder<SummaryResponse>(
-                url = APIRoutes.SUMMARY, method = HttpMethod.Get
-            )
+            client.request(APIRoutes.SUMMARY) {
+                method = HttpMethod.Get
+                if (start != null) parameter("start", start)
+                if (end != null) parameter("end", end)
+            }.body()
         }
     }
 
