@@ -28,7 +28,7 @@ import type {
   RowHeightValue,
 } from '@/types/data-grid';
 
-import type { Column, Table } from '@tanstack/react-table';
+import type { Column, ColumnDef, Table } from '@tanstack/react-table';
 
 export const flexRender = <TProps extends object>(
   Comp: ((props: TProps) => React.ReactNode) | string | undefined,
@@ -280,6 +280,51 @@ export const getColumnVariant = (
       return null;
   }
 };
+
+/**
+ * How a cell should render: as its editor, as the renderer the column brought
+ * with it, or as the read-only form of its editor.
+ *
+ * This used to be decided by asking whether the column's header happened to be
+ * a function, which meant a column opted out of editing by writing its header a
+ * particular way -- and a sortable header component would have silently made
+ * the column read-only. The two are unrelated, so they are separated here.
+ *
+ *   editor   the column says how it is edited, and editing is allowed
+ *   display  the column brought its own renderer: formatted money, a badge, a
+ *            row's actions. What the table would have shown.
+ *   value    neither, so the editor's read-only form renders the raw value
+ */
+export type CellRenderMode = 'editor' | 'display' | 'value';
+
+export const getCellRenderMode = <TData, TValue>(params: {
+  column: Column<TData, TValue>;
+  readOnly: boolean;
+}): CellRenderMode => {
+  const { column, readOnly } = params;
+  const { meta } = column.columnDef;
+
+  if (!readOnly && meta?.cell !== undefined) {
+    return 'editor';
+  }
+  if (meta?.hasDisplayCell === true) {
+    return 'display';
+  }
+  return meta?.cell === undefined ? 'display' : 'value';
+};
+
+/**
+ * Records, for each column, whether it arrived with a renderer of its own, so
+ * that a cell can later tell a caller's renderer apart from TanStack's default.
+ * Run this on the column definitions before handing them to the table.
+ */
+export const prepareGridColumns = <TData, TValue>(
+  columns: ColumnDef<TData, TValue>[],
+): ColumnDef<TData, TValue>[] =>
+  columns.map((column) => ({
+    ...column,
+    meta: { ...column.meta, hasDisplayCell: column.cell !== undefined },
+  }));
 
 export const getUrlHref = (urlString: string): string => {
   if (urlString.length === 0 || urlString.trim() === '') {

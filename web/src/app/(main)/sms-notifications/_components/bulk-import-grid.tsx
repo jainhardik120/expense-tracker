@@ -8,11 +8,11 @@ import { type ColumnDef, type Row, type Table } from '@tanstack/react-table';
 import { AlertCircle, Check, EyeOff, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { DataGrid } from '@/components/data-grid/data-grid';
+import { EditableTable } from '@/components/editable-table/editable-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useDataGrid } from '@/hooks/use-data-grid';
+import { useEditableTable } from '@/hooks/use-editable-table';
 import { formatCurrency } from '@/lib/format';
 import {
   addTagToRows,
@@ -217,6 +217,12 @@ const createBulkImportColumns = ({
     ),
     cell: ({ row, table }) => <SelectRowCell row={row} table={table} />,
   },
+  // Date, Amount, Merchant and Bank first, and in that order, because that is
+  // where the table puts them. The columns a message is *entered* with follow,
+  // so switching into editing reads as new columns arriving on the right rather
+  // than as a different table.
+  editableColumn('date', 'Date', COLUMN_SIZE.date, { variant: 'date' }),
+  editableColumn('amount', 'Amount', COLUMN_SIZE.amount, { variant: 'number' }),
   readOnlyColumn('merchant', 'Merchant', COLUMN_SIZE.merchant, (row) => (
     <span className="truncate text-sm" title={row.merchant}>
       {row.merchant === '' ? '—' : row.merchant}
@@ -228,8 +234,6 @@ const createBulkImportColumns = ({
       {row.accountLast4 === '' ? '' : ` ····${row.accountLast4}`}
     </span>
   )),
-  editableColumn('date', 'Date', COLUMN_SIZE.date, { variant: 'date' }),
-  editableColumn('amount', 'Amount', COLUMN_SIZE.amount, { variant: 'number' }),
   editableColumn('statementKind', 'Kind', COLUMN_SIZE.kind, {
     variant: 'select',
     options: statementKindOptions,
@@ -264,6 +268,8 @@ type BulkImportGridProps = Readonly<{
   friends: Friend[];
   categories: string[];
   tags: string[];
+  /** Called once an import has landed, so the caller can leave editing. */
+  onImported?: () => void;
 }>;
 
 /**
@@ -280,6 +286,7 @@ export const BulkImportGrid = ({
   friends,
   categories,
   tags,
+  onImported,
 }: BulkImportGridProps) => {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
@@ -305,7 +312,8 @@ export const BulkImportGrid = ({
     [accounts, friends, categories, tagOptions, onIncludeChange],
   );
 
-  const dataGrid = useDataGrid({
+  const dataGrid = useEditableTable({
+    mode: 'edit',
     data: rows,
     columns,
     getRowId: (row) => row.id,
@@ -361,6 +369,7 @@ export const BulkImportGrid = ({
         result.stale > 0 ? ` ${result.stale} were no longer pending and were left alone.` : '';
       toast.success(`Imported ${result.imported} transaction(s).${staleNote}`);
       router.refresh();
+      onImported?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Import failed');
     }
@@ -376,7 +385,7 @@ export const BulkImportGrid = ({
 
   return (
     <div className="flex flex-col gap-3">
-      <DataGrid {...dataGrid} height={GRID_HEIGHT} />
+      <EditableTable {...dataGrid} enablePagination={false} height={GRID_HEIGHT} />
       <BulkImportActionBar
         accounts={accounts.map((account) => ({
           label: account.accountName,

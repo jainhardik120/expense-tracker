@@ -1,0 +1,20 @@
+{
+  "typescript.tsserver.watchOptions": "vscode",
+  "js/ts.tsserver.watchOptions": "vscode",
+  "typescript.tsdk": "web/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/.git/objects/**": true,
+    "**/android/.gradle/**": true,
+    "**/android/**/build/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/android/.gradle": true,
+    "**/android/**/build": true,
+    "**/pnpm-lock.yaml": true
+  }
+}

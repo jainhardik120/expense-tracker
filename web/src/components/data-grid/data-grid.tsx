@@ -24,6 +24,8 @@ interface DataGridProps<TData>
   dir?: Direction;
   height?: number;
   stretchColumns?: boolean;
+  /** Shown in place of the rows when there are none. */
+  emptyState?: React.ReactNode;
 }
 
 export const DataGrid = <TData,>({
@@ -51,6 +53,7 @@ export const DataGrid = <TData,>({
   onRowAdd: onRowAddProp,
   height = 600,
   stretchColumns = false,
+  emptyState = 'No results.',
   adjustLayout = false,
   className,
   ...props
@@ -186,10 +189,21 @@ export const DataGrid = <TData,>({
           data-slot="grid-body"
           role="rowgroup"
           style={{
-            height: `${virtualTotalSize}px`,
+            // With no rows the virtualiser measures nothing, so the body would
+            // collapse and take the empty state with it.
+            height: rows.length === 0 ? '6rem' : `${virtualTotalSize}px`,
             contain: adjustLayout ? 'layout paint' : 'strict',
           }}
         >
+          {rows.length === 0 ? (
+            <div
+              className="text-muted-foreground absolute flex h-24 w-full items-center justify-center text-sm"
+              data-slot="grid-empty"
+              role="row"
+            >
+              {emptyState}
+            </div>
+          ) : null}
           {virtualItems.map((virtualItem) => {
             const row = rows[virtualItem.index];
             if (!row) {

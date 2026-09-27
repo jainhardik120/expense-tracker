@@ -7,6 +7,7 @@ import { useComposedRefs } from '@/lib/compose-refs';
 import {
   flexRender,
   getCellKey,
+  getCellRenderMode,
   getColumnBorderVisibility,
   getColumnPinningStyle,
   getRowHeightValue,
@@ -143,6 +144,10 @@ const DataGridRowImpl = <TData,>({
               grow: stretchColumns && columnId !== 'select',
               'border-e': showEndBorder && columnId !== 'select',
               'border-s': showStartBorder && columnId !== 'select',
+              // Set here rather than on the renderer inside, so a column reads
+              // from the same edge whether it is showing a value, a display
+              // renderer or an open editor. Both properties inherit.
+              'text-right tabular-nums': cell.column.columnDef.meta?.align === 'right',
             })}
             data-highlighted={isCellFocused ? '' : undefined}
             data-slot="grid-cell"
@@ -153,7 +158,7 @@ const DataGridRowImpl = <TData,>({
             }}
             tabIndex={-1}
           >
-            {typeof cell.column.columnDef.header === 'function' ? (
+            {getCellRenderMode({ column: cell.column, readOnly }) === 'display' ? (
               <div
                 className={cn('size-full px-3 py-1.5', {
                   'bg-primary/10': isRowSelected,

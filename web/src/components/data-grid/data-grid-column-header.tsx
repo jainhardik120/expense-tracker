@@ -227,6 +227,8 @@ const DataGridColumnResizerImpl = <TData, TValue>({
   table,
   label,
 }: DataGridColumnResizerProps<TData, TValue>) => {
+  const visibleColumns = table.getVisibleLeafColumns();
+  const isLastColumn = visibleColumns.at(-1)?.id === header.column.id;
   const defaultColumnDef = table._getDefaultColumnDef();
 
   const onDoubleClick = React.useCallback(() => {
@@ -241,7 +243,14 @@ const DataGridColumnResizerImpl = <TData, TValue>({
       aria-valuemin={defaultColumnDef.minSize}
       aria-valuenow={header.column.getSize()}
       className={cn(
-        "bg-border hover:bg-primary focus:bg-primary absolute -end-px top-0 z-50 h-full w-0.5 cursor-ew-resize touch-none transition-opacity select-none after:absolute after:inset-y-0 after:start-1/2 after:h-full after:w-[18px] after:-translate-x-1/2 after:content-[''] focus:outline-none",
+        "bg-border hover:bg-primary focus:bg-primary absolute -end-px top-0 z-50 h-full w-0.5 cursor-ew-resize touch-none transition-opacity select-none after:absolute after:inset-y-0 after:h-full after:w-[18px] after:content-[''] focus:outline-none",
+        // The grab target is wider than the handle and normally straddles it.
+        // On the last column the half that hangs past the edge is enough to
+        // give the whole grid a horizontal scrollbar it has no use for, so
+        // there it reaches inwards only.
+        isLastColumn
+          ? 'after:end-0'
+          : 'after:start-1/2 after:-translate-x-1/2',
         header.column.getIsResizing() ? 'bg-primary' : 'opacity-0 hover:opacity-100',
       )}
       role="separator"

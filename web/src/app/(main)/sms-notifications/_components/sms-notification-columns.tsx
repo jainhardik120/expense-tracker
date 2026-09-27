@@ -165,6 +165,21 @@ const SmsNotificationActions = ({
   );
 };
 
+/**
+ * Widths the grid lays the columns out at. A grid sizes its columns in pixels
+ * rather than letting the browser divide the space, so these are stated once
+ * rather than left to whatever each cell happens to contain.
+ */
+const COLUMN_SIZE = {
+  date: 150,
+  amount: 120,
+  merchant: 220,
+  bank: 140,
+  account: 100,
+  status: 120,
+  actions: 80,
+} as const;
+
 export const createSmsNotificationColumns = ({
   onRefresh,
   accountsData,
@@ -179,6 +194,7 @@ export const createSmsNotificationColumns = ({
   {
     accessorKey: 'createdAt',
     header: 'Date',
+    size: COLUMN_SIZE.date,
     cell: ({ row }) => {
       const date = row.original.createdAt;
       return <DateCell date={date} />;
@@ -193,21 +209,25 @@ export const createSmsNotificationColumns = ({
   {
     accessorKey: 'amount',
     header: 'Amount',
+    size: COLUMN_SIZE.amount,
     cell: ({ row }) => formatCurrency(row.original.amount, row.original.currency),
     meta: { align: 'right' },
   },
   {
     accessorKey: 'merchant',
     header: 'Merchant',
+    size: COLUMN_SIZE.merchant,
     cell: ({ row }) => row.original.merchant ?? '-',
   },
   {
     accessorKey: 'bankName',
     header: 'Bank',
+    size: COLUMN_SIZE.bank,
   },
   {
     accessorKey: 'accountLast4',
     header: 'Account',
+    size: COLUMN_SIZE.account,
     cell: ({ row }) =>
       row.original.accountLast4 !== null && row.original.accountLast4 !== ''
         ? row.original.accountLast4
@@ -217,6 +237,7 @@ export const createSmsNotificationColumns = ({
     id: 'status',
     accessorKey: 'status',
     header: 'Status',
+    size: COLUMN_SIZE.status,
     cell: ({ row }) => {
       const { status } = row.original;
       return (
@@ -238,6 +259,7 @@ export const createSmsNotificationColumns = ({
   {
     accessorKey: 'actions',
     header: '',
+    size: COLUMN_SIZE.actions,
     cell: ({ row }) => {
       return (
         <SmsNotificationActions

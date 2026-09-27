@@ -92,10 +92,7 @@ const useStore = <T>(store: DataGridStore, selector: (state: DataGridState) => T
   return React.useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
 };
 
-interface UseDataGridProps<TData> extends Omit<
-  TableOptions<TData>,
-  'pageCount' | 'getCoreRowModel'
-> {
+interface UseDataGridProps<TData> extends Omit<TableOptions<TData>, 'getCoreRowModel'> {
   onDataChange?: (data: TData[]) => void;
   onRowAdd?: (
     event?: React.MouseEvent<HTMLDivElement>,
@@ -132,6 +129,10 @@ const useDataGrid = <TData>({
   overscan = OVERSCAN,
   dir: dirProp,
   initialState,
+  // Pulled out of `props` so it can be a dependency of the table state below.
+  // Left in `props` it would only ever be read through a ref, and a caller that
+  // owns its own sorting or filters would find the grid ignoring every change.
+  state: controlledState,
   ...props
 }: UseDataGridProps<TData>) => {
   const dir = useDirection(dirProp);
@@ -2128,14 +2129,19 @@ const useDataGrid = <TData>({
   const getMemoizedSortedRowModel = React.useMemo(() => getSortedRowModel(), []);
 
   // Memoize state object to reduce shallow equality checks
+  // Each of these three is the caller's if the caller supplies one, and the
+  // grid's own otherwise -- so a grid can be dropped in uncontrolled and still
+  // sort and filter itself, while a page that keeps that state in the URL stays
+  // the single source of truth. The change handlers already forward to the
+  // caller's, so a controlled value round-trips.
   const tableState = React.useMemo<Partial<TableState>>(
     () => ({
-      ...propsRef.current.state,
-      sorting,
-      columnFilters,
-      rowSelection,
+      ...controlledState,
+      sorting: controlledState?.sorting ?? sorting,
+      columnFilters: controlledState?.columnFilters ?? columnFilters,
+      rowSelection: controlledState?.rowSelection ?? rowSelection,
     }),
-    [propsRef, sorting, columnFilters, rowSelection],
+    [controlledState, sorting, columnFilters, rowSelection],
   );
 
   const tableOptions = React.useMemo<TableOptions<TData>>(() => {

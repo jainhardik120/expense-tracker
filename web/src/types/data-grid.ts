@@ -66,7 +66,21 @@ declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends RowData, TValue> {
     label?: string;
+    /**
+     * How the column is edited. A column without this is never editable, however
+     * the grid is configured.
+     */
     cell?: CellOpts;
+    /**
+     * Whether the column definition carried a `cell` renderer of its own.
+     *
+     * Set by `prepareGridColumns`, never by hand. It cannot be read off the
+     * column once the table exists, because TanStack fills in a default `cell`
+     * for every column that does not declare one — so by the time a cell is
+     * rendered, "has a renderer" is true of everything. Recording it before the
+     * table is built is the only honest way to ask.
+     */
+    hasDisplayCell?: boolean;
   }
 
   // biome-ignore lint/correctness/noUnusedVariables: TData is used in the TableMeta interface
