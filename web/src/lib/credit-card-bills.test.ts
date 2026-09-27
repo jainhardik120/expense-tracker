@@ -1,12 +1,6 @@
-/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises, no-magic-numbers */
+import { expect, test } from 'vitest';
 
-import assert from 'node:assert/strict';
-import test from 'node:test';
-
-import {
-  getCardBillsInRange,
-  // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
-} from './credit-card-bills.ts';
+import { getCardBillsInRange } from './credit-card-bills';
 
 const NOW = new Date('2026-09-22T07:30:00.000Z');
 const TIMEZONE = 'Asia/Kolkata';
@@ -44,9 +38,9 @@ test('keeps spending after bill generation in the next cycle', () => {
     ],
   );
 
-  assert.equal(bill.billedAmount, 1_000);
-  assert.equal(bill.remainingAmount, 1_000);
-  assert.equal(bill.status, 'missed');
+  expect(bill.billedAmount).toBe(1_000);
+  expect(bill.remainingAmount).toBe(1_000);
+  expect(bill.status).toBe('missed');
 });
 
 test('reduces a generated bill by later payments but not by later spending', () => {
@@ -71,8 +65,8 @@ test('reduces a generated bill by later payments but not by later spending', () 
     ],
   );
 
-  assert.equal(bill.billedAmount, 1_000);
-  assert.equal(bill.remainingAmount, 400);
+  expect(bill.billedAmount).toBe(1_000);
+  expect(bill.remainingAmount).toBe(400);
 });
 
 test('does not create a due amount from spending that starts after the billing date', () => {
@@ -87,7 +81,7 @@ test('does not create a due amount from spending that starts after the billing d
     ],
   );
 
-  assert.deepEqual(bills, []);
+  expect(bills).toStrictEqual([]);
 });
 
 test('treats a bill paid off to a float residue as fully settled', () => {
@@ -110,9 +104,9 @@ test('treats a bill paid off to a float residue as fully settled', () => {
     ],
   );
 
-  assert.equal(bill.billedAmount, 24_836.8);
-  assert.equal(bill.remainingAmount, 0);
-  assert.equal(bill.status, 'paid');
+  expect(bill.billedAmount).toBe(24_836.8);
+  expect(bill.remainingAmount).toBe(0);
+  expect(bill.status).toBe('paid');
 });
 
 test('a bill whose billing day has not arrived is an estimate from current utilisation', () => {
@@ -133,8 +127,8 @@ test('a bill whose billing day has not arrived is an estimate from current utili
     ],
   );
 
-  assert.equal(bill.status, 'upcoming');
-  assert.equal(bill.billedAmount, 3_200);
+  expect(bill.status).toBe('upcoming');
+  expect(bill.billedAmount).toBe(3_200);
 });
 
 test('projects bills no further than next month', () => {
@@ -164,7 +158,7 @@ test('projects bills no further than next month', () => {
     TIMEZONE,
   );
 
-  assert.equal(octoberBills.length, 1);
-  assert.equal(octoberBills[0].status, 'upcoming');
-  assert.deepEqual(novemberBills, []);
+  expect(octoberBills.length).toBe(1);
+  expect(octoberBills[0].status).toBe('upcoming');
+  expect(novemberBills).toStrictEqual([]);
 });

@@ -1,7 +1,4 @@
-/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises, no-magic-numbers */
-
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import { expect, test } from 'vitest';
 
 import {
   buildInitialRow,
@@ -14,8 +11,7 @@ import {
   updateRows,
   addTagToRows,
   collectTagOptions,
-  // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
-} from './sms-bulk-import.ts';
+} from './sms-bulk-import';
 
 const NO_HINTS = { accountIds: [], categories: [], tags: [] };
 const CATEGORY_REQUIRED = 'Category is required';
@@ -61,20 +57,20 @@ test('a card spend becomes a positive expense', () => {
   // Expense statements are stored positive and subtracted from the balance, so
   // the amount the message reported carries over untouched.
   const row = buildInitialRow(notification({ type: 'credit' }), NO_HINTS, IST);
-  assert.equal(row.statementKind, 'expense');
-  assert.equal(row.amount, 450.5);
+  expect(row.statementKind).toBe('expense');
+  expect(row.amount).toBe(450.5);
 });
 
 test('money arriving from outside becomes a positive outside transaction', () => {
   const row = buildInitialRow(notification({ type: 'income' }), NO_HINTS, IST);
-  assert.equal(row.statementKind, 'outside_transaction');
-  assert.equal(row.amount, 450.5);
+  expect(row.statementKind).toBe('outside_transaction');
+  expect(row.amount).toBe(450.5);
 });
 
 test('money leaving for an investment becomes a negative outside transaction', () => {
   const row = buildInitialRow(notification({ type: 'investment' }), NO_HINTS, IST);
-  assert.equal(row.statementKind, 'outside_transaction');
-  assert.equal(row.amount, -450.5);
+  expect(row.statementKind).toBe('outside_transaction');
+  expect(row.amount).toBe(-450.5);
 });
 
 test('the sign comes from the message type, not from the stored amount', () => {
@@ -84,7 +80,7 @@ test('the sign comes from the message type, not from the stored amount', () => {
     NO_HINTS,
     IST,
   );
-  assert.equal(row.amount, -450.5);
+  expect(row.amount).toBe(-450.5);
 });
 
 test('the top hint pre-fills account, category and one tag', () => {
@@ -97,19 +93,19 @@ test('the top hint pre-fills account, category and one tag', () => {
     },
     IST,
   );
-  assert.equal(row.accountId, 'account-a');
-  assert.equal(row.category, 'Food');
-  assert.deepEqual(row.tags, ['delivery']);
+  expect(row.accountId).toBe('account-a');
+  expect(row.category).toBe('Food');
+  expect(row.tags).toStrictEqual(['delivery']);
 });
 
 test('a row with nothing to go on starts blank but included', () => {
   const row = buildInitialRow(notification(), NO_HINTS, IST);
-  assert.equal(row.accountId, '');
-  assert.equal(row.category, '');
-  assert.deepEqual(row.tags, []);
-  assert.equal(row.include, true);
+  expect(row.accountId).toBe('');
+  expect(row.category).toBe('');
+  expect(row.tags).toStrictEqual([]);
+  expect(row.include).toBe(true);
   // And is therefore blocked until the user fills it in.
-  assert.equal(getRowProblem(row), CATEGORY_REQUIRED);
+  expect(getRowProblem(row)).toBe(CATEGORY_REQUIRED);
 });
 
 test("the grid date is the day the message arrived in the reader's timezone", () => {
@@ -119,9 +115,9 @@ test("the grid date is the day the message arrived in the reader's timezone", ()
     NO_HINTS,
     IST,
   );
-  assert.equal(row.date, LAST_OF_SEPTEMBER);
+  expect(row.date).toBe(LAST_OF_SEPTEMBER);
   // The moment itself is kept untouched so the time of day survives the import.
-  assert.equal(row.timestamp.toISOString(), '2026-09-30T18:15:00.000Z');
+  expect(row.timestamp.toISOString()).toBe('2026-09-30T18:15:00.000Z');
 });
 
 test('a transaction just after midnight IST is not filed on the previous day', () => {
@@ -129,84 +125,81 @@ test('a transaction just after midnight IST is not filed on the previous day', (
   // instant without saying whose day it is offered the 16th, and that is what
   // the user then imported.
   const afterMidnightIst = new Date('2026-09-16T18:58:19.000Z');
-  assert.equal(formatGridDate(afterMidnightIst), '2026-09-16');
-  assert.equal(formatGridDateInZone(afterMidnightIst, IST), '2026-09-17');
+  expect(formatGridDate(afterMidnightIst)).toBe('2026-09-16');
+  expect(formatGridDateInZone(afterMidnightIst, IST)).toBe('2026-09-17');
 
   const row = buildInitialRow(notification({ createdAt: afterMidnightIst }), NO_HINTS, IST);
-  assert.equal(row.date, '2026-09-17');
+  expect(row.date).toBe('2026-09-17');
 });
 
 test('a transaction just after midnight IST on the 1st stays in its own month', () => {
   // 19:10 UTC on 31 August is 00:40 on 1 September in IST, and the month a
   // transaction lands in is the month it is budgeted against.
-  assert.equal(formatGridDateInZone(new Date('2026-08-31T19:10:00.000Z'), IST), '2026-09-01');
+  expect(formatGridDateInZone(new Date('2026-08-31T19:10:00.000Z'), IST)).toBe('2026-09-01');
 });
 
 test('grid dates round-trip', () => {
-  assert.equal(formatGridDate(new Date(2026, 0, 1)), '2026-01-01');
-  assert.equal(formatGridDate(new Date(2026, 11, 31)), '2026-12-31');
+  expect(formatGridDate(new Date(2026, 0, 1))).toBe('2026-01-01');
+  expect(formatGridDate(new Date(2026, 11, 31))).toBe('2026-12-31');
   const parsed = parseGridDate(LAST_OF_SEPTEMBER);
-  assert.ok(parsed instanceof Date);
-  assert.equal(formatGridDate(parsed), LAST_OF_SEPTEMBER);
+  if (parsed === null) {
+    expect.fail('a day that exists should parse');
+  }
+  expect(formatGridDate(parsed)).toBe(LAST_OF_SEPTEMBER);
 });
 
 test('a day that does not exist is rejected rather than rolled forward', () => {
-  assert.equal(parseGridDate('2026-02-30'), null);
-  assert.equal(parseGridDate('2026-09-31'), null);
-  assert.equal(parseGridDate('2026-13-01'), null);
-  assert.equal(parseGridDate('26-09-30'), null);
-  assert.equal(parseGridDate(''), null);
+  expect(parseGridDate('2026-02-30')).toBeNull();
+  expect(parseGridDate('2026-09-31')).toBeNull();
+  expect(parseGridDate('2026-13-01')).toBeNull();
+  expect(parseGridDate('26-09-30')).toBeNull();
+  expect(parseGridDate('')).toBeNull();
   // A real leap day is fine.
-  assert.notEqual(parseGridDate('2028-02-29'), null);
+  expect(parseGridDate('2028-02-29')).not.toBeNull();
 });
 
 test('an expense needs an account or a friend, and not both', () => {
-  assert.equal(getFieldsProblem(fields()), null);
-  assert.equal(getFieldsProblem(fields({ accountId: '', friendId: 'friend-a' })), null);
-  assert.equal(
-    getFieldsProblem(fields({ accountId: '', friendId: '' })),
+  expect(getFieldsProblem(fields())).toBeNull();
+  expect(getFieldsProblem(fields({ accountId: '', friendId: 'friend-a' }))).toBeNull();
+  expect(getFieldsProblem(fields({ accountId: '', friendId: '' }))).toBe(
     'Pick the account it was paid from, or the friend who paid',
   );
-  assert.equal(
-    getFieldsProblem(fields({ accountId: 'account-a', friendId: 'friend-a' })),
+  expect(getFieldsProblem(fields({ accountId: 'account-a', friendId: 'friend-a' }))).toBe(
     'An expense takes either an account or a friend, not both',
   );
 });
 
 test('an outside transaction needs an account and no friend', () => {
   const outside = { statementKind: 'outside_transaction' } as const;
-  assert.equal(getFieldsProblem(fields(outside)), null);
-  assert.equal(
-    getFieldsProblem(fields({ ...outside, accountId: '' })),
+  expect(getFieldsProblem(fields(outside))).toBeNull();
+  expect(getFieldsProblem(fields({ ...outside, accountId: '' }))).toBe(
     'Pick the account the money moved through',
   );
-  assert.equal(
-    getFieldsProblem(fields({ ...outside, friendId: 'friend-a' })),
+  expect(getFieldsProblem(fields({ ...outside, friendId: 'friend-a' }))).toBe(
     'An outside transaction cannot name a friend',
   );
 });
 
 test('a friend transaction needs a friend', () => {
   const friend = { statementKind: 'friend_transaction' } as const;
-  assert.equal(getFieldsProblem(fields({ ...friend, friendId: 'friend-a' })), null);
-  assert.equal(
-    getFieldsProblem(fields({ ...friend, friendId: '' })),
+  expect(getFieldsProblem(fields({ ...friend, friendId: 'friend-a' }))).toBeNull();
+  expect(getFieldsProblem(fields({ ...friend, friendId: '' }))).toBe(
     'Pick the friend this was with',
   );
 });
 
 test('a row needs a category and a non-zero amount', () => {
-  assert.equal(getFieldsProblem(fields({ category: '' })), CATEGORY_REQUIRED);
-  assert.equal(getFieldsProblem(fields({ category: '   ' })), CATEGORY_REQUIRED);
-  assert.equal(getFieldsProblem(fields({ amount: 0 })), 'Amount is required');
-  assert.equal(getFieldsProblem(fields({ amount: Number.NaN })), 'Amount is required');
+  expect(getFieldsProblem(fields({ category: '' }))).toBe(CATEGORY_REQUIRED);
+  expect(getFieldsProblem(fields({ category: '   ' }))).toBe(CATEGORY_REQUIRED);
+  expect(getFieldsProblem(fields({ amount: 0 }))).toBe('Amount is required');
+  expect(getFieldsProblem(fields({ amount: Number.NaN }))).toBe('Amount is required');
   // A negative amount is meaningful, not an error.
-  assert.equal(getFieldsProblem(fields({ amount: -20 })), null);
+  expect(getFieldsProblem(fields({ amount: -20 }))).toBeNull();
 });
 
 test('an unticked row is never a problem, however broken', () => {
   const broken = gridRow({ ...fields({ category: '', accountId: '' }), include: false });
-  assert.equal(getRowProblem(broken), null);
+  expect(getRowProblem(broken)).toBeNull();
 });
 
 test('readiness counts what will go in and what is blocking', () => {
@@ -216,45 +209,39 @@ test('readiness counts what will go in and what is blocking', () => {
     gridRow({ id: 'skipped', include: false }),
   ];
   const readiness = getBulkImportReadiness(rows);
-  assert.equal(readiness.included.length, 2);
-  assert.equal(readiness.skipped, 1);
-  assert.deepEqual(readiness.problems, [{ id: 'broken', problem: CATEGORY_REQUIRED }]);
-  assert.equal(readiness.canImport, false);
+  expect(readiness.included.length).toBe(2);
+  expect(readiness.skipped).toBe(1);
+  expect(readiness.problems).toStrictEqual([{ id: 'broken', problem: CATEGORY_REQUIRED }]);
+  expect(readiness.canImport).toBe(false);
 });
 
 test('readiness clears once the blocking row is fixed', () => {
   const rows = [gridRow({ id: 'ok' }), gridRow({ id: 'also-ok' })];
   const readiness = getBulkImportReadiness(rows);
-  assert.deepEqual(readiness.problems, []);
-  assert.equal(readiness.canImport, true);
-  assert.equal(readiness.included.length, 2);
+  expect(readiness.problems).toStrictEqual([]);
+  expect(readiness.canImport).toBe(true);
+  expect(readiness.included.length).toBe(2);
 });
 
 test('nothing ticked means nothing to import', () => {
   const rows = [gridRow({ id: 'skipped', include: false })];
   const readiness = getBulkImportReadiness(rows);
-  assert.equal(readiness.canImport, false);
-  assert.equal(readiness.skipped, 1);
+  expect(readiness.canImport).toBe(false);
+  expect(readiness.skipped).toBe(1);
 });
 
 test('a bulk change touches only the selected rows', () => {
   const rows = [gridRow({ id: 'a' }), gridRow({ id: 'b' }), gridRow({ id: 'c' })];
   const updated = updateRows(rows, new Set(['a', 'c']), { category: 'Travel' });
-  assert.deepEqual(
-    updated.map((row) => row.category),
-    ['Travel', 'Food', 'Travel'],
-  );
+  expect(updated.map((row) => row.category)).toStrictEqual(['Travel', 'Food', 'Travel']);
   // The originals are left as they were.
-  assert.equal(rows[0].category, 'Food');
+  expect(rows[0].category).toBe('Food');
 });
 
 test('a bulk change can skip or re-include rows', () => {
   const rows = [gridRow({ id: 'a' }), gridRow({ id: 'b' })];
   const skipped = updateRows(rows, new Set(['a']), { include: false });
-  assert.deepEqual(
-    skipped.map((row) => row.include),
-    [false, true],
-  );
+  expect(skipped.map((row) => row.include)).toStrictEqual([false, true]);
 });
 
 test('adding a tag in bulk keeps the tags already on each row', () => {
@@ -264,16 +251,16 @@ test('adding a tag in bulk keeps the tags already on each row', () => {
     gridRow({ id: 'c', tags: ['other'] }),
   ];
   const updated = addTagToRows(rows, new Set(['a', 'b']), 'Lunch');
-  assert.deepEqual(updated[0].tags, ['delivery', 'Lunch']);
-  assert.deepEqual(updated[1].tags, ['Lunch']);
-  assert.deepEqual(updated[2].tags, ['other']);
+  expect(updated[0].tags).toStrictEqual(['delivery', 'Lunch']);
+  expect(updated[1].tags).toStrictEqual(['Lunch']);
+  expect(updated[2].tags).toStrictEqual(['other']);
 });
 
 test('adding a tag a row already has changes nothing', () => {
   const rows = [gridRow({ id: 'a', tags: ['Lunch'] })];
   const updated = addTagToRows(rows, new Set(['a']), 'Lunch');
-  assert.deepEqual(updated[0].tags, ['Lunch']);
-  assert.equal(updated[0], rows[0]);
+  expect(updated[0].tags).toStrictEqual(['Lunch']);
+  expect(updated[0]).toBe(rows[0]);
 });
 
 test('the tag menu keeps history order and appends what the user created', () => {
@@ -282,10 +269,15 @@ test('the tag menu keeps history order and appends what the user created', () =>
     gridRow({ id: 'b', tags: ['Bhel'] }),
   ];
   // History order is by how often each was used, so it must not be re-sorted.
-  assert.deepEqual(collectTagOptions(rows, ['Curd', 'Dosa']), ['Curd', 'Dosa', 'Bhel', 'Kachori']);
+  expect(collectTagOptions(rows, ['Curd', 'Dosa'])).toStrictEqual([
+    'Curd',
+    'Dosa',
+    'Bhel',
+    'Kachori',
+  ]);
 });
 
 test('the tag menu does not repeat a tag or offer an empty one', () => {
   const rows = [gridRow({ id: 'a', tags: ['New', 'New', ''] })];
-  assert.deepEqual(collectTagOptions(rows, ['Old']), ['Old', 'New']);
+  expect(collectTagOptions(rows, ['Old'])).toStrictEqual(['Old', 'New']);
 });

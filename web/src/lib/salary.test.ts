@@ -1,7 +1,4 @@
-/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises, no-magic-numbers */
-
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import { expect, test } from 'vitest';
 
 import {
   buildRevisionSchedule,
@@ -10,8 +7,7 @@ import {
   getSalaryLineTotals,
   hasMaterialSalaryNetMismatch,
   reconcileSalaryTdsForecast,
-  // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
-} from './salary.ts';
+} from './salary';
 
 test('prorates only proratable components across a partial first month', () => {
   const [april] = buildRevisionSchedule(
@@ -46,19 +42,19 @@ test('prorates only proratable components across a partial first month', () => {
     2026,
   );
 
-  assert.equal(april.daysPaid, 20);
-  assert.equal(april.daysInPeriod, 30);
-  assert.equal(april.components[0]?.amount, 20_000);
-  assert.equal(april.components[1]?.amount, 1_000);
+  expect(april.daysPaid).toBe(20);
+  expect(april.daysInPeriod).toBe(30);
+  expect(april.components[0]?.amount).toBe(20_000);
+  expect(april.components[1]?.amount).toBe(1_000);
 });
 
 test('moves an estimated weekend pay date to the previous weekday', () => {
   const payDate = getEstimatedPayDate(2026, 6, 25, 'previous_weekday');
-  assert.equal(payDate.toISOString().slice(0, 10), '2026-07-24');
+  expect(payDate.toISOString().slice(0, 10)).toBe('2026-07-24');
 });
 
 test('calculates net, deductions, and taxable salary independently', () => {
-  assert.deepEqual(
+  expect(
     getSalaryLineTotals([
       {
         kind: 'earning',
@@ -79,14 +75,13 @@ test('calculates net, deductions, and taxable salary independently', () => {
         affectsTaxableIncome: true,
       },
     ]),
-    {
-      earnings: 100_000,
-      deductions: 12_000,
-      net: 88_000,
-      taxableIncome: 98_000,
-      tds: 10_000,
-    },
-  );
+  ).toStrictEqual({
+    earnings: 100_000,
+    deductions: 12_000,
+    net: 88_000,
+    taxableIncome: 98_000,
+    tds: 10_000,
+  });
 });
 
 test('adds bonus TDS in its month and spreads the tax balance across eligible months', () => {
@@ -109,22 +104,20 @@ test('adds bonus TDS in its month and spreads the tax balance across eligible mo
     ],
   });
 
-  assert.equal(rows[0]?.estimatedTds, 86_200.1);
-  assert.equal(rows[0]?.reconciliation, 0);
-  assert.deepEqual(
-    rows.slice(1).map((row) => row.reconciliation),
-    [4_311.07, 4_311.07, 4_311.07, 4_311.07, 4_311.06, 4_311.06],
-  );
-  assert.equal(rows[1]?.estimatedTds, 41_491.07);
-  assert.equal(rows.at(-1)?.estimatedTds, 16_011.06);
-  assert.equal(
+  expect(rows[0]?.estimatedTds).toBe(86_200.1);
+  expect(rows[0]?.reconciliation).toBe(0);
+  expect(rows.slice(1).map((row) => row.reconciliation)).toStrictEqual([
+    4_311.07, 4_311.07, 4_311.07, 4_311.07, 4_311.06, 4_311.06,
+  ]);
+  expect(rows[1]?.estimatedTds).toBe(41_491.07);
+  expect(rows.at(-1)?.estimatedTds).toBe(16_011.06);
+  expect(
     Math.round(rows.reduce((total, row) => total + row.estimatedTds, 60_234) * 100) / 100,
-    267_980.5,
-  );
+  ).toBe(267_980.5);
 });
 
 test('represents a downward TDS reconciliation as a reduced deduction', () => {
-  assert.deepEqual(
+  expect(
     getSalaryLineTotals([
       {
         kind: 'earning',
@@ -151,47 +144,43 @@ test('represents a downward TDS reconciliation as a reduced deduction', () => {
         affectsTaxableIncome: false,
       },
     ]),
-    {
-      earnings: 145_833,
-      deductions: 19_216.46,
-      taxableIncome: 145_833,
-      net: 126_616.54,
-      tds: 10_266.46,
-    },
-  );
+  ).toStrictEqual({
+    earnings: 145_833,
+    deductions: 19_216.46,
+    taxableIncome: 145_833,
+    net: 126_616.54,
+    tds: 10_266.46,
+  });
 });
 
 test('ignores small salary rounding differences up to ten rupees', () => {
-  assert.equal(hasMaterialSalaryNetMismatch(124_898, 124_897.54), false);
-  assert.equal(hasMaterialSalaryNetMismatch(100_010, 100_000), false);
-  assert.equal(hasMaterialSalaryNetMismatch(100_010.01, 100_000), true);
-  assert.equal(hasMaterialSalaryNetMismatch(null, 100_000), false);
+  expect(hasMaterialSalaryNetMismatch(124_898, 124_897.54)).toBe(false);
+  expect(hasMaterialSalaryNetMismatch(100_010, 100_000)).toBe(false);
+  expect(hasMaterialSalaryNetMismatch(100_010.01, 100_000)).toBe(true);
+  expect(hasMaterialSalaryNetMismatch(null, 100_000)).toBe(false);
 });
 
 test('applies the new-regime rebate at twelve lakh taxable income', () => {
   const tax = calculateIndiaNewRegimeTax({ salaryTaxableIncome: 1_275_000 });
-  assert.equal(tax.taxableIncome, 1_200_000);
-  assert.equal(tax.totalTax, 0);
+  expect(tax.taxableIncome).toBe(1_200_000);
+  expect(tax.totalTax).toBe(0);
 });
 
 test('taxes bonus income at the marginal slab after regular salary', () => {
   const regular = calculateIndiaNewRegimeTax({ salaryTaxableIncome: 1_675_000 });
   const withBonus = calculateIndiaNewRegimeTax({ salaryTaxableIncome: 1_775_000 });
-  assert.equal(regular.taxableIncome, 1_600_000);
-  assert.deepEqual(
-    regular.slabs.map(({ taxableAmount, tax }) => ({ taxableAmount, tax })),
-    [
-      { taxableAmount: 400_000, tax: 0 },
-      { taxableAmount: 400_000, tax: 20_000 },
-      { taxableAmount: 400_000, tax: 40_000 },
-      { taxableAmount: 400_000, tax: 60_000 },
-      { taxableAmount: 0, tax: 0 },
-      { taxableAmount: 0, tax: 0 },
-      { taxableAmount: 0, tax: 0 },
-    ],
-  );
-  assert.equal(regular.totalTax, 124_800);
-  assert.equal(withBonus.totalTax - regular.totalTax, 20_800);
+  expect(regular.taxableIncome).toBe(1_600_000);
+  expect(regular.slabs.map(({ taxableAmount, tax }) => ({ taxableAmount, tax }))).toStrictEqual([
+    { taxableAmount: 400_000, tax: 0 },
+    { taxableAmount: 400_000, tax: 20_000 },
+    { taxableAmount: 400_000, tax: 40_000 },
+    { taxableAmount: 400_000, tax: 60_000 },
+    { taxableAmount: 0, tax: 0 },
+    { taxableAmount: 0, tax: 0 },
+    { taxableAmount: 0, tax: 0 },
+  ]);
+  expect(regular.totalTax).toBe(124_800);
+  expect(withBonus.totalTax - regular.totalTax).toBe(20_800);
 });
 
 test('calculates outside income as incremental tax above salary tax', () => {
@@ -201,7 +190,7 @@ test('calculates outside income as incremental tax above salary tax', () => {
     otherTaxableIncome: 10.11,
   });
 
-  assert.equal(salaryTax.totalTax, 267_980.5);
-  assert.equal(totalTax.totalTax, 267_983.13);
-  assert.equal(Number((totalTax.totalTax - salaryTax.totalTax).toFixed(2)), 2.63);
+  expect(salaryTax.totalTax).toBe(267_980.5);
+  expect(totalTax.totalTax).toBe(267_983.13);
+  expect(Number((totalTax.totalTax - salaryTax.totalTax).toFixed(2))).toBe(2.63);
 });

@@ -1,68 +1,61 @@
-/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises */
+import { expect, describe, it } from 'vitest';
 
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-
-import {
-  isOwnAccountTransfer,
-  resolveSmsType,
-  // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
-} from './sms-notification-rules.ts';
+import { isOwnAccountTransfer, resolveSmsType } from './sms-notification-rules';
 
 const HOLDER = 'Hardik Jain';
 const UPPERCASED = 'HARDIK JAIN';
 
 describe('isOwnAccountTransfer', () => {
   it('matches the account holder however the bank cased or padded it', () => {
-    assert.equal(isOwnAccountTransfer(UPPERCASED, HOLDER), true);
-    assert.equal(isOwnAccountTransfer('Hardik  Jain', HOLDER), true);
-    assert.equal(isOwnAccountTransfer('hardik jain', HOLDER), true);
+    expect(isOwnAccountTransfer(UPPERCASED, HOLDER)).toBe(true);
+    expect(isOwnAccountTransfer('Hardik  Jain', HOLDER)).toBe(true);
+    expect(isOwnAccountTransfer('hardik jain', HOLDER)).toBe(true);
   });
 
   it('matches when the bank reverses the name', () => {
-    assert.equal(isOwnAccountTransfer('JAIN HARDIK', HOLDER), true);
+    expect(isOwnAccountTransfer('JAIN HARDIK', HOLDER)).toBe(true);
   });
 
   it('does not match a relative who shares the surname', () => {
-    assert.equal(isOwnAccountTransfer('RUCHITA JAIN', HOLDER), false);
-    assert.equal(isOwnAccountTransfer('VASHNI AGRAHARI', HOLDER), false);
+    expect(isOwnAccountTransfer('RUCHITA JAIN', HOLDER)).toBe(false);
+    expect(isOwnAccountTransfer('VASHNI AGRAHARI', HOLDER)).toBe(false);
   });
 
   it('does not match a name the holder name is merely part of', () => {
-    assert.equal(isOwnAccountTransfer('HARDIK JAIN WO LAT', HOLDER), false);
-    assert.equal(isOwnAccountTransfer('JAIN', HOLDER), false);
+    expect(isOwnAccountTransfer('HARDIK JAIN WO LAT', HOLDER)).toBe(false);
+    expect(isOwnAccountTransfer('JAIN', HOLDER)).toBe(false);
   });
 
   it('does not match a UPI handle that happens to contain the name', () => {
-    assert.equal(isOwnAccountTransfer('jainhardik120 4', HOLDER), false);
+    expect(isOwnAccountTransfer('jainhardik120 4', HOLDER)).toBe(false);
   });
 
   it('refuses to identify anyone by a single word', () => {
-    assert.equal(isOwnAccountTransfer('Hardik', 'Hardik'), false);
+    expect(isOwnAccountTransfer('Hardik', 'Hardik')).toBe(false);
   });
 
   it('takes a missing merchant or holder as no match', () => {
-    assert.equal(isOwnAccountTransfer(null, HOLDER), false);
-    assert.equal(isOwnAccountTransfer(UPPERCASED, null), false);
-    assert.equal(isOwnAccountTransfer(UPPERCASED, ''), false);
+    expect(isOwnAccountTransfer(null, HOLDER)).toBe(false);
+    expect(isOwnAccountTransfer(UPPERCASED, null)).toBe(false);
+    expect(isOwnAccountTransfer(UPPERCASED, '')).toBe(false);
   });
 });
 
 describe('resolveSmsType', () => {
   it('calls both legs of a self transfer a transfer', () => {
-    assert.equal(resolveSmsType('expense', UPPERCASED, HOLDER), 'transfer');
-    assert.equal(resolveSmsType('income', UPPERCASED, HOLDER), 'transfer');
+    expect(resolveSmsType('expense', UPPERCASED, HOLDER)).toBe('transfer');
+    expect(resolveSmsType('income', UPPERCASED, HOLDER)).toBe('transfer');
   });
 
   it('leaves an ordinary payment alone', () => {
-    assert.equal(resolveSmsType('expense', 'LEMON CUBE', HOLDER), 'expense');
-    assert.equal(resolveSmsType('credit', 'SWIGGY', HOLDER), 'credit');
-    assert.equal(resolveSmsType('income', 'VASHNI AGRAHARI', HOLDER), 'income');
+    expect(resolveSmsType('expense', 'LEMON CUBE', HOLDER)).toBe('expense');
+    expect(resolveSmsType('credit', 'SWIGGY', HOLDER)).toBe('credit');
+    expect(resolveSmsType('income', 'VASHNI AGRAHARI', HOLDER)).toBe('income');
   });
 
   it('leaves an investment as an investment', () => {
     // Money into one's own broker is still an investment, not a transfer, and
     // the broker's name is what identifies it.
-    assert.equal(resolveSmsType('investment', UPPERCASED, HOLDER), 'investment');
+    expect(resolveSmsType('investment', UPPERCASED, HOLDER)).toBe('investment');
   });
 });

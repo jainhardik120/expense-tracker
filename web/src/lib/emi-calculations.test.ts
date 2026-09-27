@@ -1,12 +1,6 @@
-/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises, no-magic-numbers */
+import { expect, test } from 'vitest';
 
-import assert from 'node:assert/strict';
-import test from 'node:test';
-
-import {
-  calculateSchedule,
-  // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
-} from '../server/helpers/emi-calculations.ts';
+import { calculateSchedule } from '@/server/helpers/emi-calculations';
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
@@ -21,10 +15,10 @@ test('monthly EMI is what was asked for, in EMI mode', () => {
     processingFeesGst: '18',
   });
 
-  assert.equal(summary.monthlyEMI, 3000);
-  assert.equal(round(summary.effectivePrincipal), 17188.99);
-  assert.equal(round(summary.totalInterest), 811.01);
-  assert.equal(round(summary.totalAmount), 18380.8);
+  expect(summary.monthlyEMI).toBe(3000);
+  expect(round(summary.effectivePrincipal)).toBe(17188.99);
+  expect(round(summary.totalInterest)).toBe(811.01);
+  expect(round(summary.totalAmount)).toBe(18380.8);
 });
 
 test('a processing fee does not hide the monthly EMI', () => {
@@ -45,10 +39,10 @@ test('a processing fee does not hide the monthly EMI', () => {
 
   // The fee is its own row at the head of the schedule and pays no EMI, which
   // is why reading the first row's emi used to report nothing.
-  assert.equal(withFee.schedule[0].installment, 0);
-  assert.equal(withFee.schedule[0].emi, 0);
-  assert.equal(withFee.summary.monthlyEMI, withoutFee.summary.monthlyEMI);
-  assert.equal(round(withFee.summary.monthlyEMI), 8884.88);
+  expect(withFee.schedule[0].installment).toBe(0);
+  expect(withFee.schedule[0].emi).toBe(0);
+  expect(withFee.summary.monthlyEMI).toBe(withoutFee.summary.monthlyEMI);
+  expect(round(withFee.summary.monthlyEMI)).toBe(8884.88);
 });
 
 test('total EMI mode splits the total across the tenure', () => {
@@ -59,6 +53,6 @@ test('total EMI mode splits the total across the tenure', () => {
     tenure: '6',
   });
 
-  assert.equal(summary.monthlyEMI, 4000);
-  assert.equal(round(summary.totalEMI), 24000);
+  expect(summary.monthlyEMI).toBe(4000);
+  expect(round(summary.totalEMI)).toBe(24000);
 });

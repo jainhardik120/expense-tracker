@@ -1,15 +1,11 @@
-/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises */
-
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import { expect, test } from 'vitest';
 
 import {
   buildInsertHints,
   collectTagVocabulary,
   getIsUsableLast4,
   HISTORY_WINDOW,
-  // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
-} from './sms-insert-hints.ts';
+} from './sms-insert-hints';
 
 type Entry = {
   bankName: string;
@@ -47,7 +43,7 @@ test('suggests the account most often used for the same last four digits', () =>
     ],
     [subject()],
   );
-  assert.deepEqual(hints.get('n1')?.accountIds, ['account-a', 'account-b']);
+  expect(hints.get('n1')?.accountIds).toStrictEqual(['account-a', 'account-b']);
 });
 
 test('falls back to the bank name when the message has no usable last four', () => {
@@ -59,15 +55,15 @@ test('falls back to the bank name when the message has no usable last four', () 
     ],
     [subject({ accountLast4: null })],
   );
-  assert.deepEqual(hints.get('n1')?.accountIds, ['account-c']);
+  expect(hints.get('n1')?.accountIds).toStrictEqual(['account-c']);
 });
 
 test('treats placeholder last four values as unusable', () => {
-  assert.equal(getIsUsableLast4(null), false);
-  assert.equal(getIsUsableLast4('XXXX'), false);
-  assert.equal(getIsUsableLast4('0000'), false);
-  assert.equal(getIsUsableLast4('0'), false);
-  assert.equal(getIsUsableLast4('1234'), true);
+  expect(getIsUsableLast4(null)).toBe(false);
+  expect(getIsUsableLast4('XXXX')).toBe(false);
+  expect(getIsUsableLast4('0000')).toBe(false);
+  expect(getIsUsableLast4('0')).toBe(false);
+  expect(getIsUsableLast4('1234')).toBe(true);
 });
 
 test('does not let a placeholder last four borrow another card history', () => {
@@ -76,7 +72,7 @@ test('does not let a placeholder last four borrow another card history', () => {
     [entry({ accountLast4: '0000', accountId: 'account-zero' })],
     [subject({ accountLast4: '0000' })],
   );
-  assert.deepEqual(hints.get('n1')?.accountIds, ['account-zero']);
+  expect(hints.get('n1')?.accountIds).toStrictEqual(['account-zero']);
 });
 
 test('suggests category and tags from the same merchant', () => {
@@ -88,16 +84,16 @@ test('suggests category and tags from the same merchant', () => {
     ],
     [subject()],
   );
-  assert.deepEqual(hints.get('n1')?.categories, ['Food', 'Groceries']);
-  assert.deepEqual(hints.get('n1')?.tags, ['delivery', 'weekend']);
+  expect(hints.get('n1')?.categories).toStrictEqual(['Food', 'Groceries']);
+  expect(hints.get('n1')?.tags).toStrictEqual(['delivery', 'weekend']);
 });
 
 test('gives no category or tag hint when the message names no merchant', () => {
   const hints = buildInsertHints([entry()], [subject({ merchant: null })]);
-  assert.deepEqual(hints.get('n1')?.categories, []);
-  assert.deepEqual(hints.get('n1')?.tags, []);
+  expect(hints.get('n1')?.categories).toStrictEqual([]);
+  expect(hints.get('n1')?.tags).toStrictEqual([]);
   // The account still resolves — that is keyed on the card, not the merchant.
-  assert.deepEqual(hints.get('n1')?.accountIds, ['account-a']);
+  expect(hints.get('n1')?.accountIds).toStrictEqual(['account-a']);
 });
 
 test('a merchant recategorised recently outranks a long history', () => {
@@ -108,7 +104,7 @@ test('a merchant recategorised recently outranks a long history', () => {
     ...Array.from({ length: 11 }, () => entry({ category: 'Food' })),
   ];
   const hints = buildInsertHints(history, [subject()]);
-  assert.equal(hints.get('n1')?.categories[0], 'Groceries');
+  expect(hints.get('n1')?.categories[0]).toBe('Groceries');
 });
 
 test('only the most recent window of history is counted', () => {
@@ -117,7 +113,7 @@ test('only the most recent window of history is counted', () => {
     ...Array.from({ length: 50 }, () => entry({ accountId: 'ancient' })),
   ];
   const hints = buildInsertHints(history, [subject()]);
-  assert.deepEqual(hints.get('n1')?.accountIds, ['recent']);
+  expect(hints.get('n1')?.accountIds).toStrictEqual(['recent']);
 });
 
 test('resolves every subject from one pass over the history', () => {
@@ -130,12 +126,12 @@ test('resolves every subject from one pass over the history', () => {
     subject({ id: 'second', accountLast4: '2222', merchant: 'B' }),
     subject({ id: 'unknown', accountLast4: '3333', bankName: 'OTHER', merchant: 'C' }),
   ]);
-  assert.deepEqual(hints.get('first')?.accountIds, ['account-1']);
-  assert.deepEqual(hints.get('first')?.categories, ['Cat A']);
-  assert.deepEqual(hints.get('second')?.accountIds, ['account-2']);
-  assert.deepEqual(hints.get('second')?.categories, ['Cat B']);
+  expect(hints.get('first')?.accountIds).toStrictEqual(['account-1']);
+  expect(hints.get('first')?.categories).toStrictEqual(['Cat A']);
+  expect(hints.get('second')?.accountIds).toStrictEqual(['account-2']);
+  expect(hints.get('second')?.categories).toStrictEqual(['Cat B']);
   // Nothing to go on, but still present so the caller need not special-case it.
-  assert.deepEqual(hints.get('unknown'), { accountIds: [], categories: [], tags: [] });
+  expect(hints.get('unknown')).toStrictEqual({ accountIds: [], categories: [], tags: [] });
 });
 
 test('ignores history rows that never got an account or category', () => {
@@ -143,13 +139,13 @@ test('ignores history rows that never got an account or category', () => {
     [entry({ accountId: null, category: null, tags: null }), entry()],
     [subject()],
   );
-  assert.deepEqual(hints.get('n1')?.accountIds, ['account-a']);
-  assert.deepEqual(hints.get('n1')?.categories, ['Food']);
-  assert.deepEqual(hints.get('n1')?.tags, ['delivery']);
+  expect(hints.get('n1')?.accountIds).toStrictEqual(['account-a']);
+  expect(hints.get('n1')?.categories).toStrictEqual(['Food']);
+  expect(hints.get('n1')?.tags).toStrictEqual(['delivery']);
 });
 
 test('returns an empty map for an empty queue', () => {
-  assert.equal(buildInsertHints([entry()], []).size, 0);
+  expect(buildInsertHints([entry()], []).size).toBe(0);
 });
 
 test('the tag menu offers what has actually been chosen, most used first', () => {
@@ -159,7 +155,7 @@ test('the tag menu offers what has actually been chosen, most used first', () =>
     entry({ tags: ['Biscuit'] }),
     entry({ tags: ['Sweets'] }),
   ]);
-  assert.deepEqual(vocabulary, ['Biscuit', 'Sweets', 'Vada Paw']);
+  expect(vocabulary).toStrictEqual(['Biscuit', 'Sweets', 'Vada Paw']);
 });
 
 test('the tag menu skips empty and missing tag lists', () => {
@@ -168,10 +164,10 @@ test('the tag menu skips empty and missing tag lists', () => {
     entry({ tags: [] }),
     entry({ tags: ['', 'Curd'] }),
   ]);
-  assert.deepEqual(vocabulary, ['Curd']);
+  expect(vocabulary).toStrictEqual(['Curd']);
 });
 
 test('equally used tags are offered alphabetically rather than arbitrarily', () => {
   const vocabulary = collectTagVocabulary([entry({ tags: ['Zebra'] }), entry({ tags: ['Apple'] })]);
-  assert.deepEqual(vocabulary, ['Apple', 'Zebra']);
+  expect(vocabulary).toStrictEqual(['Apple', 'Zebra']);
 });

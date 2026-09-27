@@ -1,13 +1,6 @@
-/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises, no-magic-numbers */
+import { expect, test } from 'vitest';
 
-import assert from 'node:assert/strict';
-import test from 'node:test';
-
-import {
-  project,
-  monthsBetween,
-  // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
-} from './budget-projection.ts';
+import { project, monthsBetween } from './budget-projection';
 
 const line = (over = {}) => ({
   lineId: 'l',
@@ -24,13 +17,13 @@ const line = (over = {}) => ({
 
 test('a monthly allocation budgets for the whole year, not just so far', () => {
   const { lines } = project([line({ allocationAmount: 1000 })], 0, 3, 12);
-  assert.equal(lines[0].yearBudget, 12000);
+  expect(lines[0].yearBudget).toBe(12000);
 });
 
 test('what is left is paced over the months that remain', () => {
   const { lines } = project([line({ allocationAmount: 1000, actual: 6000 })], 0, 6, 12);
-  assert.equal(lines[0].remaining, 6000);
-  assert.equal(lines[0].perMonthRemaining, 1000);
+  expect(lines[0].remaining).toBe(6000);
+  expect(lines[0].perMonthRemaining).toBe(1000);
 });
 
 test('overspending is reported rather than floored at zero', () => {
@@ -40,8 +33,8 @@ test('overspending is reported rather than floored at zero', () => {
     10,
     12,
   );
-  assert.equal(lines[0].remaining, -8740);
-  assert.equal(lines[0].overspent, true);
+  expect(lines[0].remaining).toBe(-8740);
+  expect(lines[0].overspent).toBe(true);
 });
 
 test('an earmarked line is funded only by the income pointed at it', () => {
@@ -58,15 +51,15 @@ test('an earmarked line is funded only by the income pointed at it', () => {
     10,
     12,
   );
-  assert.equal(lines[0].yearBudget, 28948);
-  assert.equal(lines[0].remaining, -3512);
+  expect(lines[0].yearBudget).toBe(28948);
+  expect(lines[0].remaining).toBe(-3512);
 });
 
 test('income still to come is projected from the rate so far', () => {
   // 10 months of income at 100/month, two months left
   const p = project([line({ allocationAmount: 0 })], 1000, 10, 12);
-  assert.equal(p.expectedTotalIncome, 1200);
-  assert.equal(p.remainingMonths, 2);
+  expect(p.expectedTotalIncome).toBe(1200);
+  expect(p.remainingMonths).toBe(2);
 });
 
 test('the residual is whatever the lines above it leave, and shrinks when they overspend', () => {
@@ -89,14 +82,14 @@ test('the residual is whatever the lines above it leave, and shrinks when they o
     12,
   );
   // same income, 6000 more spent, so 6000 less survives
-  assert.equal(thrifty.projectedAtPace - spendy.projectedAtPace, 6000);
+  expect(thrifty.projectedAtPace - spendy.projectedAtPace).toBe(6000);
   // and the plan itself is unchanged: allocation did not move, behaviour did
-  assert.equal(thrifty.lines[1].yearBudget, spendy.lines[1].yearBudget);
+  expect(thrifty.lines[1].yearBudget).toBe(spendy.lines[1].yearBudget);
 });
 
 test('months between dates counts part months', () => {
-  assert.equal(monthsBetween(new Date('2026-01-01'), new Date('2026-04-01')), 3);
-  assert.equal(Math.round(monthsBetween(new Date('2025-12-24'), new Date('2026-09-26'))), 9);
+  expect(monthsBetween(new Date('2026-01-01'), new Date('2026-04-01'))).toBe(3);
+  expect(Math.round(monthsBetween(new Date('2025-12-24'), new Date('2026-09-26')))).toBe(9);
 });
 
 test('a fixed monthly line is projected to keep costing its rate', () => {
@@ -107,9 +100,9 @@ test('a fixed monthly line is projected to keep costing its rate', () => {
     10,
     12,
   );
-  assert.equal(lines[0].forecastRemaining, 2000);
-  assert.equal(lines[0].projectedSpend, 12000);
-  assert.equal(lines[0].variance, 0);
+  expect(lines[0].forecastRemaining).toBe(2000);
+  expect(lines[0].projectedSpend).toBe(12000);
+  expect(lines[0].variance).toBe(0);
 });
 
 test('a discretionary line is forecast at the rate it is actually running at', () => {
@@ -120,9 +113,9 @@ test('a discretionary line is forecast at the rate it is actually running at', (
     10,
     12,
   );
-  assert.equal(lines[0].yearBudget, 111600);
-  assert.equal(lines[0].forecastRemaining, 22800);
-  assert.equal(Math.round(lines[0].variance), 25168);
+  expect(lines[0].yearBudget).toBe(111600);
+  expect(lines[0].forecastRemaining).toBe(22800);
+  expect(Math.round(lines[0].variance)).toBe(25168);
 });
 
 test('income earmarked at a line funds it rather than showing as overspend', () => {
@@ -140,8 +133,8 @@ test('income earmarked at a line funds it rather than showing as overspend', () 
     10,
     12,
   );
-  assert.equal(lines[0].yearBudget, 28948);
-  assert.equal(lines[0].variance, 3512);
+  expect(lines[0].yearBudget).toBe(28948);
+  expect(lines[0].variance).toBe(3512);
 });
 
 test('an envelope topped up by earmarked income is bigger than the figure typed in', () => {
@@ -160,7 +153,7 @@ test('an envelope topped up by earmarked income is bigger than the figure typed 
     12,
   );
   // spent a touch under and nothing more planned, so it closes just under
-  assert.equal(Math.round(lines[0].variance), 0);
+  expect(Math.round(lines[0].variance)).toBe(0);
 });
 
 test('spending an envelope early is not overspending it', () => {
@@ -171,7 +164,7 @@ test('spending an envelope early is not overspending it', () => {
     3,
     12,
   );
-  assert.equal(lines[0].variance, 0);
+  expect(lines[0].variance).toBe(0);
 });
 
 test('a schedule line is budgeted from the instalments that fall inside the year', () => {
@@ -189,10 +182,10 @@ test('a schedule line is budgeted from the instalments that fall inside the year
     10,
     12,
   );
-  assert.equal(lines[0].yearBudget, 36900);
+  expect(lines[0].yearBudget).toBe(36900);
   // the instalments still to fall are added, so it lands exactly on its schedule
-  assert.equal(lines[0].projectedSpend, 36900);
-  assert.equal(lines[0].variance, 0);
+  expect(lines[0].projectedSpend).toBe(36900);
+  expect(lines[0].variance).toBe(0);
 });
 
 test('unspent rent is saved, unspent envelope is reserved', () => {
@@ -205,8 +198,8 @@ test('unspent rent is saved, unspent envelope is reserved', () => {
     10,
     12,
   );
-  assert.equal(lines[0].unspentIsSaved, true);
-  assert.equal(lines[1].unspentIsSaved, false);
+  expect(lines[0].unspentIsSaved).toBe(true);
+  expect(lines[1].unspentIsSaved).toBe(false);
 });
 
 test('money invested counts as spent, not as spending undone', () => {
@@ -218,8 +211,8 @@ test('money invested counts as spent, not as spending undone', () => {
     10,
     12,
   );
-  assert.ok(lines[0].remaining < lines[0].yearBudget, 'spending must reduce what is left');
-  assert.equal(Math.round(lines[0].remaining), Math.round(lines[0].yearBudget - 209268.35));
+  expect(lines[0].remaining).toBeLessThan(lines[0].yearBudget);
+  expect(Math.round(lines[0].remaining)).toBe(Math.round(lines[0].yearBudget - 209268.35));
 });
 
 test('income earmarked at a line still counts towards what the year has to spend', () => {
@@ -241,7 +234,7 @@ test('income earmarked at a line still counts towards what the year has to spend
   );
   const residual = withBonus.lines.filter((l) => l.lineId === 'inv')[0];
   // the trip's 28,948 comes off, and the bonus that paid for it goes on
-  assert.equal(Math.round(residual.yearBudget), Math.round(1200000 * 1.2));
+  expect(Math.round(residual.yearBudget)).toBe(Math.round(1200000 * 1.2));
 });
 
 test('what the year opened with is money it has to spend', () => {
@@ -253,7 +246,7 @@ test('what the year opened with is money it has to spend', () => {
     12,
     9500,
   );
-  assert.equal(carried.lines[0].yearBudget - without.lines[0].yearBudget, 9500);
+  expect(carried.lines[0].yearBudget - without.lines[0].yearBudget).toBe(9500);
 });
 
 test('discretionary spending follows the calendar, commitments follow the salary', () => {
@@ -270,9 +263,9 @@ test('discretionary spending follows the calendar, commitments follow the salary
     2.8667,
   );
   // rent goes out with each salary: two more
-  assert.equal(lines[0].forecastRemaining, 44000);
+  expect(lines[0].forecastRemaining).toBe(44000);
   // food goes out with the calendar: you still eat in the month with no salary
-  assert.equal(Math.round(lines[1].forecastRemaining), Math.round(11396.85 * 2.8667));
+  expect(Math.round(lines[1].forecastRemaining)).toBe(Math.round(11396.85 * 2.8667));
 });
 
 test('spending exactly the safe amount lands exactly on the goal', () => {
@@ -303,7 +296,7 @@ test('spending exactly the safe amount lands exactly on the goal', () => {
     9910.87,
     2.8667,
   );
-  assert.equal(Math.round(atSafe.projectedAtPace), Math.round(p.goal));
+  expect(Math.round(atSafe.projectedAtPace)).toBe(Math.round(p.goal));
 });
 
 test('the two readings differ by exactly the discretionary overspend', () => {
@@ -325,7 +318,7 @@ test('the two readings differ by exactly the discretionary overspend', () => {
     2.8667,
   );
   const gap = (11396.85 - 9300) * 2.8667;
-  assert.equal(Math.round(p.projectedAtBudget - p.projectedAtPace), Math.round(gap));
+  expect(Math.round(p.projectedAtBudget - p.projectedAtPace)).toBe(Math.round(gap));
 });
 
 test('spending not yet written down still comes off what will be saved', () => {
@@ -344,9 +337,9 @@ test('spending not yet written down still comes off what will be saved', () => {
     -1,
     2994,
   );
-  assert.equal(Math.round(withoutQueue.projectedAtPace - withQueue.projectedAtPace), 2994);
+  expect(Math.round(withoutQueue.projectedAtPace - withQueue.projectedAtPace)).toBe(2994);
   // and it tightens what can be spent from here, rather than being ignored
-  assert.ok(withQueue.safeToSpendPerMonth < withoutQueue.safeToSpendPerMonth);
+  expect(withQueue.safeToSpendPerMonth).toBeLessThan(withoutQueue.safeToSpendPerMonth);
 });
 
 test('the three rates describe the same year from three choices', () => {
@@ -376,11 +369,10 @@ test('the three rates describe the same year from three choices', () => {
   // invests more. Whether the required rate sits below the budgeted one depends
   // on how ambitious the goal is, so only the ordering that always holds is
   // asserted here; another test pins the required rate landing on the goal.
-  assert.equal(p.pacePerMonth, 11396.85);
-  assert.equal(p.budgetPerMonth, 9300);
-  assert.ok(p.projectedAtPace < p.projectedAtBudget);
-  assert.equal(
-    Math.round(p.projectedAtBudget - p.projectedAtPace),
+  expect(p.pacePerMonth).toBe(11396.85);
+  expect(p.budgetPerMonth).toBe(9300);
+  expect(p.projectedAtPace).toBeLessThan(p.projectedAtBudget);
+  expect(Math.round(p.projectedAtBudget - p.projectedAtPace)).toBe(
     Math.round((11396.85 - 9300) * 2.8667),
   );
 });

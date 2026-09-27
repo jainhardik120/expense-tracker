@@ -22,16 +22,7 @@ const compat = new FlatCompat({
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores([
-    '.next/**',
-    'out/**',
-    'build/**',
-    'next-env.d.ts',
-    'postcss.config.mjs',
-    // Loader hooks for the test runner: plain ESM, outside the TS project.
-    'src/lib/alias-hook.mjs',
-    'src/lib/alias-resolver.mjs',
-  ]),
+  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'postcss.config.mjs']),
   {
     extends: fixupConfigRules(
       compat.extends(
@@ -459,6 +450,15 @@ const eslintConfig = defineConfig([
       '@typescript-eslint/prefer-nullish-coalescing': 'warn',
       'jsx-a11y/click-events-have-key-events': 'warn',
       'jsx-a11y/no-noninteractive-element-interactions': 'warn',
+    },
+  },
+  {
+    // A test says what a specific number should be, so naming the numbers
+    // would only move the answer somewhere the reader has to go and find.
+    files: ['src/**/*.test.ts'],
+    rules: {
+      'no-magic-numbers': 'off',
+      'sonarjs/no-duplicate-string': 'off',
     },
   },
 ]);
