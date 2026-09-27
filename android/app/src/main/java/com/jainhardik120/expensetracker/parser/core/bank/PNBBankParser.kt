@@ -15,6 +15,7 @@ class PNBBankParser : BaseIndianBankParser() {
         val normalizedSender = sender.uppercase()
         return normalizedSender.contains("PUNJAB NATIONAL BANK") || // RCS sender (any case)
                 normalizedSender.contains("PNBBNK") ||
+                normalizedSender.contains("PNBSMS") ||  // AX-PNBSMS-S, BT-PNBSMS-S, AX-PNBSMS-T
                 normalizedSender.contains("PUNBN") ||
                 normalizedSender.matches(Regex("^[A-Z]{2}-PNBBNK-S$")) ||
                 normalizedSender.matches(Regex("^[A-Z]{2}-PNB-S$")) ||
@@ -41,8 +42,9 @@ class PNBBankParser : BaseIndianBankParser() {
 
     override fun extractAmount(message: String): BigDecimal? {
         // Handle debit patterns - both "Rs." and "INR" formats
+        // "debited INR 270.00", "Debited with Rs.50000.00", "debited with Rs.1.18"
         val debitPattern = Regex(
-            """debited\s+(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?)""",
+            """debited\s+(?:with\s+|for\s+)?(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?)""",
             RegexOption.IGNORE_CASE
         )
         debitPattern.find(message)?.let { match ->
@@ -56,7 +58,7 @@ class PNBBankParser : BaseIndianBankParser() {
 
         // Handle credit patterns - both "Rs." and "INR" formats
         val creditPattern = Regex(
-            """(?:(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?)\s+(?:has\s+been\s+)?credited|credited\s+(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?))""",
+            """(?:(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?)\s+(?:has\s+been\s+)?credited|credited\s+(?:with\s+|for\s+)?(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?))""",
             RegexOption.IGNORE_CASE
         )
         creditPattern.find(message)?.let { match ->
@@ -78,6 +80,20 @@ class PNBBankParser : BaseIndianBankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
+        // The counterparty PNB names directly, before the generic "UPI
+        // Transaction" fallback below swallows it:
+        //   "... credited for INR 50000.00 on 28-05-26 by HARDIK JAIN thru UPI"
+        //   "... debited INR 270.00 Dt 21-09-26 to BHASKAR H thru UPI:163054512646"
+        //   "... debited with Rs.1.18 towards bank charges on 05-07-2026"
+        for (pattern in COUNTERPARTY_PATTERNS) {
+            pattern.find(message)?.let { match ->
+                val merchant = cleanMerchantName(match.groupValues[1].trim())
+                if (isValidMerchantName(merchant)) {
+                    return merchant
+                }
+            }
+        }
+
         val fromPattern = Regex(
             """From\s+([^/]+)/""",
             RegexOption.IGNORE_CASE
@@ -101,12 +117,14 @@ class PNBBankParser : BaseIndianBankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
+        // "A/c XX8365", "A/c X8365", "Ac XX8365" - PNB uses one X as often as
+        // two, and drops the slash in its debit alerts.
         val acPattern = Regex(
-            """A/c\s+(?:XX|X\*+)?(\d{4})""",
+            """A/?c\s+[Xx\*]*(\d{4,})""",
             RegexOption.IGNORE_CASE
         )
         acPattern.find(message)?.let { match ->
-            return match.groupValues[1]
+            return match.groupValues[1].takeLast(4)
         }
 
         return super.extractAccountLast4(message)
@@ -147,6 +165,13 @@ class PNBBankParser : BaseIndianBankParser() {
         }
 
         return super.extractBalance(message)
+    }
+
+    private companion object {
+        val COUNTERPARTY_PATTERNS = listOf(
+            Regex("""\b(?:by|to)\s+(.+?)\s+thru\b""", RegexOption.IGNORE_CASE),
+            Regex("""towards\s+(.+?)\s+on\s+\d""", RegexOption.IGNORE_CASE)
+        )
     }
 
     override fun isTransactionMessage(message: String): Boolean {

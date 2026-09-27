@@ -37,15 +37,25 @@ class IndusIndBankParser : BaseIndianBankParser() {
         val lower = message.lowercase()
         // IndusInd typically uses standard verbs; fall back to base for most, but
         // explicitly treat "spent" and "purchase" as expenses to avoid ambiguity.
+        //
+        // The deposit cues are matched as whole words. As substrings, "fd" lands
+        // inside any hex reference number and "ach" inside any payee whose name
+        // happens to contain it, and either one turned a card spend into an
+        // investment -- which is filed with the opposite sign.
         return when {
             lower.contains("spent") -> TransactionType.EXPENSE
             lower.contains("debited") -> TransactionType.EXPENSE
             lower.contains("purchase") -> TransactionType.EXPENSE
-            lower.contains("deposit") -> TransactionType.INVESTMENT
-            lower.contains("fd") -> TransactionType.INVESTMENT
-            lower.contains("ach") -> TransactionType.INVESTMENT
+            DEPOSIT_CUES.containsMatchIn(lower) -> TransactionType.INVESTMENT
             else -> super.extractTransactionType(message)
         }
+    }
+
+    private companion object {
+        val DEPOSIT_CUES = Regex(
+            """(?<![\p{L}\p{N}])(?:deposits?|fd|ach)(?![\p{L}\p{N}])""",
+            RegexOption.IGNORE_CASE
+        )
     }
 
     /**
@@ -193,10 +203,15 @@ class IndusIndBankParser : BaseIndianBankParser() {
             }
         }
 
-        // Card/POS: at <merchant>
-        val atPattern = Regex("""at\s+([^\n]+?)(?:\s+Ref|\s+on|$)""", RegexOption.IGNORE_CASE)
+        // Card/POS: "at UPI SWIGGY. Avl Lmt: INR 293,874.00. To dispute, call ..."
+        //
+        // Stopping at the full stop as well as at "Ref"/"on": without it the
+        // merchant ran to the end of the message and carried the available
+        // limit and the dispute helpline with it. "UPI" in front is the rail the
+        // card was charged over, not part of the name.
+        val atPattern = Regex("""\bat\s+([^.\n]+?)(?:\s+Ref\b|\s+on\b|\s*\.|$)""", RegexOption.IGNORE_CASE)
         atPattern.find(message)?.let { match ->
-            val merchant = match.groupValues[1].trim()
+            val merchant = match.groupValues[1].trim().removePrefix("UPI ").trim()
             if (merchant.isNotEmpty()) return cleanMerchantName(merchant)
         }
 
@@ -226,6 +241,25 @@ class IndusIndBankParser : BaseIndianBankParser() {
             RegexOption.IGNORE_CASE
         )
         accountXPattern.find(message)?.let { match ->
+            return match.groupValues[1]
+        }
+
+        // Pattern 2b: "IndusInd Card XX8744", "IndusInd Bank Credit Card XXXX8744",
+        // "card ending 8744" - the card spend messages, which had no pattern at
+        // all and so arrived with no account to file them against.
+        val cardPattern = Regex(
+            """IndusInd(?:\s+Bank)?(?:\s+\w+)?\s+Card\s+[Xx\*]*(\d{4})""",
+            RegexOption.IGNORE_CASE
+        )
+        cardPattern.find(message)?.let { match ->
+            return match.groupValues[1]
+        }
+
+        val cardEndingPattern = Regex(
+            """Card\s+(?:no\.?\s+)?ending\s+[Xx]*(\d{4})""",
+            RegexOption.IGNORE_CASE
+        )
+        cardEndingPattern.find(message)?.let { match ->
             return match.groupValues[1]
         }
 

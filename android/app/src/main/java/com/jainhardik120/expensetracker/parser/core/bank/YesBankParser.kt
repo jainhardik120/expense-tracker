@@ -98,6 +98,24 @@ class YesBankParser : BaseIndianBankParser() {
             }
         }
 
+        // Pattern for "YES BANK Credit Card ending 4325" / "card ending xx4325"
+        val endingPattern = Regex(
+            """Card\s+(?:no\.?\s+)?ending\s+[Xx]*(\d{4})""",
+            RegexOption.IGNORE_CASE
+        )
+        endingPattern.find(message)?.let { match ->
+            return match.groupValues[1]
+        }
+
+        // Pattern for "YES BANK Credit Card XX4325 JUL-26 statement"
+        val creditCardPattern = Regex(
+            """YES\s+BANK\s+Credit\s+Card\s+[Xx]*(\d{4})""",
+            RegexOption.IGNORE_CASE
+        )
+        creditCardPattern.find(message)?.let { match ->
+            return match.groupValues[1]
+        }
+
         // Pattern for SMS BLKCC instruction (contains last 4 digits)
         val blkccPattern = Regex(
             """SMS\s+BLKCC\s+(\d{4})""",
@@ -165,6 +183,13 @@ class YesBankParser : BaseIndianBankParser() {
 
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
+
+        // Before the Yes Bank keywords below, because they are broad enough to
+        // readmit a bill payment or a future debit: "avl lmt" alone is taken as
+        // proof of a transaction, and every card message carries it.
+        if (isNotATransactionMessage(message)) {
+            return false
+        }
 
         // Skip OTP and non-transaction messages
         if (lowerMessage.contains("otp") ||

@@ -2,6 +2,7 @@ package com.jainhardik120.expensetracker.parser.core.bank
 
 import com.jainhardik120.expensetracker.parser.core.CompiledPatterns
 import com.jainhardik120.expensetracker.parser.core.Constants
+import com.jainhardik120.expensetracker.parser.core.InvestmentKeywords
 import com.jainhardik120.expensetracker.parser.core.ParsedTransaction
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
@@ -198,63 +199,8 @@ abstract class BankParser {
      * Checks if the message is for an investment transaction.
      * Can be overridden by specific bank parsers for custom logic.
      */
-    protected open fun isInvestmentTransaction(lowerMessage: String): Boolean {
-        val investmentKeywords = listOf(
-            // Clearing corporations
-            "iccl",                         // Indian Clearing Corporation Limited
-            "indian clearing corporation",
-            "nsccl",                        // NSE Clearing Corporation
-            "nse clearing",
-            "clearing corporation",
-
-            // Auto-pay indicators (excluding mandate/UMRN to avoid subscription false positives)
-            "nach",                         // National Automated Clearing House
-            "ach",                          // Automated Clearing House
-            "ecs",                          // Electronic Clearing Service
-
-            // Investment platforms
-            "groww",
-            "zerodha",
-            "upstox",
-            "kite",
-            "kuvera",
-            "paytm money",
-            "etmoney",
-            "coin by zerodha",
-            "smallcase",
-            "angel one",
-            "angel broking",
-            "5paisa",
-            "icici securities",
-            "icici direct",
-            "hdfc securities",
-            "kotak securities",
-            "motilal oswal",
-            "sharekhan",
-            "edelweiss",
-            "axis direct",
-            "sbi securities",
-
-            // Investment types
-            "mutual fund",
-            "sip",                          // Systematic Investment Plan
-            "elss",                         // Tax saving funds
-            "ipo",                          // Initial Public Offering
-            "folio",                        // Mutual fund folio
-            "demat",
-            "stockbroker",
-            "digital gold",                 // Digital Gold investments
-            "sovereign gold",               // Sovereign Gold Bonds
-
-            // Stock exchanges
-            "nse",                          // National Stock Exchange
-            "bse",                          // Bombay Stock Exchange
-            "cdsl",                         // Central Depository Services
-            "nsdl"                          // National Securities Depository
-        )
-
-        return investmentKeywords.any { lowerMessage.contains(it) }
-    }
+    protected open fun isInvestmentTransaction(lowerMessage: String): Boolean =
+        InvestmentKeywords.matches(lowerMessage)
 
     /**
      * Extracts merchant/payee information.
@@ -432,7 +378,25 @@ abstract class BankParser {
     protected open fun detectIsCard(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // FIRST: Explicitly exclude account-related patterns - these are NOT cards
+        // FIRST: a message that names a card in so many words is about a card,
+        // whatever else it happens to mention. The exclusion list below reads
+        // the word "account" as proof that this is not a card, and banks put it
+        // in their boilerplate: "... sufficient limit/balance on your
+        // card/account ..." was enough to un-card an Axis card transaction.
+        val namedCardPatterns = listOf(
+            "credit card",
+            "debit card",
+            "card ending",
+            "card no.",
+            "card number"
+        )
+        for (pattern in namedCardPatterns) {
+            if (lowerMessage.contains(pattern)) {
+                return true
+            }
+        }
+
+        // SECOND: Explicitly exclude account-related patterns - these are NOT cards
         val accountPatterns = listOf(
             "a/c",           // Account abbreviation (e.g., "from HDFC Bank A/c 120092")
             "account",       // Full word account (e.g., "from HDFC Bank Account XX0093")
@@ -451,14 +415,10 @@ abstract class BankParser {
             }
         }
 
-        // SECOND: Check for actual card-specific patterns
+        // THIRD: Check for the weaker card patterns, the ones an account message
+        // could plausibly contain
         val cardPatterns = listOf(
-            "card ending",
             "card xx",
-            "debit card",
-            "credit card",
-            "card no.",
-            "card number",
             "card *",
             "card x"
         )

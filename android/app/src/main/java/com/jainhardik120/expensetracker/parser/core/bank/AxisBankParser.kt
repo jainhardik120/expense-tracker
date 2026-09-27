@@ -30,6 +30,15 @@ class AxisBankParser : BaseIndianBankParser() {
     }
 
     override fun extractAmount(message: String): BigDecimal? {
+        AUTO_PAY_PROCESSED.find(message)?.let { match ->
+            val amount = match.groupValues[1].replace(",", "")
+            return try {
+                BigDecimal(amount)
+            } catch (e: NumberFormatException) {
+                null
+            }
+        }
+
         val inrDebitPattern = Regex(
             """INR\s+([0-9,]+(?:\.\d{2})?)\s+debited""",
             RegexOption.IGNORE_CASE
@@ -73,6 +82,13 @@ class AxisBankParser : BaseIndianBankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
+        AUTO_PAY_PROCESSED.find(message)?.let { match ->
+            val merchant = cleanMerchantName(match.groupValues[2].trim())
+            if (isValidMerchantName(merchant)) {
+                return merchant
+            }
+        }
+
         // ATM withdrawal detection
         // Pattern: "debited from A/c no. XX589034 on AXIS BANK L" or similar
         val lowerMessage = message.lowercase()
@@ -141,12 +157,15 @@ class AxisBankParser : BaseIndianBankParser() {
             }
         }
 
+        // "UPI/P2M/611458032154/CRED Club", and on a credit the payee's bank and
+        // rail follow: "UPI/P2A/652674140313/VASHNI AG/ICIC/all - Axis Bank".
+        // Stopping at the next slash keeps those out of the name.
         val upiMerchantPattern = Regex(
-            """UPI/[^/]+/[^/]+/([^\n]+?)(?:\s*Not you|\s*$)""",
+            """UPI/[^/]+/[^/]+/([^/\n]+)""",
             RegexOption.IGNORE_CASE
         )
         upiMerchantPattern.find(message)?.let { match ->
-            val merchant = cleanMerchantName(match.groupValues[1].trim())
+            val merchant = cleanMerchantName(match.groupValues[1].substringBefore("Not you").trim())
             if (isValidMerchantName(merchant)) {
                 return merchant
             }
@@ -265,12 +284,26 @@ class AxisBankParser : BaseIndianBankParser() {
             return false
         }
 
+        // "Auto Pay of INR 129.00 for YOUTUBEGOOGLE has been processed on your
+        // Axis Bank Card no. XX3771". A standing instruction that has already
+        // run, and the only message Axis sends when it does -- it carries none
+        // of the words the keyword test looks for, so it was being dropped while
+        // the reminder that precedes it was being counted instead.
+        if (AUTO_PAY_PROCESSED.containsMatchIn(message)) {
+            return true
+        }
+
         // Base class handles common payment reminders and other non-transaction messages
         return super.isTransactionMessage(message)
     }
 
     override fun extractTransactionType(message: String): TransactionType? {
         val lowerMessage = message.lowercase()
+
+        // An Auto Pay that has run is money off the card, like any other spend.
+        if (AUTO_PAY_PROCESSED.containsMatchIn(message)) {
+            return TransactionType.CREDIT
+        }
 
         // Credit card transactions: if message contains "Avl Limit" or "Avl Lmt", it's a credit card
         if (lowerMessage.contains("avl limit") || lowerMessage.contains("avl lmt")) {
@@ -312,5 +345,19 @@ class AxisBankParser : BaseIndianBankParser() {
 
         // Fall back to base class patterns (for Rs-based formats)
         return super.extractAvailableLimit(message)
+    }
+
+    private companion object {
+        /**
+         * "Auto Pay of INR 129.00 for YOUTUBEGOOGLE has been processed on your
+         * Axis Bank Card no. XX3771."
+         *
+         * Anchored on "has been processed" so the reminder that uses the same
+         * opening ("... will be auto debited ... by 14-06-26") does not match.
+         */
+        val AUTO_PAY_PROCESSED = Regex(
+            """Auto\s*Pay\s+of\s+INR\s+([0-9,]+(?:\.\d{2})?)\s+for\s+(.+?)\s+has\s+been\s+processed""",
+            RegexOption.IGNORE_CASE
+        )
     }
 }

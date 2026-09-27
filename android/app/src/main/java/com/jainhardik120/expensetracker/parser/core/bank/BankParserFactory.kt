@@ -42,6 +42,7 @@ object BankParserFactory {
         IndusIndBankParser(),
         AMEXBankParser(),
         OneCardParser(),
+        PluxeeParser(),  // Pluxee meal card (India)
         UCOBankParser(),
         AUBankParser(),
         YesBankParser(),

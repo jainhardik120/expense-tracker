@@ -198,6 +198,16 @@ class ICICIBankParser : BaseIndianBankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
+        // "AMAZON WEB SERVICES refund of Rs 2.00 credited to your ICICI Bank
+        // Credit Card XX1003" / "IXIGO refund of Rs 2,984.00 credited to ...".
+        // The generic patterns read the card itself as the merchant here.
+        REFUND_SOURCE.find(message)?.let { match ->
+            val merchant = cleanMerchantName(match.groupValues[1].trim())
+            if (isValidMerchantName(merchant)) {
+                return merchant
+            }
+        }
+
         // Pattern 1: Salary transactions - "Info INF*...*...* SAL ..."
         // Example: "Info INF*000169831922*IQBO SAL FE"
         val salaryPattern = Regex(
@@ -315,9 +325,12 @@ class ICICIBankParser : BaseIndianBankParser() {
             return match.groupValues[1]
         }
 
-        // Pattern 3: "ICICI Bank Account XXNNNN" or "ICICI Bank Account XX566"
+        // Pattern 3: "ICICI Bank Account XXNNNN", "ICICI Bank Savings Account XX991",
+        // "ICICI Bank SAVINGS Account XX991", "ICICI Bank Savings Acc XX991".
+        // The account-type word in the middle is what the AutoPay mandate
+        // messages add, and every one of them was losing its account number.
         val accountPattern = Regex(
-            """ICICI\s+Bank\s+Account\s+([X\*]*\d+)""",
+            """ICICI\s+Bank\s+(?:\w+\s+)?Acc(?:t|ount)?\s+([X\*]*\d+)""",
             RegexOption.IGNORE_CASE
         )
         accountPattern.find(message)?.let { match ->
@@ -518,5 +531,12 @@ class ICICIBankParser : BaseIndianBankParser() {
 
         // Fall back to base class for standard checks
         return super.extractTransactionType(message)
+    }
+
+    private companion object {
+        val REFUND_SOURCE = Regex(
+            """^\s*(.+?)\s+refund\s+of\s+(?:Rs|INR)""",
+            RegexOption.IGNORE_CASE
+        )
     }
 }

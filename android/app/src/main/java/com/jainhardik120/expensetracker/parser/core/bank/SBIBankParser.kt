@@ -413,6 +413,15 @@ class SBIBankParser : BaseIndianBankParser() {
             }
         }
 
+        // Pattern for credit card: "your SBI Credit Card ending 6080", "card ending XX80".
+        // Before the A/c patterns, because a card message has no A/c to find and
+        // was arriving with no account at all.
+        val cardEndingPattern =
+            Regex("""card\s+(?:no\.?\s+)?ending\s+[Xx]*(\d{2,4})""", RegexOption.IGNORE_CASE)
+        cardEndingPattern.find(message)?.let { match ->
+            return match.groupValues[1]
+        }
+
         // Pattern 1: A/c XNNNN or A/c XXNNNN - extract everything after A/c
         val pattern1 = Regex("""A/c\s+([X\*]*\d+)""", RegexOption.IGNORE_CASE)
         pattern1.find(message)?.let { match ->
