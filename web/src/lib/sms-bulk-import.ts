@@ -209,6 +209,48 @@ export const getFieldsProblem = (row: BulkImportFields): string | null => {
 export const getRowProblem = (row: BulkImportRow): string | null =>
   row.include ? getFieldsProblem(row) : null;
 
+/** Applies the same change to every selected row, leaving the rest alone. */
+export const updateRows = (
+  rows: BulkImportRow[],
+  ids: ReadonlySet<string>,
+  patch: Partial<BulkImportRow>,
+): BulkImportRow[] => rows.map((row) => (ids.has(row.id) ? { ...row, ...patch } : row));
+
+/**
+ * Adds a tag to every selected row without disturbing the tags already there.
+ *
+ * Adding rather than replacing, to match the bulk tag action on the statements
+ * table: a row can carry several tags, and the common job is giving a handful of
+ * rows one more in common, not wiping what each already has.
+ */
+export const addTagToRows = (
+  rows: BulkImportRow[],
+  ids: ReadonlySet<string>,
+  tag: string,
+): BulkImportRow[] =>
+  rows.map((row) =>
+    ids.has(row.id) && !row.tags.includes(tag) ? { ...row, tags: [...row.tags, tag] } : row,
+  );
+
+/**
+ * Every tag the grid should offer: the ones drawn from history, plus any the user
+ * has typed into a row since. Without the second part a freshly created tag
+ * would vanish from the menu for every other row.
+ */
+export const collectTagOptions = (rows: BulkImportRow[], fromHistory: string[]): string[] => {
+  const seen = new Set(fromHistory);
+  const extra: string[] = [];
+  for (const row of rows) {
+    for (const tag of row.tags) {
+      if (tag !== '' && !seen.has(tag)) {
+        seen.add(tag);
+        extra.push(tag);
+      }
+    }
+  }
+  return [...fromHistory, ...extra.sort((a, b) => a.localeCompare(b))];
+};
+
 export type BulkImportReadiness = {
   included: BulkImportRow[];
   skipped: number;

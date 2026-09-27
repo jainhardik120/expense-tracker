@@ -10,6 +10,9 @@ import {
   getFieldsProblem,
   getRowProblem,
   parseGridDate,
+  updateRows,
+  addTagToRows,
+  collectTagOptions,
   // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
 } from './sms-bulk-import.ts';
 
@@ -200,4 +203,54 @@ test('nothing ticked means nothing to import', () => {
   const readiness = getBulkImportReadiness(rows);
   assert.equal(readiness.canImport, false);
   assert.equal(readiness.skipped, 1);
+});
+
+test('a bulk change touches only the selected rows', () => {
+  const rows = [gridRow({ id: 'a' }), gridRow({ id: 'b' }), gridRow({ id: 'c' })];
+  const updated = updateRows(rows, new Set(['a', 'c']), { category: 'Travel' });
+  assert.deepEqual(
+    updated.map((row) => row.category),
+    ['Travel', 'Food', 'Travel'],
+  );
+  // The originals are left as they were.
+  assert.equal(rows[0].category, 'Food');
+});
+
+test('a bulk change can skip or re-include rows', () => {
+  const rows = [gridRow({ id: 'a' }), gridRow({ id: 'b' })];
+  const skipped = updateRows(rows, new Set(['a']), { include: false });
+  assert.deepEqual(
+    skipped.map((row) => row.include),
+    [false, true],
+  );
+});
+
+test('adding a tag in bulk keeps the tags already on each row', () => {
+  const rows = [
+    gridRow({ id: 'a', tags: ['delivery'] }),
+    gridRow({ id: 'b', tags: [] }),
+    gridRow({ id: 'c', tags: ['other'] }),
+  ];
+  const updated = addTagToRows(rows, new Set(['a', 'b']), 'Lunch');
+  assert.deepEqual(updated[0].tags, ['delivery', 'Lunch']);
+  assert.deepEqual(updated[1].tags, ['Lunch']);
+  assert.deepEqual(updated[2].tags, ['other']);
+});
+
+test('adding a tag a row already has changes nothing', () => {
+  const rows = [gridRow({ id: 'a', tags: ['Lunch'] })];
+  const updated = addTagToRows(rows, new Set(['a']), 'Lunch');
+  assert.deepEqual(updated[0].tags, ['Lunch']);
+  assert.equal(updated[0], rows[0]);
+});
+
+test('the tag menu keeps history order and appends what the user created', () => {
+  const rows = [gridRow({ id: 'a', tags: ['Curd', 'Kachori'] }), gridRow({ id: 'b', tags: ['Bhel'] })];
+  // History order is by how often each was used, so it must not be re-sorted.
+  assert.deepEqual(collectTagOptions(rows, ['Curd', 'Dosa']), ['Curd', 'Dosa', 'Bhel', 'Kachori']);
+});
+
+test('the tag menu does not repeat a tag or offer an empty one', () => {
+  const rows = [gridRow({ id: 'a', tags: ['New', 'New', ''] })];
+  assert.deepEqual(collectTagOptions(rows, ['Old']), ['Old', 'New']);
 });

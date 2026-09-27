@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { type ColumnDef } from '@tanstack/react-table';
-import { AlertCircle, Check, Loader2 } from 'lucide-react';
+import { type ColumnDef, type Row, type Table } from '@tanstack/react-table';
+import { AlertCircle, Check, EyeOff, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { DataGrid } from '@/components/data-grid/data-grid';
@@ -15,37 +15,47 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useDataGrid } from '@/hooks/use-data-grid';
 import { formatCurrency } from '@/lib/format';
 import {
+  addTagToRows,
   type BulkImportRow,
+  collectTagOptions,
   getBulkImportReadiness,
   getRowProblem,
   statementKindOptions,
+  updateRows,
 } from '@/lib/sms-bulk-import';
 import { api } from '@/server/react';
 import type { Account, Friend } from '@/types';
 import type { CellOpts } from '@/types/data-grid';
 
+import { BulkImportActionBar } from './bulk-import-action-bar';
+
 const GRID_HEIGHT = 620;
 
 // The grid keeps two column ids out of keyboard navigation and paste targeting,
-// `select` and `actions`, and styles them without cell borders. The tick box and
-// the status column are exactly those two things, so they take those ids: arrow
-// keys then run along the editable columns only, and a pasted block cannot land
-// in either of them.
+// `select` and `actions`, and styles them without cell borders. The row tick box
+// and the status column are exactly those two things, so they take those ids:
+// arrow keys then run along the editable columns only, and a pasted block cannot
+// land in either of them.
 const SELECT_COLUMN_ID = 'select';
 const STATUS_COLUMN_ID = 'actions';
 
+// Eleven columns, and they have to add up to less than the window or the ones on
+// the end need scrolling to reach. Pinning the end column instead is worse: a
+// sticky column sits on top of whatever scrolls under it, which at this width was
+// the tag column. So these are sized to fit, and the status text truncates with
+// the full reason on hover.
 const COLUMN_SIZE = {
-  include: 44,
-  merchant: 190,
-  bank: 140,
-  date: 130,
-  amount: 120,
-  kind: 170,
-  account: 180,
-  friend: 160,
-  category: 170,
-  tags: 200,
-  problem: 250,
+  select: 44,
+  merchant: 170,
+  bank: 120,
+  date: 115,
+  amount: 105,
+  kind: 150,
+  account: 160,
+  friend: 125,
+  category: 160,
+  tags: 190,
+  status: 200,
 };
 
 const toOptions = (values: string[]) => values.map((value) => ({ label: value, value }));
@@ -95,11 +105,43 @@ const readOnlyColumn = (
   cell: ({ row }) => render(row.original),
 });
 
-const RowStatusCell = ({ row }: { row: BulkImportRow }) => {
+/**
+ * The row's tick box, which selects it for the action bar and nothing else.
+ *
+ * Whether a row gets imported is a separate, lasting choice and lives in the
+ * status column — this selection is dropped by the grid the moment a cell is
+ * clicked, so it could not safely stand for "import this".
+ */
+const SelectRowCell = ({ row, table }: { row: Row<BulkImportRow>; table: Table<BulkImportRow> }) => {
+  const shiftHeld = useRef(false);
+  const { meta } = table.options;
+  return (
+    <Checkbox
+      aria-label={`Select ${row.original.merchant === '' ? row.original.bankName : row.original.merchant}`}
+      checked={row.getIsSelected()}
+      onCheckedChange={(checked) => {
+        // Shift extends from the last row ticked, so a run of similar messages
+        // takes two clicks rather than seven.
+        //
+        // The position in the current row model, not `row.index` (which ignores
+        // sorting) and not the grid's `getVisualRowIndex` (which is 1-based, for
+        // the aria-rowindex attribute, and would select the row below the one
+        // ticked).
+        const index = table.getRowModel().rows.indexOf(row);
+        meta?.onRowSelect?.(index, checked === true, shiftHeld.current);
+      }}
+      onPointerDown={(event) => {
+        shiftHeld.current = event.shiftKey;
+      }}
+    />
+  );
+};
+
+const RowStatus = ({ row }: { row: BulkImportRow }) => {
   const problem = getRowProblem(row);
   if (problem !== null) {
     return (
-      <span className="text-destructive flex items-center gap-1.5 text-xs" title={problem}>
+      <span className="text-destructive flex min-w-0 items-center gap-1.5 text-xs" title={problem}>
         <AlertCircle className="size-3.5 shrink-0" />
         <span className="truncate">{problem}</span>
       </span>
@@ -116,6 +158,29 @@ const RowStatusCell = ({ row }: { row: BulkImportRow }) => {
   );
 };
 
+const RowStatusCell = ({
+  row,
+  onIncludeChange,
+}: {
+  row: BulkImportRow;
+  onIncludeChange: (id: string, include: boolean) => void;
+}) => (
+  <div className="flex w-full items-center justify-between gap-2">
+    <RowStatus row={row} />
+    <Button
+      className="text-muted-foreground size-6 shrink-0"
+      size="icon"
+      title={row.include ? 'Leave this out of the import' : 'Put this back in the import'}
+      variant="ghost"
+      onClick={() => {
+        onIncludeChange(row.id, !row.include);
+      }}
+    >
+      {row.include ? <EyeOff className="size-3.5" /> : <RotateCcw className="size-3.5" />}
+    </Button>
+  </div>
+);
+
 const createBulkImportColumns = ({
   accounts,
   friends,
@@ -131,18 +196,21 @@ const createBulkImportColumns = ({
 }): ColumnDef<BulkImportRow>[] => [
   {
     id: SELECT_COLUMN_ID,
-    size: COLUMN_SIZE.include,
+    size: COLUMN_SIZE.select,
     enableSorting: false,
-    header: () => <span className="sr-only">Import</span>,
-    cell: ({ row }) => (
+    header: ({ table }) => (
       <Checkbox
-        aria-label={`Import ${row.original.merchant === '' ? row.original.bankName : row.original.merchant}`}
-        checked={row.original.include}
+        aria-label="Select every row"
+        checked={
+          table.getIsAllRowsSelected() ||
+          (table.getIsSomeRowsSelected() ? 'indeterminate' : false)
+        }
         onCheckedChange={(checked) => {
-          onIncludeChange(row.original.id, checked === true);
+          table.toggleAllRowsSelected(checked === true);
         }}
       />
     ),
+    cell: ({ row, table }) => <SelectRowCell row={row} table={table} />,
   },
   readOnlyColumn('merchant', 'Merchant', COLUMN_SIZE.merchant, (row) => (
     <span className="truncate text-sm" title={row.merchant}>
@@ -176,9 +244,12 @@ const createBulkImportColumns = ({
   editableColumn('tags', 'Tags', COLUMN_SIZE.tags, {
     variant: 'multi-select',
     options: toOptions(tags),
+    // A tag the user has not used before is a normal thing to want; the vocabulary
+    // is their own history, not a fixed list.
+    creatable: true,
   }),
-  readOnlyColumn(STATUS_COLUMN_ID, '', COLUMN_SIZE.problem, (row) => (
-    <RowStatusCell row={row} />
+  readOnlyColumn(STATUS_COLUMN_ID, '', COLUMN_SIZE.status, (row) => (
+    <RowStatusCell row={row} onIncludeChange={onIncludeChange} />
   )),
 ];
 
@@ -215,9 +286,20 @@ export const BulkImportGrid = ({
     );
   }, []);
 
+  // History gives the starting vocabulary; anything typed into a row since is
+  // added so it stays on offer for the other rows too.
+  const tagOptions = useMemo(() => collectTagOptions(rows, tags), [rows, tags]);
+
   const columns = useMemo(
-    () => createBulkImportColumns({ accounts, friends, categories, tags, onIncludeChange }),
-    [accounts, friends, categories, tags, onIncludeChange],
+    () =>
+      createBulkImportColumns({
+        accounts,
+        friends,
+        categories,
+        tags: tagOptions,
+        onIncludeChange,
+      }),
+    [accounts, friends, categories, tagOptions, onIncludeChange],
   );
 
   const dataGrid = useDataGrid({
@@ -230,6 +312,22 @@ export const BulkImportGrid = ({
   });
 
   const readiness = useMemo(() => getBulkImportReadiness(rows), [rows]);
+
+  const { table } = dataGrid;
+  const selectedIds = useMemo(
+    () => new Set(table.getSelectedRowModel().rows.map((row) => row.id)),
+    // The row model is rebuilt on selection change, so this has to follow the
+    // selection state rather than the table object, which is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [table, table.getState().rowSelection],
+  );
+
+  const applyToSelected = useCallback(
+    (patch: Partial<BulkImportRow>) => {
+      setRows((current) => updateRows(current, selectedIds, patch));
+    },
+    [selectedIds],
+  );
 
   // What the selected rows do to the balance overall: an expense leaves, and
   // everything else keeps the sign it was given.
@@ -276,6 +374,35 @@ export const BulkImportGrid = ({
   return (
     <div className="flex flex-col gap-3">
       <DataGrid {...dataGrid} height={GRID_HEIGHT} />
+      <BulkImportActionBar
+        accounts={accounts.map((account) => ({
+          label: account.accountName,
+          value: account.id,
+        }))}
+        categories={categories}
+        kinds={statementKindOptions}
+        selectedCount={selectedIds.size}
+        table={table}
+        tags={tagOptions}
+        onAddTag={(tag) => {
+          setRows((current) => addTagToRows(current, selectedIds, tag));
+        }}
+        onClear={() => {
+          table.toggleAllRowsSelected(false);
+        }}
+        onSetAccount={(accountId) => {
+          applyToSelected({ accountId });
+        }}
+        onSetCategory={(category) => {
+          applyToSelected({ category });
+        }}
+        onSetInclude={(include) => {
+          applyToSelected({ include });
+        }}
+        onSetKind={(kind) => {
+          applyToSelected({ statementKind: kind as BulkImportRow['statementKind'] });
+        }}
+      />
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant="secondary">{readiness.included.length} selected</Badge>
