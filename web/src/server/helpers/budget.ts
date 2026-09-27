@@ -31,6 +31,16 @@ type ScopedStatement = MatchableStatement & {
   createdAt: Date;
   /** What this cost me: the amount less whatever friends owe on it. */
   myAmount: number;
+  /**
+   * The same figure as spending rather than as a balance movement.
+   *
+   * An expense is stored as a positive number and money leaving through an
+   * outside transaction as a negative one, so the two disagree about which way
+   * is out. Income lines want the balance reading -- a salary is a positive
+   * outside transaction -- and spending lines want this one, or a line tracking
+   * investments reports having spent minus two lakh.
+   */
+  costAmount: number;
 };
 
 /**
@@ -86,17 +96,21 @@ export const getStatementsInWindow = instrumentedFunction(
       );
     }
 
-    return rows.map((row) => ({
-      id: row.id,
-      createdAt: row.createdAt,
-      category: row.category,
-      tags: row.tags,
-      statementKind: row.statementKind,
-      amount: Number(row.amount),
-      emiId: row.emiId,
-      accountRefs: [row.accountId, row.friendId],
-      myAmount: Number(row.amount) - (owedByFriends.get(row.id) ?? 0),
-    }));
+    return rows.map((row) => {
+      const myAmount = Number(row.amount) - (owedByFriends.get(row.id) ?? 0);
+      return {
+        id: row.id,
+        createdAt: row.createdAt,
+        category: row.category,
+        tags: row.tags,
+        statementKind: row.statementKind,
+        amount: Number(row.amount),
+        emiId: row.emiId,
+        accountRefs: [row.accountId, row.friendId],
+        myAmount,
+        costAmount: row.statementKind === 'outside_transaction' ? -myAmount : myAmount,
+      };
+    });
   },
 );
 
@@ -183,7 +197,7 @@ export const summariseLines = (
       unclaimed.push(statement);
       continue;
     }
-    totals[index].actual += statement.myAmount;
+    totals[index].actual += statement.costAmount;
     totals[index].matchedCount += 1;
   }
 
@@ -249,7 +263,7 @@ export const summariseByCycle = (
     }
     const key = `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
     const row = byCycle.get(key) ?? {};
-    row[parsed[index].name] = (row[parsed[index].name] ?? 0) + statement.myAmount;
+    row[parsed[index].name] = (row[parsed[index].name] ?? 0) + statement.costAmount;
     byCycle.set(key, row);
   }
 

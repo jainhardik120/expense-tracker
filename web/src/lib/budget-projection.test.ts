@@ -208,3 +208,16 @@ test('unspent rent is saved, unspent envelope is reserved', () => {
   assert.equal(lines[0].unspentIsSaved, true);
   assert.equal(lines[1].unspentIsSaved, false);
 });
+
+test('money invested counts as spent, not as spending undone', () => {
+  // investments are recorded as money leaving, so the raw sum is negative;
+  // a line reading that directly would report a budget larger than it has
+  const { lines } = project(
+    [line({ lineId: 'inv', allocationKind: 'residual', allocationAmount: 0, actual: 209268.35 })],
+    1505499.6,
+    10,
+    12,
+  );
+  assert.ok(lines[0].remaining < lines[0].yearBudget, 'spending must reduce what is left');
+  assert.equal(Math.round(lines[0].remaining), Math.round(lines[0].yearBudget - 209268.35));
+});

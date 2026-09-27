@@ -155,8 +155,7 @@ export const budgetRouter = createTRPCRouter({
         .filter((line) => line.discretionary && line.allocationKind === 'annual')
         .reduce((sum, line) => sum + Math.max(line.remaining, 0), 0);
       const residual = totals.find((t) => t.allocationKind === 'residual');
-      // Investments are recorded as money leaving, so the sign is flipped here.
-      const investedSoFar = Math.abs(residual?.actual ?? 0);
+      const investedSoFar = residual?.actual ?? 0;
 
       const emiRemaining = await getRemainingEmiCash(ctx.db, ctx.user.id, now, year.endDate);
 
