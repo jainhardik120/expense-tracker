@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { smsNotifications, statements } from '@/db/schema';
 import type { Database } from '@/lib/db';
+import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
+import { getAccountsSummaryBetweenDates } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   createSmsNotificationSchema,
@@ -13,6 +15,34 @@ import {
 import { buildQueryConditions } from '../helpers';
 
 export const smsNotificationsRouter = createTRPCRouter({
+  /**
+   * What the queue of unentered messages adds up to, with each account's balance
+   * adjusted for what is waiting on it.
+   */
+  getPendingEstimate: protectedProcedure.query(async ({ ctx }) => {
+    const [estimate, accounts] = await Promise.all([
+      getPendingSmsEstimate(ctx.db, ctx.user.id),
+      getAccountsSummaryBetweenDates(ctx.db, ctx.user.id),
+    ]);
+    const balanceById = new Map(accounts.map((entry) => [entry.account.id, entry.finalBalance]));
+    const byAccount = estimate.byAccount.map((group) => {
+      const balanceNow =
+        group.accountId === null ? null : (balanceById.get(group.accountId) ?? null);
+      return {
+        ...group,
+        balanceNow,
+        balanceAfter:
+          balanceNow === null ? null : balanceNow - group.pendingSpend + group.pendingIncome,
+      };
+    });
+    const balanceNow = accounts.reduce((sum, entry) => sum + entry.finalBalance, 0);
+    return {
+      ...estimate,
+      byAccount,
+      balanceNow,
+      balanceAfter: balanceNow - estimate.totalSpend + estimate.totalIncome,
+    };
+  }),
   create: protectedProcedure
     .meta({
       openapi: {

@@ -3,6 +3,7 @@ import { createLoader, type SearchParams } from 'nuqs/server';
 import { api } from '@/server/server';
 import { smsNotificationParser } from '@/types';
 
+import { PendingEstimate } from './_components/pending-estimate';
 import Table from './_components/table';
 
 const loader = createLoader(smsNotificationParser);
@@ -20,7 +21,11 @@ export default async function SmsNotificationsPage({
   const accounts = await api.accounts.getAccounts();
   const friends = await api.friends.getFriends();
   const categories = await api.statements.getCategories({});
+  const estimate = await api.smsNotifications.getPendingEstimate();
   return (
-    <Table accountsData={accounts} categories={categories} data={data} friendsData={friends} />
+    <div className="flex flex-col gap-4">
+      <PendingEstimate estimate={estimate} />
+      <Table accountsData={accounts} categories={categories} data={data} friendsData={friends} />
+    </div>
   );
 }

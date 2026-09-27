@@ -12,6 +12,7 @@ import {
   summariseIncome,
   summariseLines,
 } from '@/server/helpers/budget';
+import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
 import {
   getAccountsSummaryBetweenDates,
   getFriendsSummaryBetweenDates,
@@ -145,6 +146,10 @@ export const budgetRouter = createTRPCRouter({
         );
       }
 
+      // Transactions sit in the inbox for days before being entered, so the
+      // balance above is stale by whatever is waiting there.
+      const pendingSms = await getPendingSmsEstimate(ctx.db, ctx.user.id);
+
       const scheduled = await getScheduledTotals(
         ctx.db,
         ctx.user.id,
@@ -172,6 +177,7 @@ export const budgetRouter = createTRPCRouter({
         cyclesTotal,
         openingIsEarmarked ? 0 : openingBalance,
         monthsRemaining,
+        pendingSms.totalSpend,
       );
       return {
         year,
@@ -181,6 +187,8 @@ export const budgetRouter = createTRPCRouter({
         projection,
         // Cash facts for context; every projection comes from `projection`.
         balanceToday,
+        pendingSpend: pendingSms.totalSpend,
+        pendingCount: pendingSms.count,
         openingBalance,
         incomeCyclesRemaining,
         monthlyIncome: cyclesElapsed > 0 ? income.waterfall / cyclesElapsed : 0,

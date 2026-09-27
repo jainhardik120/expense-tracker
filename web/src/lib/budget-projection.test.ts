@@ -327,3 +327,24 @@ test('the two readings differ by exactly the discretionary overspend', () => {
   const gap = (11396.85 - 9300) * 2.8667;
   assert.equal(Math.round(p.projectedAtBudget - p.projectedAtPace), Math.round(gap));
 });
+
+test('spending not yet written down still comes off what will be saved', () => {
+  const withoutQueue = project(
+    [line({ lineId: 'inv', allocationKind: 'residual' })],
+    1200000,
+    10,
+    12,
+  );
+  const withQueue = project(
+    [line({ lineId: 'inv', allocationKind: 'residual' })],
+    1200000,
+    10,
+    12,
+    0,
+    -1,
+    2994,
+  );
+  assert.equal(Math.round(withoutQueue.projectedAtPace - withQueue.projectedAtPace), 2994);
+  // and it tightens what can be spent from here, rather than being ignored
+  assert.ok(withQueue.safeToSpendPerMonth < withoutQueue.safeToSpendPerMonth);
+});

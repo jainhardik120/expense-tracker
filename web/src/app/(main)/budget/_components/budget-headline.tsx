@@ -39,7 +39,14 @@ const Row = ({
 );
 
 export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
-  const { projection, balanceToday, incomeCyclesRemaining, monthlyIncome } = detail;
+  const {
+    projection,
+    balanceToday,
+    incomeCyclesRemaining,
+    monthlyIncome,
+    pendingSpend,
+    pendingCount,
+  } = detail;
   const {
     goal,
     investedSoFar,
@@ -52,7 +59,8 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
 
   const months = projection.spendMonths;
   const incomeRemaining = monthlyIncome * incomeCyclesRemaining;
-  const leftToSpendOrInvest = balanceToday + incomeRemaining - commitmentsRemaining;
+  // The balance is behind by whatever is still sitting in the message queue.
+  const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
   const perDay = safeToSpendPerMonth / DAYS_PER_MONTH;
   const shortfall = goal - projectedAtBudget;
 
@@ -68,12 +76,24 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
         </CardHeader>
         <CardContent className="text-sm">
           <Row label="Balance today" value={balanceToday} />
+          {pendingCount === 0 ? null : (
+            <Row
+              label="Spent but not entered yet"
+              note={`${pendingCount} messages waiting`}
+              value={-pendingSpend}
+            />
+          )}
           <Row
             label="Income still to come"
             note={`${incomeCyclesRemaining} salaries`}
             value={incomeRemaining}
           />
-          <Row label="Total available" rule strong value={balanceToday + incomeRemaining} />
+          <Row
+            label="Total available"
+            rule
+            strong
+            value={balanceToday - pendingSpend + incomeRemaining}
+          />
 
           <div className="h-2" />
           <Row

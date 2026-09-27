@@ -65,6 +65,8 @@ export type Projection = {
   commitmentsRemaining: number;
   /** Still expected to be spent on the things that are chosen. */
   discretionaryRemaining: number;
+  /** Spent but not yet written down, so not attributable to any line. */
+  unrecordedSpend: number;
   /**
    * What discretionary spending can run at, per month, and still reach the goal.
    * Negative means the goal is already out of reach without cutting commitments.
@@ -102,6 +104,13 @@ export const project = (
    * spending is forecast over this while commitments follow the pay cycles.
    */
   spendMonthsRemaining = -1,
+  /**
+   * Spending known about but not yet written down -- messages still sitting in
+   * the inbox. It cannot be put against a line, because nothing has classified
+   * it yet, but the money has gone all the same and the residual is the honest
+   * place for it.
+   */
+  unrecordedSpend = 0,
 ): Projection => {
   const remainingMonths = Math.max(totalMonths - elapsedMonths, 0);
   const spendMonths = spendMonthsRemaining < 0 ? remainingMonths : spendMonthsRemaining;
@@ -201,8 +210,9 @@ export const project = (
   // basis for both readings, rather than a second calculation that can drift.
   const sumBy = (pick: (line: ProjectedLine) => number) =>
     spendLines.reduce((sum, line) => sum + pick(line), 0);
-  const projectedAtPace = residualBudget - sumBy((line) => line.variance);
-  const projectedAtBudget = residualBudget - sumBy((line) => line.varianceAtBudget);
+  const projectedAtPace = residualBudget - sumBy((line) => line.variance) - unrecordedSpend;
+  const projectedAtBudget =
+    residualBudget - sumBy((line) => line.varianceAtBudget) - unrecordedSpend;
 
   const discretionary = spendLines.filter(
     (line) => line.discretionary && line.allocationKind === 'monthly',
@@ -224,7 +234,7 @@ export const project = (
   const fixedVariance = sumBy((line) =>
     discretionary.includes(line) ? line.actual - line.yearBudget : line.variance,
   );
-  const affordable = residualBudget - target - fixedVariance;
+  const affordable = residualBudget - target - fixedVariance - unrecordedSpend;
 
   return {
     elapsedMonths,
@@ -240,6 +250,7 @@ export const project = (
     investedSoFar: residual === null ? 0 : residual.actual,
     commitmentsRemaining,
     discretionaryRemaining,
+    unrecordedSpend,
     safeToSpendPerMonth: spendMonths > 0 ? affordable / spendMonths : affordable,
   };
 };
