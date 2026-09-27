@@ -22,6 +22,7 @@ import {
 } from '@/lib/sms-bulk-import';
 import { api } from '@/server/react';
 import type { Account, Friend } from '@/types';
+import type { CellOpts } from '@/types/data-grid';
 
 const GRID_HEIGHT = 620;
 
@@ -50,12 +51,36 @@ const COLUMN_SIZE = {
 const toOptions = (values: string[]) => values.map((value) => ({ label: value, value }));
 
 /**
- * A column the user reads but does not edit.
+ * An editable column.
  *
- * The grid gives a column its editable cell variant unless the header is a
- * function, in which case it renders the column's own `cell` instead. That is
- * the only way to show the message's own details — which are not statement
- * fields and are written nowhere — without inviting edits to them.
+ * The `header` has to be a string, and that is the whole reason this helper
+ * exists. The grid decides whether a cell is editable by asking whether the
+ * column's header is a function: a function means "this column renders itself",
+ * and the cell is handed to `columnDef.cell` instead of the editing variant.
+ *
+ * TanStack fills in a *function* header for any column that omits one — it
+ * returns the accessor key — so leaving `header` off does not leave the column
+ * headerless, it quietly makes the column read-only and renders the raw stored
+ * value. For a select that is the option's id rather than its label.
+ */
+const editableColumn = (
+  id: keyof BulkImportRow,
+  label: string,
+  size: number,
+  cell: CellOpts,
+): ColumnDef<BulkImportRow> => ({
+  id,
+  accessorKey: id,
+  size,
+  header: label,
+  meta: { label, cell },
+});
+
+/**
+ * A column the user reads but does not edit — the other side of the same rule.
+ * A function header keeps the cell out of the editing variants, which is what
+ * the message's own details want: they are not statement fields and are written
+ * nowhere, so they should not look editable.
  */
 const readOnlyColumn = (
   id: string,
@@ -130,60 +155,28 @@ const createBulkImportColumns = ({
       {row.accountLast4 === '' ? '' : ` ····${row.accountLast4}`}
     </span>
   )),
-  {
-    id: 'date',
-    accessorKey: 'date',
-    size: COLUMN_SIZE.date,
-    meta: { label: 'Date', cell: { variant: 'date' } },
-  },
-  {
-    id: 'amount',
-    accessorKey: 'amount',
-    size: COLUMN_SIZE.amount,
-    meta: { label: 'Amount', cell: { variant: 'number' } },
-  },
-  {
-    id: 'statementKind',
-    accessorKey: 'statementKind',
-    size: COLUMN_SIZE.kind,
-    meta: { label: 'Kind', cell: { variant: 'select', options: statementKindOptions } },
-  },
-  {
-    id: 'accountId',
-    accessorKey: 'accountId',
-    size: COLUMN_SIZE.account,
-    meta: {
-      label: 'Account',
-      cell: {
-        variant: 'select',
-        options: accounts.map((account) => ({ label: account.accountName, value: account.id })),
-      },
-    },
-  },
-  {
-    id: 'friendId',
-    accessorKey: 'friendId',
-    size: COLUMN_SIZE.friend,
-    meta: {
-      label: 'Friend',
-      cell: {
-        variant: 'select',
-        options: friends.map((friend) => ({ label: friend.name, value: friend.id })),
-      },
-    },
-  },
-  {
-    id: 'category',
-    accessorKey: 'category',
-    size: COLUMN_SIZE.category,
-    meta: { label: 'Category', cell: { variant: 'select', options: toOptions(categories) } },
-  },
-  {
-    id: 'tags',
-    accessorKey: 'tags',
-    size: COLUMN_SIZE.tags,
-    meta: { label: 'Tags', cell: { variant: 'multi-select', options: toOptions(tags) } },
-  },
+  editableColumn('date', 'Date', COLUMN_SIZE.date, { variant: 'date' }),
+  editableColumn('amount', 'Amount', COLUMN_SIZE.amount, { variant: 'number' }),
+  editableColumn('statementKind', 'Kind', COLUMN_SIZE.kind, {
+    variant: 'select',
+    options: statementKindOptions,
+  }),
+  editableColumn('accountId', 'Account', COLUMN_SIZE.account, {
+    variant: 'select',
+    options: accounts.map((account) => ({ label: account.accountName, value: account.id })),
+  }),
+  editableColumn('friendId', 'Friend', COLUMN_SIZE.friend, {
+    variant: 'select',
+    options: friends.map((friend) => ({ label: friend.name, value: friend.id })),
+  }),
+  editableColumn('category', 'Category', COLUMN_SIZE.category, {
+    variant: 'select',
+    options: toOptions(categories),
+  }),
+  editableColumn('tags', 'Tags', COLUMN_SIZE.tags, {
+    variant: 'multi-select',
+    options: toOptions(tags),
+  }),
   readOnlyColumn(STATUS_COLUMN_ID, '', COLUMN_SIZE.problem, (row) => (
     <RowStatusCell row={row} />
   )),
