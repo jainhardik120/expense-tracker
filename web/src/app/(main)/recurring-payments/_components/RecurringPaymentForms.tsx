@@ -99,19 +99,23 @@ export const UpdateRecurringPaymentForm = ({
   refresh,
   recurringPaymentId,
   initialData,
+  trigger,
 }: {
   refresh?: () => void;
   recurringPaymentId: string;
   initialData: RecurringPayment;
+  trigger?: React.ReactNode;
 }) => {
   const mutation = api.recurringPayments.updateRecurringPayment.useMutation();
 
   return (
     <MutationModal
       button={
-        <Button className="size-8" size="icon" variant="ghost">
-          <SquarePen />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <SquarePen />
+          </Button>
+        )
       }
       defaultValues={initialData}
       fields={recurringPaymentFormFields}

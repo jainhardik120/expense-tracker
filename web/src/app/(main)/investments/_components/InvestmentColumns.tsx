@@ -1,8 +1,9 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { Info, Trash } from 'lucide-react';
+import { CircleOff, Info, SquarePen, Trash } from 'lucide-react';
 
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -234,15 +235,20 @@ export const createInvestmentColumns = (
       const deleteMutation = api.investments.deleteInvestment.useMutation();
 
       return (
-        <div className="flex items-center gap-2">
+        <RowActions>
           <UpdateInvestmentForm
             initialData={row.original}
             investmentId={row.original.id}
             refresh={refresh}
+            trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
           />
-          {!row.original.isClosedPosition ? (
-            <CloseInvestmentForm investmentId={row.original.id} refresh={refresh} />
-          ) : null}
+          {row.original.isClosedPosition ? null : (
+            <CloseInvestmentForm
+              investmentId={row.original.id}
+              refresh={refresh}
+              trigger={<RowActionTrigger icon={CircleOff} label="Close position" />}
+            />
+          )}
           <DeleteConfirmationDialog
             mutation={deleteMutation}
             mutationInput={{ id: row.original.id }}
@@ -250,11 +256,9 @@ export const createInvestmentColumns = (
               refresh();
             }}
           >
-            <Button className="size-8" size="icon" variant="ghost">
-              <Trash />
-            </Button>
+            <RowActionTrigger destructive icon={Trash} label="Delete" />
           </DeleteConfirmationDialog>
-        </div>
+        </RowActions>
       );
     },
   },

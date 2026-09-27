@@ -107,20 +107,24 @@ export const UpdateEmiForm = ({
   emiId,
   initialData,
   creditCards,
+  trigger,
 }: {
   refresh?: () => void;
   emiId: string;
   initialData: Emi;
   creditCards: CreditCard[];
+  trigger?: React.ReactNode;
 }) => {
   const mutation = api.emis.updateEmi.useMutation();
 
   return (
     <MutationModal
       button={
-        <Button className="size-8" size="icon" variant="ghost">
-          <SquarePen />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <SquarePen />
+          </Button>
+        )
       }
       defaultValues={{
         ...initialData,

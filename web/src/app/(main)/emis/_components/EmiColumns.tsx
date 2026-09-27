@@ -3,8 +3,9 @@
 import { useState } from 'react';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { Info, Trash } from 'lucide-react';
+import { Info, SquarePen, SquareSlash, Trash } from 'lucide-react';
 
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
@@ -19,7 +20,7 @@ import { EmiSplitsDialog } from './EmiSplits';
 type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
 type Emi = RouterOutput['emis']['getEmis']['emis'][number];
 
-const EMIDetailsDialog = ({ emi }: { emi: Emi }) => {
+const EMIDetailsDialog = ({ emi, trigger }: { emi: Emi; trigger?: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
   return (
     <Modal
@@ -28,9 +29,11 @@ const EMIDetailsDialog = ({ emi }: { emi: Emi }) => {
       setOpen={setOpen}
       title={emi.name}
       trigger={
-        <Button className="size-8" size="icon" variant="ghost">
-          <Info className="h-4 w-4" />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <Info className="h-4 w-4" />
+          </Button>
+        )
       }
     >
       <EmiDetails emi={emi} />
@@ -106,15 +109,23 @@ export const createEmiColumns = (
       const deleteMutation = api.emis.deleteEmi.useMutation();
 
       return (
-        <div className="flex items-center gap-2">
+        <RowActions>
           <UpdateEmiForm
             creditCards={creditCards}
             emiId={row.original.id}
             initialData={row.original}
             refresh={refresh}
+            trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
           />
-          <EMIDetailsDialog emi={row.original} />
-          <EmiSplitsDialog emiData={row.original} emiId={row.original.id} />
+          <EMIDetailsDialog
+            emi={row.original}
+            trigger={<RowActionTrigger icon={Info} label="Details" />}
+          />
+          <EmiSplitsDialog
+            emiData={row.original}
+            emiId={row.original.id}
+            trigger={<RowActionTrigger icon={SquareSlash} label="Splits" />}
+          />
           <DeleteConfirmationDialog
             mutation={deleteMutation}
             mutationInput={{ id: row.original.id }}
@@ -122,11 +133,9 @@ export const createEmiColumns = (
               refresh();
             }}
           >
-            <Button className="size-8" size="icon" variant="ghost">
-              <Trash />
-            </Button>
+            <RowActionTrigger destructive icon={Trash} label="Delete" />
           </DeleteConfirmationDialog>
-        </div>
+        </RowActions>
       );
     },
   },

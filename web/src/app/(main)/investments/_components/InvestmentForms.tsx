@@ -278,12 +278,14 @@ export const UpdateInvestmentForm = ({
   refresh,
   investmentId,
   initialData,
+  trigger,
 }: {
   refresh?: () => void;
   investmentId: string;
   initialData: Investment & {
     normalizedKind?: string;
   };
+  trigger?: React.ReactNode;
 }) => {
   const mutation = api.investments.updateInvestment.useMutation();
   const normalizedKind = normalizeInvestmentKind(
@@ -293,9 +295,11 @@ export const UpdateInvestmentForm = ({
   return (
     <MutationModal
       button={
-        <Button className="size-8" size="icon" variant="ghost">
-          <SquarePen />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <SquarePen />
+          </Button>
+        )
       }
       defaultValues={{
         investmentKind: normalizedKind,
@@ -350,18 +354,22 @@ const closeInvestmentFields: FormField<z.input<typeof closeInvestmentSchema>>[] 
 export const CloseInvestmentForm = ({
   investmentId,
   refresh,
+  trigger,
 }: {
   investmentId: string;
   refresh?: () => void;
+  trigger?: React.ReactNode;
 }) => {
   const closeMutation = api.investments.closeInvestment.useMutation();
 
   return (
     <MutationModal
       button={
-        <Button className="size-8" size="icon" variant="ghost">
-          <CircleOff />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <CircleOff />
+          </Button>
+        )
       }
       defaultValues={{
         closedAt: new Date(),

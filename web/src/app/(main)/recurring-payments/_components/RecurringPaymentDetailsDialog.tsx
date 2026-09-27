@@ -152,7 +152,8 @@ const LinkedStatementsTable = ({ statements }: { statements: LinkedStatement[] }
 
 export const RecurringPaymentDetailsDialog = ({
   recurringPayment,
-}: RecurringPaymentDetailsDialogProps) => {
+  trigger,
+}: RecurringPaymentDetailsDialogProps & { trigger?: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
 
   const { data, isLoading, error } = api.recurringPayments.getRecurringPaymentDetails.useQuery(
@@ -261,9 +262,11 @@ export const RecurringPaymentDetailsDialog = ({
       setOpen={setOpen}
       title={`${recurringPayment.name} - Payment Schedule`}
       trigger={
-        <Button className="size-8" size="icon" variant="ghost">
-          <Eye />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <Eye />
+          </Button>
+        )
       }
     >
       {renderContent()}

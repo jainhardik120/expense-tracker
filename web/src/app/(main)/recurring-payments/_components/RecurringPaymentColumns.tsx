@@ -2,11 +2,11 @@
 
 import { type ColumnDef } from '@tanstack/react-table';
 import { isBefore } from 'date-fns';
-import { Trash } from 'lucide-react';
+import { Eye, SquarePen, Trash } from 'lucide-react';
 
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -92,12 +92,16 @@ export const createRecurringPaymentColumns = (
       const deleteMutation = api.recurringPayments.deleteRecurringPayment.useMutation();
 
       return (
-        <div className="flex items-center gap-2">
-          <RecurringPaymentDetailsDialog recurringPayment={row.original} />
+        <RowActions>
+          <RecurringPaymentDetailsDialog
+            recurringPayment={row.original}
+            trigger={<RowActionTrigger icon={Eye} label="Details" />}
+          />
           <UpdateRecurringPaymentForm
             initialData={row.original}
             recurringPaymentId={row.original.id}
             refresh={refresh}
+            trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
           />
           <DeleteConfirmationDialog
             mutation={deleteMutation}
@@ -106,11 +110,9 @@ export const createRecurringPaymentColumns = (
               refresh();
             }}
           >
-            <Button className="size-8" size="icon" variant="ghost">
-              <Trash />
-            </Button>
+            <RowActionTrigger destructive icon={Trash} label="Delete" />
           </DeleteConfirmationDialog>
-        </div>
+        </RowActions>
       );
     },
   },

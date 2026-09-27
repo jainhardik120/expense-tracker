@@ -42,7 +42,15 @@ const createEmiSplitFields = (
   },
 ];
 
-export const EmiSplitsDialog = ({ emiId, emiData }: { emiId: string; emiData: Emi }) => {
+export const EmiSplitsDialog = ({
+  emiId,
+  emiData,
+  trigger,
+}: {
+  emiId: string;
+  emiData: Emi;
+  trigger?: React.ReactNode;
+}) => {
   const [open, setOpen] = useState(false);
   const { data: friends = [] } = api.friends.getFriends.useQuery(undefined, { enabled: open });
   const { data: splits = [], refetch } = api.emis.getEmiSplits.useQuery(
@@ -110,9 +118,11 @@ export const EmiSplitsDialog = ({ emiId, emiData }: { emiId: string; emiData: Em
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="size-8" size="icon" variant="ghost">
-          <SquareSlash />
-        </Button>
+        {trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <SquareSlash />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
