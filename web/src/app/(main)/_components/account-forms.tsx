@@ -49,18 +49,22 @@ export const UpdateAccountForm = ({
   refresh,
   accountId,
   initialData,
+  trigger,
 }: {
   refresh?: () => void;
   accountId: string;
   initialData: Account;
+  trigger?: React.ReactNode;
 }) => {
   const mutation = api.accounts.updateAccount.useMutation();
   return (
     <MutationModal
       button={
-        <Button className="size-8" size="icon" variant="ghost">
-          <SquarePen />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <SquarePen />
+          </Button>
+        )
       }
       defaultValues={initialData}
       fields={fields}

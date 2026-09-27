@@ -48,15 +48,17 @@ export const UpdateFriendForm = ({
   refresh,
   friendId,
   initialData,
+  trigger,
 }: {
   refresh?: () => void;
   friendId: string;
   initialData: Friend;
+  trigger?: React.ReactNode;
 }) => {
   const mutation = api.friends.updateFriend.useMutation();
   return (
     <MutationModal
-      button={<EditIconButton />}
+      button={trigger ?? <EditIconButton />}
       defaultValues={initialData}
       fields={fields}
       mutation={{

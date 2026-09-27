@@ -31,7 +31,8 @@ export const CreditCardDialog = ({
   accountId,
   accountName,
   existingCreditCard,
-}: CreditCardDialogProps) => {
+  trigger,
+}: CreditCardDialogProps & { trigger?: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(existingCreditCard !== null);
   const router = useRouter();
@@ -126,9 +127,15 @@ export const CreditCardDialog = ({
       setOpen={handleOpenChange}
       title={isExistingCreditCard ? 'Manage Credit Card' : 'Convert to Credit Card'}
       trigger={
-        <Button className="size-8" size="icon" variant={isExistingCreditCard ? 'default' : 'ghost'}>
-          <CreditCard className="size-4" />
-        </Button>
+        trigger ?? (
+          <Button
+            className="size-8"
+            size="icon"
+            variant={isExistingCreditCard ? 'default' : 'ghost'}
+          >
+            <CreditCard className="size-4" />
+          </Button>
+        )
       }
     >
       {!showForm && !isExistingCreditCard ? (

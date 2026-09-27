@@ -3,10 +3,10 @@
 import Link from 'next/link';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { Trash } from 'lucide-react';
+import { CreditCard, SquarePen, Trash } from 'lucide-react';
 
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
-import { Button } from '@/components/ui/button';
 import { formatOrdinalDay } from '@/lib/format';
 import { api } from '@/server/react';
 import { type FriendSummary, type AccountSummary, isFriendSummary } from '@/types';
@@ -32,9 +32,7 @@ const DeleteButton = ({
   onRefresh: () => void;
 }) => (
   <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-    <Button className="size-8" size="icon" variant="ghost">
-      <Trash />
-    </Button>
+    <RowActionTrigger destructive icon={Trash} label="Delete" />
   </DeleteConfirmationDialog>
 );
 
@@ -48,41 +46,49 @@ const AccountActions = ({
   const mutation = api.accounts.deleteAccount.useMutation();
   const isExistingCreditCard = row.creditCardId !== undefined && row.creditCardId.length > 0;
   return (
-    <div className="flex w-full justify-end">
-      <div className="flex flex-row gap-2">
-        <CreditCardDialog
-          accountId={row.account.id}
-          accountName={row.account.accountName}
-          existingCreditCard={
-            isExistingCreditCard
-              ? {
-                  id: row.creditCardId ?? '',
-                  cardLimit: row.cardLimit ?? '',
-                  billingDate: row.billingDate ?? 1,
-                }
-              : null
-          }
-        />
-        <UpdateAccountForm
-          accountId={row.account.id}
-          initialData={row.account}
-          refresh={onRefresh}
-        />
-        <DeleteButton id={row.account.id} mutation={mutation} onRefresh={onRefresh} />
-      </div>
-    </div>
+    <RowActions>
+      <CreditCardDialog
+        accountId={row.account.id}
+        accountName={row.account.accountName}
+        existingCreditCard={
+          isExistingCreditCard
+            ? {
+                id: row.creditCardId ?? '',
+                cardLimit: row.cardLimit ?? '',
+                billingDate: row.billingDate ?? 1,
+              }
+            : null
+        }
+        trigger={
+          <RowActionTrigger
+            icon={CreditCard}
+            label={isExistingCreditCard ? 'Card settings' : 'Make a credit card'}
+          />
+        }
+      />
+      <UpdateAccountForm
+        accountId={row.account.id}
+        initialData={row.account}
+        refresh={onRefresh}
+        trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
+      />
+      <DeleteButton id={row.account.id} mutation={mutation} onRefresh={onRefresh} />
+    </RowActions>
   );
 };
 
 const FriendActions = ({ row, onRefresh }: { row: FriendSummary; onRefresh: () => void }) => {
   const mutation = api.friends.deleteFriend.useMutation();
   return (
-    <div className="flex w-full justify-end">
-      <div className="flex flex-row gap-2">
-        <UpdateFriendForm friendId={row.friend.id} initialData={row.friend} refresh={onRefresh} />
-        <DeleteButton id={row.friend.id} mutation={mutation} onRefresh={onRefresh} />
-      </div>
-    </div>
+    <RowActions>
+      <UpdateFriendForm
+        friendId={row.friend.id}
+        initialData={row.friend}
+        refresh={onRefresh}
+        trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
+      />
+      <DeleteButton id={row.friend.id} mutation={mutation} onRefresh={onRefresh} />
+    </RowActions>
   );
 };
 

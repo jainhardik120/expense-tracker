@@ -3,9 +3,9 @@
 import { type ColumnDef } from '@tanstack/react-table';
 import { FileText, RefreshCw, Trash } from 'lucide-react';
 
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { smsTransactionStatusEnum } from '@/db/schema';
 import { useIsMounted } from '@/hooks/use-is-mounted';
 import { formatCurrency } from '@/lib/format';
@@ -54,9 +54,7 @@ const JunkNotificationButton = ({
       successToast={() => 'Notification junked successfully'}
       title="Junk this notification?"
     >
-      <Button className="size-8" size="icon" title="Junk notification" variant="ghost">
-        <Trash />
-      </Button>
+      <RowActionTrigger destructive icon={Trash} label="Junk" />
     </DeleteConfirmationDialog>
   );
 };
@@ -90,16 +88,13 @@ const ConvertToStatementButton = ({
       }}
       friendsData={friendsData}
       trigger={
-        <Button
-          className="size-8"
-          size="icon"
-          variant="ghost"
+        <RowActionTrigger
+          icon={FileText}
+          label="As statement"
           onClick={() => {
             void refetch();
           }}
-        >
-          <FileText />
-        </Button>
+        />
       }
       onSuccess={async (id) => {
         await mutation.mutateAsync({
@@ -127,11 +122,7 @@ const ConvertToSelfTransferButton = ({
         amount: notification.amount,
         createdAt: notification.createdAt,
       }}
-      trigger={
-        <Button className="size-8" size="icon" variant="ghost">
-          <RefreshCw />
-        </Button>
-      }
+      trigger={<RowActionTrigger icon={RefreshCw} label="As self transfer" />}
       onSuccess={async (id) => {
         await mutation.mutateAsync({
           id: notification.id,
@@ -161,7 +152,7 @@ const SmsNotificationActions = ({
   }
 
   return (
-    <div className="flex flex-row gap-2">
+    <RowActions>
       <ConvertToStatementButton
         accountsData={accountsData}
         categories={categories}
@@ -170,7 +161,7 @@ const SmsNotificationActions = ({
       />
       <ConvertToSelfTransferButton accountsData={accountsData} notification={notification} />
       <JunkNotificationButton notificationId={notification.id} onRefresh={onRefresh} />
-    </div>
+    </RowActions>
   );
 };
 
@@ -248,15 +239,13 @@ export const createSmsNotificationColumns = ({
     header: '',
     cell: ({ row }) => {
       return (
-        <div className="flex w-full justify-end">
-          <SmsNotificationActions
-            accountsData={accountsData}
-            categories={categories}
-            friendsData={friendsData}
-            notification={row.original}
-            onRefresh={onRefresh}
-          />
-        </div>
+        <SmsNotificationActions
+          accountsData={accountsData}
+          categories={categories}
+          friendsData={friendsData}
+          notification={row.original}
+          onRefresh={onRefresh}
+        />
       );
     },
     meta: {
