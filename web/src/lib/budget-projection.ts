@@ -73,8 +73,15 @@ export const project = (
   totalMonths: number,
   /** What the year opened with: last year's residual, already yours to spend. */
   openingBalance = 0,
+  /**
+   * Calendar months left to spend in, which is not the number of salaries left.
+   * You still eat in December whether or not one arrives in it, so discretionary
+   * spending is forecast over this while commitments follow the pay cycles.
+   */
+  spendMonthsRemaining = -1,
 ): Projection => {
   const remainingMonths = Math.max(totalMonths - elapsedMonths, 0);
+  const spendMonths = spendMonthsRemaining < 0 ? remainingMonths : spendMonthsRemaining;
   const runRate = elapsedMonths > 0 ? incomeToDate / elapsedMonths : 0;
   // Everything the year has to spend, not just the salary. Income pointed at a
   // particular line is still income -- a bonus that paid for the trip funded it
@@ -123,8 +130,11 @@ export const project = (
       return Math.max(yearBudget - line.actual, 0);
     }
     if (line.allocationKind === 'monthly') {
-      const rate = line.discretionary ? line.pacePerMonth : line.allocationAmount;
-      return rate * remainingMonths;
+      // A commitment goes out with each salary; everything else goes out with
+      // the calendar, and the two run out at different times.
+      return line.discretionary
+        ? line.pacePerMonth * spendMonths
+        : line.allocationAmount * remainingMonths;
     }
     // Earmarked, schedule and residual lines only owe what is already scheduled.
     return line.scheduled.remaining;

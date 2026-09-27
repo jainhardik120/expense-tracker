@@ -255,3 +255,22 @@ test('what the year opened with is money it has to spend', () => {
   );
   assert.equal(carried.lines[0].yearBudget - without.lines[0].yearBudget, 9500);
 });
+
+test('discretionary spending follows the calendar, commitments follow the salary', () => {
+  // two salaries left but nearly three months to live through
+  const { lines } = project(
+    [
+      line({ lineId: 'rent', allocationAmount: 22000, discretionary: false }),
+      line({ lineId: 'food', allocationAmount: 9300, discretionary: true, pacePerMonth: 11396.85 }),
+    ],
+    0,
+    10,
+    12,
+    0,
+    2.8667,
+  );
+  // rent goes out with each salary: two more
+  assert.equal(lines[0].forecastRemaining, 44000);
+  // food goes out with the calendar: you still eat in the month with no salary
+  assert.equal(Math.round(lines[1].forecastRemaining), Math.round(11396.85 * 2.8667));
+});

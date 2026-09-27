@@ -161,6 +161,7 @@ export const budgetRouter = createTRPCRouter({
         cyclesElapsed,
         cyclesTotal,
         openingBalance,
+        monthsRemaining,
       );
       const byKind = (pred: (t: (typeof totals)[number]) => boolean) =>
         totals.filter(pred).reduce((sum, t) => sum + t.allocationAmount, 0);
