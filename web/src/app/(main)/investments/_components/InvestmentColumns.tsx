@@ -156,11 +156,13 @@ export const createInvestmentColumns = (
     header: 'Invested',
     cell: ({ row }) =>
       formatByCurrency(row.original.investedAmountDisplay, row.original.displayCurrency),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'units',
     header: 'Units',
     cell: ({ row }) => row.original.units ?? '-',
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'liveUnitPrice',
@@ -171,6 +173,7 @@ export const createInvestmentColumns = (
       }
       return formatByCurrency(row.original.liveUnitPriceDisplay, row.original.displayCurrency);
     },
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'valuationAmount',
@@ -179,6 +182,7 @@ export const createInvestmentColumns = (
       row.original.valuationAmountDisplay === null
         ? '-'
         : formatByCurrency(row.original.valuationAmountDisplay, row.original.displayCurrency),
+    meta: { align: 'right' },
   },
   {
     id: 'fxDetails',
@@ -202,6 +206,7 @@ export const createInvestmentColumns = (
         </span>
       );
     },
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'dayChange',
@@ -219,6 +224,7 @@ export const createInvestmentColumns = (
         </span>
       );
     },
+    meta: { align: 'right' },
   },
   {
     id: 'status',

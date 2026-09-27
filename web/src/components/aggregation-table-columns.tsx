@@ -62,16 +62,19 @@ export const aggregationTableColumns = (
     },
     id: 'finalBalance',
     header: 'My Balance',
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'totalFriendsSummary.finalBalance',
     header: 'Friends Balance',
     cell: ({ row }) => row.original.totalFriendsSummary.finalBalance.toFixed(2),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'totalAccountsSummary.finalBalance',
     header: 'Total Balance',
     cell: ({ row }) => row.original.totalAccountsSummary.finalBalance.toFixed(2),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'totalAccountsSummary.outsideTransactions',
@@ -118,6 +121,7 @@ export const aggregationTableColumns = (
         </HoverCard>
       );
     },
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'totalExpenses',
@@ -149,5 +153,6 @@ export const aggregationTableColumns = (
         </HoverCard>
       );
     },
+    meta: { align: 'right' },
   },
 ];

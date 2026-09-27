@@ -51,21 +51,21 @@ const createPayrollColumns = (data: SalaryData, refresh: () => void): ColumnDef<
     accessorFn: (row) => row.totals.earnings,
     header: 'Earnings',
     cell: ({ row }) => money(row.original.totals.earnings),
-    meta: { label: 'Earnings' },
+    meta: { align: 'right', label: 'Earnings' },
   },
   {
     id: 'deductions',
     accessorFn: (row) => row.totals.deductions,
     header: 'Deductions',
     cell: ({ row }) => money(row.original.totals.deductions),
-    meta: { label: 'Deductions' },
+    meta: { align: 'right', label: 'Deductions' },
   },
   {
     id: 'tds',
     accessorFn: (row) => row.totals.tds,
     header: 'TDS',
     cell: ({ row }) => money(row.original.totals.tds),
-    meta: { label: 'TDS' },
+    meta: { align: 'right', label: 'TDS' },
   },
   {
     id: 'net',
@@ -84,14 +84,14 @@ const createPayrollColumns = (data: SalaryData, refresh: () => void): ColumnDef<
         {formatCurrency(row.original.totals.net)}
       </span>
     ),
-    meta: { label: 'Net' },
+    meta: { align: 'right', label: 'Net' },
   },
   {
     id: 'taxable',
     accessorFn: (row) => row.totals.taxableIncome,
     header: 'Taxable',
     cell: ({ row }) => money(row.original.totals.taxableIncome),
-    meta: { label: 'Taxable' },
+    meta: { align: 'right', label: 'Taxable' },
   },
   {
     id: 'actions',

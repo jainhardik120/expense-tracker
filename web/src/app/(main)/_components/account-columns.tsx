@@ -124,6 +124,7 @@ export const createAccountColumns = (
       id: 'startingBalance',
       header: 'Starting Balance',
       accessorFn: (row) => row.startingBalance.toFixed(2),
+      meta: { align: 'right' },
     },
     {
       id: 'billingDate',
@@ -137,11 +138,13 @@ export const createAccountColumns = (
       id: 'expenses',
       header: 'Expenses',
       accessorFn: (row) => (isFriendSummary(row) ? row.splits : row.expenses).toFixed(2),
+      meta: { align: 'right' },
     },
     {
       id: 'selfTransfers',
       header: 'Self Transfers',
       accessorFn: (row) => (isFriendSummary(row) ? '-' : row.selfTransfers.toFixed(2)),
+      meta: { align: 'right' },
     },
     {
       accessorKey: 'outsideTransactions',
@@ -150,17 +153,20 @@ export const createAccountColumns = (
         isFriendSummary(row)
           ? row.friendTransactions.toFixed(2)
           : row.outsideTransactions.toFixed(2),
+      meta: { align: 'right' },
     },
     {
       accessorKey: 'friendTransactions',
       header: 'Friend Transactions',
       accessorFn: (row) =>
         isFriendSummary(row) ? row.paidByFriend.toFixed(2) : row.friendTransactions.toFixed(2),
+      meta: { align: 'right' },
     },
     {
       accessorKey: 'date',
       header: 'Current Balance',
       cell: ({ row }) => row.original.finalBalance.toFixed(2),
+      meta: { align: 'right' },
     },
     {
       accessorKey: 'actions',

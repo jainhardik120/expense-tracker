@@ -127,6 +127,7 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
         id: 'installment',
         header: 'Month',
         accessorFn: (row: ScheduleRowWithPayment) => row.installment,
+        meta: { align: 'right' as const },
       },
       ...(showDates
         ? [
@@ -142,31 +143,37 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
         id: 'emi',
         header: 'EMI',
         accessorFn: (row: ScheduleRowWithPayment) => formatCurrency(row.emi),
+        meta: { align: 'right' as const },
       },
       {
         id: 'interest',
         header: 'Interest',
         accessorFn: (row: ScheduleRowWithPayment) => formatCurrency(row.interest),
+        meta: { align: 'right' as const },
       },
       {
         id: 'principal',
         header: 'Principal',
         accessorFn: (row: ScheduleRowWithPayment) => formatCurrency(row.principal),
+        meta: { align: 'right' as const },
       },
       {
         id: 'gst',
         header: 'GST',
         accessorFn: (row: ScheduleRowWithPayment) => formatCurrency(row.gst),
+        meta: { align: 'right' as const },
       },
       {
         id: 'totalPayment',
         header: 'Total Payment',
         accessorFn: (row: ScheduleRowWithPayment) => formatCurrency(row.totalPayment),
+        meta: { align: 'right' as const },
       },
       {
         id: 'balance',
         header: 'Balance',
         accessorFn: (row: ScheduleRowWithPayment) => formatCurrency(row.balance),
+        meta: { align: 'right' as const },
       },
       ...(showPaymentStatus
         ? [
@@ -187,6 +194,7 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
               header: 'Amount Paid',
               cell: ({ row }: { row: { original: ScheduleRowWithPayment } }) =>
                 renderAmountPaidCell(row.original),
+              meta: { align: 'right' as const },
             },
           ]
         : []),

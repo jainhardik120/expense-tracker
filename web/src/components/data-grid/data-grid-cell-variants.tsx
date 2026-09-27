@@ -496,7 +496,9 @@ export const NumberCell = <TData,>({
       {isEditing ? (
         <input
           ref={inputRef}
-          className="w-full [appearance:textfield] border-none bg-transparent p-0 outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          // Right aligned while editing as well as at rest, so the figure does
+          // not jump sideways the moment the cell is opened.
+          className="w-full [appearance:textfield] border-none bg-transparent p-0 text-right tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           max={max}
           min={min}
           step={step}
@@ -506,7 +508,9 @@ export const NumberCell = <TData,>({
           onChange={onChange}
         />
       ) : (
-        <span data-slot="grid-cell-content">{value}</span>
+        <span className="w-full text-right tabular-nums" data-slot="grid-cell-content">
+          {value}
+        </span>
       )}
     </DataGridCellWrapper>
   );

@@ -57,39 +57,47 @@ export const createEmiColumns = (
     accessorKey: 'principal',
     header: 'Principal',
     cell: ({ row }) => formatCurrency(row.original.principal),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'processingFees',
     header: 'Processing Fees',
     cell: ({ row }) => formatCurrency(row.original.processingFees),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'monthlyEMI',
     header: 'Monthly EMI',
     cell: ({ row }) => formatCurrency(row.original.monthlyEMI),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'tenure',
     header: 'Tenure',
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'maxInstallmentNo',
     header: 'Paid Upto',
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'outstandingBalance',
     header: 'Outstanding Balance',
     cell: ({ row }) => formatCurrency(row.original.outstandingBalance),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'totalPaid',
     header: 'Total Paid',
     cell: ({ row }) => formatCurrency(row.original.totalPaid ?? '0'),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'amountLeftToBePaid',
     header: 'Amount Left',
     cell: ({ row }) => formatCurrency(row.original.amountLeftToBePaid),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'nextPaymentOn',
@@ -102,6 +110,7 @@ export const createEmiColumns = (
     header: 'Next Payment',
     cell: ({ row }) =>
       row.original.nextPaymentAmount === null ? '' : formatCurrency(row.original.nextPaymentAmount),
+    meta: { align: 'right' },
   },
   {
     id: 'actions',

@@ -45,6 +45,7 @@ const createBonusColumns = (
         {formatCurrency(row.original.actualAmount ?? row.original.estimatedAmount)}
       </span>
     ),
+    meta: { align: 'right' },
   },
   {
     id: 'net',
@@ -56,6 +57,7 @@ const createBonusColumns = (
       ) : (
         <span className="tabular-nums">{formatCurrency(row.original.estimatedNet)}</span>
       ),
+    meta: { align: 'right' },
   },
   {
     id: 'actions',

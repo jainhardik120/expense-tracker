@@ -51,7 +51,9 @@ const HEADING_CLASS: Record<string, string> = {
 const blank = (value?: string | null) => value === null || value === undefined || value === '';
 
 const ALIGN_CLASS: Record<string, string> = {
-  right: 'text-right',
+  // Tabular figures with the right edge: a column of amounts is only
+  // comparable down the page if its digits are the same width.
+  right: 'text-right tabular-nums',
   center: 'text-center',
   left: 'text-left',
 };
@@ -266,7 +268,9 @@ export const reportViewComponents = {
           <TableRow key={row}>
             {cells.map((cell, column) => (
               // eslint-disable-next-line react/no-array-index-key
-              <TableCell key={column}>{cell}</TableCell>
+              <TableCell key={column} className={alignClass(props.columns[column]?.align)}>
+                {cell}
+              </TableCell>
             ))}
           </TableRow>
         ))}

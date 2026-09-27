@@ -35,6 +35,7 @@ const taxableStatementColumns: ColumnDef<TaxableStatement>[] = [
         {formatCurrency(row.original.taxableAmount)}
       </span>
     ),
+    meta: { align: 'right' },
   },
 ];
 

@@ -286,6 +286,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     cell: ({ row }) => (
       <div className="text-right">{row.original.units.toFixed(UNITS_DECIMALS)}</div>
     ),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'averageBuyPrice',
@@ -297,6 +298,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
           : formatByCurrency(row.original.averageBuyPrice, row.original.displayCurrency)}
       </div>
     ),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'currentUnitPrice',
@@ -308,6 +310,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
           : formatByCurrency(row.original.currentUnitPrice, row.original.displayCurrency)}
       </div>
     ),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'investedAmount',
@@ -317,6 +320,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
         {formatByCurrency(row.original.investedAmount, row.original.displayCurrency)}
       </div>
     ),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'valuationAmount',
@@ -326,6 +330,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
         {formatByCurrency(row.original.valuationAmount, row.original.displayCurrency)}
       </div>
     ),
+    meta: { align: 'right' },
   },
   {
     id: 'fxDetails',
@@ -341,6 +346,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
         {row.original.pnlPercentage === null ? '' : ` (${row.original.pnlPercentage.toFixed(2)}%)`}
       </div>
     ),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'dayChange',
@@ -353,6 +359,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
           : ` (${row.original.dayChangePercentage.toFixed(2)}%)`}
       </div>
     ),
+    meta: { align: 'right' },
   },
 ];
 

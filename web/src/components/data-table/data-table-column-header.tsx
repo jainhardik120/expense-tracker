@@ -29,11 +29,14 @@ export const DataTableColumnHeader = <TData, TValue>({
   const SORT_ICONS = { asc: ArrowUp, desc: ArrowDown } as const;
   const SortIcon = sorted === false ? ChevronsUpDown : SORT_ICONS[sorted];
   const sortLabel = sorted === false ? 'unsorted' : `${sorted}ending`;
+  // The negative margin pulls the button's padding back to the cell's edge,
+  // which is the right edge for a column that reads from the right.
+  const alignsRight = column.columnDef.meta?.align === 'right';
 
   return (
     <Button
       aria-label={`Sort by ${title}, currently ${sortLabel}`}
-      className={cn('-ml-2 h-8 gap-1 px-2 font-medium', className)}
+      className={cn('h-8 gap-1 px-2 font-medium', alignsRight ? '-mr-2' : '-ml-2', className)}
       size="sm"
       variant="ghost"
       onClick={column.getToggleSortingHandler()}

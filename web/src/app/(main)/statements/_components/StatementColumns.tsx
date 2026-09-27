@@ -262,6 +262,7 @@ export const createStatementColumns = ({
       );
     },
     meta: {
+      align: 'right',
       label: 'Amount',
     },
   },
@@ -331,6 +332,7 @@ export const createStatementColumns = ({
       );
     },
     meta: {
+      align: 'right',
       label: 'Expense',
     },
   },
@@ -345,6 +347,7 @@ export const createStatementColumns = ({
             <span className="tabular-nums">{(row.original.finalBalance ?? 0).toFixed(2)}</span>
           ),
           meta: {
+            align: 'right',
             label: 'Final Balance',
           },
         },

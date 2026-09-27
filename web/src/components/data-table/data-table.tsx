@@ -1,6 +1,11 @@
 import type * as React from 'react';
 
-import { flexRender, type Row, type Table as TanstackTable } from '@tanstack/react-table';
+import {
+  flexRender,
+  type Column,
+  type Row,
+  type Table as TanstackTable,
+} from '@tanstack/react-table';
 
 import { DataTablePagination } from '@/components/data-table/data-table-pagination';
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable';
@@ -14,6 +19,13 @@ import {
 } from '@/components/ui/table';
 import { getCommonPinningStyles } from '@/lib/data-table';
 import { cn } from '@/lib/utils';
+
+/**
+ * Right aligned columns get tabular figures with it: digits of the same width
+ * are what makes a column of amounts comparable at a glance.
+ */
+const alignmentClass = <TData, TValue>(column: Column<TData, TValue>) =>
+  column.columnDef.meta?.align === 'right' ? 'text-right tabular-nums' : undefined;
 
 type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
   table: TanstackTable<TData>;
@@ -63,7 +75,7 @@ export const DataTable = <TData extends object>({
                   {headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
-                      className={cn(background && 'bg-background')}
+                      className={cn(background && 'bg-background', alignmentClass(header.column))}
                       colSpan={header.colSpan}
                       style={{
                         ...getCommonPinningStyles({ column: header.column, withBorder: true }),
@@ -108,7 +120,11 @@ export const DataTable = <TData extends object>({
                         {row.getVisibleCells().map((cell) => (
                           <TableCell
                             key={cell.id}
-                            className={cn('h-10 py-1', background && 'bg-background')}
+                            className={cn(
+                              'h-10 py-1',
+                              background && 'bg-background',
+                              alignmentClass(cell.column),
+                            )}
                             style={{
                               ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
                             }}

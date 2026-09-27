@@ -194,6 +194,7 @@ export const createSmsNotificationColumns = ({
     accessorKey: 'amount',
     header: 'Amount',
     cell: ({ row }) => formatCurrency(row.original.amount, row.original.currency),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'merchant',

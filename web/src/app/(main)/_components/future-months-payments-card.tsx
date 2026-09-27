@@ -48,16 +48,19 @@ const createFutureMonthColumns = (onSelectMonth: (month: string) => void) => [
     id: 'emiTotal',
     header: 'EMI',
     accessorFn: (row: FutureMonthData) => formatCurrency(row.emiTotal),
+    meta: { align: 'right' as const },
   },
   {
     id: 'recurringTotal',
     header: 'Recurring',
     accessorFn: (row: FutureMonthData) => formatCurrency(row.recurringTotal),
+    meta: { align: 'right' as const },
   },
   {
     id: 'total',
     header: 'Total',
     accessorFn: (row: FutureMonthData) => formatCurrency(row.total),
+    meta: { align: 'right' as const },
   },
 ];
 

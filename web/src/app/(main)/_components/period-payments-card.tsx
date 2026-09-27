@@ -78,6 +78,7 @@ const createPeriodPaymentColumns = (zoned: ZonedFormat) => [
     id: 'myShare',
     header: 'My Share',
     accessorFn: (row: PeriodPayment) => formatCurrency(row.myShare),
+    meta: { align: 'right' as const },
   },
   {
     id: 'status',

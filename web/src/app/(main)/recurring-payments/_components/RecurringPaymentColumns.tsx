@@ -48,6 +48,7 @@ export const createRecurringPaymentColumns = (
     accessorKey: 'amount',
     header: 'Amount',
     cell: ({ row }) => formatCurrency(row.original.amount),
+    meta: { align: 'right' },
   },
   {
     accessorKey: 'frequency',
