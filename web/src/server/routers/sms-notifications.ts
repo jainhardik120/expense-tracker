@@ -1,21 +1,17 @@
-import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { smsNotifications, statements } from '@/db/schema';
-import type { Database } from '@/lib/db';
+import { smsNotifications } from '@/db/schema';
 import { BULK_IMPORT_KINDS } from '@/lib/sms-bulk-import';
 import {
   bulkInsertFromNotifications,
   getBulkImportRows,
 } from '@/server/helpers/sms-bulk-insert';
 import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
+import { getHintSubject, getInsertHintsForOne } from '@/server/helpers/sms-hints';
 import { getAccountsSummaryBetweenDates } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import {
-  createSmsNotificationSchema,
-  smsNotificationListSchema,
-  type SMSNotification,
-} from '@/types';
+import { createSmsNotificationSchema, smsNotificationListSchema } from '@/types';
 
 import { buildQueryConditions } from '../helpers';
 
@@ -163,11 +159,25 @@ export const smsNotificationsRouter = createTRPCRouter({
       }
       return result[0];
     }),
+  /**
+   * What to pre-fill the single-message dialog with.
+   *
+   * Shares its reasoning with the bulk grid rather than running its own queries.
+   * When the two were separate they disagreed on ties: the SQL ordered only by
+   * how often a value had been used and left an equal count to Postgres, which
+   * picked the older of two tags. The field names are kept as they were so the
+   * dialog does not have to change.
+   */
   getInsertHints: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const smsNotification = await getSMSNotification(ctx.db, ctx.user.id, input.id);
-      return getHints(ctx.db, smsNotification, ctx.user.id);
+      const subject = await getHintSubject(ctx.db, ctx.user.id, input.id);
+      const hints = await getInsertHintsForOne(ctx.db, ctx.user.id, subject);
+      return {
+        bankIdHint: hints.accountIds,
+        categoryHint: hints.categories,
+        tagsHint: hints.tags,
+      };
     }),
   /**
    * The whole pending queue as editable rows, each pre-filled the way
@@ -182,98 +192,3 @@ export const smsNotificationsRouter = createTRPCRouter({
       bulkInsertFromNotifications(ctx.db, ctx.user.id, input.rows),
     ),
 });
-
-const getSMSNotification = async (db: Database, userId: string, id: string) => {
-  const smsNotification = await db
-    .select()
-    .from(smsNotifications)
-    .where(and(eq(smsNotifications.id, id), eq(smsNotifications.userId, userId)))
-    .limit(1);
-  if (smsNotification.length === 0) {
-    throw new Error('SMS notification not found');
-  }
-  return smsNotification[0];
-};
-
-const recentStatementsQuery = (db: Database, userId: string, where: SQL[]) =>
-  db
-    .select({
-      accountId: statements.accountId,
-      category: statements.category,
-      tags: statements.tags,
-    })
-    .from(smsNotifications)
-    .innerJoin(
-      statements,
-      eq(
-        sql`CAST(${smsNotifications.additionalAttributes}->>'statementId' AS uuid)`,
-        statements.id,
-      ),
-    )
-    .where(and(...where, eq(smsNotifications.userId, userId)))
-    .orderBy(desc(smsNotifications.createdAt))
-    .limit(10)
-    .as('recent_statements');
-
-const getHints = async (db: Database, smsNotification: SMSNotification, userId: string) => {
-  let recentBankNameStatements = recentStatementsQuery(db, userId, [
-    eq(smsNotifications.bankName, smsNotification.bankName),
-  ]);
-  if (
-    smsNotification.accountLast4 !== null &&
-    !isNaN(parseInt(smsNotification.accountLast4)) &&
-    parseInt(smsNotification.accountLast4) > 0
-  ) {
-    recentBankNameStatements = recentStatementsQuery(db, userId, [
-      eq(smsNotifications.accountLast4, smsNotification.accountLast4),
-    ]);
-  }
-  const bankIdHint = (
-    await db
-      .select({
-        accountId: recentBankNameStatements.accountId,
-        cnt: sql<number>`count(*)`,
-      })
-      .from(recentBankNameStatements)
-      .where(sql`${recentBankNameStatements.accountId} is not null`)
-      .groupBy(recentBankNameStatements.accountId)
-      .orderBy(desc(sql`count(*)`))
-  )
-    .map((row) => row.accountId)
-    .filter((id) => id !== null);
-
-  let categoryHint: string[] = [];
-  let tagsHint: string[] = [];
-
-  if (smsNotification.merchant !== null) {
-    const recentMerchantStatements = recentStatementsQuery(db, userId, [
-      eq(smsNotifications.merchant, smsNotification.merchant),
-    ]);
-    const categoryHintValues = await db
-      .select({
-        category: recentMerchantStatements.category,
-        cnt: sql<number>`count(*)`,
-      })
-      .from(recentMerchantStatements)
-      .where(sql`${recentMerchantStatements.category} is not null`)
-      .groupBy(recentMerchantStatements.category)
-      .orderBy(desc(sql`count(*)`));
-    categoryHint = categoryHintValues.map((row) => row.category);
-    const tagsHintValues = await db
-      .select({
-        tag: sql<string>`t.tag`,
-        cnt: sql<number>`count(*)`,
-      })
-      .from(recentMerchantStatements)
-      .innerJoin(sql`LATERAL unnest(${recentMerchantStatements.tags}) AS t(tag)`, sql`true`)
-      .groupBy(sql`t.tag`)
-      .orderBy(desc(sql`count(*)`));
-    tagsHint = tagsHintValues.map((row) => row.tag);
-  }
-
-  return {
-    categoryHint,
-    tagsHint,
-    bankIdHint,
-  };
-};

@@ -14,37 +14,8 @@ import {
   parseGridDate,
   type SmsType,
 } from '@/lib/sms-bulk-import';
-import { buildInsertHints, getHintsFor, type LinkedHistoryEntry } from '@/lib/sms-insert-hints';
-
-/**
- * Every message that has already been entered, newest first, paired with the
- * statement it became.
- *
- * This is the whole training set for the hints, and it is small — one row per
- * message ever filed — so it is cheaper to read once and key it in memory than
- * to ask the database per message. The pool runs at a single connection, which
- * makes a round trip per message expensive in a way a bigger pool would hide.
- */
-const getLinkedHistory = async (db: Database, userId: string): Promise<LinkedHistoryEntry[]> =>
-  db
-    .select({
-      bankName: smsNotifications.bankName,
-      accountLast4: smsNotifications.accountLast4,
-      merchant: smsNotifications.merchant,
-      accountId: statements.accountId,
-      category: statements.category,
-      tags: statements.tags,
-    })
-    .from(smsNotifications)
-    .innerJoin(
-      statements,
-      eq(
-        sql`CAST(${smsNotifications.additionalAttributes}->>'statementId' AS uuid)`,
-        statements.id,
-      ),
-    )
-    .where(eq(smsNotifications.userId, userId))
-    .orderBy(desc(smsNotifications.createdAt));
+import { getHintsFor } from '@/lib/sms-insert-hints';
+import { getInsertHintsForMany } from '@/server/helpers/sms-hints';
 
 /**
  * The pending queue as grid rows, each pre-filled from how messages like it were
@@ -73,7 +44,7 @@ export const getBulkImportRows = instrumentedFunction(
       return [];
     }
 
-    const hintsById = buildInsertHints(await getLinkedHistory(db, userId), pending);
+    const hintsById = await getInsertHintsForMany(db, userId, pending);
 
     return pending.map((notification) =>
       buildInitialRow(
