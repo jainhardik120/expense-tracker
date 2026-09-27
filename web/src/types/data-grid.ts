@@ -31,6 +31,12 @@ export type CellOpts =
   | {
       variant: 'multi-select';
       options: CellSelectOption[];
+      /**
+       * Whether a value not already in `options` can be added by typing it.
+       * Off by default, because for most multi-selects the options are the whole
+       * vocabulary and a typo should not silently become a new one.
+       */
+      creatable?: boolean;
     }
   | {
       variant: 'checkbox';

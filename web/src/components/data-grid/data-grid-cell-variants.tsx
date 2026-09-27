@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { Check, Upload, X } from 'lucide-react';
+import { Check, Plus, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { DataGridCellWrapper } from '@/components/data-grid/data-grid-cell-wrapper';
@@ -971,6 +971,7 @@ export const MultiSelectCell = <TData,>({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const cellOpts = cell.column.columnDef.meta?.cell;
   const options = cellOpts?.variant === 'multi-select' ? cellOpts.options : [];
+  const creatable = cellOpts?.variant === 'multi-select' && cellOpts.creatable === true;
   const sideOffset = -(containerRef.current?.clientHeight ?? 0);
 
   const prevCellValueRef = React.useRef(cellValue);
@@ -1000,6 +1001,27 @@ export const MultiSelectCell = <TData,>({
     },
     [selectedValues, tableMeta, rowIndex, columnId, readOnly],
   );
+
+  // What the user has typed, when it is not already on offer. Compared on the
+  // label so that "food" does not create a second tag next to "Food".
+  const typedValue = searchValue.trim();
+  const canCreate =
+    creatable &&
+    typedValue !== '' &&
+    !options.some((option) => option.label.toLowerCase() === typedValue.toLowerCase());
+
+  const onCreate = React.useCallback(() => {
+    if (readOnly) {
+      return;
+    }
+    const newValues = selectedValues.includes(typedValue)
+      ? selectedValues
+      : [...selectedValues, typedValue];
+    setSelectedValues(newValues);
+    tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: newValues });
+    setSearchValue('');
+    queueMicrotask(() => inputRef.current?.focus());
+  }, [readOnly, selectedValues, typedValue, tableMeta, rowIndex, columnId]);
 
   const removeValue = React.useCallback(
     (valueToRemove: string, event?: React.MouseEvent) => {
@@ -1158,6 +1180,14 @@ export const MultiSelectCell = <TData,>({
               </div>
               <CommandList className="max-h-full">
                 <CommandEmpty>No options found.</CommandEmpty>
+                {canCreate ? (
+                  <CommandGroup>
+                    <CommandItem value={typedValue} onSelect={onCreate}>
+                      <Plus className="size-4" />
+                      <span>Create “{typedValue}”</span>
+                    </CommandItem>
+                  </CommandGroup>
+                ) : null}
                 <CommandGroup className="max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto">
                   {options.map((option) => {
                     const isSelected = selectedValues.includes(option.value);
