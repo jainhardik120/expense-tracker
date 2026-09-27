@@ -10,6 +10,13 @@ import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -91,6 +98,61 @@ const DeleteIncome = ({ id, budgetYearId }: { id: string; budgetYearId: string }
   );
 };
 
+const OpeningBalance = ({ detail }: { detail: Detail }) => {
+  const router = useRouter();
+  const mutation = api.budget.updateYear.useMutation();
+  const { year, lines, openingBalance } = detail;
+  const target = lines.find((line) => line.id === year.openingBalanceLineId);
+
+  return (
+    <div className="rounded-lg border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium">
+            Carried in from last year: {formatCurrency(openingBalance)}
+          </p>
+          <p className="text-muted-foreground text-xs">
+            {target === undefined
+              ? 'Going into the general pot, like salary.'
+              : `Set aside for ${target.name}, so falling short of it shows up there.`}
+          </p>
+        </div>
+        <Select
+          value={year.openingBalanceLineId ?? 'none'}
+          onValueChange={(value) => {
+            mutation.mutate(
+              {
+                id: year.id,
+                name: year.name,
+                startDate: year.startDate,
+                endDate: year.endDate,
+                openingBalanceLineId: value === 'none' ? null : value,
+              },
+              {
+                onSuccess: () => {
+                  router.refresh();
+                },
+              },
+            );
+          }}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">The general pot</SelectItem>
+            {lines.map((line) => (
+              <SelectItem key={line.id} value={line.id}>
+                Set aside for {line.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+};
+
 export const BudgetIncome = ({ detail }: { detail: Detail }) => {
   const router = useRouter();
   const addIncome = api.budget.addIncomeLine.useMutation();
@@ -128,7 +190,8 @@ export const BudgetIncome = ({ detail }: { detail: Detail }) => {
           />
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <OpeningBalance detail={detail} />
         <Table>
           <TableHeader>
             <TableRow>

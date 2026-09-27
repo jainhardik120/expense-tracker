@@ -1,0 +1,1 @@
+ALTER TABLE "budget_years" ADD COLUMN "opening_balance_line_id" uuid;

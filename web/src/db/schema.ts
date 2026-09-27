@@ -474,6 +474,10 @@ export const budgetYears = pgTable('budget_years', {
   name: text('name').notNull(),
   startDate: timestamp('start_date').notNull(),
   endDate: timestamp('end_date').notNull(),
+  // Where what last year finished with is spent. Left unset it joins the general
+  // pot; pointed at a line it funds that line and nothing else, which is how a
+  // leftover earmarked for the flight home can be seen to have fallen short.
+  openingBalanceLineId: uuid('opening_balance_line_id'),
   createdAt: timestamp('created_at')
     .notNull()
     .$defaultFn(() => new Date()),

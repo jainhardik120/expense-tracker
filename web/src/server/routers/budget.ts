@@ -133,6 +133,18 @@ export const budgetRouter = createTRPCRouter({
         0,
       );
 
+      // Last year's leftover is income like any other. Pointed at a line it funds
+      // that line alone, so a shortfall against it is visible; otherwise it joins
+      // the general pot. Either way it is counted exactly once.
+      const earmarkedIncome = new Map(income.earmarked);
+      const openingIsEarmarked = year.openingBalanceLineId !== null;
+      if (year.openingBalanceLineId !== null) {
+        earmarkedIncome.set(
+          year.openingBalanceLineId,
+          (earmarkedIncome.get(year.openingBalanceLineId) ?? 0) + openingBalance,
+        );
+      }
+
       const scheduled = await getScheduledTotals(
         ctx.db,
         ctx.user.id,
@@ -151,14 +163,14 @@ export const budgetRouter = createTRPCRouter({
           allocationAmount: line.allocationAmount,
           discretionary: line.discretionary,
           actual: line.actual,
-          earmarkedIncome: income.earmarked.get(line.lineId) ?? 0,
+          earmarkedIncome: earmarkedIncome.get(line.lineId) ?? 0,
           scheduled: scheduled.get(line.lineId) ?? { year: 0, toDate: 0, remaining: 0 },
           pacePerMonth: cyclesElapsed > 0 ? line.actual / cyclesElapsed : 0,
         })),
         income.waterfall,
         cyclesElapsed,
         cyclesTotal,
-        openingBalance,
+        openingIsEarmarked ? 0 : openingBalance,
         monthsRemaining,
       );
       return {
@@ -169,6 +181,7 @@ export const budgetRouter = createTRPCRouter({
         projection,
         // Cash facts for context; every projection comes from `projection`.
         balanceToday,
+        openingBalance,
         incomeCyclesRemaining,
         monthlyIncome: cyclesElapsed > 0 ? income.waterfall / cyclesElapsed : 0,
         cycles: summariseByCycle(lines, scoped, year.startDate.getDate()),

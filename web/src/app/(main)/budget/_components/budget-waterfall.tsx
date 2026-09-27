@@ -240,7 +240,6 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
               <TableHead className="text-right">Year budget</TableHead>
               <TableHead className="text-right">Actual</TableHead>
               <TableHead className="text-right">Remaining</TableHead>
-              <TableHead className="text-right">Per month</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -268,9 +267,7 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
                 >
                   {formatCurrency(projected.get(line.lineId)?.remaining ?? 0)}
                 </TableCell>
-                <TableCell className="text-muted-foreground text-right tabular-nums">
-                  {formatCurrency(projected.get(line.lineId)?.perMonthRemaining ?? 0)}
-                </TableCell>
+
                 <TableCell>
                   <div className="flex justify-end">
                     <MoveLine budgetYearId={year.id} index={index} orderedIds={orderedIds} />
