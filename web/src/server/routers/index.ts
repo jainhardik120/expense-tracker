@@ -13,6 +13,7 @@ import { salaryRouter } from './salary';
 import { smsNotificationsRouter } from './sms-notifications';
 import { statementsRouter } from './statements';
 import { summaryRouter } from './summary';
+import { widgetRouter } from './widget';
 
 import type { inferRouterOutputs } from '@trpc/server';
 
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
   friends: friendsRouter,
   statements: statementsRouter,
   summary: summaryRouter,
+  widget: widgetRouter,
   budget: budgetRouter,
   bulkImport: bulkImportRouter,
   investments: investmentsRouter,
