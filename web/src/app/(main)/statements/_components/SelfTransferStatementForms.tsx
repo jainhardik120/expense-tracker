@@ -121,10 +121,7 @@ export const UpdateSelfTransferStatementForm = ({
       mutation={{
         ...mutation,
         mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            id: statementId,
-            createSelfTransferSchema: values,
-          });
+          return mutation.mutateAsync({ ...values, id: statementId });
         },
       }}
       refresh={refresh}

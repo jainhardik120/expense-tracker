@@ -181,10 +181,7 @@ export const UpdateStatementForm = ({
       mutation={{
         ...mutation,
         mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            id: statementId,
-            createStatementSchema: values,
-          });
+          return mutation.mutateAsync({ ...values, id: statementId });
         },
       }}
       refresh={refresh}

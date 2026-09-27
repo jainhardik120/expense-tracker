@@ -157,21 +157,15 @@ const Table = ({
             }
             if (isSelfTransfer(droppedItem.item)) {
               await updateSelfTransferStatement.mutateAsync({
-                id: droppedItem.item.id,
-                createSelfTransferSchema: {
-                  ...droppedItem.item,
-                  createdAt: updatedTimestamp,
-                },
+                ...droppedItem.item,
+                createdAt: updatedTimestamp,
               });
             } else {
               await updateStatement.mutateAsync({
-                id: droppedItem.item.id,
-                createStatementSchema: {
-                  ...droppedItem.item,
-                  createdAt: updatedTimestamp,
-                  accountId: droppedItem.item.accountId ?? undefined,
-                  friendId: droppedItem.item.friendId ?? undefined,
-                },
+                ...droppedItem.item,
+                createdAt: updatedTimestamp,
+                accountId: droppedItem.item.accountId ?? undefined,
+                friendId: droppedItem.item.friendId ?? undefined,
               });
             }
             toast.success('Statement updated successfully');

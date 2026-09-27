@@ -169,40 +169,43 @@ export const statementsRouter = createTRPCRouter({
         .returning({ id: statements.id });
     }),
   updateStatement: protectedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        createStatementSchema,
-      }),
-    )
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/statements/{id}',
+      },
+    })
+    .input(createStatementSchema.extend({ id: z.string() }))
+    .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
+      const { id, ...fields } = input;
       const currentStatement = (
         await ctx.db
           .select({ amount: statements.amount, taxableAmount: statements.taxableAmount })
           .from(statements)
-          .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)))
+          .where(and(eq(statements.id, id), eq(statements.userId, ctx.user.id)))
           .limit(1)
       ).at(0);
       if (currentStatement === undefined) {
         throw new Error('Statement not found');
       }
       if (
-        input.createStatementSchema.accountId !== undefined &&
-        input.createStatementSchema.accountId !== '' &&
-        !(await accountBelongToUser(input.createStatementSchema.accountId, ctx.user.id, ctx.db))
+        fields.accountId !== undefined &&
+        fields.accountId !== '' &&
+        !(await accountBelongToUser(fields.accountId, ctx.user.id, ctx.db))
       ) {
         throw new Error(ACCOUNT_NOT_FOUND_ERROR);
       }
       if (
-        input.createStatementSchema.friendId !== undefined &&
-        input.createStatementSchema.friendId !== '' &&
-        !(await friendBelongToUser(input.createStatementSchema.friendId, ctx.user.id, ctx.db))
+        fields.friendId !== undefined &&
+        fields.friendId !== '' &&
+        !(await friendBelongToUser(fields.friendId, ctx.user.id, ctx.db))
       ) {
         throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
-      const nextAmount = Number(input.createStatementSchema.amount);
+      const nextAmount = Number(fields.amount);
       const remainsTaxableCandidate =
-        input.createStatementSchema.statementKind === 'outside_transaction' && nextAmount > 0;
+        fields.statementKind === 'outside_transaction' && nextAmount > 0;
       let { taxableAmount } = currentStatement;
       if (!remainsTaxableCandidate) {
         taxableAmount = null;
@@ -210,7 +213,7 @@ export const statementsRouter = createTRPCRouter({
         const previousAmount = Number(currentStatement.amount);
         const previousTaxableAmount = Number(taxableAmount);
         if (previousTaxableAmount === previousAmount) {
-          taxableAmount = input.createStatementSchema.amount;
+          taxableAmount = fields.amount;
         } else if (previousTaxableAmount > nextAmount) {
           taxableAmount = null;
         }
@@ -218,20 +221,14 @@ export const statementsRouter = createTRPCRouter({
       return ctx.db
         .update(statements)
         .set({
-          ...input.createStatementSchema,
+          ...fields,
           taxableAmount,
           accountId:
-            input.createStatementSchema.accountId === undefined ||
-            input.createStatementSchema.accountId === ''
-              ? null
-              : input.createStatementSchema.accountId,
+            fields.accountId === undefined || fields.accountId === '' ? null : fields.accountId,
           friendId:
-            input.createStatementSchema.friendId === undefined ||
-            input.createStatementSchema.friendId === ''
-              ? null
-              : input.createStatementSchema.friendId,
+            fields.friendId === undefined || fields.friendId === '' ? null : fields.friendId,
         })
-        .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)))
+        .where(and(eq(statements.id, id), eq(statements.userId, ctx.user.id)))
         .returning({ id: statements.id });
     }),
   updateTaxableIncome: protectedProcedure
@@ -310,35 +307,27 @@ export const statementsRouter = createTRPCRouter({
         .returning({ id: statements.id });
     }),
   updateSelfTransferStatement: protectedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        createSelfTransferSchema,
-      }),
-    )
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/statements/self-transfer/{id}',
+      },
+    })
+    .input(createSelfTransferSchema.extend({ id: z.string() }))
+    .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
+      const { id, ...fields } = input;
       if (
-        !(await accountBelongToUser(
-          input.createSelfTransferSchema.fromAccountId,
-          ctx.user.id,
-          ctx.db,
-        )) ||
-        !(await accountBelongToUser(
-          input.createSelfTransferSchema.toAccountId,
-          ctx.user.id,
-          ctx.db,
-        ))
+        !(await accountBelongToUser(fields.fromAccountId, ctx.user.id, ctx.db)) ||
+        !(await accountBelongToUser(fields.toAccountId, ctx.user.id, ctx.db))
       ) {
         throw new Error(ACCOUNT_NOT_FOUND_ERROR);
       }
       return ctx.db
         .update(selfTransferStatements)
-        .set(input.createSelfTransferSchema)
+        .set(fields)
         .where(
-          and(
-            eq(selfTransferStatements.id, input.id),
-            eq(selfTransferStatements.userId, ctx.user.id),
-          ),
+          and(eq(selfTransferStatements.id, id), eq(selfTransferStatements.userId, ctx.user.id)),
         )
         .returning({ id: selfTransferStatements.id });
     }),
