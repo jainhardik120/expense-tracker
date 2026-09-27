@@ -33,6 +33,10 @@ import {
 const ACCOUNT_NOT_FOUND_ERROR = 'Account not found';
 const FRIEND_NOT_FOUND_ERROR = 'Friend not found';
 
+/** Absence arrives as undefined, null or '' depending on the caller; store null. */
+const asOptionalId = (value: string | null | undefined) =>
+  value === undefined || value === null || value === '' ? null : value;
+
 export const statementsRouter = createTRPCRouter({
   getCategories: protectedProcedure
     .input(
@@ -143,18 +147,12 @@ export const statementsRouter = createTRPCRouter({
     .input(createStatementSchema)
     .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
-      if (
-        input.accountId !== undefined &&
-        input.accountId !== '' &&
-        !(await accountBelongToUser(input.accountId, ctx.user.id, ctx.db))
-      ) {
+      const accountId = asOptionalId(input.accountId);
+      const friendId = asOptionalId(input.friendId);
+      if (accountId !== null && !(await accountBelongToUser(accountId, ctx.user.id, ctx.db))) {
         throw new Error(ACCOUNT_NOT_FOUND_ERROR);
       }
-      if (
-        input.friendId !== undefined &&
-        input.friendId !== '' &&
-        !(await friendBelongToUser(input.friendId, ctx.user.id, ctx.db))
-      ) {
+      if (friendId !== null && !(await friendBelongToUser(friendId, ctx.user.id, ctx.db))) {
         throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
       return ctx.db
@@ -162,9 +160,8 @@ export const statementsRouter = createTRPCRouter({
         .values({
           userId: ctx.user.id,
           ...input,
-          accountId:
-            input.accountId === undefined || input.accountId === '' ? null : input.accountId,
-          friendId: input.friendId === undefined || input.friendId === '' ? null : input.friendId,
+          accountId,
+          friendId,
         })
         .returning({ id: statements.id });
     }),
@@ -189,18 +186,12 @@ export const statementsRouter = createTRPCRouter({
       if (currentStatement === undefined) {
         throw new Error('Statement not found');
       }
-      if (
-        fields.accountId !== undefined &&
-        fields.accountId !== '' &&
-        !(await accountBelongToUser(fields.accountId, ctx.user.id, ctx.db))
-      ) {
+      const accountId = asOptionalId(fields.accountId);
+      const friendId = asOptionalId(fields.friendId);
+      if (accountId !== null && !(await accountBelongToUser(accountId, ctx.user.id, ctx.db))) {
         throw new Error(ACCOUNT_NOT_FOUND_ERROR);
       }
-      if (
-        fields.friendId !== undefined &&
-        fields.friendId !== '' &&
-        !(await friendBelongToUser(fields.friendId, ctx.user.id, ctx.db))
-      ) {
+      if (friendId !== null && !(await friendBelongToUser(friendId, ctx.user.id, ctx.db))) {
         throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
       const nextAmount = Number(fields.amount);
@@ -223,10 +214,8 @@ export const statementsRouter = createTRPCRouter({
         .set({
           ...fields,
           taxableAmount,
-          accountId:
-            fields.accountId === undefined || fields.accountId === '' ? null : fields.accountId,
-          friendId:
-            fields.friendId === undefined || fields.friendId === '' ? null : fields.friendId,
+          accountId,
+          friendId,
         })
         .where(and(eq(statements.id, id), eq(statements.userId, ctx.user.id)))
         .returning({ id: statements.id });

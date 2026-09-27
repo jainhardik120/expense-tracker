@@ -68,8 +68,11 @@ export const createStatementSchema = z.object({
   amount: amount,
   category: z.string().min(1),
   tags: z.string().array(),
-  accountId: z.string().optional(),
-  friendId: z.string().optional(),
+  // Nullable as well as optional: a REST client saying "no account" says it
+  // with null, and a form that has been cleared holds ''. All three mean the
+  // same absence, which the handlers store as null.
+  accountId: z.string().nullish(),
+  friendId: z.string().nullish(),
   statementKind: z.enum(statementKindEnum.enumValues),
   createdAt: z.date(),
 });
