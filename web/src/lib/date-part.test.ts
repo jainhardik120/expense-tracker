@@ -58,7 +58,7 @@ test('does not mutate the base date', () => {
   assert.equal(stamp(base), '2026-9-26-14-30-15');
 });
 
-test('a zoned date part replaces the day the user was shown, not the server\'s', () => {
+test("a zoned date part replaces the day the user was shown, not the server's", () => {
   // 18:58 UTC on 16 Sep is 00:28 on 17 Sep in IST. Leaving the grid's date
   // alone has to leave the instant alone.
   const base = new Date('2026-09-16T18:58:19.000Z');

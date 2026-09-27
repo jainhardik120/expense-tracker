@@ -79,7 +79,11 @@ test('money leaving for an investment becomes a negative outside transaction', (
 
 test('the sign comes from the message type, not from the stored amount', () => {
   // Messages always report a magnitude; a stray sign should not flip the meaning.
-  const row = buildInitialRow(notification({ type: 'investment', amount: '-450.5' }), NO_HINTS, IST);
+  const row = buildInitialRow(
+    notification({ type: 'investment', amount: '-450.5' }),
+    NO_HINTS,
+    IST,
+  );
   assert.equal(row.amount, -450.5);
 });
 
@@ -108,7 +112,7 @@ test('a row with nothing to go on starts blank but included', () => {
   assert.equal(getRowProblem(row), CATEGORY_REQUIRED);
 });
 
-test('the grid date is the day the message arrived in the reader\'s timezone', () => {
+test("the grid date is the day the message arrived in the reader's timezone", () => {
   // 18:15 UTC on the 30th is 23:45 on the 30th in IST.
   const row = buildInitialRow(
     notification({ createdAt: new Date(Date.UTC(2026, 8, 30, 18, 15, 0)) }),
@@ -185,7 +189,10 @@ test('an outside transaction needs an account and no friend', () => {
 test('a friend transaction needs a friend', () => {
   const friend = { statementKind: 'friend_transaction' } as const;
   assert.equal(getFieldsProblem(fields({ ...friend, friendId: 'friend-a' })), null);
-  assert.equal(getFieldsProblem(fields({ ...friend, friendId: '' })), 'Pick the friend this was with');
+  assert.equal(
+    getFieldsProblem(fields({ ...friend, friendId: '' })),
+    'Pick the friend this was with',
+  );
 });
 
 test('a row needs a category and a non-zero amount', () => {
@@ -270,7 +277,10 @@ test('adding a tag a row already has changes nothing', () => {
 });
 
 test('the tag menu keeps history order and appends what the user created', () => {
-  const rows = [gridRow({ id: 'a', tags: ['Curd', 'Kachori'] }), gridRow({ id: 'b', tags: ['Bhel'] })];
+  const rows = [
+    gridRow({ id: 'a', tags: ['Curd', 'Kachori'] }),
+    gridRow({ id: 'b', tags: ['Bhel'] }),
+  ];
   // History order is by how often each was used, so it must not be re-sorted.
   assert.deepEqual(collectTagOptions(rows, ['Curd', 'Dosa']), ['Curd', 'Dosa', 'Bhel', 'Kachori']);
 });

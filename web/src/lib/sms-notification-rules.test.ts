@@ -13,7 +13,6 @@ const HOLDER = 'Hardik Jain';
 const UPPERCASED = 'HARDIK JAIN';
 
 describe('isOwnAccountTransfer', () => {
-
   it('matches the account holder however the bank cased or padded it', () => {
     assert.equal(isOwnAccountTransfer(UPPERCASED, HOLDER), true);
     assert.equal(isOwnAccountTransfer('Hardik  Jain', HOLDER), true);
@@ -50,7 +49,6 @@ describe('isOwnAccountTransfer', () => {
 });
 
 describe('resolveSmsType', () => {
-
   it('calls both legs of a self transfer a transfer', () => {
     assert.equal(resolveSmsType('expense', UPPERCASED, HOLDER), 'transfer');
     assert.equal(resolveSmsType('income', UPPERCASED, HOLDER), 'transfer');

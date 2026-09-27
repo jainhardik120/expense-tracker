@@ -21,13 +21,7 @@ const { registry } = defineRegistry(reportViewCatalog, {
  * total or decides what a row means; this only draws what it is handed, which
  * is why the page and the download cannot drift apart.
  */
-export const ReportView = ({
-  spec,
-  data,
-}: {
-  spec: Spec;
-  data: Record<string, unknown>;
-}) => (
+export const ReportView = ({ spec, data }: { spec: Spec; data: Record<string, unknown> }) => (
   <JSONUIProvider initialState={data} registry={registry}>
     <Renderer registry={registry} spec={spec} />
   </JSONUIProvider>

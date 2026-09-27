@@ -104,7 +104,9 @@ export const proxy = async (request: NextRequest) => {
   );
   if (session === null) {
     const redirectUri = encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search);
-    return apply(NextResponse.redirect(new URL(`/auth/login?redirect=${redirectUri}`, request.url)));
+    return apply(
+      NextResponse.redirect(new URL(`/auth/login?redirect=${redirectUri}`, request.url)),
+    );
   }
   if (requiresAdmin && session.user.role !== 'admin') {
     return apply(NextResponse.redirect(new URL(`/403`, request.url)));

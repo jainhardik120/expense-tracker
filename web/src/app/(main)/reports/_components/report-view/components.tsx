@@ -116,7 +116,12 @@ export const reportViewComponents = {
   },
   Text: ({
     props,
-  }: Props<{ text: string; fontSize?: number | null; align?: string | null; color?: string | null }>) =>
+  }: Props<{
+    text: string;
+    fontSize?: number | null;
+    align?: string | null;
+    color?: string | null;
+  }>) =>
     props.text === '' ? null : (
       <p className={cn('text-muted-foreground text-sm', alignClass(props.align))}>{props.text}</p>
     ),
@@ -127,7 +132,12 @@ export const reportViewComponents = {
   ),
   Image: ({ props }: Props<{ src: string; width?: number | null; height?: number | null }>) => (
     // eslint-disable-next-line @next/next/no-img-element
-    <img alt="" height={props.height ?? undefined} src={props.src} width={props.width ?? undefined} />
+    <img
+      alt=""
+      height={props.height ?? undefined}
+      src={props.src}
+      width={props.width ?? undefined}
+    />
   ),
   List: ({ props }: Props<{ items: string[]; ordered?: boolean | null }>) => {
     const Tag = props.ordered === true ? 'ol' : 'ul';
@@ -142,10 +152,7 @@ export const reportViewComponents = {
   },
 
   // ----------------------------------------------------------------- panels ---
-  Section: ({
-    props,
-    children,
-  }: Props<{ title?: string | null; subtitle?: string | null }>) => (
+  Section: ({ props, children }: Props<{ title?: string | null; subtitle?: string | null }>) => (
     <Card>
       {blank(props.title) ? null : (
         <CardHeader>
@@ -165,7 +172,9 @@ export const reportViewComponents = {
     <div className="bg-card rounded-lg border p-3">
       <p className="text-muted-foreground text-xs tracking-wide uppercase">{props.label}</p>
       <p className={cn('text-xl font-semibold', toneClass(props.tone))}>{props.value}</p>
-      {blank(props.hint) ? null : <p className="text-muted-foreground mt-1 text-xs">{props.hint}</p>}
+      {blank(props.hint) ? null : (
+        <p className="text-muted-foreground mt-1 text-xs">{props.hint}</p>
+      )}
     </div>
   ),
   Callout: ({ props }: Props<{ text: string; tone?: string | null }>) =>

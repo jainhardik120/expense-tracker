@@ -428,7 +428,10 @@ const getMySplitPercentage = (emi: Emi): number => {
     attributes.splits === undefined
       ? []
       : (attributes.splits as Array<{ friendId: string; percentage: string }>);
-  const friendSplitPercentage = splits.reduce((sum, split) => sum + parseFloat(split.percentage), 0);
+  const friendSplitPercentage = splits.reduce(
+    (sum, split) => sum + parseFloat(split.percentage),
+    0,
+  );
   return PERCENTAGE_DIVISOR - friendSplitPercentage;
 };
 

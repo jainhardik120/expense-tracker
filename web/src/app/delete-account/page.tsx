@@ -15,9 +15,9 @@ export default function DeleteAccountPage() {
       eyebrow="Expense Tracker"
       intro={
         <p>
-            If you want your Expense Tracker account and associated cloud data removed, send a
-            deletion request from the email address associated with your account.
-          </p>
+          If you want your Expense Tracker account and associated cloud data removed, send a
+          deletion request from the email address associated with your account.
+        </p>
       }
       sections={[
         {
@@ -45,20 +45,20 @@ export default function DeleteAccountPage() {
           title: 'What Gets Deleted',
           body: (
             <p>
-                We will delete your account profile and data associated with Expense Tracker,
-                including synced transaction records, account entries, friend entries, and related
-                app data stored for your account.
-              </p>
+              We will delete your account profile and data associated with Expense Tracker,
+              including synced transaction records, account entries, friend entries, and related app
+              data stored for your account.
+            </p>
           ),
         },
         {
           title: 'Retention Exceptions',
           body: (
             <p>
-                Minimal records may be retained where required for security, fraud prevention,
-                abuse handling, or legal compliance. Backups may persist for a limited period before
-                expiring naturally.
-              </p>
+              Minimal records may be retained where required for security, fraud prevention, abuse
+              handling, or legal compliance. Backups may persist for a limited period before
+              expiring naturally.
+            </p>
           ),
         },
       ]}

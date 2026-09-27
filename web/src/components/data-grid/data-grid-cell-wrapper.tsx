@@ -77,8 +77,7 @@ export const DataGridCellWrapper = <TData,>({
 
       // A held modifier means the click is about the selection — extending it or
       // toggling this cell out of it — so it must never open an editor.
-      const isPlainClick =
-        !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+      const isPlainClick = !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
       const shouldEdit = !readOnly && isPlainClick && (isFocused || opensOnSingleClick);
 
       if (shouldEdit) {

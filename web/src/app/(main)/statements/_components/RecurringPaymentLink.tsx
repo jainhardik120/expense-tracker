@@ -224,7 +224,9 @@ const LinkToRecurringPaymentContent = ({
             <div className="text-muted-foreground text-sm">
               Instalment {candidate.installmentNo} of {candidate.tenure}
               {candidate.amount === null ? null : ` · ${formatCurrency(candidate.amount)}`}
-              {candidate.scheduledDate === null ? null : ` · due ${formatDate(candidate.scheduledDate)}`}
+              {candidate.scheduledDate === null
+                ? null
+                : ` · due ${formatDate(candidate.scheduledDate)}`}
             </div>
           </div>
           <Button

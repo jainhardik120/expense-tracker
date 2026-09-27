@@ -22,7 +22,9 @@ export const LegalShell = ({
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(242,97,69,0.16),_transparent_40%),linear-gradient(180deg,_#fff7f3_0%,_#ffffff_35%,_#fff5ef_100%)] text-slate-950">
       <div className="mx-auto flex max-w-4xl flex-col gap-10 px-6 py-12 sm:px-10 sm:py-16">
         <header className="rounded-[2rem] border border-white/70 bg-white/80 p-8 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.35)] backdrop-blur">
-          <p className="text-sm font-semibold uppercase tracking-[0.3em] text-rose-600">{eyebrow}</p>
+          <p className="text-sm font-semibold tracking-[0.3em] text-rose-600 uppercase">
+            {eyebrow}
+          </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
             {title}
           </h1>

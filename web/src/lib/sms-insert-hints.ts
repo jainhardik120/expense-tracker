@@ -126,7 +126,9 @@ export const buildInsertHints = (
 
     // Category and tags only have a key when the message names a merchant.
     const merchantSource =
-      subject.merchant === null ? [] : (byMerchant.get(subject.merchant) ?? []).slice(0, HISTORY_WINDOW);
+      subject.merchant === null
+        ? []
+        : (byMerchant.get(subject.merchant) ?? []).slice(0, HISTORY_WINDOW);
 
     const categories = rankByFrequency(
       merchantSource

@@ -86,8 +86,7 @@ const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
       {
         id: 'linkedStatementDate',
         header: 'Actual Payment',
-        accessorFn: (row: ScheduleEntry) =>
-          zoned(row.linkedStatementDate, DATE_FORMAT),
+        accessorFn: (row: ScheduleEntry) => zoned(row.linkedStatementDate, DATE_FORMAT),
       },
       {
         id: 'linkedStatementAmount',

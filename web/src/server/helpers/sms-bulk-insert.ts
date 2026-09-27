@@ -167,9 +167,7 @@ export const bulkInsertFromNotifications = instrumentedFunction(
       const importable = rows.filter((row) => timestampById.has(row.id));
 
       if (importable.length === 0) {
-        throw new Error(
-          'None of these are pending any more — reload to see where they ended up',
-        );
+        throw new Error('None of these are pending any more — reload to see where they ended up');
       }
 
       // The statement ids are chosen here rather than read back, so each message
@@ -211,8 +209,7 @@ export const bulkInsertFromNotifications = instrumentedFunction(
       // much as the statement itself.
       const pairs = sql.join(
         linked.map(
-          ({ notificationId, statementId }) =>
-            sql`(${notificationId}::uuid, ${statementId}::text)`,
+          ({ notificationId, statementId }) => sql`(${notificationId}::uuid, ${statementId}::text)`,
         ),
         sql`, `,
       );

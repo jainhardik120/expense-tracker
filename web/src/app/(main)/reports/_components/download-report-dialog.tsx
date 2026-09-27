@@ -99,9 +99,12 @@ export const DownloadReportDialog = ({ boundaries }: { boundaries: Boundary[] })
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="report-from">From boundary</Label>
-            <Select value={from} onValueChange={(next) => {
+            <Select
+              value={from}
+              onValueChange={(next) => {
                 setSpan({ from: next, to });
-              }}>
+              }}
+            >
               <SelectTrigger id="report-from">
                 <SelectValue placeholder="Start" />
               </SelectTrigger>
@@ -116,9 +119,12 @@ export const DownloadReportDialog = ({ boundaries }: { boundaries: Boundary[] })
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="report-to">To boundary</Label>
-            <Select value={to} onValueChange={(next) => {
+            <Select
+              value={to}
+              onValueChange={(next) => {
                 setSpan({ from, to: next });
-              }}>
+              }}
+            >
               <SelectTrigger id="report-to">
                 <SelectValue placeholder="End" />
               </SelectTrigger>

@@ -28,9 +28,7 @@ export default function PrivacyPage() {
             manage shared expenses with friends. This policy explains what information the app
             processes, why it is used, and how you can contact us.
           </p>
-          <p>
-            Effective date: March 14, 2026.
-          </p>
+          <p>Effective date: March 14, 2026.</p>
         </>
       }
       sections={[
@@ -103,28 +101,31 @@ export default function PrivacyPage() {
           title: 'Your Choices',
           body: (
             <p>
-                You can revoke SMS or notification permissions from Android settings at any time.
-                You can also contact us to request account deletion using the instructions on the{' '}
-                <Link className="font-medium text-rose-700 underline underline-offset-4" href="/delete-account">
-                  account deletion page
-                </Link>
-                .
-              </p>
+              You can revoke SMS or notification permissions from Android settings at any time. You
+              can also contact us to request account deletion using the instructions on the{' '}
+              <Link
+                className="font-medium text-rose-700 underline underline-offset-4"
+                href="/delete-account"
+              >
+                account deletion page
+              </Link>
+              .
+            </p>
           ),
         },
         {
           title: 'Contact',
           body: (
             <p>
-                For privacy questions, email{' '}
-                <a
-                  className="font-medium text-rose-700 underline underline-offset-4"
-                  href={`mailto:${CONTACT_EMAIL}`}
-                >
-                  {CONTACT_EMAIL}
-                </a>
-                .
-              </p>
+              For privacy questions, email{' '}
+              <a
+                className="font-medium text-rose-700 underline underline-offset-4"
+                href={`mailto:${CONTACT_EMAIL}`}
+              >
+                {CONTACT_EMAIL}
+              </a>
+              .
+            </p>
           ),
         },
       ]}

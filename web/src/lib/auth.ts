@@ -52,7 +52,10 @@ export const auth = betterAuth({
         `${getBaseUrl()}`,
         ...[
           env.NODE_ENV === 'development'
-            ? [`https://local-dev-mac.hardikja.in`, `https://local-dev-mac.hardikja.in/api/external`]
+            ? [
+                `https://local-dev-mac.hardikja.in`,
+                `https://local-dev-mac.hardikja.in/api/external`,
+              ]
             : [],
         ].flat(),
       ],

@@ -466,7 +466,9 @@ export const TaxProjectionDialog = ({ data }: { data: SalaryData }) => {
                 {tax.slabs.map((slab) => (
                   <TableRow key={slab.lower}>
                     <TableCell>{formatSlabRange(slab.lower, slab.upper)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{slab.rate * PERCENTAGE_DIVISOR}%</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {slab.rate * PERCENTAGE_DIVISOR}%
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatCurrency(slab.taxableAmount)}
                     </TableCell>

@@ -18,7 +18,10 @@ export default function TermsPage() {
       footer={
         <p>
           Questions about these terms can be sent to{' '}
-          <a className="font-medium text-rose-300 underline underline-offset-4" href={`mailto:${CONTACT_EMAIL}`}>
+          <a
+            className="font-medium text-rose-300 underline underline-offset-4"
+            href={`mailto:${CONTACT_EMAIL}`}
+          >
             {CONTACT_EMAIL}
           </a>
           .
@@ -30,9 +33,7 @@ export default function TermsPage() {
             These terms govern your use of Expense Tracker on Android and the web. By using the
             service, you agree to these terms.
           </p>
-          <p>
-            Effective date: March 14, 2026.
-          </p>
+          <p>Effective date: March 14, 2026.</p>
         </>
       }
       sections={[
@@ -46,8 +47,8 @@ export default function TermsPage() {
                 messages, and review summaries.
               </p>
               <p>
-                You are responsible for keeping your account credentials secure and for the
-                accuracy of any information you enter or import.
+                You are responsible for keeping your account credentials secure and for the accuracy
+                of any information you enter or import.
               </p>
             </>
           ),
@@ -56,41 +57,44 @@ export default function TermsPage() {
           title: 'Acceptable Use',
           body: (
             <p>
-                You may not use Expense Tracker to break the law, interfere with service
-                availability, access another person&apos;s data without permission, or reverse
-                engineer the service in a way that harms the platform or other users.
-              </p>
+              You may not use Expense Tracker to break the law, interfere with service availability,
+              access another person&apos;s data without permission, or reverse engineer the service
+              in a way that harms the platform or other users.
+            </p>
           ),
         },
         {
           title: 'No Financial Advice',
           body: (
             <p>
-                Expense Tracker provides organization and reporting tools only. It does not provide
-                legal, tax, investment, or financial advice, and you should verify all important
-                decisions independently.
-              </p>
+              Expense Tracker provides organization and reporting tools only. It does not provide
+              legal, tax, investment, or financial advice, and you should verify all important
+              decisions independently.
+            </p>
           ),
         },
         {
           title: 'Availability and Changes',
           body: (
             <p>
-                We may update, suspend, or discontinue features as the product evolves. We may also
-                update these terms when required by product, legal, or operational changes.
-              </p>
+              We may update, suspend, or discontinue features as the product evolves. We may also
+              update these terms when required by product, legal, or operational changes.
+            </p>
           ),
         },
         {
           title: 'Account Closure',
           body: (
             <p>
-                You can request account deletion at any time using the instructions on the{' '}
-                <Link className="font-medium text-rose-700 underline underline-offset-4" href="/delete-account">
-                  account deletion page
-                </Link>
-                .
-              </p>
+              You can request account deletion at any time using the instructions on the{' '}
+              <Link
+                className="font-medium text-rose-700 underline underline-offset-4"
+                href="/delete-account"
+              >
+                account deletion page
+              </Link>
+              .
+            </p>
           ),
         },
       ]}

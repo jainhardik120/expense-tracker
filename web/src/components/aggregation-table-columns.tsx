@@ -82,10 +82,7 @@ export const aggregationTableColumns = (
           <HoverCardTrigger asChild>
             {/* The figure combines outside and friend transactions, so the
                 drill-down has to include both kinds to reconcile. */}
-            <DrilldownLink
-              kinds={['outside_transaction', 'friend_transaction']}
-              row={row.original}
-            >
+            <DrilldownLink kinds={['outside_transaction', 'friend_transaction']} row={row.original}>
               {(
                 row.original.totalAccountsSummary.outsideTransactions +
                 row.original.totalAccountsSummary.friendTransactions -

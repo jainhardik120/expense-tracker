@@ -112,7 +112,13 @@ const readOnlyColumn = (
  * status column — this selection is dropped by the grid the moment a cell is
  * clicked, so it could not safely stand for "import this".
  */
-const SelectRowCell = ({ row, table }: { row: Row<BulkImportRow>; table: Table<BulkImportRow> }) => {
+const SelectRowCell = ({
+  row,
+  table,
+}: {
+  row: Row<BulkImportRow>;
+  table: Table<BulkImportRow>;
+}) => {
   const shiftHeld = useRef(false);
   const { meta } = table.options;
   return (
@@ -202,8 +208,7 @@ const createBulkImportColumns = ({
       <Checkbox
         aria-label="Select every row"
         checked={
-          table.getIsAllRowsSelected() ||
-          (table.getIsSomeRowsSelected() ? 'indeterminate' : false)
+          table.getIsAllRowsSelected() || (table.getIsSomeRowsSelected() ? 'indeterminate' : false)
         }
         onCheckedChange={(checked) => {
           table.toggleAllRowsSelected(checked === true);
@@ -281,9 +286,7 @@ export const BulkImportGrid = ({
   const mutation = api.smsNotifications.bulkImport.useMutation();
 
   const onIncludeChange = useCallback((id: string, include: boolean) => {
-    setRows((current) =>
-      current.map((row) => (row.id === id ? { ...row, include } : row)),
-    );
+    setRows((current) => current.map((row) => (row.id === id ? { ...row, include } : row)));
   }, []);
 
   // History gives the starting vocabulary; anything typed into a row since is
@@ -414,9 +417,7 @@ export const BulkImportGrid = ({
               {readiness.problems.length} need{readiness.problems.length === 1 ? 's' : ''} attention
             </Badge>
           ) : null}
-          <span className="text-muted-foreground">
-            Net {formatCurrency(net, rows[0].currency)}
-          </span>
+          <span className="text-muted-foreground">Net {formatCurrency(net, rows[0].currency)}</span>
         </div>
         <Button disabled={!readiness.canImport || mutation.isPending} onClick={onImport}>
           {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
