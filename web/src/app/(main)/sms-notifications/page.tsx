@@ -1,5 +1,9 @@
+import Link from 'next/link';
+
+import { Rows3 } from 'lucide-react';
 import { createLoader, type SearchParams } from 'nuqs/server';
 
+import { Button } from '@/components/ui/button';
 import { api } from '@/server/server';
 import { smsNotificationParser } from '@/types';
 
@@ -25,6 +29,14 @@ export default async function SmsNotificationsPage({
   return (
     <div className="flex flex-col gap-4">
       <PendingEstimate estimate={estimate} />
+      {estimate.count > 0 ? (
+        <Button asChild className="w-fit" variant="outline">
+          <Link href="/sms-notifications/bulk-import">
+            <Rows3 className="size-4" />
+            Bulk import {estimate.count} pending
+          </Link>
+        </Button>
+      ) : null}
       <Table accountsData={accounts} categories={categories} data={data} friendsData={friends} />
     </div>
   );
