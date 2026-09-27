@@ -3,7 +3,13 @@
 import { type ReactNode, type Ref, useEffect, useId, useImperativeHandle, useRef } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm, type UseFormReturn, type FieldValues, type DefaultValues } from 'react-hook-form';
+import {
+  useForm,
+  useWatch,
+  type UseFormReturn,
+  type FieldValues,
+  type DefaultValues,
+} from 'react-hook-form';
 
 import {
   type FormField,
@@ -38,17 +44,24 @@ export type DynamicFormProps<Input extends FieldValues, Output extends FieldValu
   submissionError?: string;
 };
 
-const DynamicForm = <T extends FieldValues, U extends FieldValues>(
-  props: DynamicFormProps<T, U>,
-) => {
-  const { defaultValues } = props;
-
+const DynamicForm = <T extends FieldValues, U extends FieldValues>({
+  schema,
+  onSubmit,
+  defaultValues,
+  fields,
+  submitButtonText,
+  submitButtonDisabled,
+  FormFooter,
+  showSubmitButton,
+  ref,
+  className,
+}: DynamicFormProps<T, U>) => {
   const form = useForm<T, unknown, U>({
-    resolver: zodResolver(props.schema),
-    defaultValues: props.defaultValues,
+    resolver: zodResolver(schema),
+    defaultValues,
   });
 
-  useImperativeHandle(props.ref, () => form, [form]);
+  useImperativeHandle(ref, () => form, [form]);
   const prevDefaultValuesRef = useRef<string>('');
 
   useEffect(() => {
@@ -60,14 +73,16 @@ const DynamicForm = <T extends FieldValues, U extends FieldValues>(
       });
     }
   }, [defaultValues, form]);
-  const onFormSubmit = props.onSubmit === undefined ? undefined : form.handleSubmit(props.onSubmit);
-  const values = form.watch();
+  const onFormSubmit = onSubmit === undefined ? undefined : form.handleSubmit(onSubmit);
+  // useWatch rather than form.watch(): watch() returns a fresh function the React
+  // Compiler cannot memoize, so it bails out of optimising this whole component.
+  const values = useWatch({ control: form.control }) as T;
   const formId = useId();
   return (
     <Form {...form}>
       <form className={cn('grid gap-4')} onSubmit={onFormSubmit}>
-        <div className={cn('grid max-h-[70vh] gap-4 overflow-y-auto p-1', props.className)}>
-          {props.fields.map((field) => {
+        <div className={cn('grid max-h-[70vh] gap-4 overflow-y-auto p-1', className)}>
+          {fields.map((field) => {
             const { displayCondition = true } = field;
             if (
               displayCondition === false ||
@@ -117,14 +132,14 @@ const DynamicForm = <T extends FieldValues, U extends FieldValues>(
           })}
         </div>
 
-        {props.showSubmitButton === true && (
-          <Button className="mx-1" disabled={props.submitButtonDisabled} type="submit">
-            {props.submitButtonText ?? 'Submit'}
+        {showSubmitButton === true && (
+          <Button className="mx-1" disabled={submitButtonDisabled} type="submit">
+            {submitButtonText ?? 'Submit'}
           </Button>
         )}
-        {props.FormFooter === undefined ? null : (
+        {FormFooter === undefined ? null : (
           <div className="mx-1 grid gap-4">
-            <props.FormFooter form={form} />
+            <FormFooter form={form} />
           </div>
         )}
       </form>
