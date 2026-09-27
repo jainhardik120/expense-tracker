@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+const NAME_MAX_LENGTH = 80;
+const REVISION_NAME_MAX_LENGTH = 100;
+const NOTES_MAX_LENGTH = 500;
+/** No calendar month has more days, so this bounds both pay days and day counts. */
+const MAX_DAYS_IN_MONTH = 31;
+const EARLIEST_FINANCIAL_YEAR = 2000;
+const LATEST_FINANCIAL_YEAR = 2200;
+
 const moneyString = z
   .string()
   .trim()
@@ -17,7 +25,7 @@ export const salaryComponentClassificationSchema = z.enum([
 export const salaryPayDateRuleSchema = z.enum(['exact', 'previous_weekday']);
 
 export const createSalaryComponentSchema = z.object({
-  name: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(NAME_MAX_LENGTH),
   kind: salaryComponentKindSchema,
   frequency: salaryComponentFrequencySchema,
   classification: salaryComponentClassificationSchema,
@@ -31,9 +39,9 @@ export const salaryRevisionComponentInputSchema = z.object({
 });
 
 export const createSalaryRevisionSchema = z.object({
-  name: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(REVISION_NAME_MAX_LENGTH),
   effectiveFrom: z.date(),
-  payDay: z.number().int().min(1).max(31),
+  payDay: z.number().int().min(1).max(MAX_DAYS_IN_MONTH),
   payDateRule: salaryPayDateRuleSchema,
   components: z.array(salaryRevisionComponentInputSchema).min(1),
 });
@@ -46,13 +54,13 @@ export const createSalaryBonusSchema = z.object({
   componentId: z.uuidv4(),
   expectedDate: z.date(),
   estimatedAmount: moneyString,
-  notes: z.string().trim().max(500).optional(),
+  notes: z.string().trim().max(NOTES_MAX_LENGTH).optional(),
 });
 
 export const salaryPaymentLineSchema = z.object({
   componentId: z.uuidv4().nullable(),
   bonusId: z.uuidv4().nullable(),
-  name: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(NAME_MAX_LENGTH),
   kind: salaryComponentKindSchema,
   classification: salaryComponentClassificationSchema,
   affectsTaxableIncome: z.boolean(),
@@ -62,14 +70,14 @@ export const salaryPaymentLineSchema = z.object({
 export const updateSalaryPaymentSchema = z.object({
   paymentId: z.uuidv4(),
   paymentDate: z.date(),
-  daysPaid: z.number().int().min(0).max(31),
-  daysInPeriod: z.number().int().min(1).max(31),
-  notes: z.string().trim().max(500).nullable(),
+  daysPaid: z.number().int().min(0).max(MAX_DAYS_IN_MONTH),
+  daysInPeriod: z.number().int().min(1).max(MAX_DAYS_IN_MONTH),
+  notes: z.string().trim().max(NOTES_MAX_LENGTH).nullable(),
   lines: z.array(salaryPaymentLineSchema).min(1),
 });
 
 export const updateSalaryTaxSettingsSchema = z.object({
-  financialYearStart: z.number().int().min(2000).max(2200),
+  financialYearStart: z.number().int().min(EARLIEST_FINANCIAL_YEAR).max(LATEST_FINANCIAL_YEAR),
   standardDeduction: moneyString,
   otherTaxableIncome: moneyString,
   otherDeductions: moneyString,

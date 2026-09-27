@@ -16,6 +16,8 @@ import {
   startOfDay,
 } from '../shared';
 
+const MAX_SEARCH_RESULTS = 25;
+
 export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvider {
   readonly id = 'mutual-funds';
 
@@ -33,7 +35,7 @@ export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvid
         const byCode = String(item.schemeCode).includes(normalized);
         return byName || byCode;
       })
-      .slice(0, 25)
+      .slice(0, MAX_SEARCH_RESULTS)
       .map((item) => ({
         code: String(item.schemeCode),
         name: item.schemeName,

@@ -49,11 +49,15 @@ export const optionalAmount = z
     message: 'Expected number, received a string',
   });
 
+/** No calendar month has more days, so a billing date can never exceed this. */
+const MAX_DAYS_IN_MONTH = 31;
+const BILLING_DATE_MESSAGE = { message: `Billing date must be between 1 and ${MAX_DAYS_IN_MONTH}` };
+
 export const creditCardBillingDateSchema = z
   .number()
   .int()
-  .min(1, { message: 'Billing date must be between 1 and 31' })
-  .max(31, { message: 'Billing date must be between 1 and 31' });
+  .min(1, BILLING_DATE_MESSAGE)
+  .max(MAX_DAYS_IN_MONTH, BILLING_DATE_MESSAGE);
 
 export const createAccountSchema = z.object({
   startingBalance: amount,
@@ -388,10 +392,19 @@ export const DateTruncEnum = z.enum(DateTruncValues);
 export type DateTruncUnit = z.infer<typeof DateTruncEnum>;
 export const MONTHS_PER_YEAR = 12;
 export const PERCENTAGE_DIVISOR = 100;
-export const SECONDS = 1000;
-export const MINUTES = 60 * SECONDS;
-export const HOURS = 60 * MINUTES;
-export const DAYS = 24 * HOURS;
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+export const MS_PER_SECOND = 1000;
+export const MS_PER_MINUTE = MS_PER_SECOND * SECONDS_PER_MINUTE;
+export const MS_PER_HOUR = MS_PER_MINUTE * MINUTES_PER_HOUR;
+export const MS_PER_DAY = MS_PER_HOUR * HOURS_PER_DAY;
+
+// Older aliases for the same durations, kept for existing callers.
+export const SECONDS = MS_PER_SECOND;
+export const MINUTES = MS_PER_MINUTE;
+export const HOURS = MS_PER_HOUR;
+export const DAYS = MS_PER_DAY;
 
 export const dateParser = {
   start: parseAsTimestamp,
@@ -411,9 +424,11 @@ export const userSchema = createSelectSchema(user).extend({
   banExpires: z.date().nullish(),
 });
 
+export const DEFAULT_PAGE_SIZE = 10;
+
 export const pageParser = {
   page: parseAsInteger.withDefault(1),
-  perPage: parseAsInteger.withDefault(10),
+  perPage: parseAsInteger.withDefault(DEFAULT_PAGE_SIZE),
 };
 
 export const dateSchema = {
@@ -423,7 +438,7 @@ export const dateSchema = {
 
 export const pageSchema = {
   page: z.number().optional().default(1),
-  perPage: z.number().optional().default(10),
+  perPage: z.number().optional().default(DEFAULT_PAGE_SIZE),
 };
 
 export const aggregationParser = {
@@ -583,12 +598,6 @@ export interface EMICalculationResult {
     effectivePrincipal: number;
   };
 }
-
-const MS_PER_SECOND = 1000;
-const SECONDS_PER_MINUTE = 60;
-const MINUTES_PER_HOUR = 60;
-const HOURS_PER_DAY = 24;
-export const MS_PER_DAY = MS_PER_SECOND * SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
 
 // Recurring Payments
 export type RecurringPayment = typeof recurringPayments.$inferSelect;

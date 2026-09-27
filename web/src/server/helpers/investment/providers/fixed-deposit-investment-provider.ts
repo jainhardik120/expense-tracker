@@ -7,6 +7,8 @@ import type {
 import { BaseInvestmentInstrumentProvider } from '../provider-interface';
 import { createInstrumentKey } from '../shared';
 
+const MAX_SEARCH_RESULTS = 20;
+
 const fdInstruments = [
   { code: 'SBI_FD', name: 'State Bank of India FD' },
   { code: 'HDFC_FD', name: 'HDFC Bank FD' },
@@ -35,7 +37,7 @@ export class FixedDepositInvestmentProvider extends BaseInvestmentInstrumentProv
           fd.code.toLowerCase().includes(normalized) || fd.name.toLowerCase().includes(normalized)
         );
       })
-      .slice(0, 20)
+      .slice(0, MAX_SEARCH_RESULTS)
       .map((fd) => ({
         code: fd.code,
         name: fd.name,

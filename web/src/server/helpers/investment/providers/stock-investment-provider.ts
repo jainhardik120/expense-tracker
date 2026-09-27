@@ -1,4 +1,5 @@
 import { normalizeStockMarket, type StockMarketValue } from '@/lib/investments';
+import { MS_PER_SECOND } from '@/types';
 
 import type {
   InstrumentIdentity,
@@ -21,6 +22,10 @@ import {
   splitIntoChunks,
   startOfDay,
 } from '../shared';
+
+const MAX_SEARCH_RESULTS = 20;
+/** Yahoo rejects very long symbol lists, so quotes are fetched in batches. */
+const QUOTE_BATCH_SIZE = 40;
 
 const US_STOCK_EXCHANGES = new Set(['NMS', 'NAS', 'NGM', 'NYQ', 'ASE', 'PCX', 'PNK']);
 
@@ -73,7 +78,7 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
         }
         return US_STOCK_EXCHANGES.has(exchange);
       })
-      .slice(0, 20);
+      .slice(0, MAX_SEARCH_RESULTS);
 
     return filtered.map((item) => ({
       code: item.symbol ?? '',
@@ -99,7 +104,7 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
     const nameBySymbol = new Map<string, string>();
 
     await Promise.all(
-      splitIntoChunks(uniqueSymbols, 40).map(async (symbolsBatch) => {
+      splitIntoChunks(uniqueSymbols, QUOTE_BATCH_SIZE).map(async (symbolsBatch) => {
         const payload = await fetchJson<{
           quoteResponse?: {
             result?: Array<{
@@ -218,7 +223,7 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
           unitPriceNative: marketPrice,
           nativeCurrency: converted.nativeCurrency,
           fxRateToInr: converted.fxRateToInr,
-          asOf: marketTime === undefined ? null : new Date(marketTime * 1000),
+          asOf: marketTime === undefined ? null : new Date(marketTime * MS_PER_SECOND),
           source: 'yahoo-finance',
         });
       }),
@@ -234,8 +239,9 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
     context: ProviderMarketDataContext,
   ): Promise<PriceHistoryPoint[]> {
     const symbol = getYahooStockSymbol(instrument.code, this.stockMarket);
-    const periodStart = Math.floor(startOfDay(startDate).getTime() / 1000);
-    const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / 1000);
+    // Yahoo's chart API takes unix seconds.
+    const periodStart = Math.floor(startOfDay(startDate).getTime() / MS_PER_SECOND);
+    const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / MS_PER_SECOND);
     const payload = await fetchJson<{
       chart?: {
         result?: Array<{
@@ -270,7 +276,7 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
       if (close === null) {
         continue;
       }
-      const closeDate = new Date(timestamp * 1000);
+      const closeDate = new Date(timestamp * MS_PER_SECOND);
       const fxRateToInr =
         nativeCurrency === 'USD'
           ? getFxRateToInrFromHistory(closeDate, context.usdInrHistory, context.usdInrRate)

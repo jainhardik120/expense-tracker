@@ -1,4 +1,4 @@
-/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises, no-magic-numbers */
+/* eslint-disable import/extensions, @typescript-eslint/no-floating-promises */
 
 import assert from 'node:assert/strict';
 import test from 'node:test';

@@ -6,8 +6,9 @@ import {
   type StockMarketValue,
 } from '@/lib/investments';
 import { parseFloatSafe } from '@/server/helpers/emi-calculations';
+import { MONTHS_PER_YEAR, MS_PER_DAY, MS_PER_HOUR } from '@/types';
 
-export const DAY_IN_MS = 24 * 60 * 60 * 1000;
+export const DAY_IN_MS = MS_PER_DAY;
 export const DEFAULT_USER_AGENT = 'Mozilla/5.0 (compatible; ExpenseTracker/1.0)';
 export const USD_CURRENCY = 'USD';
 export const INR_CURRENCY = 'INR';
@@ -25,7 +26,7 @@ export const parseMfDate = (value: string): Date | null => {
     Number.isNaN(year) ||
     day < 1 ||
     month < 1 ||
-    month > 12
+    month > MONTHS_PER_YEAR
   ) {
     return null;
   }
@@ -152,7 +153,8 @@ type MFScheme = {
   schemeName: string;
 };
 
-const MF_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const MF_CACHE_TTL_HOURS = 6;
+const MF_CACHE_TTL_MS = MF_CACHE_TTL_HOURS * MS_PER_HOUR;
 let mfSchemesCache:
   | {
       items: MFScheme[];

@@ -4,6 +4,7 @@ import {
   type StockMarketValue,
 } from '@/lib/investments';
 import { parseFloatSafe } from '@/server/helpers/emi-calculations';
+import { PERCENTAGE_DIVISOR } from '@/types';
 
 import type { InvestmentRow } from './types';
 
@@ -19,7 +20,7 @@ export const getPercentageChange = (numerator: number, denominator: number): num
   if (!Number.isFinite(numerator) || !Number.isFinite(denominator) || denominator === 0) {
     return null;
   }
-  return (numerator / Math.abs(denominator)) * 100;
+  return (numerator / Math.abs(denominator)) * PERCENTAGE_DIVISOR;
 };
 
 export const getDayChangePercentageFromValuation = (

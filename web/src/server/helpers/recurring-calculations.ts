@@ -1,10 +1,17 @@
 import { addDays, addMonths, addWeeks, addYears, format, isBefore, startOfDay } from 'date-fns';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
-import type { RecurringPayment, RecurringPaymentFrequency } from '@/types';
+import { MS_PER_DAY, type RecurringPayment, type RecurringPaymentFrequency } from '@/types';
 
 const QUARTERLY_MONTHS = 3;
 const QUARTER_TOLERANCE = 0.25;
+
+// Nominal period lengths, used only to derive a matching tolerance -- a statement
+// need only land near its occurrence, so calendar-exact months do not matter here.
+const DAYS_PER_WEEK = 7;
+const DAYS_PER_MONTH = 30;
+const DAYS_PER_QUARTER = 90;
+const DAYS_PER_YEAR = 365;
 
 export type RecurringPaymentSchedule = {
   id: string;
@@ -60,15 +67,15 @@ export const getPeriodInDays = (
     case 'daily':
       return multiplier;
     case 'weekly':
-      return 7 * multiplier;
+      return DAYS_PER_WEEK * multiplier;
     case 'monthly':
-      return 30 * multiplier; // Approximate
+      return DAYS_PER_MONTH * multiplier;
     case 'quarterly':
-      return 90 * multiplier; // Approximate
+      return DAYS_PER_QUARTER * multiplier;
     case 'yearly':
-      return 365 * multiplier; // Approximate
+      return DAYS_PER_YEAR * multiplier;
     default:
-      return 30 * multiplier;
+      return DAYS_PER_MONTH * multiplier;
   }
 };
 
@@ -84,7 +91,7 @@ export const isPaymentWithinTolerance = (
   const periodDays = getPeriodInDays(frequency, multiplier);
   const toleranceDays = periodDays * QUARTER_TOLERANCE;
   const diffMs = Math.abs(paymentDate.getTime() - expectedDate.getTime());
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  const diffDays = diffMs / MS_PER_DAY;
   return diffDays <= toleranceDays;
 };
 
@@ -105,7 +112,8 @@ const getUpcomingPaymentDates = (
   const multiplier = parseFloat(recurringPayment.frequencyMultiplier);
 
   // Start from last payment date if provided, otherwise from start date
-  const startDate = lastPaymentDate
+  const hasLastPayment = lastPaymentDate !== undefined && lastPaymentDate !== null;
+  const startDate = hasLastPayment
     ? toZonedTime(lastPaymentDate, timezone)
     : toZonedTime(recurringPayment.startDate, timezone);
 
@@ -113,7 +121,7 @@ const getUpcomingPaymentDates = (
     recurringPayment.endDate === null ? null : toZonedTime(recurringPayment.endDate, timezone);
   const uptoDateZoned = toZonedTime(uptoDate, timezone);
 
-  let currentDate = lastPaymentDate
+  let currentDate = hasLastPayment
     ? getNextPaymentDate(startDate, recurringPayment.frequency, multiplier)
     : startDate;
   const now = startOfDay(toZonedTime(new Date(), timezone));

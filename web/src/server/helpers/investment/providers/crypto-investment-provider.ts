@@ -1,3 +1,5 @@
+import { MS_PER_SECOND } from '@/types';
+
 import type {
   InstrumentIdentity,
   InvestmentInstrumentSearchResult,
@@ -14,6 +16,8 @@ import {
   getCoinGeckoHeaders,
   startOfDay,
 } from '../shared';
+
+const MAX_SEARCH_RESULTS = 20;
 
 export class CryptoInvestmentProvider extends BaseInvestmentInstrumentProvider {
   readonly id = 'crypto';
@@ -42,7 +46,7 @@ export class CryptoInvestmentProvider extends BaseInvestmentInstrumentProvider {
       return leftRank - rightRank;
     });
 
-    return sorted.slice(0, 20).map((coin) => {
+    return sorted.slice(0, MAX_SEARCH_RESULTS).map((coin) => {
       const name = coin.name ?? coin.id ?? '';
       const symbolSuffix = coin.symbol === undefined ? '' : ` (${coin.symbol.toUpperCase()})`;
       return {
@@ -139,7 +143,10 @@ export class CryptoInvestmentProvider extends BaseInvestmentInstrumentProvider {
         unitPriceNative: quote.inr,
         nativeCurrency: 'INR',
         fxRateToInr: 1,
-        asOf: quote.last_updated_at === undefined ? null : new Date(quote.last_updated_at * 1000),
+        asOf:
+          quote.last_updated_at === undefined
+            ? null
+            : new Date(quote.last_updated_at * MS_PER_SECOND),
         source: 'coingecko',
       });
     }
@@ -152,8 +159,9 @@ export class CryptoInvestmentProvider extends BaseInvestmentInstrumentProvider {
     startDate: Date,
     endDate: Date,
   ): Promise<PriceHistoryPoint[]> {
-    const periodStart = Math.floor(startOfDay(startDate).getTime() / 1000);
-    const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / 1000);
+    // CoinGecko's range endpoint takes unix seconds.
+    const periodStart = Math.floor(startOfDay(startDate).getTime() / MS_PER_SECOND);
+    const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / MS_PER_SECOND);
     const payload = await fetchJson<{ prices?: Array<[number, number]> }>(
       `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(instrument.code.toLowerCase())}/market_chart/range?vs_currency=inr&from=${periodStart}&to=${periodEnd}`,
       {

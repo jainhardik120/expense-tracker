@@ -1,5 +1,6 @@
 import { instrumentedFunction } from '@/lib/instrumentation';
 import type { InvestmentKindValue, StockMarketValue } from '@/lib/investments';
+import { MS_PER_SECOND } from '@/types';
 
 import {
   DAY_IN_MS,
@@ -94,8 +95,9 @@ export const getUsdInrHistory = instrumentedFunction(
     startDate: Date;
     endDate: Date;
   }): Promise<Array<{ date: Date; price: number }>> => {
-    const periodStart = Math.floor(startOfDay(startDate).getTime() / 1000);
-    const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / 1000);
+    // Yahoo's chart API takes and returns unix seconds, not milliseconds.
+    const periodStart = Math.floor(startOfDay(startDate).getTime() / MS_PER_SECOND);
+    const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / MS_PER_SECOND);
     const payload = await fetchJson<{
       chart?: {
         result?: Array<{
@@ -127,7 +129,7 @@ export const getUsdInrHistory = instrumentedFunction(
         continue;
       }
       points.push({
-        date: new Date(timestamp * 1000),
+        date: new Date(timestamp * MS_PER_SECOND),
         price: close,
       });
     }

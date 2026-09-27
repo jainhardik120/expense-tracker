@@ -5,6 +5,14 @@ export const SALARY_NET_MISMATCH_TOLERANCE = 10;
 const REBATE_LIMIT = 1_200_000;
 const REBATE_MAX = 60_000;
 
+const PAISE_PER_RUPEE = 100;
+/** April, zero-indexed: the Indian financial year runs April to March. */
+const FINANCIAL_YEAR_START_MONTH = 3;
+/** Salary dates are pinned to midday UTC so a timezone shift cannot move the day. */
+const MIDDAY_UTC_HOUR = 12;
+const SUNDAY = 0;
+const SATURDAY = 6;
+
 export type SalaryComponentKind = 'earning' | 'deduction';
 
 export type SalaryScheduleComponent = {
@@ -73,7 +81,8 @@ export type ReconciledSalaryTdsRow = SalaryTdsForecastRow & {
   estimatedTds: number;
 };
 
-const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const roundMoney = (value: number) =>
+  Math.round((value + Number.EPSILON) * PAISE_PER_RUPEE) / PAISE_PER_RUPEE;
 
 export const hasMaterialSalaryNetMismatch = (
   statementAmount: number | null,
@@ -84,16 +93,16 @@ export const hasMaterialSalaryNetMismatch = (
 
 export const getFinancialYearStart = (date: Date) => {
   const year = date.getUTCFullYear();
-  return date.getUTCMonth() >= 3 ? year : year - 1;
+  return date.getUTCMonth() >= FINANCIAL_YEAR_START_MONTH ? year : year - 1;
 };
 
 export const getFinancialYearRange = (financialYearStart: number) => ({
-  start: new Date(Date.UTC(financialYearStart, 3, 1, 12)),
-  end: new Date(Date.UTC(financialYearStart + 1, 3, 1, 12)),
+  start: new Date(Date.UTC(financialYearStart, FINANCIAL_YEAR_START_MONTH, 1, MIDDAY_UTC_HOUR)),
+  end: new Date(Date.UTC(financialYearStart + 1, FINANCIAL_YEAR_START_MONTH, 1, MIDDAY_UTC_HOUR)),
 });
 
 const lastDayOfMonth = (year: number, month: number) =>
-  new Date(Date.UTC(year, month + 1, 0, 12)).getUTCDate();
+  new Date(Date.UTC(year, month + 1, 0, MIDDAY_UTC_HOUR)).getUTCDate();
 
 export const getEstimatedPayDate = (
   year: number,
@@ -102,9 +111,9 @@ export const getEstimatedPayDate = (
   rule: SalaryScheduleRevision['payDateRule'],
 ) => {
   const safeDay = Math.min(Math.max(payDay, 1), lastDayOfMonth(year, month));
-  const result = new Date(Date.UTC(year, month, safeDay, 12));
+  const result = new Date(Date.UTC(year, month, safeDay, MIDDAY_UTC_HOUR));
   if (rule === 'previous_weekday') {
-    while (result.getUTCDay() === 0 || result.getUTCDay() === 6) {
+    while (result.getUTCDay() === SUNDAY || result.getUTCDay() === SATURDAY) {
       result.setUTCDate(result.getUTCDate() - 1);
     }
   }
@@ -130,13 +139,15 @@ export const buildRevisionSchedule = (
   }
 
   const rows: SalaryScheduleRow[] = [];
-  let cursor = new Date(Date.UTC(activeStart.getUTCFullYear(), activeStart.getUTCMonth(), 1, 12));
+  let cursor = new Date(
+    Date.UTC(activeStart.getUTCFullYear(), activeStart.getUTCMonth(), 1, MIDDAY_UTC_HOUR),
+  );
   while (cursor < activeEnd) {
     const year = cursor.getUTCFullYear();
     const month = cursor.getUTCMonth();
     const daysInPeriod = lastDayOfMonth(year, month);
-    const monthStart = new Date(Date.UTC(year, month, 1, 12));
-    const monthEnd = new Date(Date.UTC(year, month + 1, 1, 12));
+    const monthStart = new Date(Date.UTC(year, month, 1, MIDDAY_UTC_HOUR));
+    const monthEnd = new Date(Date.UTC(year, month + 1, 1, MIDDAY_UTC_HOUR));
     const intersectionStart = new Date(Math.max(monthStart.getTime(), activeStart.getTime()));
     const intersectionEnd = new Date(Math.min(monthEnd.getTime(), activeEnd.getTime()));
     const millisecondsPerDay = 86_400_000;
@@ -218,7 +229,7 @@ export const reconcileSalaryTdsForecast = ({
   if (eligibleIndexes.length === 0) {
     eligibleIndexes.push(rows.length - 1);
   }
-  const totalCents = Math.round(reconciliation * 100);
+  const totalCents = Math.round(reconciliation * PAISE_PER_RUPEE);
   const centsPerRow = Math.trunc(totalCents / eligibleIndexes.length);
   const remainder = totalCents - centsPerRow * eligibleIndexes.length;
   const reconciliationCentsByIndex = new Map(
@@ -229,7 +240,7 @@ export const reconcileSalaryTdsForecast = ({
   );
 
   return rows.map((row, index) => {
-    const rowReconciliation = (reconciliationCentsByIndex.get(index) ?? 0) / 100;
+    const rowReconciliation = (reconciliationCentsByIndex.get(index) ?? 0) / PAISE_PER_RUPEE;
     return {
       ...row,
       reconciliation: rowReconciliation,

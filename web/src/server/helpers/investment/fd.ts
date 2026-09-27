@@ -1,8 +1,12 @@
+import { MS_PER_DAY, PERCENTAGE_DIVISOR } from '@/types';
+
 import { parseOptionalNumber } from './utils';
 
 import type { InvestmentRow } from './types';
 
-const YEAR_IN_MS = 365.25 * 24 * 60 * 60 * 1000;
+/** Julian year: averages the leap day in, so long holdings do not drift. */
+const DAYS_PER_YEAR = 365.25;
+const YEAR_IN_MS = DAYS_PER_YEAR * MS_PER_DAY;
 
 export const getFdValuationAtDate = (investment: InvestmentRow, valueDate: Date): number | null => {
   const principal = parseOptionalNumber(investment.investmentAmount);
@@ -38,7 +42,7 @@ export const getFdValuationAtDate = (investment: InvestmentRow, valueDate: Date)
       (currentDate.getTime() - investment.investmentDate.getTime()) / YEAR_IN_MS,
       0,
     );
-    return principal * Math.pow(1 + annualRate / 100, heldYears);
+    return principal * Math.pow(1 + annualRate / PERCENTAGE_DIVISOR, heldYears);
   }
 
   return principal;
