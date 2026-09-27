@@ -2,7 +2,6 @@ import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
-import { buildOutlook } from '@/lib/budget-outlook';
 import { monthsBetween, project } from '@/lib/budget-projection';
 import { matchesRule } from '@/lib/budget-rules';
 import {
@@ -177,29 +176,16 @@ export const budgetRouter = createTRPCRouter({
       const residual = totals.find((t) => t.allocationKind === 'residual');
       const investedSoFar = residual?.actual ?? 0;
 
-      const emiRemaining = await getRemainingEmiCash(ctx.db, ctx.user.id, now, year.endDate);
-
-      const outlook = buildOutlook({
-        balanceToday,
-        monthlyIncome: cyclesElapsed > 0 ? income.waterfall / cyclesElapsed : 0,
-        incomeCyclesRemaining,
-        monthsRemaining,
-        fixedPerMonth,
-        emiRemaining,
-        envelopesRemaining,
-        livingPerMonthActual: cyclesElapsed > 0 ? livingActualTotal / cyclesElapsed : 0,
-        livingPerMonthBudget,
-        investedSoFar,
-        investmentGoal: residual?.allocationAmount ?? 0,
-      });
-
       return {
         year,
         lines,
         incomeLines,
         totals,
         projection,
-        outlook,
+        // Cash facts for context; every projection comes from `projection`.
+        balanceToday,
+        incomeCyclesRemaining,
+        monthlyIncome: cyclesElapsed > 0 ? income.waterfall / cyclesElapsed : 0,
         cycles: summariseByCycle(lines, scoped, year.startDate.getDate()),
         unclaimedCount: unclaimed.length,
         unclaimedTotal: unclaimed.reduce((sum, s) => sum + s.myAmount, 0),

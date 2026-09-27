@@ -39,10 +39,22 @@ const Row = ({
 );
 
 export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
-  const { outlook } = detail;
-  const months = outlook.monthsRemaining;
-  const perDay = outlook.safeToSpendPerMonth / DAYS_PER_MONTH;
-  const onTrack = outlook.atBudgetPace.yearTotal >= outlook.investmentGoal;
+  const { projection, balanceToday, incomeCyclesRemaining, monthlyIncome } = detail;
+  const {
+    goal,
+    investedSoFar,
+    projectedAtPace,
+    projectedAtBudget,
+    commitmentsRemaining,
+    discretionaryRemaining,
+    safeToSpendPerMonth,
+  } = projection;
+
+  const months = projection.spendMonths;
+  const incomeRemaining = monthlyIncome * incomeCyclesRemaining;
+  const leftToSpendOrInvest = balanceToday + incomeRemaining - commitmentsRemaining;
+  const perDay = safeToSpendPerMonth / DAYS_PER_MONTH;
+  const shortfall = goal - projectedAtBudget;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -50,32 +62,30 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
         <CardHeader>
           <CardTitle>What is left for the rest of the year</CardTitle>
           <CardDescription>
-            {months.toFixed(1)} months left to spend in, {outlook.incomeCyclesRemaining} more
-            salaries. Everything already promised comes off first.
+            {months.toFixed(1)} months left to spend in, {incomeCyclesRemaining} more salaries.
+            Everything already promised comes off first.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm">
-          <Row label="Balance today" value={outlook.totalAvailable - outlook.incomeRemaining} />
+          <Row label="Balance today" value={balanceToday} />
           <Row
             label="Income still to come"
-            note={`${outlook.incomeCyclesRemaining} salaries`}
-            value={outlook.incomeRemaining}
+            note={`${incomeCyclesRemaining} salaries`}
+            value={incomeRemaining}
           />
-          <Row label="Total available" rule strong value={outlook.totalAvailable} />
+          <Row label="Total available" rule strong value={balanceToday + incomeRemaining} />
 
           <div className="h-2" />
           <Row
-            label="Rent and money home"
-            note={`${outlook.incomeCyclesRemaining} months`}
-            value={-outlook.fixedRemaining}
+            label="Everything already promised"
+            note="rent, money home, loans, flights"
+            value={-commitmentsRemaining}
           />
-          <Row label="Loan installments left" value={-outlook.emiRemaining} />
-          <Row
-            label="Set aside for flights"
-            note="one more trip home"
-            value={-outlook.envelopesRemaining}
-          />
-          <Row label="Left to spend or invest" rule strong value={outlook.afterCommitments} />
+          <Row label="Left to spend or invest" rule strong value={leftToSpendOrInvest} />
+          <p className="text-muted-foreground pt-2 text-xs">
+            Carrying on as you are, {formatCurrency(discretionaryRemaining)} of that goes on living
+            and the rest is invested.
+          </p>
         </CardContent>
       </Card>
 
@@ -83,17 +93,14 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
         <CardHeader>
           <CardTitle>Safe to spend</CardTitle>
           <CardDescription>
-            Spend this much a month and you still hit {formatCurrency(outlook.investmentGoal)}{' '}
-            invested.
+            Spend this much a month and you land on {formatCurrency(goal)} invested.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">Per month, {months.toFixed(0)} left</p>
-              <p className="text-3xl font-semibold">
-                {formatCurrency(outlook.safeToSpendPerMonth)}
-              </p>
+              <p className="text-muted-foreground text-xs">Per month, {months.toFixed(1)} left</p>
+              <p className="text-3xl font-semibold">{formatCurrency(safeToSpendPerMonth)}</p>
             </div>
             <div className="rounded-lg border p-3">
               <p className="text-muted-foreground text-xs">Per day</p>
@@ -102,14 +109,14 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
           </div>
 
           <div className="text-sm">
-            <Row label="Already invested" value={outlook.investedSoFar} />
-            <Row label="At your current pace" value={outlook.atCurrentPace.yearTotal} />
-            <Row label="If you stick to budget" value={outlook.atBudgetPace.yearTotal} />
-            <Row label="Goal" rule strong value={outlook.investmentGoal} />
-            <p className={`pt-1 text-xs ${onTrack ? 'text-green-600' : 'text-red-600'}`}>
-              {onTrack
-                ? `On budget you finish ${formatCurrency(outlook.atBudgetPace.yearTotal - outlook.investmentGoal)} ahead.`
-                : `On budget you finish ${formatCurrency(outlook.investmentGoal - outlook.atBudgetPace.yearTotal)} short.`}
+            <Row label="Already invested" value={investedSoFar} />
+            <Row label="At your current pace" value={projectedAtPace} />
+            <Row label="If you stick to budget" value={projectedAtBudget} />
+            <Row label="Goal" rule strong value={goal} />
+            <p className={`pt-1 text-xs ${shortfall > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {shortfall > 0
+                ? `On budget you finish ${formatCurrency(shortfall)} short.`
+                : `On budget you finish ${formatCurrency(-shortfall)} ahead.`}
             </p>
           </div>
         </CardContent>

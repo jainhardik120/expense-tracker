@@ -89,9 +89,9 @@ test('the residual is whatever the lines above it leave, and shrinks when they o
     12,
   );
   // same income, 6000 more spent, so 6000 less survives
-  assert.equal(thrifty.projectedResidual - spendy.projectedResidual, 6000);
-  // and the goal itself is unchanged: allocation did not move, behaviour did
-  assert.equal(thrifty.residualGoal, spendy.residualGoal);
+  assert.equal(thrifty.projectedAtPace - spendy.projectedAtPace, 6000);
+  // and the plan itself is unchanged: allocation did not move, behaviour did
+  assert.equal(thrifty.lines[1].yearBudget, spendy.lines[1].yearBudget);
 });
 
 test('months between dates counts part months', () => {
@@ -273,4 +273,57 @@ test('discretionary spending follows the calendar, commitments follow the salary
   assert.equal(lines[0].forecastRemaining, 44000);
   // food goes out with the calendar: you still eat in the month with no salary
   assert.equal(Math.round(lines[1].forecastRemaining), Math.round(11396.85 * 2.8667));
+});
+
+test('spending exactly the safe amount lands exactly on the goal', () => {
+  const lines = [
+    line({ lineId: 'rent', allocationAmount: 22000, discretionary: false, actual: 219000 }),
+    line({
+      lineId: 'food',
+      allocationAmount: 9300,
+      discretionary: true,
+      actual: 113968.47,
+      pacePerMonth: 11396.85,
+    }),
+    line({
+      lineId: 'inv',
+      allocationKind: 'residual',
+      allocationAmount: 270000,
+      actual: 209268.35,
+    }),
+  ];
+  const p = project(lines, 1254583, 10, 12, 9910.87, 2.8667);
+
+  // re-run with the food line forced to the safe rate, and it should hit the goal
+  const atSafe = project(
+    lines.map((l) => (l.lineId === 'food' ? { ...l, pacePerMonth: p.safeToSpendPerMonth } : l)),
+    1254583,
+    10,
+    12,
+    9910.87,
+    2.8667,
+  );
+  assert.equal(Math.round(atSafe.projectedAtPace), Math.round(p.goal));
+});
+
+test('the two readings differ by exactly the discretionary overspend', () => {
+  const p = project(
+    [
+      line({
+        lineId: 'food',
+        allocationAmount: 9300,
+        discretionary: true,
+        actual: 100000,
+        pacePerMonth: 11396.85,
+      }),
+      line({ lineId: 'inv', allocationKind: 'residual' }),
+    ],
+    1200000,
+    10,
+    12,
+    0,
+    2.8667,
+  );
+  const gap = (11396.85 - 9300) * 2.8667;
+  assert.equal(Math.round(p.projectedAtBudget - p.projectedAtPace), Math.round(gap));
 });

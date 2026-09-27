@@ -17,6 +17,12 @@ export type LineForProjection = {
 };
 
 export type ProjectedLine = LineForProjection & {
+  /**
+   * The same variance had discretionary spending held to its allowance rather
+   * than continued at the rate it is actually running at. The difference
+   * between the two is what changing behaviour is worth.
+   */
+  varianceAtBudget: number;
   /** What is still expected to be spent before the year closes. */
   forecastRemaining: number;
   /** Actual so far plus that forecast: what this line will cost by December. */
@@ -39,14 +45,31 @@ export type ProjectedLine = LineForProjection & {
 
 export type Projection = {
   elapsedMonths: number;
+  /** Pay cycles still to come. */
   remainingMonths: number;
+  /** Calendar months still to be spent in, which is the pace that matters. */
+  spendMonths: number;
   totalMonths: number;
   incomeToDate: number;
   expectedTotalIncome: number;
   lines: ProjectedLine[];
-  /** The residual: what is expected to survive the waterfall. */
-  projectedResidual: number;
-  residualGoal: number;
+  /** What survives the waterfall if spending carries on as it has been. */
+  projectedAtPace: number;
+  /** What survives if discretionary spending is held to its allowance. */
+  projectedAtBudget: number;
+  /** What the residual line is aiming at, if a figure was set on it. */
+  goal: number;
+  /** Already banked into the residual -- money actually invested. */
+  investedSoFar: number;
+  /** Still owed on things not chosen month to month: rent, loans, envelopes. */
+  commitmentsRemaining: number;
+  /** Still expected to be spent on the things that are chosen. */
+  discretionaryRemaining: number;
+  /**
+   * What discretionary spending can run at, per month, and still reach the goal.
+   * Negative means the goal is already out of reach without cutting commitments.
+   */
+  safeToSpendPerMonth: number;
 };
 
 /** Whole months between two dates, fractional so a part-month is not lost. */
@@ -147,6 +170,10 @@ export const project = (
         : yearBudgetFor(line);
     const forecastRemaining = forecastFor(line, yearBudget);
     const projectedSpend = line.actual + forecastRemaining;
+    const atBudget =
+      line.allocationKind === 'monthly' && line.discretionary
+        ? line.actual + line.allocationAmount * spendMonths
+        : projectedSpend;
     const remaining = yearBudget - line.actual;
     return {
       ...line,
@@ -155,28 +182,61 @@ export const project = (
       forecastRemaining,
       projectedSpend,
       variance: projectedSpend - yearBudget,
+      varianceAtBudget: atBudget - yearBudget,
       remaining,
       perMonthRemaining: remainingMonths > 0 ? remaining / remainingMonths : remaining,
       overspent: remaining < 0,
     };
   });
 
-  // What is actually expected to be left over, rather than what was allocated:
-  // overspending above shows up here as a smaller number, which is the whole
-  // point of watching it.
-  const spentOnLines = lines
-    .filter((line) => line.allocationKind !== 'residual')
-    .reduce((sum, line) => sum + line.actual, 0);
-  const residualLine = projected.find((line) => line.allocationKind === 'residual');
+  const residualLine = projected.filter((line) => line.allocationKind === 'residual')[0];
+  const residualBudget = residualLine?.yearBudget ?? 0;
+  const spendLines = projected.filter((line) => line.allocationKind !== 'residual');
+
+  // Every rupee a line spends above its budget is a rupee the residual does not
+  // get, so what will be left is the residual's budget less the variances. One
+  // basis for both readings, rather than a second calculation that can drift.
+  const sumBy = (pick: (line: ProjectedLine) => number) =>
+    spendLines.reduce((sum, line) => sum + pick(line), 0);
+  const projectedAtPace = residualBudget - sumBy((line) => line.variance);
+  const projectedAtBudget = residualBudget - sumBy((line) => line.varianceAtBudget);
+
+  const discretionary = spendLines.filter(
+    (line) => line.discretionary && line.allocationKind === 'monthly',
+  );
+  const commitmentsRemaining = sumBy((line) =>
+    line.discretionary && line.allocationKind === 'monthly' ? 0 : line.forecastRemaining,
+  );
+  const discretionaryRemaining = discretionary.reduce(
+    (sum, line) => sum + line.forecastRemaining,
+    0,
+  );
+
+  // A figure set on the residual line is a target; with none, the plan's own
+  // outcome is the target and there is nothing to fall short of.
+  const goal = residualLine?.allocationAmount ?? 0;
+  const target = goal > 0 ? goal : residualBudget;
+  // Solve for the discretionary spend that lands exactly on the target: every
+  // other line's variance is already fixed, so only this is free to move.
+  const fixedVariance = sumBy((line) =>
+    discretionary.includes(line) ? line.actual - line.yearBudget : line.variance,
+  );
+  const affordable = residualBudget - target - fixedVariance;
 
   return {
     elapsedMonths,
     remainingMonths,
+    spendMonths,
     totalMonths,
     incomeToDate,
     expectedTotalIncome,
     lines: projected,
-    projectedResidual: expectedTotalIncome - spentOnLines,
-    residualGoal: residualLine?.yearBudget ?? 0,
+    projectedAtPace,
+    projectedAtBudget,
+    goal: target,
+    investedSoFar: residualLine?.actual ?? 0,
+    commitmentsRemaining,
+    discretionaryRemaining,
+    safeToSpendPerMonth: spendMonths > 0 ? affordable / spendMonths : affordable,
   };
 };
