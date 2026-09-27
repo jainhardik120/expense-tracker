@@ -46,18 +46,12 @@ const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData
       },
     },
   });
-  // Accounts and friends both filter statements through the same `account` param.
-  const openStatements = (item: (typeof table)['options']['data'][number]) => {
-    const id = isFriendSummary(item) ? item.friend.id : item.account.id;
-    router.push(`/statements?account=${id}`);
-  };
 
   return (
     <DataTable
       enablePagination={false}
       getItemValue={(item) => (isFriendSummary(item) ? item.friend.id : item.account.id)}
       table={table}
-      onRowClick={openStatements}
     >
       <DataTableToolbar table={table}>
         <CreateAccountForm refresh={refetch} />

@@ -1,8 +1,6 @@
 'use client';
 
-import { formatDistanceToNow } from 'date-fns';
-
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -25,13 +23,6 @@ export const PendingEstimate = ({ estimate }: { estimate: Estimate }) => {
     <Card>
       <CardHeader>
         <CardTitle>Not entered yet</CardTitle>
-        <CardDescription>
-          {estimate.count} messages waiting
-          {estimate.oldest === null
-            ? ''
-            : `, the oldest from ${formatDistanceToNow(estimate.oldest)} ago`}
-          . Every balance in the app is behind by this much until they are entered.
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -50,7 +41,6 @@ export const PendingEstimate = ({ estimate }: { estimate: Estimate }) => {
             <p className="text-2xl font-semibold">{formatCurrency(estimate.balanceAfter)}</p>
           </div>
         </div>
-
         <Table>
           <TableHeader>
             <TableRow>
@@ -81,10 +71,6 @@ export const PendingEstimate = ({ estimate }: { estimate: Estimate }) => {
             ))}
           </TableBody>
         </Table>
-        <p className="text-muted-foreground text-xs">
-          Accounts are guessed from how messages like these were filed before. One marked unmatched
-          still counts towards the total, it just has no balance to adjust.
-        </p>
       </CardContent>
     </Card>
   );

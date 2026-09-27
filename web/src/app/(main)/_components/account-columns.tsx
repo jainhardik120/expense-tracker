@@ -121,18 +121,18 @@ export const createAccountColumns = (
       cell: ({ row }) => <StatementsLink item={row.original} />,
     },
     {
-      id: 'startingBalance',
-      header: 'Starting Balance',
-      accessorFn: (row) => row.startingBalance.toFixed(2),
-      meta: { align: 'right' },
-    },
-    {
       id: 'billingDate',
       header: 'Billing Date',
       accessorFn: (row) =>
         isFriendSummary(row) || row.billingDate === undefined
           ? '-'
           : formatOrdinalDay(row.billingDate),
+    },
+    {
+      id: 'startingBalance',
+      header: 'Starting Balance',
+      accessorFn: (row) => row.startingBalance.toFixed(2),
+      meta: { align: 'right' },
     },
     {
       id: 'expenses',
