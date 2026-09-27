@@ -2,7 +2,9 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { smsNotifications } from '@/db/schema';
+import { getTimezone } from '@/lib/date';
 import { BULK_IMPORT_KINDS } from '@/lib/sms-bulk-import';
+import { resolveSmsType } from '@/lib/sms-notification-rules';
 import {
   bulkInsertFromNotifications,
   getBulkImportRows,
@@ -94,6 +96,7 @@ export const smsNotificationsRouter = createTRPCRouter({
           userId: ctx.user.id,
           ...{ ...input, timestamp: undefined },
           createdAt: input.timestamp,
+          type: resolveSmsType(input.type, input.merchant, ctx.user.name),
           merchant: input.merchant ?? null,
           reference: input.reference ?? null,
           accountLast4: input.accountLast4 ?? null,
@@ -183,12 +186,12 @@ export const smsNotificationsRouter = createTRPCRouter({
    * The whole pending queue as editable rows, each pre-filled the way
    * `getInsertHints` fills one — but resolved for every message in one go.
    */
-  getBulkImportRows: protectedProcedure.query(({ ctx }) =>
-    getBulkImportRows(ctx.db, ctx.user.id),
+  getBulkImportRows: protectedProcedure.query(async ({ ctx }) =>
+    getBulkImportRows(ctx.db, ctx.user.id, await getTimezone()),
   ),
   bulkImport: protectedProcedure
     .input(z.object({ rows: z.array(bulkImportRowSchema).min(1) }))
-    .mutation(({ ctx, input }) =>
-      bulkInsertFromNotifications(ctx.db, ctx.user.id, input.rows),
+    .mutation(async ({ ctx, input }) =>
+      bulkInsertFromNotifications(ctx.db, ctx.user.id, input.rows, await getTimezone()),
     ),
 });
