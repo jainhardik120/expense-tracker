@@ -204,30 +204,6 @@ export const summariseLines = (
   return { totals, unclaimed };
 };
 
-/**
- * Loan installments still to be paid before the year is out.
- *
- * Cash, not commitment: a loan running past the window contributes only the
- * installments that fall inside it. Already-paid installments are statements
- * and are counted by the lines, so only the unpaid ones belong here.
- */
-export const getRemainingEmiCash = instrumentedFunction(
-  'getRemainingEmiCash',
-  async (db: Database, userId: string, from: Date, to: Date): Promise<number> => {
-    const emis = await getEMIs(db, userId, {
-      completed: undefined,
-      perPage: 100,
-      page: 1,
-      accountId: [],
-      creditId: [],
-    });
-    return emis
-      .flatMap((emi) => getEmiPaymentsInRange(emi, emi.creditCardName, from, to, from))
-      .filter((payment) => payment.status !== 'paid')
-      .reduce((sum, payment) => sum + payment.myShare, 0);
-  },
-);
-
 export type CycleRow = {
   cycle: string;
   perLine: Record<string, number>;

@@ -189,8 +189,11 @@ export const project = (
     };
   });
 
-  const residualLine = projected.filter((line) => line.allocationKind === 'residual')[0];
-  const residualBudget = residualLine?.yearBudget ?? 0;
+  // A budget need not have a residual line at all, so this is read defensively:
+  // without one there is nothing left over to report on.
+  const residualLines = projected.filter((line) => line.allocationKind === 'residual');
+  const residual = residualLines.length > 0 ? residualLines[0] : null;
+  const residualBudget = residual === null ? 0 : residual.yearBudget;
   const spendLines = projected.filter((line) => line.allocationKind !== 'residual');
 
   // Every rupee a line spends above its budget is a rupee the residual does not
@@ -214,7 +217,7 @@ export const project = (
 
   // A figure set on the residual line is a target; with none, the plan's own
   // outcome is the target and there is nothing to fall short of.
-  const goal = residualLine?.allocationAmount ?? 0;
+  const goal = residual === null ? 0 : residual.allocationAmount;
   const target = goal > 0 ? goal : residualBudget;
   // Solve for the discretionary spend that lands exactly on the target: every
   // other line's variance is already fixed, so only this is free to move.
@@ -234,7 +237,7 @@ export const project = (
     projectedAtPace,
     projectedAtBudget,
     goal: target,
-    investedSoFar: residualLine?.actual ?? 0,
+    investedSoFar: residual === null ? 0 : residual.actual,
     commitmentsRemaining,
     discretionaryRemaining,
     safeToSpendPerMonth: spendMonths > 0 ? affordable / spendMonths : affordable,

@@ -5,7 +5,6 @@ import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
 import { monthsBetween, project } from '@/lib/budget-projection';
 import { matchesRule } from '@/lib/budget-rules';
 import {
-  getRemainingEmiCash,
   getScheduledTotals,
   getStatementsInWindow,
   parseRule,
@@ -162,20 +161,6 @@ export const budgetRouter = createTRPCRouter({
         openingBalance,
         monthsRemaining,
       );
-      const byKind = (pred: (t: (typeof totals)[number]) => boolean) =>
-        totals.filter(pred).reduce((sum, t) => sum + t.allocationAmount, 0);
-
-      const fixedPerMonth = byKind((t) => !t.discretionary && t.allocationKind === 'monthly');
-      const livingPerMonthBudget = byKind((t) => t.discretionary && t.allocationKind === 'monthly');
-      const livingActualTotal = totals
-        .filter((t) => t.discretionary && t.allocationKind === 'monthly')
-        .reduce((sum, t) => sum + t.actual, 0);
-      const envelopesRemaining = projection.lines
-        .filter((line) => line.discretionary && line.allocationKind === 'annual')
-        .reduce((sum, line) => sum + Math.max(line.remaining, 0), 0);
-      const residual = totals.find((t) => t.allocationKind === 'residual');
-      const investedSoFar = residual?.actual ?? 0;
-
       return {
         year,
         lines,
