@@ -144,6 +144,30 @@ export const buildInsertHints = (
   return hintsById;
 };
 
+/**
+ * The tags worth offering in the grid's tag menu, most used first.
+ *
+ * Drawn from the linked history rather than from every tag on every statement,
+ * because the full list runs to hundreds of entries — mostly raw bank narration
+ * left behind by CSV imports ("by debit card-OTHPOS420218971072Innoviti POS
+ * GURGAON--") — and a menu that long is not a menu. What remains is the set the
+ * user has actually chosen for messages like these.
+ */
+export const collectTagVocabulary = (history: LinkedHistoryEntry[]): string[] => {
+  const counts = new Map<string, number>();
+  for (const entry of history) {
+    for (const tag of entry.tags ?? []) {
+      if (tag !== '') {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+  }
+  return [...counts.keys()].sort((a, b) => {
+    const byCount = (counts.get(b) ?? 0) - (counts.get(a) ?? 0);
+    return byCount === 0 ? a.localeCompare(b) : byCount;
+  });
+};
+
 export const getHintsFor = (
   hintsById: Map<string, InsertHints>,
   notificationId: string,

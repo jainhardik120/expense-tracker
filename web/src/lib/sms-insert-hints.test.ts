@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import {
   buildInsertHints,
+  collectTagVocabulary,
   getIsUsableLast4,
   HISTORY_WINDOW,
   // @ts-expect-error Node's strip-types test runner requires the explicit TypeScript extension.
@@ -149,4 +150,28 @@ test('ignores history rows that never got an account or category', () => {
 
 test('returns an empty map for an empty queue', () => {
   assert.equal(buildInsertHints([entry()], []).size, 0);
+});
+
+test('the tag menu offers what has actually been chosen, most used first', () => {
+  const vocabulary = collectTagVocabulary([
+    entry({ tags: ['Biscuit'] }),
+    entry({ tags: ['Vada Paw', 'Biscuit'] }),
+    entry({ tags: ['Biscuit'] }),
+    entry({ tags: ['Sweets'] }),
+  ]);
+  assert.deepEqual(vocabulary, ['Biscuit', 'Sweets', 'Vada Paw']);
+});
+
+test('the tag menu skips empty and missing tag lists', () => {
+  const vocabulary = collectTagVocabulary([
+    entry({ tags: null }),
+    entry({ tags: [] }),
+    entry({ tags: ['', 'Curd'] }),
+  ]);
+  assert.deepEqual(vocabulary, ['Curd']);
+});
+
+test('equally used tags are offered alphabetically rather than arbitrarily', () => {
+  const vocabulary = collectTagVocabulary([entry({ tags: ['Zebra'] }), entry({ tags: ['Apple'] })]);
+  assert.deepEqual(vocabulary, ['Apple', 'Zebra']);
 });

@@ -14,17 +14,23 @@ import {
   parseGridDate,
   type SmsType,
 } from '@/lib/sms-bulk-import';
-import { getHintsFor } from '@/lib/sms-insert-hints';
-import { getInsertHintsForMany } from '@/server/helpers/sms-hints';
+import { buildInsertHints, collectTagVocabulary, getHintsFor } from '@/lib/sms-insert-hints';
+import { getLinkedHistory } from '@/server/helpers/sms-hints';
+
+export type BulkImportQueue = {
+  rows: BulkImportRow[];
+  /** The tag menu for the grid, drawn from the same history as the hints. */
+  tagOptions: string[];
+};
 
 /**
  * The pending queue as grid rows, each pre-filled from how messages like it were
  * filed before. Two queries however long the queue is: the queue, and the
- * history the hints are drawn from.
+ * history that both the hints and the tag menu are drawn from.
  */
 export const getBulkImportRows = instrumentedFunction(
   'getBulkImportRows',
-  async (db: Database, userId: string): Promise<BulkImportRow[]> => {
+  async (db: Database, userId: string): Promise<BulkImportQueue> => {
     const pending = await db
       .select({
         id: smsNotifications.id,
@@ -41,17 +47,21 @@ export const getBulkImportRows = instrumentedFunction(
       .orderBy(desc(smsNotifications.createdAt));
 
     if (pending.length === 0) {
-      return [];
+      return { rows: [], tagOptions: [] };
     }
 
-    const hintsById = await getInsertHintsForMany(db, userId, pending);
+    const history = await getLinkedHistory(db, userId);
+    const hintsById = buildInsertHints(history, pending);
 
-    return pending.map((notification) =>
-      buildInitialRow(
-        { ...notification, type: notification.type as SmsType },
-        getHintsFor(hintsById, notification.id),
+    return {
+      rows: pending.map((notification) =>
+        buildInitialRow(
+          { ...notification, type: notification.type as SmsType },
+          getHintsFor(hintsById, notification.id),
+        ),
       ),
-    );
+      tagOptions: collectTagVocabulary(history),
+    };
   },
 );
 

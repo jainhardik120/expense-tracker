@@ -8,13 +8,13 @@ import { api } from '@/server/server';
 import { BulkImportGrid } from '../_components/bulk-import-grid';
 
 export default async function SmsBulkImportPage() {
-  const [rows, accounts, friends, categories, tags] = await Promise.all([
+  const [queue, accounts, friends, categories] = await Promise.all([
     api.smsNotifications.getBulkImportRows(),
     api.accounts.getAccounts(),
     api.friends.getFriends(),
     api.statements.getCategories({}),
-    api.statements.getTags({}),
   ]);
+  const { rows, tagOptions } = queue;
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,7 +40,7 @@ export default async function SmsBulkImportPage() {
         categories={categories}
         friends={friends}
         initialRows={rows}
-        tags={tags}
+        tags={tagOptions}
       />
     </div>
   );

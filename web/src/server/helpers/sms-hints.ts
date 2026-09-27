@@ -20,7 +20,7 @@ import {
  * to ask the database per key. The pool runs at a single connection, which makes
  * a round trip per key expensive in a way a bigger pool would hide.
  */
-const getLinkedHistory = async (db: Database, userId: string): Promise<LinkedHistoryEntry[]> =>
+export const getLinkedHistory = async (db: Database, userId: string): Promise<LinkedHistoryEntry[]> =>
   db
     .select({
       bankName: smsNotifications.bankName,
