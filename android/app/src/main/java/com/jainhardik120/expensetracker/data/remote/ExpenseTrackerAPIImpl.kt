@@ -112,9 +112,20 @@ class ExpenseTrackerAPIImpl(
         }
     }
 
+    override suspend fun updateStatement(
+        id: String,
+        body: CreateStatementBody
+    ): Result<List<IDResult>, MessageError> {
+        return performApiRequest {
+            requestBuilder<CreateStatementBody, List<IDResult>>(
+                url = APIRoutes.statement(id), method = HttpMethod.Put, body = body
+            )
+        }
+    }
+
     override suspend fun deleteStatement(id: String): Result<Unit, MessageError> {
         return performApiRequest {
-            client.request(APIRoutes.deleteStatement(id)) {
+            client.request(APIRoutes.statement(id)) {
                 method = HttpMethod.Delete
             }.body()
         }
@@ -128,9 +139,20 @@ class ExpenseTrackerAPIImpl(
         }
     }
 
+    override suspend fun updateSelfTransfer(
+        id: String,
+        body: CreateSelfTransferBody
+    ): Result<List<IDResult>, MessageError> {
+        return performApiRequest {
+            requestBuilder<CreateSelfTransferBody, List<IDResult>>(
+                url = APIRoutes.selfTransfer(id), method = HttpMethod.Put, body = body
+            )
+        }
+    }
+
     override suspend fun deleteSelfTransfer(id: String): Result<Unit, MessageError> {
         return performApiRequest {
-            client.request(APIRoutes.deleteSelfTransfer(id)) {
+            client.request(APIRoutes.selfTransfer(id)) {
                 method = HttpMethod.Delete
             }.body()
         }

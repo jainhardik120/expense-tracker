@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -60,6 +61,7 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
         StatementActionsSheet(
             statement = statement,
             onDismiss = { selectedStatement = null },
+            onEdit = { viewModel.openEditDialog(statement) },
             onDelete = { viewModel.deleteStatement(statement) }
         )
     }
@@ -85,7 +87,10 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
             isSaving = viewModel.isSaving,
             onDismiss = { viewModel.closeCreateDialog() },
             onCreateStatement = { viewModel.createStatement(it) },
-            onCreateSelfTransfer = { viewModel.createSelfTransfer(it) }
+            onCreateSelfTransfer = { viewModel.createSelfTransfer(it) },
+            existing = viewModel.editingStatement,
+            onUpdateStatement = { id, body -> viewModel.updateStatement(id, body) },
+            onUpdateSelfTransfer = { id, body -> viewModel.updateSelfTransfer(id, body) }
         )
     }
 
@@ -179,6 +184,7 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
 fun StatementActionsSheet(
     statement: StatementItem,
     onDismiss: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
@@ -224,6 +230,17 @@ fun StatementActionsSheet(
                     ) { Text("Delete") }
                 }
             } else {
+                TextButton(
+                    onClick = {
+                        onEdit()
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Edit", modifier = Modifier.weight(1f))
+                }
                 TextButton(
                     onClick = { confirmingDelete = true },
                     modifier = Modifier.fillMaxWidth()

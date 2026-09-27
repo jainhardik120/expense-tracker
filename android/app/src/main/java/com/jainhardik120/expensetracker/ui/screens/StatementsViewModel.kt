@@ -46,6 +46,10 @@ class StatementsViewModel @Inject constructor(
     var showCreateDialog by mutableStateOf(false)
         private set
 
+    /** The statement the dialog is rewriting, or null when it is writing a new one. */
+    var editingStatement by mutableStateOf<StatementItem?>(null)
+        private set
+
     var isSaving by mutableStateOf(false)
         private set
 
@@ -102,11 +106,18 @@ class StatementsViewModel @Inject constructor(
     }
 
     fun openCreateDialog() {
+        editingStatement = null
+        showCreateDialog = true
+    }
+
+    fun openEditDialog(item: StatementItem) {
+        editingStatement = item
         showCreateDialog = true
     }
 
     fun closeCreateDialog() {
         showCreateDialog = false
+        editingStatement = null
     }
 
     fun createStatement(body: CreateStatementBody) {
@@ -115,7 +126,7 @@ class StatementsViewModel @Inject constructor(
             preExecuting = { isSaving = true },
             onDoneExecuting = { isSaving = false }
         ) {
-            showCreateDialog = false
+            closeCreateDialog()
             loadStatements()
         }
     }
@@ -126,7 +137,29 @@ class StatementsViewModel @Inject constructor(
             preExecuting = { isSaving = true },
             onDoneExecuting = { isSaving = false }
         ) {
-            showCreateDialog = false
+            closeCreateDialog()
+            loadStatements()
+        }
+    }
+
+    fun updateStatement(id: String, body: CreateStatementBody) {
+        makeApiCall(
+            call = { api.updateStatement(id, body) },
+            preExecuting = { isSaving = true },
+            onDoneExecuting = { isSaving = false }
+        ) {
+            closeCreateDialog()
+            loadStatements()
+        }
+    }
+
+    fun updateSelfTransfer(id: String, body: CreateSelfTransferBody) {
+        makeApiCall(
+            call = { api.updateSelfTransfer(id, body) },
+            preExecuting = { isSaving = true },
+            onDoneExecuting = { isSaving = false }
+        ) {
+            closeCreateDialog()
             loadStatements()
         }
     }

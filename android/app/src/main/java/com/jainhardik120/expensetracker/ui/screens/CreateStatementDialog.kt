@@ -18,6 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -34,8 +35,16 @@ import com.jainhardik120.expensetracker.data.entity.AccountItem
 import com.jainhardik120.expensetracker.data.entity.CreateSelfTransferBody
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
+import com.jainhardik120.expensetracker.data.entity.StatementItem
 import java.time.Instant
 
+/**
+ * The one form for a transaction, whether it is being written or rewritten.
+ *
+ * Editing keeps the kind it was saved as: an expense and a self transfer live
+ * in different tables, so turning one into the other is a delete and an add,
+ * not an edit.
+ */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CreateStatementDialog(
@@ -44,7 +53,10 @@ fun CreateStatementDialog(
     isSaving: Boolean,
     onDismiss: () -> Unit,
     onCreateStatement: (CreateStatementBody) -> Unit,
-    onCreateSelfTransfer: (CreateSelfTransferBody) -> Unit
+    onCreateSelfTransfer: (CreateSelfTransferBody) -> Unit,
+    existing: StatementItem? = null,
+    onUpdateStatement: (String, CreateStatementBody) -> Unit = { _, _ -> },
+    onUpdateSelfTransfer: (String, CreateSelfTransferBody) -> Unit = { _, _ -> }
 ) {
     val statementKinds = listOf("expense", "outside_transaction", "friend_transaction", "self_transfer")
     val kindLabels = mapOf(
@@ -54,19 +66,28 @@ fun CreateStatementDialog(
         "self_transfer" to "Self Transfer"
     )
 
-    var selectedKind by remember { mutableStateOf("expense") }
-    var amount by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf("") }
-    var selectedAccountId by remember { mutableStateOf<String?>(null) }
-    var selectedFriendId by remember { mutableStateOf<String?>(null) }
-    var selectedFromAccountId by remember { mutableStateOf<String?>(null) }
-    var selectedToAccountId by remember { mutableStateOf<String?>(null) }
+    val formKey = existing?.id
+    var selectedKind by remember(formKey) {
+        mutableStateOf(
+            when {
+                existing == null -> "expense"
+                existing.type == "self_transfer" -> "self_transfer"
+                else -> existing.statementKind
+            }
+        )
+    }
+    var amount by remember(formKey) { mutableStateOf(existing?.amount ?: "") }
+    var category by remember(formKey) { mutableStateOf(existing?.category ?: "") }
+    var selectedAccountId by remember(formKey) { mutableStateOf(existing?.accountId) }
+    var selectedFriendId by remember(formKey) { mutableStateOf(existing?.friendId) }
+    var selectedFromAccountId by remember(formKey) { mutableStateOf(existing?.fromAccountId) }
+    var selectedToAccountId by remember(formKey) { mutableStateOf(existing?.toAccountId) }
     var amountError by remember { mutableStateOf(false) }
     var categoryError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
-        title = { Text("Add Transaction") },
+        title = { Text(if (existing == null) "Add Transaction" else "Edit Transaction") },
         text = {
             Column(
                 modifier = Modifier
@@ -74,17 +95,25 @@ fun CreateStatementDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    statementKinds.forEach { kind ->
-                        FilterChip(
-                            selected = selectedKind == kind,
-                            onClick = { selectedKind = kind },
-                            label = { Text(kindLabels[kind] ?: kind) }
-                        )
+                if (existing == null) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        statementKinds.forEach { kind ->
+                            FilterChip(
+                                selected = selectedKind == kind,
+                                onClick = { selectedKind = kind },
+                                label = { Text(kindLabels[kind] ?: kind) }
+                            )
+                        }
                     }
+                } else {
+                    Text(
+                        text = kindLabels[selectedKind] ?: selectedKind,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 OutlinedTextField(
@@ -151,31 +180,39 @@ fun CreateStatementDialog(
             TextButton(
                 onClick = {
                     if (amount.isBlank()) { amountError = true; return@TextButton }
-                    val now = Instant.now().toString()
+                    // An edit keeps the moment it was recorded at; only a new
+                    // row is stamped now.
+                    val at = existing?.createdAt ?: Instant.now().toString()
                     if (selectedKind == "self_transfer") {
                         val fromId = selectedFromAccountId ?: return@TextButton
                         val toId = selectedToAccountId ?: return@TextButton
-                        onCreateSelfTransfer(
-                            CreateSelfTransferBody(
-                                fromAccountId = fromId,
-                                toAccountId = toId,
-                                amount = amount,
-                                createdAt = now
-                            )
+                        val body = CreateSelfTransferBody(
+                            fromAccountId = fromId,
+                            toAccountId = toId,
+                            amount = amount,
+                            createdAt = at
                         )
+                        if (existing == null) {
+                            onCreateSelfTransfer(body)
+                        } else {
+                            onUpdateSelfTransfer(existing.id, body)
+                        }
                     } else {
                         if (category.isBlank()) { categoryError = true; return@TextButton }
-                        onCreateStatement(
-                            CreateStatementBody(
-                                amount = amount,
-                                category = category,
-                                tags = emptyList(),
-                                accountId = selectedAccountId,
-                                friendId = selectedFriendId,
-                                statementKind = selectedKind,
-                                createdAt = now
-                            )
+                        val body = CreateStatementBody(
+                            amount = amount,
+                            category = category,
+                            tags = existing?.tags ?: emptyList(),
+                            accountId = selectedAccountId,
+                            friendId = selectedFriendId,
+                            statementKind = selectedKind,
+                            createdAt = at
                         )
+                        if (existing == null) {
+                            onCreateStatement(body)
+                        } else {
+                            onUpdateStatement(existing.id, body)
+                        }
                     }
                 },
                 enabled = !isSaving

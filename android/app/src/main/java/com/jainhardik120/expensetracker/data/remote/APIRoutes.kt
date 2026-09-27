@@ -14,6 +14,6 @@ object APIRoutes {
     const val FRIENDS = "${BASE_URL}/friends"
     const val WIDGET = "${BASE_URL}/widget"
 
-    fun deleteStatement(id: String) = "${STATEMENTS}/$id"
-    fun deleteSelfTransfer(id: String) = "${SELF_TRANSFER}/$id"
+    fun statement(id: String) = "${STATEMENTS}/$id"
+    fun selfTransfer(id: String) = "${SELF_TRANSFER}/$id"
 }

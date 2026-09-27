@@ -18,7 +18,10 @@ fun createHttpClient(
     return HttpClient(OkHttp) {
         expectSuccess = true
         install(ContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true })
+            // encodeDefaults, because a field left at its default — no tags,
+            // no friend — would otherwise be dropped from the body entirely,
+            // and the server reads a missing field as a missing field.
+            json(Json { ignoreUnknownKeys = true; encodeDefaults = true })
         }
 
         install(Logging) {
