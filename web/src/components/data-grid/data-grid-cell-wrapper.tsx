@@ -5,12 +5,28 @@ import * as React from 'react';
 import { useComposedRefs } from '@/lib/compose-refs';
 import { getCellKey } from '@/lib/data-grid';
 import { cn } from '@/lib/utils';
-import type { DataGridCellProps } from '@/types/data-grid';
+import type { CellOpts, DataGridCellProps } from '@/types/data-grid';
+
+/**
+ * Editors that are a menu rather than a text caret: a dropdown, a tag picker, a
+ * calendar. These open on a single click.
+ *
+ * For a text or number cell the first click has to mean "select this cell" —
+ * that is how a value gets copied, or a range started — so those still take a
+ * second click to begin editing. A menu has nothing to type into, so making the
+ * user click twice to see it buys nothing. Keyboard navigation is unaffected
+ * either way: arrows move, Enter opens.
+ *
+ * (A local change, not upstream behaviour. Worth re-applying if this grid is
+ * ever re-vendored.)
+ */
+const MENU_EDITOR_VARIANTS = new Set<CellOpts['variant']>(['select', 'multi-select', 'date']);
 
 interface DataGridCellWrapperProps<TData>
   extends DataGridCellProps<TData>, React.ComponentProps<'div'> {}
 
 export const DataGridCellWrapper = <TData,>({
+  cell,
   tableMeta,
   rowIndex,
   columnId,
@@ -48,19 +64,41 @@ export const DataGridCellWrapper = <TData,>({
 
   const composedRef = useComposedRefs(ref, onCellChange);
 
+  const cellVariant = cell.column.columnDef.meta?.cell?.variant;
+  const opensOnSingleClick = cellVariant !== undefined && MENU_EDITOR_VARIANTS.has(cellVariant);
+
   const onClick = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!isEditing) {
-        event.preventDefault();
-        onClickProp?.(event);
-        if (isFocused && !readOnly) {
-          tableMeta?.onCellEditingStart?.(rowIndex, columnId);
-        } else {
-          tableMeta?.onCellClick?.(rowIndex, columnId, event);
-        }
+      if (isEditing) {
+        return;
+      }
+      event.preventDefault();
+      onClickProp?.(event);
+
+      // A held modifier means the click is about the selection — extending it or
+      // toggling this cell out of it — so it must never open an editor.
+      const isPlainClick =
+        !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+      const shouldEdit = !readOnly && isPlainClick && (isFocused || opensOnSingleClick);
+
+      if (shouldEdit) {
+        // This focuses the cell as well as opening it, and mousedown has already
+        // set the selection, so the click does not need forwarding too.
+        tableMeta?.onCellEditingStart?.(rowIndex, columnId);
+      } else {
+        tableMeta?.onCellClick?.(rowIndex, columnId, event);
       }
     },
-    [tableMeta, rowIndex, columnId, isEditing, isFocused, readOnly, onClickProp],
+    [
+      tableMeta,
+      rowIndex,
+      columnId,
+      isEditing,
+      isFocused,
+      readOnly,
+      onClickProp,
+      opensOnSingleClick,
+    ],
   );
 
   const onContextMenu = React.useCallback(
