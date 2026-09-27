@@ -1,6 +1,14 @@
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 
@@ -38,6 +46,38 @@ const Row = ({
   </div>
 );
 
+/** One way of spending the rest of the year, and where it leaves you. */
+const Scenario = ({
+  label,
+  perMonth,
+  invested,
+  goal,
+  highlight = false,
+}: {
+  label: string;
+  perMonth: number;
+  invested: number;
+  goal: number;
+  highlight?: boolean;
+}) => {
+  const against = invested - goal;
+  return (
+    <TableRow className={highlight ? 'bg-muted/50' : ''}>
+      <TableCell className={highlight ? 'font-semibold' : 'font-medium'}>{label}</TableCell>
+      <TableCell className="text-right tabular-nums">{formatCurrency(perMonth)}</TableCell>
+      <TableCell className="text-muted-foreground text-right tabular-nums">
+        {formatCurrency(perMonth / DAYS_PER_MONTH)}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {formatCurrency(invested)}
+        <span className={`ml-2 text-xs ${against < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+          {against < 0 ? `${formatCurrency(-against)} short` : 'on target'}
+        </span>
+      </TableCell>
+    </TableRow>
+  );
+};
+
 export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
   const {
     projection,
@@ -55,6 +95,9 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
     commitmentsRemaining,
     discretionaryRemaining,
     safeToSpendPerMonth,
+    pacePerMonth,
+    budgetPerMonth,
+    unrecordedSpend,
   } = projection;
 
   const months = projection.spendMonths;
@@ -62,7 +105,6 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
   // The balance is behind by whatever is still sitting in the message queue.
   const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
   const perDay = safeToSpendPerMonth / DAYS_PER_MONTH;
-  const shortfall = goal - projectedAtBudget;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -111,34 +153,65 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Safe to spend</CardTitle>
+          <CardTitle>How much can I spend?</CardTitle>
           <CardDescription>
-            Spend this much a month and you land on {formatCurrency(goal)} invested.
+            The same {months.toFixed(1)} months read three ways. The last row is the one to follow
+            if {formatCurrency(goal)} invested is the point.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">Per month, {months.toFixed(1)} left</p>
-              <p className="text-3xl font-semibold">{formatCurrency(safeToSpendPerMonth)}</p>
-            </div>
-            <div className="rounded-lg border p-3">
-              <p className="text-muted-foreground text-xs">Per day</p>
-              <p className="text-3xl font-semibold">{formatCurrency(perDay)}</p>
+          <div className="rounded-lg border p-3">
+            <p className="text-muted-foreground text-xs">To reach your goal, spend at most</p>
+            <div className="flex flex-wrap items-baseline gap-x-3">
+              <p className="text-3xl font-semibold">
+                {formatCurrency(safeToSpendPerMonth)}
+                <span className="text-muted-foreground ml-1 text-sm font-normal">/month</span>
+              </p>
+              <p className="text-muted-foreground text-lg">
+                {formatCurrency(perDay)}
+                <span className="ml-1 text-sm">/day</span>
+              </p>
             </div>
           </div>
 
-          <div className="text-sm">
-            <Row label="Already invested" value={investedSoFar} />
-            <Row label="At your current pace" value={projectedAtPace} />
-            <Row label="If you stick to budget" value={projectedAtBudget} />
-            <Row label="Goal" rule strong value={goal} />
-            <p className={`pt-1 text-xs ${shortfall > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {shortfall > 0
-                ? `On budget you finish ${formatCurrency(shortfall)} short.`
-                : `On budget you finish ${formatCurrency(-shortfall)} ahead.`}
-            </p>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>If you spend</TableHead>
+                <TableHead className="text-right">Per month</TableHead>
+                <TableHead className="text-right">Per day</TableHead>
+                <TableHead className="text-right">You end the year with</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <Scenario
+                goal={goal}
+                invested={projectedAtPace}
+                label="At the rate you are going"
+                perMonth={pacePerMonth}
+              />
+              <Scenario
+                goal={goal}
+                invested={projectedAtBudget}
+                label="At the budget you set"
+                perMonth={budgetPerMonth}
+              />
+              <Scenario
+                goal={goal}
+                highlight
+                invested={goal}
+                label="To hit your goal"
+                perMonth={safeToSpendPerMonth}
+              />
+            </TableBody>
+          </Table>
+
+          <p className="text-muted-foreground text-xs">
+            Already invested {formatCurrency(investedSoFar)}.
+            {unrecordedSpend > 0
+              ? ` Includes ${formatCurrency(unrecordedSpend)} spent but not yet entered.`
+              : ''}
+          </p>
         </CardContent>
       </Card>
     </div>

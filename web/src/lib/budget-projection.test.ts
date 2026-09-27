@@ -348,3 +348,39 @@ test('spending not yet written down still comes off what will be saved', () => {
   // and it tightens what can be spent from here, rather than being ignored
   assert.ok(withQueue.safeToSpendPerMonth < withoutQueue.safeToSpendPerMonth);
 });
+
+test('the three rates describe the same year from three choices', () => {
+  const p = project(
+    [
+      line({
+        lineId: 'food',
+        allocationAmount: 9300,
+        discretionary: true,
+        actual: 113968.47,
+        pacePerMonth: 11396.85,
+      }),
+      line({
+        lineId: 'inv',
+        allocationKind: 'residual',
+        allocationAmount: 270000,
+        actual: 209268.35,
+      }),
+    ],
+    1254583,
+    10,
+    12,
+    9910.87,
+    2.8667,
+  );
+  // the three rates are the same year read three ways, and spending less
+  // invests more. Whether the required rate sits below the budgeted one depends
+  // on how ambitious the goal is, so only the ordering that always holds is
+  // asserted here; another test pins the required rate landing on the goal.
+  assert.equal(p.pacePerMonth, 11396.85);
+  assert.equal(p.budgetPerMonth, 9300);
+  assert.ok(p.projectedAtPace < p.projectedAtBudget);
+  assert.equal(
+    Math.round(p.projectedAtBudget - p.projectedAtPace),
+    Math.round((11396.85 - 9300) * 2.8667),
+  );
+});

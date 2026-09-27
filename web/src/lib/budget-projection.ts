@@ -67,6 +67,10 @@ export type Projection = {
   discretionaryRemaining: number;
   /** Spent but not yet written down, so not attributable to any line. */
   unrecordedSpend: number;
+  /** What discretionary spending is actually running at, per month. */
+  pacePerMonth: number;
+  /** What it was supposed to run at. */
+  budgetPerMonth: number;
   /**
    * What discretionary spending can run at, per month, and still reach the goal.
    * Negative means the goal is already out of reach without cutting commitments.
@@ -251,6 +255,8 @@ export const project = (
     commitmentsRemaining,
     discretionaryRemaining,
     unrecordedSpend,
+    pacePerMonth: discretionary.reduce((sum, line) => sum + line.pacePerMonth, 0),
+    budgetPerMonth: discretionary.reduce((sum, line) => sum + line.allocationAmount, 0),
     safeToSpendPerMonth: spendMonths > 0 ? affordable / spendMonths : affordable,
   };
 };
