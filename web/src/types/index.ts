@@ -590,6 +590,8 @@ export interface EMIScheduleRow {
 export interface EMICalculationResult {
   schedule: EMIScheduleRow[];
   summary: {
+    /** One installment, which no schedule row reliably holds: row zero is the fee. */
+    monthlyEMI: number;
     totalEMI: number;
     totalInterest: number;
     totalGST: number;

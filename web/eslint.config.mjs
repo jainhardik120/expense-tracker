@@ -22,7 +22,16 @@ const compat = new FlatCompat({
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'postcss.config.mjs']),
+  globalIgnores([
+    '.next/**',
+    'out/**',
+    'build/**',
+    'next-env.d.ts',
+    'postcss.config.mjs',
+    // Loader hooks for the test runner: plain ESM, outside the TS project.
+    'src/lib/alias-hook.mjs',
+    'src/lib/alias-resolver.mjs',
+  ]),
   {
     extends: fixupConfigRules(
       compat.extends(

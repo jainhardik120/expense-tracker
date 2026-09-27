@@ -24,6 +24,7 @@
     "test:sms-insert-hints": "node --experimental-strip-types --test src/lib/sms-insert-hints.test.ts",
     "test:sms-notification-rules": "node --experimental-strip-types --test src/lib/sms-notification-rules.test.ts",
     "test:oauth-refresh": "node --experimental-strip-types --test src/lib/oauth-refresh-chain.test.ts",
+    "test:emi-calculations": "node --experimental-strip-types --import ./src/lib/alias-hook.mjs --test src/lib/emi-calculations.test.ts",
     "typecheck": "tsc --noEmit",
     "unused": "knip",
     "update:check": "npm-check-updates"

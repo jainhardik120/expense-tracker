@@ -146,6 +146,7 @@ export const calculateSchedule = (
   return {
     schedule,
     summary: {
+      monthlyEMI: emi,
       totalEMI: emi * values.tenure,
       totalInterest,
       totalGST,
@@ -176,7 +177,7 @@ export const getEMIBalances = (
     return {
       outstandingBalance: 0,
       amountLeftToBePaid: 0,
-      monthlyEMI: summary.totalEMI / tenure,
+      monthlyEMI: summary.monthlyEMI,
       nextPaymentOn: null,
       nextPaymentAmount: null,
     };
@@ -186,7 +187,7 @@ export const getEMIBalances = (
     return {
       outstandingBalance: processingFeesPart.balance,
       amountLeftToBePaid: summary.totalAmount,
-      monthlyEMI: summary.totalEMI / tenure,
+      monthlyEMI: summary.monthlyEMI,
       nextPaymentOn: processingFeesPart.date ?? null,
       nextPaymentAmount: processingFeesPart.totalPayment,
     };
@@ -197,7 +198,7 @@ export const getEMIBalances = (
       return {
         outstandingBalance: 0,
         amountLeftToBePaid: 0,
-        monthlyEMI: summary.totalEMI / tenure,
+        monthlyEMI: summary.monthlyEMI,
         nextPaymentOn: null,
         nextPaymentAmount: null,
       };
@@ -205,7 +206,7 @@ export const getEMIBalances = (
     return {
       outstandingBalance: summary.effectivePrincipal,
       amountLeftToBePaid: summary.totalAmount - summary.totalProcessingFees,
-      monthlyEMI: summary.totalEMI / tenure,
+      monthlyEMI: summary.monthlyEMI,
       nextPaymentOn: firstInstallment.date ?? null,
       nextPaymentAmount: firstInstallment.totalPayment,
     };
@@ -221,7 +222,7 @@ export const getEMIBalances = (
   return {
     outstandingBalance: lastPayment?.balance ?? 0,
     amountLeftToBePaid,
-    monthlyEMI: summary.totalEMI / tenure,
+    monthlyEMI: summary.monthlyEMI,
     nextPaymentOn: nextPayment?.date ?? null,
     nextPaymentAmount: nextPayment?.totalPayment ?? null,
   };

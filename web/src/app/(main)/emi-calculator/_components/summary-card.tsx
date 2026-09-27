@@ -22,7 +22,7 @@ export const SummaryCard = ({ result }: SummaryCardProps) => {
           </div>
           <div>
             <p className="text-muted-foreground text-sm">Monthly EMI</p>
-            <p className="text-2xl font-bold">{formatCurrency(result.schedule[0]?.emi ?? 0)}</p>
+            <p className="text-2xl font-bold">{formatCurrency(result.summary.monthlyEMI)}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-sm">Total Interest</p>
