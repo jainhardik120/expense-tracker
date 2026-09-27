@@ -46,12 +46,17 @@ import com.jainhardik120.expensetracker.ui.auth.ErrorScreen
 import com.jainhardik120.expensetracker.ui.auth.LoadingScreen
 import com.jainhardik120.expensetracker.ui.auth.LoginScreen
 import com.jainhardik120.expensetracker.ui.theme.ExpenseTrackerTheme
+import com.jainhardik120.expensetracker.widget.WidgetRefreshScheduler
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Also here, not only in the widget's receiver: a phone that already
+        // has the widget placed may not see another onUpdate for hours, and
+        // this is where a changed schedule takes hold.
+        WidgetRefreshScheduler.ensureScheduled(this)
         enableEdgeToEdge()
         setContent {
             ExpenseTrackerTheme {
@@ -95,6 +100,15 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Leaving the app is the moment the widget is about to be looked at, and
+     * whatever was just added or edited here is not on it yet.
+     */
+    override fun onStop() {
+        super.onStop()
+        WidgetRefreshScheduler.refreshNow(this)
     }
 }
 

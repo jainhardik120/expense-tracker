@@ -21,7 +21,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,6 +33,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Intent
+import android.os.PowerManager
+import android.provider.Settings
+import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.jainhardik120.expensetracker.widget.BalanceWidgetReceiver
 import com.jainhardik120.expensetracker.widget.WidgetRefreshScheduler
 import com.jainhardik120.expensetracker.widget.widgetPreferences
@@ -100,6 +109,67 @@ fun SettingsScreen(onLogout: () -> Unit) {
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = "Later"
                         )
+                    }
+                }
+            }
+        }
+
+        // Android defers a 15 minute timer to hours, then to a day, once an
+        // app has sat unopened long enough to fall out of the active bucket.
+        // Exempting the app is the only way the widget stays current on its
+        // own — and the same restriction is what strands an unsent SMS.
+        val powerManager = remember { context.getSystemService(PowerManager::class.java) }
+        var backgroundAllowed by remember {
+            mutableStateOf(powerManager.isIgnoringBatteryOptimizations(context.packageName))
+        }
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    backgroundAllowed =
+                        powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainer
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Background refresh",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = if (backgroundAllowed) {
+                        "Allowed. The widget refreshes every 15 minutes on its own."
+                    } else {
+                        "Restricted. Android will hold the widget's refresh back " +
+                            "for hours once the app has been idle for a while."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (!backgroundAllowed) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                    "package:${context.packageName}".toUri()
+                                )
+                            )
+                        }
+                    ) {
+                        Text("Allow background refresh")
                     }
                 }
             }

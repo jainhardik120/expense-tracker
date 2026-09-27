@@ -109,16 +109,35 @@ private fun WidgetBody() {
                 modifier = GlanceModifier.defaultWeight()
             )
         }
-        Text(
-            text = when {
-                error != null -> "$error · tap to retry"
-                updatedAt != null ->
-                    "Updated ${TIME.format(Instant.ofEpochMilli(updatedAt).atZone(ZoneId.systemDefault()))} · tap to refresh"
-                else -> "Tap to load"
-            },
-            style = TextStyle(fontSize = 12.sp, color = ColorProvider(Muted)),
-            modifier = GlanceModifier.clickable(actionRunCallback<RefreshWidgetAction>())
-        )
+        // A whole strip rather than the line of text: a tap that misses the
+        // glyphs falls through to the body and opens the app instead, which
+        // looks exactly like a refresh that did nothing.
+        Row(
+            modifier = GlanceModifier
+                .fillMaxWidth()
+                .padding(top = 6.dp, bottom = 2.dp)
+                .clickable(actionRunCallback<RefreshWidgetAction>()),
+            verticalAlignment = Alignment.Vertical.CenterVertically
+        ) {
+            Text(
+                text = when {
+                    error != null -> "$error · tap to retry"
+                    updatedAt != null ->
+                        "Updated ${TIME.format(Instant.ofEpochMilli(updatedAt).atZone(ZoneId.systemDefault()))}"
+                    else -> "Tap to load"
+                },
+                style = TextStyle(fontSize = 13.sp, color = ColorProvider(Muted)),
+                modifier = GlanceModifier.defaultWeight()
+            )
+            Text(
+                text = "Refresh",
+                style = TextStyle(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ColorProvider(Rose)
+                )
+            )
+        }
     }
 }
 

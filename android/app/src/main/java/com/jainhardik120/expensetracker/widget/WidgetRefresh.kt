@@ -116,21 +116,24 @@ class RefreshWidgetAction : ActionCallback {
 object WidgetRefreshScheduler {
     private const val UNIQUE_PERIODIC = "widget-refresh-periodic"
     private const val UNIQUE_ONCE = "widget-refresh-now"
-    private const val REFRESH_MINUTES = 30L
+    /** Quarter of an hour, which is as often as WorkManager will run anything. */
+    private const val REFRESH_MINUTES = 15L
     private const val BACKOFF_SECONDS = 30L
 
     private val onlyWhenOnline = Constraints.Builder()
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
 
-    /** Every half hour, which is as often as a balance is worth redrawing. */
     fun ensureScheduled(context: Context) {
         val periodic = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(
             REFRESH_MINUTES, TimeUnit.MINUTES
         ).setConstraints(onlyWhenOnline).build()
+        // UPDATE rather than KEEP: a schedule enqueued by an older build
+        // keeps its old interval forever under KEEP, so a phone that has had
+        // the widget for a while would never pick up a change like this one.
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             UNIQUE_PERIODIC,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             periodic
         )
     }
