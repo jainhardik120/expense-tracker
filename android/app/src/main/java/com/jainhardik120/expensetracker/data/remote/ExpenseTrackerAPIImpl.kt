@@ -10,6 +10,7 @@ import com.jainhardik120.expensetracker.data.entity.Result
 import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
 import com.jainhardik120.expensetracker.data.entity.StatementsResponse
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
+import com.jainhardik120.expensetracker.data.entity.WidgetSummary
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
@@ -86,6 +87,19 @@ class ExpenseTrackerAPIImpl(
                 method = HttpMethod.Get
                 if (start != null) parameter("start", start)
                 if (end != null) parameter("end", end)
+            }.body()
+        }
+    }
+
+    override suspend fun getWidgetSummary(
+        dayStart: String,
+        dayEnd: String
+    ): Result<WidgetSummary, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.WIDGET) {
+                method = HttpMethod.Get
+                parameter("dayStart", dayStart)
+                parameter("dayEnd", dayEnd)
             }.body()
         }
     }

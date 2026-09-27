@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Expense Tracker</string>
+    <string name="widget_label">Balance</string>
+    <string name="widget_description">Balance, today\'s spending, unentered messages and what is left to spend.</string>
 </resources>
