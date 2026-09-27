@@ -71,10 +71,19 @@ export const project = (
   incomeToDate: number,
   elapsedMonths: number,
   totalMonths: number,
+  /** What the year opened with: last year's residual, already yours to spend. */
+  openingBalance = 0,
 ): Projection => {
   const remainingMonths = Math.max(totalMonths - elapsedMonths, 0);
   const runRate = elapsedMonths > 0 ? incomeToDate / elapsedMonths : 0;
-  const expectedTotalIncome = incomeToDate + runRate * remainingMonths;
+  // Everything the year has to spend, not just the salary. Income pointed at a
+  // particular line is still income -- a bonus that paid for the trip funded it
+  // out of the same pot -- and leaving it out while subtracting the line it
+  // funds understates what is left by exactly that much. The balance carried in
+  // from last year belongs here too: it was earned then and kept, not spent.
+  const earmarkedIncome = lines.reduce((sum, line) => sum + line.earmarkedIncome, 0);
+  const expectedTotalIncome =
+    openingBalance + earmarkedIncome + incomeToDate + runRate * remainingMonths;
 
   // Income pointed at a line raises its budget whatever kind it is. A trip paid
   // for out of a bonus is funded, not overspent, and a shopping envelope topped

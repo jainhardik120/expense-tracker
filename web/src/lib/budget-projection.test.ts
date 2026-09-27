@@ -221,3 +221,37 @@ test('money invested counts as spent, not as spending undone', () => {
   assert.ok(lines[0].remaining < lines[0].yearBudget, 'spending must reduce what is left');
   assert.equal(Math.round(lines[0].remaining), Math.round(lines[0].yearBudget - 209268.35));
 });
+
+test('income earmarked at a line still counts towards what the year has to spend', () => {
+  // a bonus of 28,948 pays for a trip: the line's budget is subtracted from the
+  // residual, so the bonus funding it has to be added or the residual is short
+  const withBonus = project(
+    [
+      line({
+        lineId: 'trip',
+        allocationKind: 'earmarked',
+        allocationAmount: 0,
+        earmarkedIncome: 28948,
+      }),
+      line({ lineId: 'inv', allocationKind: 'residual', allocationAmount: 0 }),
+    ],
+    1200000,
+    10,
+    12,
+  );
+  const residual = withBonus.lines.filter((l) => l.lineId === 'inv')[0];
+  // the trip's 28,948 comes off, and the bonus that paid for it goes on
+  assert.equal(Math.round(residual.yearBudget), Math.round(1200000 * 1.2));
+});
+
+test('what the year opened with is money it has to spend', () => {
+  const without = project([line({ lineId: 'inv', allocationKind: 'residual' })], 120000, 10, 12);
+  const carried = project(
+    [line({ lineId: 'inv', allocationKind: 'residual' })],
+    120000,
+    10,
+    12,
+    9500,
+  );
+  assert.equal(carried.lines[0].yearBudget - without.lines[0].yearBudget, 9500);
+});

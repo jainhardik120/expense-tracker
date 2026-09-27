@@ -104,6 +104,24 @@ export const budgetRouter = createTRPCRouter({
         accountsSummary.reduce((sum, a) => sum + a.finalBalance, 0) -
         friendsSummary.reduce((sum, f) => sum + f.finalBalance, 0);
 
+      // What the year opened with, read rather than typed: last year's residual
+      // is money already earned and kept, and this year is free to spend it.
+      const openingAccounts = await getAccountsSummaryBetweenDates(
+        ctx.db,
+        ctx.user.id,
+        undefined,
+        year.startDate,
+      );
+      const openingFriends = await getFriendsSummaryBetweenDates(
+        ctx.db,
+        ctx.user.id,
+        undefined,
+        year.startDate,
+      );
+      const openingBalance =
+        openingAccounts.reduce((sum, a) => sum + a.finalBalance, 0) -
+        openingFriends.reduce((sum, f) => sum + f.finalBalance, 0);
+
       // Pay cycles, not calendar months. The first salary of the year can land on
       // day one, so after nine calendar months ten have been paid -- and it is the
       // count of those, not the elapsed time, that says how many are still coming.
@@ -142,6 +160,7 @@ export const budgetRouter = createTRPCRouter({
         income.waterfall,
         cyclesElapsed,
         cyclesTotal,
+        openingBalance,
       );
       const byKind = (pred: (t: (typeof totals)[number]) => boolean) =>
         totals.filter(pred).reduce((sum, t) => sum + t.allocationAmount, 0);
