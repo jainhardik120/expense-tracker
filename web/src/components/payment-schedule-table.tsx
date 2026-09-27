@@ -6,7 +6,6 @@ import { isSameMonth } from 'date-fns';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat, type ZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
@@ -209,20 +208,11 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Payment Schedule</CardTitle>
-        <CardDescription>Detailed month-by-month payment breakdown</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <DataTable
-          background={false}
-          enablePagination={false}
-          getItemValue={(r) => String(r.installment)}
-          showBorder={false}
-          table={table}
-        />
-      </CardContent>
-    </Card>
+    <DataTable
+      enablePagination={false}
+      getItemValue={(r) => String(r.installment)}
+      showBorder={false}
+      table={table}
+    />
   );
 };
