@@ -71,9 +71,11 @@ const createPercentageSplitFields = (
 export const StatementSplitsDialog = ({
   statementId,
   statementData,
+  trigger,
 }: {
   statementId: string;
   statementData: Statement;
+  trigger?: React.ReactNode;
 }) => {
   const [open, setOpen] = useState(false);
   const { data: friends = [] } = api.friends.getFriends.useQuery(undefined, { enabled: open });
@@ -108,9 +110,11 @@ export const StatementSplitsDialog = ({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="size-8" size="icon" variant="ghost">
-          <SquareSlash />
-        </Button>
+        {trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <SquareSlash />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

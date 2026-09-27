@@ -1,9 +1,10 @@
 'use client';
 
 import { type ColumnDef } from '@tanstack/react-table';
-import { GripVertical, Trash } from 'lucide-react';
+import { GripVertical, Link2, SquarePen, SquareSlash, Trash } from 'lucide-react';
 
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,9 +43,7 @@ const DeleteButton = ({
   onRefresh: () => void;
 }) => (
   <DeleteConfirmationDialog mutation={mutation} mutationInput={{ id }} refresh={onRefresh}>
-    <Button className="size-8" size="icon" variant="ghost">
-      <Trash />
-    </Button>
+    <RowActionTrigger destructive icon={Trash} label="Delete" />
   </DeleteConfirmationDialog>
 );
 
@@ -65,11 +64,19 @@ const StatementActions = ({
   const { id } = statement;
 
   return (
-    <div className="flex flex-row gap-2">
-      {statement.statementKind === 'expense' && (
-        <StatementSplitsDialog statementData={statement} statementId={id} />
-      )}
-      <LinkToRecurringPaymentDialog statement={statement} onRefresh={onRefresh} />
+    <RowActions>
+      {statement.statementKind === 'expense' ? (
+        <StatementSplitsDialog
+          statementData={statement}
+          statementId={id}
+          trigger={<RowActionTrigger icon={SquareSlash} label="Splits" />}
+        />
+      ) : null}
+      <LinkToRecurringPaymentDialog
+        statement={statement}
+        trigger={<RowActionTrigger icon={Link2} label="Links" />}
+        onRefresh={onRefresh}
+      />
       <UpdateStatementForm
         accountsData={accountsData}
         categories={categories}
@@ -77,9 +84,10 @@ const StatementActions = ({
         initialData={statement}
         refresh={onRefresh}
         statementId={id}
+        trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
       />
       <DeleteButton id={id} mutation={mutation} onRefresh={onRefresh} />
-    </div>
+    </RowActions>
   );
 };
 
@@ -95,15 +103,16 @@ const SelfTransferStatementActions = ({
   const mutation = api.statements.deleteSelfTransferStatement.useMutation();
   const { id } = statement;
   return (
-    <div className="flex flex-row gap-2">
+    <RowActions>
       <UpdateSelfTransferStatementForm
         accountsData={accountsData}
         initialData={statement}
         refresh={onRefresh}
         statementId={id}
+        trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
       />
       <DeleteButton id={id} mutation={mutation} onRefresh={onRefresh} />
-    </div>
+    </RowActions>
   );
 };
 
@@ -375,7 +384,7 @@ export const createStatementColumns = ({
     header: '',
     cell: ({ row }) => {
       return (
-        <div className="flex w-full justify-end">
+        <>
           {isSelfTransfer(row.original) ? (
             <SelfTransferStatementActions
               accountsData={accountsData}
@@ -391,7 +400,7 @@ export const createStatementColumns = ({
               onRefresh={onRefreshStatements}
             />
           )}
-        </div>
+        </>
       );
     },
     meta: {

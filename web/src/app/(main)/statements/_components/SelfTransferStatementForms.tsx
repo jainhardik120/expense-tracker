@@ -101,20 +101,24 @@ export const UpdateSelfTransferStatementForm = ({
   statementId,
   initialData,
   accountsData,
+  trigger,
 }: {
   refresh?: () => void;
   statementId: string;
   initialData: SelfTransferStatement;
   accountsData: Account[];
+  trigger?: React.ReactNode;
 }) => {
   const mutation = api.statements.updateSelfTransferStatement.useMutation();
   const formFields = useMemo(() => statementFormFields(accountsData), [accountsData]);
   return (
     <MutationModal
       button={
-        <Button className="size-8" size="icon" variant="ghost">
-          <SquarePen />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <SquarePen />
+          </Button>
+        )
       }
       defaultValues={initialData}
       fields={formFields}

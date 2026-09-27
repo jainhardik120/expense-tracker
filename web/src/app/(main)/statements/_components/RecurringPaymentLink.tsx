@@ -38,21 +38,32 @@ const isAlreadyLinked = (
 export const LinkToRecurringPaymentDialog = ({
   statement,
   onRefresh,
+  trigger,
 }: {
   statement: Statement;
   onRefresh: () => void;
+  trigger?: React.ReactNode;
 }) => {
   const alreadyLinked = isAlreadyLinked(statement);
-  return <LinkDialog alreadyLinked={alreadyLinked} statement={statement} onRefresh={onRefresh} />;
+  return (
+    <LinkDialog
+      alreadyLinked={alreadyLinked}
+      statement={statement}
+      trigger={trigger}
+      onRefresh={onRefresh}
+    />
+  );
 };
 
 export const LinkDialog = ({
   statement,
   onRefresh,
   alreadyLinked,
+  trigger,
 }: {
   statement: Statement;
   onRefresh: () => void;
+  trigger?: React.ReactNode;
   alreadyLinked: ReturnType<typeof isAlreadyLinked>;
 }) => {
   const [open, setOpen] = useState(false);
@@ -72,14 +83,16 @@ export const LinkDialog = ({
       setOpen={setOpen}
       title="Link Statement"
       trigger={
-        <Button
-          className="size-8"
-          size="icon"
-          title={alreadyLinked.isLinked ? 'Manage statement link' : 'Link Statement'}
-          variant="ghost"
-        >
-          {alreadyLinked.isLinked ? <Unlink className="h-4 w-4" /> : <Link className="h-4 w-4" />}
-        </Button>
+        trigger ?? (
+          <Button
+            className="size-8"
+            size="icon"
+            title={alreadyLinked.isLinked ? 'Manage statement link' : 'Link Statement'}
+            variant="ghost"
+          >
+            {alreadyLinked.isLinked ? <Unlink className="h-4 w-4" /> : <Link className="h-4 w-4" />}
+          </Button>
+        )
       }
     >
       <div className="space-y-4">

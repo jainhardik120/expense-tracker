@@ -152,6 +152,7 @@ export const UpdateStatementForm = ({
   accountsData,
   friendsData,
   categories,
+  trigger,
 }: {
   refresh?: () => void;
   statementId: string;
@@ -159,6 +160,7 @@ export const UpdateStatementForm = ({
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
+  trigger?: React.ReactNode;
 }) => {
   const mutation = api.statements.updateStatement.useMutation();
   const formFields = useMemo(
@@ -168,9 +170,11 @@ export const UpdateStatementForm = ({
   return (
     <MutationModal
       button={
-        <Button className="size-8" size="icon" variant="ghost">
-          <SquarePen />
-        </Button>
+        trigger ?? (
+          <Button className="size-8" size="icon" variant="ghost">
+            <SquarePen />
+          </Button>
+        )
       }
       defaultValues={{
         ...initialData,
