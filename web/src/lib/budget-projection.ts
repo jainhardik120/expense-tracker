@@ -174,18 +174,25 @@ export const project = (
    * are assumed to be used, because the flight home is still going to be booked.
    */
   const forecastFor = (line: LineForProjection, yearBudget: number): number => {
+    // Whatever a line is expected to spend, it will pay the instalments already
+    // signed for. That is the floor. Without it an envelope with a loan inside
+    // forecasts its way back to exactly its own budget however much is owed:
+    // 55k of flights flown, 12k of instalments still to pay, and the envelope
+    // reports closing on 60k with nothing wrong.
+    const owed = line.scheduled.remaining;
     if (line.allocationKind === 'annual') {
-      return Math.max(yearBudget - line.actual, 0);
+      return Math.max(yearBudget - line.actual, owed);
     }
     if (line.allocationKind === 'monthly') {
       // A commitment goes out with each salary; everything else goes out with
       // the calendar, and the two run out at different times.
-      return line.discretionary
+      const expected = line.discretionary
         ? line.pacePerMonth * spendMonths
         : line.allocationAmount * remainingMonths;
+      return Math.max(expected, owed);
     }
     // Earmarked, schedule and residual lines only owe what is already scheduled.
-    return line.scheduled.remaining;
+    return owed;
   };
 
   const projected = lines.map<ProjectedLine>((line) => {

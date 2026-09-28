@@ -416,3 +416,25 @@ test('a line whose budget is its own schedule has nothing left over', () => {
   expect(lines[0].committed).toBeCloseTo(12177.51, 2);
   expect(lines[0].remaining).toBeCloseTo(0, 2);
 });
+
+test('an envelope cannot forecast away instalments it has already signed for', () => {
+  // 60k of flights, 55k flown, and 11,717 of instalments still to pay. Floored
+  // at zero the forecast would be the 5k of envelope left and the line would
+  // report closing exactly on budget, which is 6,717 short of the truth.
+  const { lines } = project(
+    [
+      line({
+        allocationKind: 'annual',
+        allocationAmount: 60000,
+        actual: 55000,
+        scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14 },
+      }),
+    ],
+    0,
+    9,
+    12,
+  );
+  expect(lines[0].forecastRemaining).toBeCloseTo(11717.14, 2);
+  expect(lines[0].projectedSpend).toBeCloseTo(66717.14, 2);
+  expect(lines[0].variance).toBeCloseTo(6717.14, 2);
+});
