@@ -33,6 +33,7 @@ type WaterfallRow = {
   allocationAmount: number;
   actual: number;
   yearBudget: number;
+  committed: number;
   remaining: number;
   overspent: boolean;
   line: Detail['lines'][number] | undefined;
@@ -191,6 +192,20 @@ const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
     meta: { align: 'right' },
   },
   {
+    id: 'committed',
+    header: 'Committed',
+    // Blank rather than a zero: most lines have nothing scheduled, and a column
+    // of noughts would bury the handful that do.
+    cell: ({ row }) =>
+      row.original.committed === 0 ? (
+        <span className="text-muted-foreground">--</span>
+      ) : (
+        <span className="text-muted-foreground">{formatCurrency(row.original.committed)}</span>
+      ),
+    enableSorting: false,
+    meta: { align: 'right' },
+  },
+  {
     id: 'remaining',
     header: 'Remaining',
     cell: ({ row }) => (
@@ -248,6 +263,7 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
     allocationAmount: line.allocationAmount,
     actual: line.actual,
     yearBudget: projected.get(line.lineId)?.yearBudget ?? 0,
+    committed: projected.get(line.lineId)?.committed ?? 0,
     remaining: projected.get(line.lineId)?.remaining ?? 0,
     overspent: projected.get(line.lineId)?.overspent ?? false,
     line: lineById.get(line.lineId),

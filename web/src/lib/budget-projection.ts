@@ -39,6 +39,16 @@ export type ProjectedLine = LineForProjection & {
   yearBudget: number;
   /** Over (positive) or under (negative) the year's budget, once the year ends. */
   variance: number;
+  /**
+   * Instalments already signed for and not yet paid.
+   *
+   * Spending is what has left the account; this is what is going to leave it
+   * whatever happens next. A flight booked in September on a three month plan
+   * is money the year has already lost, even though two thirds of it is dated
+   * in the future.
+   */
+  committed: number;
+  /** What is left once both the spending and the commitments are taken off. */
   remaining: number;
   /** What is left to spend per month over the rest of the year. */
   perMonthRemaining: number;
@@ -189,7 +199,12 @@ export const project = (
       line.allocationKind === 'monthly' && line.discretionary
         ? line.actual + line.allocationAmount * spendMonths
         : projectedSpend;
-    const remaining = yearBudget - line.actual;
+    // Commitments come off alongside the spending. A line whose budget is the
+    // schedule itself lands on zero, which is right -- an instalment plan has
+    // nothing left over -- and an envelope with a loan inside it stops
+    // advertising money that is already spoken for.
+    const committed = line.scheduled.remaining;
+    const remaining = yearBudget - line.actual - committed;
     return {
       ...line,
       unspentIsSaved: line.allocationKind !== 'annual',
@@ -198,6 +213,7 @@ export const project = (
       projectedSpend,
       variance: projectedSpend - yearBudget,
       varianceAtBudget: atBudget - yearBudget,
+      committed,
       remaining,
       perMonthRemaining: remainingMonths > 0 ? remaining / remainingMonths : remaining,
       overspent: remaining < 0,

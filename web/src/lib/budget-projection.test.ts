@@ -376,3 +376,43 @@ test('the three rates describe the same year from three choices', () => {
     Math.round((11396.85 - 9300) * 2.8667),
   );
 });
+
+test('an envelope stops advertising money a booked instalment has already claimed', () => {
+  // 60k of flights for the year, 47,180 flown, and 11,717 of it sitting in an
+  // instalment plan signed this morning. Only the difference is still free.
+  const { lines } = project(
+    [
+      line({
+        allocationKind: 'annual',
+        allocationAmount: 60000,
+        actual: 47180,
+        scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14 },
+      }),
+    ],
+    0,
+    9,
+    12,
+  );
+  expect(lines[0].committed).toBeCloseTo(11717.14, 2);
+  expect(lines[0].remaining).toBeCloseTo(1102.86, 2);
+  expect(lines[0].overspent).toBe(false);
+});
+
+test('a line whose budget is its own schedule has nothing left over', () => {
+  const { lines } = project(
+    [
+      line({
+        allocationKind: 'schedule',
+        allocationAmount: 0,
+        actual: 24902.66,
+        scheduled: { year: 37080.17, toDate: 24902.66, remaining: 12177.51 },
+      }),
+    ],
+    0,
+    9,
+    12,
+  );
+  expect(lines[0].yearBudget).toBeCloseTo(37080.17, 2);
+  expect(lines[0].committed).toBeCloseTo(12177.51, 2);
+  expect(lines[0].remaining).toBeCloseTo(0, 2);
+});
