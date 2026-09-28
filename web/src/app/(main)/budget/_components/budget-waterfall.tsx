@@ -25,6 +25,8 @@ import {
   type BudgetRule,
 } from '@/types/budget';
 
+import { BUDGET_COLUMN_SIZE, POSITION_INDENT } from './column-widths';
+
 import type { ColumnDef } from '@tanstack/react-table';
 
 type Detail = RouterOutput['budget']['getYearDetail'];
@@ -169,15 +171,17 @@ const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) 
 const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
   {
     id: 'position',
-    header: '#',
+    // Both the heading and the number carry the same indent, so the column
+    // reads as inset from the table's edge rather than pressed against it.
+    header: () => <span className={POSITION_INDENT}>#</span>,
     // The number is the precedence, not a field: it counts rows down the
     // table. `row.index` is the position in the data, which is the position on
     // screen here because these rows are never sorted or paged -- their order
     // is the meaning, and the user sets it by dragging.
-    cell: ({ row }) => row.index + 1,
+    cell: ({ row }) => <span className={POSITION_INDENT}>{row.index + 1}</span>,
     enableSorting: false,
     enableHiding: false,
-    size: 50,
+    size: BUDGET_COLUMN_SIZE.position,
   },
   {
     accessorKey: 'name',
@@ -195,6 +199,7 @@ const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
   {
     id: 'claims',
     header: 'Claims',
+    size: BUDGET_COLUMN_SIZE.claims,
     cell: ({ row }) => (
       <span className="text-muted-foreground block max-w-[320px] truncate text-xs">
         {describeRule(row.original.rule)}
@@ -262,7 +267,7 @@ const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
     ),
     enableSorting: false,
     enableHiding: false,
-    size: 60,
+    size: BUDGET_COLUMN_SIZE.actions,
   },
   {
     id: 'drag-handle',
@@ -276,7 +281,7 @@ const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
     ),
     enableSorting: false,
     enableHiding: false,
-    size: 40,
+    size: BUDGET_COLUMN_SIZE.dragHandle,
   },
 ];
 
@@ -321,6 +326,7 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
       <DataTable
         enablePagination={false}
         getItemValue={(item) => item.lineId}
+        layout="fixed"
         table={table}
         onValueChange={(items) => {
           const next = items.map((item) => item.original);

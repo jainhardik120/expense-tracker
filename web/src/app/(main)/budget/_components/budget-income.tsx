@@ -20,6 +20,8 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { budgetIncomeLineSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
+import { BUDGET_COLUMN_SIZE, POSITION_INDENT } from './column-widths';
+
 import type { ColumnDef } from '@tanstack/react-table';
 
 type Detail = RouterOutput['budget']['getYearDetail'];
@@ -211,14 +213,16 @@ const incomeColumns = ({
   return [
     {
       id: 'position',
-      header: '#',
+      header: () => <span className={POSITION_INDENT}>#</span>,
       // The number is the matching order. The carried-in row is not matched at
       // all, so it is left blank rather than given a place in a queue it is not
       // standing in.
-      cell: ({ row }) => (row.original.kind === 'opening' ? '' : row.index),
+      cell: ({ row }) => (
+        <span className={POSITION_INDENT}>{row.original.kind === 'opening' ? '' : row.index}</span>
+      ),
       enableSorting: false,
       enableHiding: false,
-      size: 50,
+      size: BUDGET_COLUMN_SIZE.position,
     },
     {
       id: 'name',
@@ -285,7 +289,7 @@ const incomeColumns = ({
         ),
       enableSorting: false,
       enableHiding: false,
-      size: 60,
+      size: BUDGET_COLUMN_SIZE.actions,
     },
     {
       id: 'drag-handle',
@@ -300,7 +304,7 @@ const incomeColumns = ({
         ),
       enableSorting: false,
       enableHiding: false,
-      size: 40,
+      size: BUDGET_COLUMN_SIZE.dragHandle,
     },
   ];
 };
@@ -338,6 +342,7 @@ export const BudgetIncome = ({ detail }: { detail: Detail }) => {
     <DataTable
       enablePagination={false}
       getItemValue={(item) => item.id}
+      layout="fixed"
       table={table}
       onValueChange={(items) => {
         // The carried-in row is not part of the order, so whatever the drag did
