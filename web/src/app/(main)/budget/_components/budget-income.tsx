@@ -1,35 +1,48 @@
 'use client';
 
+import { useOptimistic, useTransition } from 'react';
+
 import { useRouter } from 'next/navigation';
 
-import { Trash } from 'lucide-react';
+import { GripVertical, Pencil, Trash } from 'lucide-react';
 import { z } from 'zod';
 
+import { DataTable } from '@/components/data-table/data-table';
+import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { SortableItemHandle } from '@/components/ui/sortable';
+import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { budgetIncomeLineSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
+import type { ColumnDef } from '@tanstack/react-table';
+
 type Detail = RouterOutput['budget']['getYearDetail'];
+type IncomeLine = Detail['incomeLines'][number];
+
+/** The id of the carried-in row, which is not an income line of its own. */
+const OPENING_ROW_ID = '__opening_balance__';
+
+/** What the destination select holds when the money goes nowhere in particular. */
+const NO_LINE = 'none';
+
+/**
+ * A row of the income table.
+ *
+ * Last year's leftover is money arriving this year and going somewhere, which
+ * is what every other row in this table describes -- so it is a row rather than
+ * a panel above the table. It is not matched by a rule, though: it is a fixed
+ * amount that is always claimed, so it carries no position and cannot be
+ * dragged, and sits first because it is there before any salary arrives.
+ */
+type IncomeRow =
+  | { kind: 'opening'; id: typeof OPENING_ROW_ID; amount: number; destinationLineId: string | null }
+  | ({ kind: 'line' } & IncomeLine);
 
 const DESTINATION_LABEL: Record<string, string> = {
   waterfall: 'Down the waterfall',
@@ -80,6 +93,94 @@ const describeRule = (rule: BudgetRule): string => {
   return parts.length === 0 ? 'everything not claimed above' : parts.join(' · ');
 };
 
+const EditIncome = ({
+  line,
+  budgetYearId,
+  lineOptions,
+}: {
+  line: IncomeLine;
+  budgetYearId: string;
+  lineOptions: { label: string; value: string }[];
+}) => {
+  const router = useRouter();
+  const mutation = api.budget.updateIncomeLine.useMutation();
+  return (
+    <MutationModal
+      button={<RowActionTrigger icon={Pencil} label="Edit" />}
+      defaultValues={{
+        id: line.id,
+        budgetYearId,
+        name: line.name,
+        rule: line.rule as BudgetRule,
+        destination: line.destination,
+        destinationLineId: line.destinationLineId,
+      }}
+      fields={incomeFields(lineOptions)}
+      mutation={mutation}
+      refresh={() => {
+        router.refresh();
+      }}
+      schema={budgetIncomeLineSchema.extend({ id: z.string(), budgetYearId: z.string() })}
+      successToast={() => 'Income line updated'}
+      titleText={`Edit ${line.name}`}
+    />
+  );
+};
+
+/**
+ * Where last year's leftover goes.
+ *
+ * It lives on the year rather than on a line of its own, so this edits the year
+ * -- but from the same menu, in the same place, as every other row's edit.
+ */
+const EditOpeningBalance = ({ detail }: { detail: Detail }) => {
+  const router = useRouter();
+  const mutation = api.budget.updateYear.useMutation();
+  const { year, lines } = detail;
+  return (
+    <MutationModal
+      button={<RowActionTrigger icon={Pencil} label="Edit" />}
+      defaultValues={{
+        id: year.id,
+        name: year.name,
+        startDate: year.startDate,
+        endDate: year.endDate,
+        openingBalanceLineId: year.openingBalanceLineId ?? NO_LINE,
+      }}
+      fields={[
+        {
+          name: 'openingBalanceLineId' as const,
+          label: 'Where last year’s leftover goes',
+          type: 'select' as const,
+          // `NO_LINE` rather than an empty string: a Radix select item cannot
+          // carry one, because an empty value is how the select says it holds
+          // nothing at all.
+          options: [
+            { label: 'The general pot — like salary', value: NO_LINE },
+            ...lines.map((line) => ({ label: `Set aside for ${line.name}`, value: line.id })),
+          ],
+        },
+      ]}
+      mutation={mutation}
+      refresh={() => {
+        router.refresh();
+      }}
+      schema={z.object({
+        id: z.string(),
+        name: z.string(),
+        startDate: z.date(),
+        endDate: z.date(),
+        openingBalanceLineId: z
+          .string()
+          .nullable()
+          .transform((value) => (value === null || value === NO_LINE ? null : value)),
+      })}
+      successToast={() => 'Opening balance updated'}
+      titleText="Carried in from last year"
+    />
+  );
+};
+
 const DeleteIncome = ({ id, budgetYearId }: { id: string; budgetYearId: string }) => {
   const router = useRouter();
   const mutation = api.budget.deleteIncomeLine.useMutation();
@@ -91,139 +192,194 @@ const DeleteIncome = ({ id, budgetYearId }: { id: string; budgetYearId: string }
         router.refresh();
       }}
     >
-      <Button className="size-8" size="icon" variant="ghost">
-        <Trash />
-      </Button>
+      <RowActionTrigger destructive icon={Trash} label="Delete" />
     </DeleteConfirmationDialog>
   );
 };
 
-const OpeningBalance = ({ detail }: { detail: Detail }) => {
-  const router = useRouter();
-  const mutation = api.budget.updateYear.useMutation();
-  const { year, lines, openingBalance } = detail;
-  const target = lines.find((line) => line.id === year.openingBalanceLineId);
+const incomeColumns = ({
+  detail,
+  lineOptions,
+}: {
+  detail: Detail;
+  lineOptions: { label: string; value: string }[];
+}): ColumnDef<IncomeRow>[] => {
+  const { year, lines } = detail;
+  const targetName = (id: string | null) =>
+    id === null ? null : (lines.find((line) => line.id === id)?.name ?? '?');
 
-  return (
-    <div className="rounded-lg border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-medium">
-            Carried in from last year: {formatCurrency(openingBalance)}
-          </p>
-          <p className="text-muted-foreground text-xs">
-            {target === undefined
-              ? 'Going into the general pot, like salary.'
-              : `Set aside for ${target.name}, so falling short of it shows up there.`}
-          </p>
-        </div>
-        <Select
-          value={year.openingBalanceLineId ?? 'none'}
-          onValueChange={(value) => {
-            mutation.mutate(
-              {
-                id: year.id,
-                name: year.name,
-                startDate: year.startDate,
-                endDate: year.endDate,
-                openingBalanceLineId: value === 'none' ? null : value,
-              },
-              {
-                onSuccess: () => {
-                  router.refresh();
-                },
-              },
-            );
-          }}
-        >
-          <SelectTrigger className="w-64">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">The general pot</SelectItem>
-            {lines.map((line) => (
-              <SelectItem key={line.id} value={line.id}>
-                Set aside for {line.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
+  return [
+    {
+      id: 'position',
+      header: '#',
+      // The number is the matching order. The carried-in row is not matched at
+      // all, so it is left blank rather than given a place in a queue it is not
+      // standing in.
+      cell: ({ row }) => (row.original.kind === 'opening' ? '' : row.index),
+      enableSorting: false,
+      enableHiding: false,
+      size: 50,
+    },
+    {
+      id: 'name',
+      header: 'Name',
+      cell: ({ row }) =>
+        row.original.kind === 'opening' ? (
+          <span className="font-medium">
+            Carried in from last year
+            <span className="text-muted-foreground ml-2 font-normal tabular-nums">
+              {formatCurrency(row.original.amount)}
+            </span>
+          </span>
+        ) : (
+          <span className="font-medium">{row.original.name}</span>
+        ),
+      enableSorting: false,
+    },
+    {
+      id: 'claims',
+      header: 'Claims',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground text-xs">
+          {row.original.kind === 'opening'
+            ? 'whatever last year closed with'
+            : describeRule(row.original.rule as BudgetRule)}
+        </span>
+      ),
+      enableSorting: false,
+    },
+    {
+      id: 'destination',
+      header: 'Goes to',
+      cell: ({ row }) => {
+        if (row.original.kind === 'opening') {
+          const target = targetName(row.original.destinationLineId);
+          return (
+            <span>{target === null ? 'The general pot' : `Earmarked to a line → ${target}`}</span>
+          );
+        }
+        const { destination, destinationLineId } = row.original;
+        const target = targetName(destinationLineId);
+        return (
+          <span>
+            {DESTINATION_LABEL[destination]}
+            {target === null ? null : ` → ${target}`}
+          </span>
+        );
+      },
+      enableSorting: false,
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) =>
+        row.original.kind === 'opening' ? (
+          <RowActions collapse="always">
+            <EditOpeningBalance detail={detail} />
+          </RowActions>
+        ) : (
+          <RowActions>
+            <EditIncome budgetYearId={year.id} line={row.original} lineOptions={lineOptions} />
+            <DeleteIncome budgetYearId={year.id} id={row.original.id} />
+          </RowActions>
+        ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 60,
+    },
+    {
+      id: 'drag-handle',
+      header: '',
+      cell: ({ row }) =>
+        row.original.kind === 'opening' ? null : (
+          <SortableItemHandle asChild>
+            <Button className="size-8" size="icon" variant="ghost">
+              <GripVertical className="size-4" />
+            </Button>
+          </SortableItemHandle>
+        ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 40,
+    },
+  ];
 };
 
 export const BudgetIncome = ({ detail }: { detail: Detail }) => {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const addIncome = api.budget.addIncomeLine.useMutation();
-  const { year, incomeLines, lines } = detail;
+  const reorderIncomeLines = api.budget.reorderIncomeLines.useMutation();
+  const { year, incomeLines, lines, openingBalance } = detail;
   const lineOptions = lines.map((line) => ({ label: line.name, value: line.id }));
 
+  const [orderedLines, setOrderedLines] = useOptimistic(
+    incomeLines,
+    (_, next: IncomeLine[]) => next,
+  );
+
+  const rows: IncomeRow[] = [
+    {
+      kind: 'opening',
+      id: OPENING_ROW_ID,
+      amount: openingBalance,
+      destinationLineId: year.openingBalanceLineId,
+    },
+    ...orderedLines.map((line) => ({ kind: 'line' as const, ...line })),
+  ];
+
+  const { table } = useDataTable({
+    data: rows,
+    columns: incomeColumns({ detail, lineOptions }),
+    pageCount: -1,
+  });
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <CardTitle>Income</CardTitle>
-            <CardDescription>
-              Matched in order, like the spending lines. Put the specific rules above the general
-              ones, or a catch-all will swallow your salary.
-            </CardDescription>
-          </div>
-          <MutationModal
-            button={<Button variant="outline">Add Income Line</Button>}
-            defaultValues={{
-              name: '',
-              rule: emptyBudgetRule,
-              destination: 'waterfall' as const,
-              destinationLineId: null,
-              budgetYearId: year.id,
-            }}
-            fields={incomeFields(lineOptions)}
-            mutation={addIncome}
-            refresh={() => {
-              router.refresh();
-            }}
-            schema={budgetIncomeLineSchema.extend({ budgetYearId: z.string() })}
-            successToast={() => 'Income line added'}
-            titleText="Add Income Line"
-          />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <OpeningBalance detail={detail} />
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>#</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Claims</TableHead>
-              <TableHead>Goes to</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {incomeLines.map((income, index) => (
-              <TableRow key={income.id}>
-                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                <TableCell className="font-medium">{income.name}</TableCell>
-                <TableCell className="text-muted-foreground text-xs">
-                  {describeRule(income.rule as BudgetRule)}
-                </TableCell>
-                <TableCell className="text-sm">
-                  {DESTINATION_LABEL[income.destination]}
-                  {income.destinationLineId === null
-                    ? null
-                    : ` → ${lines.find((l) => l.id === income.destinationLineId)?.name ?? '?'}`}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DeleteIncome budgetYearId={year.id} id={income.id} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+    <DataTable
+      enablePagination={false}
+      getItemValue={(item) => item.id}
+      table={table}
+      onValueChange={(items) => {
+        // The carried-in row is not part of the order, so whatever the drag did
+        // to it is discarded and the rest keep the sequence they were left in.
+        const next = items
+          .map((item) => item.original)
+          .filter((item): item is { kind: 'line' } & IncomeLine => item.kind === 'line')
+          .map(({ kind: _kind, ...line }) => line as IncomeLine);
+        startTransition(async () => {
+          setOrderedLines(next);
+          await reorderIncomeLines.mutateAsync({
+            budgetYearId: year.id,
+            orderedIds: next.map((item) => item.id),
+          });
+          router.refresh();
+        });
+      }}
+    >
+      <DataTableToolbar table={table} title="Income">
+        <MutationModal
+          button={
+            <Button size="sm" variant="outline">
+              Add Income Line
+            </Button>
+          }
+          defaultValues={{
+            name: '',
+            rule: emptyBudgetRule,
+            destination: 'waterfall' as const,
+            destinationLineId: null,
+            budgetYearId: year.id,
+          }}
+          fields={incomeFields(lineOptions)}
+          mutation={addIncome}
+          refresh={() => {
+            router.refresh();
+          }}
+          schema={budgetIncomeLineSchema.extend({ budgetYearId: z.string() })}
+          successToast={() => 'Income line added'}
+          titleText="Add Income Line"
+        />
+      </DataTableToolbar>
+    </DataTable>
   );
 };

@@ -261,6 +261,30 @@ export const budgetRouter = createTRPCRouter({
       return created;
     }),
 
+  updateIncomeLine: protectedProcedure
+    .input(budgetIncomeLineSchema.extend({ id: z.string(), budgetYearId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
+      const { id, budgetYearId: _budgetYearId, ...rest } = input;
+      await ctx.db.update(budgetIncomeLines).set(rest).where(eq(budgetIncomeLines.id, id));
+    }),
+
+  /**
+   * Income lines are matched in order, the same way spending lines are, so the
+   * order has to be editable for the advice the page gives -- put the specific
+   * rules above the general ones -- to be followable at all.
+   */
+  reorderIncomeLines: protectedProcedure
+    .input(z.object({ budgetYearId: z.string(), orderedIds: z.array(z.string()) }))
+    .mutation(async ({ ctx, input }) => {
+      await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
+      await Promise.all(
+        input.orderedIds.map((id, position) =>
+          ctx.db.update(budgetIncomeLines).set({ position }).where(eq(budgetIncomeLines.id, id)),
+        ),
+      );
+    }),
+
   deleteIncomeLine: protectedProcedure
     .input(z.object({ id: z.string(), budgetYearId: z.string() }))
     .mutation(async ({ ctx, input }) => {

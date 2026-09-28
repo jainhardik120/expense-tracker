@@ -21,14 +21,25 @@ import { cn } from '@/lib/utils';
  * it crowds out the data the row exists to show. A lone action stays where it
  * is: hiding one thing behind a menu is a click for nothing.
  */
-export const RowActions = ({ children }: { children: ReactNode }) => {
+export const RowActions = ({
+  children,
+  collapse = 'auto',
+}: {
+  children: ReactNode;
+  /**
+   * `auto` leaves a lone action where it is; `always` puts it behind the menu
+   * regardless. Use `always` where a table sits beside others that do have
+   * several actions, so every row in the group carries the same control.
+   */
+  collapse?: 'auto' | 'always';
+}) => {
   const actions = Children.toArray(children).filter(isValidElement);
 
   if (actions.length === 0) {
     return null;
   }
 
-  if (actions.length === 1) {
+  if (actions.length === 1 && collapse === 'auto') {
     return <div className="flex justify-end">{actions}</div>;
   }
 

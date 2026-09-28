@@ -1,29 +1,42 @@
 'use client';
 
+import { useOptimistic, useTransition } from 'react';
+
 import { useRouter } from 'next/navigation';
 
-import { ChevronDown, ChevronUp, Pencil, Trash } from 'lucide-react';
+import { GripVertical, Pencil, Trash } from 'lucide-react';
 import { z } from 'zod';
 
+import { DataTable } from '@/components/data-table/data-table';
+import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import MutationModal from '@/components/mutation-modal';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { SortableItemHandle } from '@/components/ui/sortable';
+import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { budgetLineFormSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
+import type { ColumnDef } from '@tanstack/react-table';
+
 type Detail = RouterOutput['budget']['getYearDetail'];
+
+/** One line, with everything the table shows about it gathered in one place. */
+type WaterfallRow = {
+  lineId: string;
+  name: string;
+  rule: BudgetRule;
+  allocationKind: string;
+  allocationAmount: number;
+  actual: number;
+  yearBudget: number;
+  remaining: number;
+  overspent: boolean;
+  line: Detail['lines'][number] | undefined;
+};
 
 const lineFields = [
   { name: 'name' as const, label: 'Name', type: 'input' as const },
@@ -77,25 +90,16 @@ const describeAllocation = (kind: string, amount: number): string => {
   return suffix === undefined ? '—' : `${formatCurrency(amount)} ${suffix}`;
 };
 
-const EditLine = ({
-  line,
-  budgetYearId,
-}: {
-  line: Detail['lines'][number] | undefined;
-  budgetYearId: string;
-}) => {
+const EditLine = ({ row, budgetYearId }: { row: WaterfallRow; budgetYearId: string }) => {
   const router = useRouter();
   const mutation = api.budget.updateLine.useMutation();
+  const { line } = row;
   if (line === undefined) {
     return null;
   }
   return (
     <MutationModal
-      button={
-        <Button className="size-8" size="icon" variant="ghost">
-          <Pencil />
-        </Button>
-      }
+      button={<RowActionTrigger icon={Pencil} label="Edit" />}
       defaultValues={{
         id: line.id,
         budgetYearId,
@@ -117,59 +121,6 @@ const EditLine = ({
   );
 };
 
-/** Order is the semantics, so moving a line is a first class action. */
-const MoveLine = ({
-  orderedIds,
-  index,
-  budgetYearId,
-}: {
-  orderedIds: string[];
-  index: number;
-  budgetYearId: string;
-}) => {
-  const router = useRouter();
-  const mutation = api.budget.reorderLines.useMutation();
-  const move = (to: number) => {
-    const next = [...orderedIds];
-    const [moved] = next.splice(index, 1);
-    next.splice(to, 0, moved);
-    mutation.mutate(
-      { budgetYearId, orderedIds: next },
-      {
-        onSuccess: () => {
-          router.refresh();
-        },
-      },
-    );
-  };
-  return (
-    <div className="flex">
-      <Button
-        className="size-8"
-        disabled={index === 0}
-        size="icon"
-        variant="ghost"
-        onClick={() => {
-          move(index - 1);
-        }}
-      >
-        <ChevronUp />
-      </Button>
-      <Button
-        className="size-8"
-        disabled={index === orderedIds.length - 1}
-        size="icon"
-        variant="ghost"
-        onClick={() => {
-          move(index + 1);
-        }}
-      >
-        <ChevronDown />
-      </Button>
-    </div>
-  );
-};
-
 const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) => {
   const router = useRouter();
   const mutation = api.budget.deleteLine.useMutation();
@@ -181,35 +132,163 @@ const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) 
         router.refresh();
       }}
     >
-      <Button className="size-8" size="icon" variant="ghost">
-        <Trash />
-      </Button>
+      <RowActionTrigger destructive icon={Trash} label="Delete" />
     </DeleteConfirmationDialog>
   );
 };
 
+const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
+  {
+    id: 'position',
+    header: '#',
+    // The number is the precedence, not a field: it counts rows down the
+    // table. `row.index` is the position in the data, which is the position on
+    // screen here because these rows are never sorted or paged -- their order
+    // is the meaning, and the user sets it by dragging.
+    cell: ({ row }) => row.index + 1,
+    enableSorting: false,
+    enableHiding: false,
+    size: 50,
+  },
+  {
+    accessorKey: 'name',
+    header: 'Line',
+    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+    enableSorting: false,
+  },
+  {
+    id: 'claims',
+    header: 'Claims',
+    cell: ({ row }) => (
+      <span className="text-muted-foreground block max-w-[320px] truncate text-xs">
+        {describeRule(row.original.rule)}
+      </span>
+    ),
+    enableSorting: false,
+  },
+  {
+    id: 'allocation',
+    header: 'Allocation',
+    cell: ({ row }) =>
+      describeAllocation(row.original.allocationKind, row.original.allocationAmount),
+    enableSorting: false,
+    meta: { align: 'right' },
+  },
+  {
+    id: 'yearBudget',
+    header: 'Year budget',
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">{formatCurrency(row.original.yearBudget)}</span>
+    ),
+    enableSorting: false,
+    meta: { align: 'right' },
+  },
+  {
+    accessorKey: 'actual',
+    header: 'Actual',
+    cell: ({ row }) => formatCurrency(row.original.actual),
+    enableSorting: false,
+    meta: { align: 'right' },
+  },
+  {
+    id: 'remaining',
+    header: 'Remaining',
+    cell: ({ row }) => (
+      <span className={row.original.overspent ? 'text-destructive' : undefined}>
+        {formatCurrency(row.original.remaining)}
+      </span>
+    ),
+    enableSorting: false,
+    meta: { align: 'right' },
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => (
+      <RowActions>
+        <EditLine budgetYearId={budgetYearId} row={row.original} />
+        <DeleteLine budgetYearId={budgetYearId} id={row.original.lineId} />
+      </RowActions>
+    ),
+    enableSorting: false,
+    enableHiding: false,
+    size: 60,
+  },
+  {
+    id: 'drag-handle',
+    header: '',
+    cell: () => (
+      <SortableItemHandle asChild>
+        <Button className="size-8" size="icon" variant="ghost">
+          <GripVertical className="size-4" />
+        </Button>
+      </SortableItemHandle>
+    ),
+    enableSorting: false,
+    enableHiding: false,
+    size: 40,
+  },
+];
+
 export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const addLine = api.budget.addLine.useMutation();
-  const { year, lines, totals, projection, unclaimedCount, unclaimedTotal } = detail;
+  const reorderLines = api.budget.reorderLines.useMutation();
+  const { year, lines, totals, projection } = detail;
+
   const projected = new Map(projection.lines.map((line) => [line.lineId, line]));
-  const ruleById = new Map(lines.map((line) => [line.id, line.rule as BudgetRule]));
   const lineById = new Map(lines.map((line) => [line.id, line]));
-  const orderedIds = totals.map((line) => line.lineId);
+
+  const serverRows: WaterfallRow[] = totals.map((line) => ({
+    lineId: line.lineId,
+    name: line.name,
+    rule: (lineById.get(line.lineId)?.rule as BudgetRule | undefined) ?? emptyBudgetRule,
+    allocationKind: line.allocationKind,
+    allocationAmount: line.allocationAmount,
+    actual: line.actual,
+    yearBudget: projected.get(line.lineId)?.yearBudget ?? 0,
+    remaining: projected.get(line.lineId)?.remaining ?? 0,
+    overspent: projected.get(line.lineId)?.overspent ?? false,
+    line: lineById.get(line.lineId),
+  }));
+
+  // The dropped row stays where it was dropped while the reorder is in flight.
+  // Without this the table would snap back to the server's order and only
+  // settle once the refresh arrived, which reads as the drag having failed.
+  const [rows, setRows] = useOptimistic(serverRows, (_, next: WaterfallRow[]) => next);
+
+  const { table } = useDataTable({
+    data: rows,
+    columns: waterfallColumns(year.id),
+    pageCount: -1,
+  });
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <CardTitle>{year.name}</CardTitle>
-            <CardDescription>
-              Lines are evaluated top to bottom and the first one that claims a transaction keeps
-              it, so nothing is counted twice.
-            </CardDescription>
-          </div>
+    <div className="flex w-full flex-col gap-2.5">
+      <DataTable
+        enablePagination={false}
+        getItemValue={(item) => item.lineId}
+        table={table}
+        onValueChange={(items) => {
+          const next = items.map((item) => item.original);
+          startTransition(async () => {
+            setRows(next);
+            await reorderLines.mutateAsync({
+              budgetYearId: year.id,
+              orderedIds: next.map((item) => item.lineId),
+            });
+            router.refresh();
+          });
+        }}
+      >
+        <DataTableToolbar table={table} title={year.name}>
           <MutationModal
-            button={<Button variant="outline">Add Line</Button>}
+            button={
+              <Button size="sm" variant="outline">
+                Add Line
+              </Button>
+            }
             defaultValues={{
               name: '',
               rule: emptyBudgetRule,
@@ -227,68 +306,8 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
             successToast={() => 'Line added'}
             titleText="Add Budget Line"
           />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>#</TableHead>
-              <TableHead>Line</TableHead>
-              <TableHead>Claims</TableHead>
-              <TableHead className="text-right">Allocation</TableHead>
-              <TableHead className="text-right">Year budget</TableHead>
-              <TableHead className="text-right">Actual</TableHead>
-              <TableHead className="text-right">Remaining</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {totals.map((line, index) => (
-              <TableRow key={line.lineId}>
-                <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                <TableCell className="font-medium">{line.name}</TableCell>
-                <TableCell className="text-muted-foreground max-w-[320px] truncate text-xs">
-                  {describeRule(ruleById.get(line.lineId) ?? emptyBudgetRule)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {describeAllocation(line.allocationKind, line.allocationAmount)}
-                </TableCell>
-                <TableCell className="text-muted-foreground text-right tabular-nums">
-                  {formatCurrency(projected.get(line.lineId)?.yearBudget ?? 0)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatCurrency(line.actual)}
-                </TableCell>
-                <TableCell
-                  className={`text-right tabular-nums ${
-                    (projected.get(line.lineId)?.overspent ?? false) ? 'text-red-600' : ''
-                  }`}
-                >
-                  {formatCurrency(projected.get(line.lineId)?.remaining ?? 0)}
-                </TableCell>
-
-                <TableCell>
-                  <div className="flex justify-end">
-                    <MoveLine budgetYearId={year.id} index={index} orderedIds={orderedIds} />
-                    <EditLine budgetYearId={year.id} line={lineById.get(line.lineId)} />
-                    <DeleteLine budgetYearId={year.id} id={line.lineId} />
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-
-        {unclaimedCount === 0 ? null : (
-          <p className="text-muted-foreground text-sm">
-            <Badge variant="secondary">{unclaimedCount}</Badge> transactions worth{' '}
-            {formatCurrency(unclaimedTotal)} were not claimed by any line — lending and settling
-            with friends usually lands here, which is correct. Add a catch-all line at the bottom if
-            you expected them counted.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+        </DataTableToolbar>
+      </DataTable>
+    </div>
   );
 };

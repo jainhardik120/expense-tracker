@@ -14,9 +14,21 @@ import { cn } from '@/lib/utils';
 
 import type { Column, Table } from '@tanstack/react-table';
 
-interface DataTableToolbarProps<TData> extends React.ComponentProps<'div'> {
+// `title` is omitted from the div's own props: there it is the browser's
+// tooltip attribute and only takes a string, which would stop this one being a
+// node.
+interface DataTableToolbarProps<TData> extends Omit<React.ComponentProps<'div'>, 'title'> {
   table: Table<TData>;
   viewOptions?: boolean;
+  /**
+   * What the table is, shown on the left of the toolbar.
+   *
+   * A table with no filters leaves that side empty, so a heading written above
+   * the table sat on its own line with the actions on the next one -- two rows
+   * of chrome for one row of content. Put here it shares the line with them.
+   * When there are filters too, it sits above them on the same side.
+   */
+  title?: React.ReactNode;
 }
 
 export const DataTableToolbar = <TData,>({
@@ -24,6 +36,7 @@ export const DataTableToolbar = <TData,>({
   children,
   className,
   viewOptions = true,
+  title,
   ...props
 }: DataTableToolbarProps<TData>) => {
   const isFiltered = table.getState().columnFilters.length > 0;
@@ -46,26 +59,36 @@ export const DataTableToolbar = <TData,>({
   return (
     <div
       aria-orientation="horizontal"
-      className={cn('flex w-full items-start justify-between gap-2', className)}
+      className={cn(
+        'flex w-full justify-between gap-2',
+        // A heading is one line, the same height as the buttons opposite it, so
+        // they read as one row. Filters on their own still hang from the top,
+        // where a second wrapped line of them grows downwards.
+        title === undefined ? 'items-start' : 'items-center',
+        className,
+      )}
       role="toolbar"
       {...props}
     >
-      <div className="flex flex-1 flex-wrap items-center gap-2">
-        {columns.map((column) => (
-          <DataTableToolbarFilter key={column.id} column={column} />
-        ))}
-        {isFiltered ? (
-          <Button
-            aria-label="Reset filters"
-            className="border-dashed"
-            size="sm"
-            variant="outline"
-            onClick={onReset}
-          >
-            <X />
-            Reset
-          </Button>
-        ) : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        {title === undefined ? null : <h2 className="min-w-0 font-semibold">{title}</h2>}
+        <div className="flex flex-wrap items-center gap-2 empty:hidden">
+          {columns.map((column) => (
+            <DataTableToolbarFilter key={column.id} column={column} />
+          ))}
+          {isFiltered ? (
+            <Button
+              aria-label="Reset filters"
+              className="border-dashed"
+              size="sm"
+              variant="outline"
+              onClick={onReset}
+            >
+              <X />
+              Reset
+            </Button>
+          ) : null}
+        </div>
       </div>
       <div className="flex flex-wrap items-center justify-end gap-2">
         {children}
