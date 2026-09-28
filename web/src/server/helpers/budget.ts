@@ -219,6 +219,22 @@ export type CycleRow = {
 };
 
 /**
+ * Which cycle a date falls in.
+ *
+ * A cycle opens on the day of the month the budget year started, so the days
+ * before that belong to the cycle that opened last month. Every reader of a
+ * cycle -- the table, the headline, the phone widget -- asks this, so they
+ * cannot disagree about where a month begins.
+ */
+export const cycleKeyFor = (date: Date, cycleStartDay: number): string => {
+  const shifted = new Date(date);
+  if (shifted.getDate() < cycleStartDay) {
+    shifted.setMonth(shifted.getMonth() - 1);
+  }
+  return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
+};
+
+/**
  * Spending per pay cycle rather than per calendar month.
  *
  * A salary arriving on the 24th makes the 24th the start of the month that
@@ -239,13 +255,7 @@ export const summariseByCycle = (
     if (index === -1) {
       continue;
     }
-    const date = statement.createdAt;
-    // Anything before the cycle day belongs to the cycle that opened last month.
-    const shifted = new Date(date);
-    if (shifted.getDate() < cycleStartDay) {
-      shifted.setMonth(shifted.getMonth() - 1);
-    }
-    const key = `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
+    const key = cycleKeyFor(statement.createdAt, cycleStartDay);
     const row = byCycle.get(key) ?? {};
     row[parsed[index].name] = (row[parsed[index].name] ?? 0) + statement.costAmount;
     byCycle.set(key, row);
@@ -258,6 +268,34 @@ export const summariseByCycle = (
       perLine,
       total: Object.values(perLine).reduce((sum, value) => sum + value, 0),
     }));
+};
+
+/**
+ * What a cycle has spent against its monthly allowance.
+ *
+ * The one definition of "discretionary spend" there is: the headline, the
+ * widget and anything else comparing a cycle against its allowance all count
+ * the same lines, so changing what counts changes it everywhere at once.
+ *
+ * Being discretionary is not enough to be counted here -- the line has to be
+ * one the allowance was solved for, and `safeToSpendPerMonth` solves only for
+ * the monthly ones. A flight is discretionary too, but it is paid for out of a
+ * yearly figure, and taking a `60,000` booking off a `9,800` month said the
+ * month was overspent when nothing had been spent in it at all.
+ */
+export const spentOnDiscretionary = (
+  cycle: CycleRow | undefined,
+  lines: BudgetLineRow[],
+): number => {
+  const counted = new Set(
+    lines
+      .filter((line) => line.discretionary && line.allocationKind === 'monthly')
+      .map((line) => line.name),
+  );
+  return Object.entries(cycle?.perLine ?? {}).reduce(
+    (sum, [name, amount]) => (counted.has(name) ? sum + amount : sum),
+    0,
+  );
 };
 
 /**

@@ -36,19 +36,6 @@ const widgetSchema = z.object({
   asOf: z.date(),
 });
 
-/**
- * Which budget cycle a date falls in, by the same rule the budget page uses:
- * a cycle opens on the day of the month the budget year started, so the days
- * before that belong to the cycle that opened last month.
- */
-const cycleKeyFor = (date: Date, cycleStartDay: number) => {
-  const shifted = new Date(date);
-  if (shifted.getDate() < cycleStartDay) {
-    shifted.setMonth(shifted.getMonth() - 1);
-  }
-  return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
-};
-
 export const widgetRouter = createTRPCRouter({
   /**
    * Everything a home-screen widget shows, in one request.
@@ -98,20 +85,12 @@ export const widgetRouter = createTRPCRouter({
           : await (async () => {
               const detail = await budgetCaller.getYearDetail({ budgetYearId: year.id });
               const perMonth = detail.projection.safeToSpendPerMonth;
-              const discretionary = new Set(
-                detail.lines.filter((line) => line.discretionary).map((line) => line.name),
-              );
-              const cycle = detail.cycles.find(
-                (row) => row.cycle === cycleKeyFor(now, year.startDate.getDate()),
-              );
-              const spentThisCycle = Object.entries(cycle?.perLine ?? {}).reduce(
-                (sum, [name, amount]) => (discretionary.has(name) ? sum + amount : sum),
-                0,
-              );
+              // Taken whole from the detail rather than worked out again here,
+              // so the tile and the budget page always agree.
               return {
                 perDay: perMonth / DAYS_PER_MONTH,
                 perMonth,
-                remainingThisMonth: perMonth - spentThisCycle,
+                remainingThisMonth: detail.thisCycle.remaining,
                 goal: detail.projection.goal,
               };
             })();

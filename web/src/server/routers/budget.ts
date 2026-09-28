@@ -8,6 +8,8 @@ import {
   getScheduledTotals,
   getStatementsInWindow,
   parseRule,
+  cycleKeyFor,
+  spentOnDiscretionary,
   summariseByCycle,
   summariseIncome,
   summariseLines,
@@ -183,6 +185,22 @@ export const budgetRouter = createTRPCRouter({
         monthsRemaining,
         pendingSms.totalSpend,
       );
+      // --- where this cycle stands against the month's allowance ---
+      const cycles = summariseByCycle(lines, scoped, year.startDate.getDate());
+      const openCycle = cycleKeyFor(now, year.startDate.getDate());
+      // Every reader of "left this month" -- this page and the phone widget --
+      // takes the answer from here, so the two can never quote different
+      // figures for the same day.
+      const spentThisCycle = spentOnDiscretionary(
+        cycles.find((row) => row.cycle === openCycle),
+        lines,
+      );
+      const thisCycle = {
+        key: openCycle,
+        spent: spentThisCycle,
+        remaining: projection.safeToSpendPerMonth - spentThisCycle,
+      };
+
       return {
         year,
         lines,
@@ -196,7 +214,8 @@ export const budgetRouter = createTRPCRouter({
         openingBalance,
         incomeCyclesRemaining,
         monthlyIncome: cyclesElapsed > 0 ? income.waterfall / cyclesElapsed : 0,
-        cycles: summariseByCycle(lines, scoped, year.startDate.getDate()),
+        cycles,
+        thisCycle,
         unclaimedCount: unclaimed.length,
         unclaimedTotal: unclaimed.reduce((sum, s) => sum + s.myAmount, 0),
       };

@@ -1,5 +1,7 @@
 'use client';
 
+import { format, parse, setDate } from 'date-fns';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -15,6 +17,9 @@ import { type RouterOutput } from '@/server/routers';
 type Detail = RouterOutput['budget']['getYearDetail'];
 
 const DAYS_PER_MONTH = 30.4;
+
+/** Figures below zero are the ones worth noticing, wherever they appear. */
+const OVERDRAWN = 'text-red-600';
 
 const Row = ({
   label,
@@ -40,7 +45,7 @@ const Row = ({
         <span className="text-muted-foreground/70 ml-2 text-xs">{note}</span>
       )}
     </span>
-    <span className={`tabular-nums ${value < 0 ? 'text-red-600' : ''}`}>
+    <span className={`tabular-nums ${value < 0 ? OVERDRAWN : ''}`}>
       {formatCurrency(value)}
     </span>
   </div>
@@ -70,7 +75,7 @@ const Scenario = ({
       </TableCell>
       <TableCell className="text-right tabular-nums">
         {formatCurrency(invested)}
-        <span className={`ml-2 text-xs ${against < 0 ? 'text-red-600' : 'text-muted-foreground'}`}>
+        <span className={`ml-2 text-xs ${against < 0 ? OVERDRAWN : 'text-muted-foreground'}`}>
           {against < 0 ? `${formatCurrency(-against)} short` : 'on target'}
         </span>
       </TableCell>
@@ -86,6 +91,7 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
     monthlyIncome,
     pendingSpend,
     pendingCount,
+    thisCycle,
   } = detail;
   const {
     goal,
@@ -105,6 +111,13 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
   // The balance is behind by whatever is still sitting in the message queue.
   const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
   const perDay = safeToSpendPerMonth / DAYS_PER_MONTH;
+  // The cycle runs from the day of the month the year opened on, so saying
+  // which day it started is the difference between this figure reading as the
+  // calendar month and reading as what it is.
+  const cycleOpened = format(
+    setDate(parse(thisCycle.key, 'yyyy-MM', new Date()), detail.year.startDate.getDate()),
+    'd MMM',
+  );
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -172,6 +185,21 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
                 <span className="ml-1 text-sm">/day</span>
               </p>
             </div>
+            {/* The same number the phone widget shows, read from the same
+                field, so the two can never be seen to disagree. */}
+            <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 border-t pt-3">
+              <p className="text-muted-foreground text-xs">Left this month</p>
+              <p
+                className={`text-xl font-semibold tabular-nums ${
+                  thisCycle.remaining < 0 ? OVERDRAWN : ''
+                }`}
+              >
+                {formatCurrency(thisCycle.remaining)}
+              </p>
+            </div>
+            <p className="text-muted-foreground/70 text-xs">
+              {formatCurrency(thisCycle.spent)} spent since {cycleOpened}
+            </p>
           </div>
 
           <Table>
