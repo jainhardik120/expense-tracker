@@ -40,6 +40,7 @@ type WaterfallRow = {
   yearBudget: number;
   committed: number;
   remaining: number;
+  closed: boolean;
   overspent: boolean;
   line: Detail['lines'][number] | undefined;
 };
@@ -77,6 +78,11 @@ const lineFields = [
   {
     name: 'discretionary' as const,
     label: 'I can choose to spend less on this',
+    type: 'checkbox' as const,
+  },
+  {
+    name: 'closed' as const,
+    label: 'Done for the year — nothing more to spend here',
     type: 'checkbox' as const,
   },
   { name: 'rule.categories' as const, label: 'Categories', type: 'stringArray' as const },
@@ -130,6 +136,7 @@ const EditLine = ({ row, budgetYearId }: { row: WaterfallRow; budgetYearId: stri
         allocationKind: line.allocationKind,
         allocationAmount: line.allocationAmount,
         discretionary: line.discretionary,
+        closed: line.closed,
       }}
       fields={lineFields}
       mutation={mutation}
@@ -175,7 +182,14 @@ const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
   {
     accessorKey: 'name',
     header: 'Line',
-    cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
+    cell: ({ row }) => (
+      <span className="font-medium">
+        {row.original.name}
+        {row.original.closed ? (
+          <span className="text-muted-foreground ml-2 text-xs font-normal">done</span>
+        ) : null}
+      </span>
+    ),
     enableSorting: false,
   },
   {
@@ -285,6 +299,7 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
     actual: line.actual,
     yearBudget: projected.get(line.lineId)?.yearBudget ?? 0,
     committed: projected.get(line.lineId)?.committed ?? 0,
+    closed: line.closed,
     remaining: projected.get(line.lineId)?.remaining ?? 0,
     overspent: projected.get(line.lineId)?.overspent ?? false,
     line: lineById.get(line.lineId),
@@ -332,6 +347,7 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
               allocationKind: 'monthly' as const,
               allocationAmount: '0',
               discretionary: true,
+              closed: false,
               budgetYearId: year.id,
             }}
             fields={lineFields}

@@ -7,6 +7,15 @@ export type LineForProjection = {
   lineId: string;
   name: string;
   allocationKind: 'monthly' | 'annual' | 'residual' | 'earmarked' | 'schedule';
+  /**
+   * Nothing more is expected here this year.
+   *
+   * An envelope is assumed to be used -- the flight home is still going to be
+   * booked -- which makes its unspent balance reserved rather than saved. Once
+   * the flights are booked that assumption is simply wrong, and only the person
+   * who booked them knows.
+   */
+  closed: boolean;
   allocationAmount: number;
   discretionary: boolean;
   actual: number;
@@ -180,6 +189,11 @@ export const project = (
     // 55k of flights flown, 12k of instalments still to pay, and the envelope
     // reports closing on 60k with nothing wrong.
     const owed = line.scheduled.remaining;
+    // A closed line owes its instalments and nothing else: no envelope left to
+    // use up, no pace to carry on at.
+    if (line.closed) {
+      return owed;
+    }
     if (line.allocationKind === 'annual') {
       return Math.max(yearBudget - line.actual, owed);
     }
@@ -203,7 +217,7 @@ export const project = (
     const forecastRemaining = forecastFor(line, yearBudget);
     const projectedSpend = line.actual + forecastRemaining;
     const atBudget =
-      line.allocationKind === 'monthly' && line.discretionary
+      line.allocationKind === 'monthly' && line.discretionary && !line.closed
         ? line.actual + line.allocationAmount * spendMonths
         : projectedSpend;
     // Commitments come off alongside the spending. A line whose budget is the
@@ -214,7 +228,8 @@ export const project = (
     const remaining = yearBudget - line.actual - committed;
     return {
       ...line,
-      unspentIsSaved: line.allocationKind !== 'annual',
+      // Closing a line is what turns its leftover from reserved into saved.
+      unspentIsSaved: line.allocationKind !== 'annual' || line.closed,
       yearBudget,
       forecastRemaining,
       projectedSpend,

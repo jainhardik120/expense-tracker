@@ -358,6 +358,13 @@
       "when": 1790584991264,
       "tag": "0050_lame_blackheart",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1790587001145,
+      "tag": "0051_silky_captain_cross",
+      "breakpoints": true
     }
   ]
 }

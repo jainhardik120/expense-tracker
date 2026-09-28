@@ -58,6 +58,7 @@ export const budgetLineSchema = z.object({
   allocationKind: z.enum(budgetAllocationKinds),
   allocationAmount: z.string().default('0'),
   discretionary: z.boolean().default(true),
+  closed: z.boolean().default(false),
 });
 
 export const budgetIncomeLineSchema = z.object({

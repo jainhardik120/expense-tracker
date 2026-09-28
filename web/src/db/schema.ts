@@ -530,6 +530,11 @@ export const budgetLines = pgTable(
     // commitments, so counting them as money you could spend would tell you that
     // you can afford things you cannot.
     discretionary: boolean('discretionary').notNull().default(true),
+    // Nothing more is expected on this line this year. An envelope is assumed
+    // to be used up -- the flight home is still going to be booked -- so until
+    // the flights are booked its unspent balance is reserved rather than saved.
+    // Closing it says the spending is done and what is left over is real.
+    closed: boolean('closed').notNull().default(false),
     createdAt: timestamp('created_at')
       .notNull()
       .$defaultFn(() => new Date()),

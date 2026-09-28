@@ -8,6 +8,7 @@ const line = (over = {}) => ({
   allocationKind: 'monthly' as const,
   allocationAmount: 1000,
   discretionary: true,
+  closed: false,
   actual: 0,
   earmarkedIncome: 0,
   scheduled: { year: 0, toDate: 0, remaining: 0 },
@@ -437,4 +438,39 @@ test('an envelope cannot forecast away instalments it has already signed for', (
   expect(lines[0].forecastRemaining).toBeCloseTo(11717.14, 2);
   expect(lines[0].projectedSpend).toBeCloseTo(66717.14, 2);
   expect(lines[0].variance).toBeCloseTo(6717.14, 2);
+});
+
+test('closing an envelope turns its leftover from reserved into saved', () => {
+  // 60k of flights, 47,180 flown, 11,717 of instalments still to pay, and the
+  // booking done. Open, the envelope forecasts its way to exactly 60k and
+  // reports nothing either way; closed, the 1,102.86 is a real underspend.
+  const booked = {
+    allocationKind: 'annual' as const,
+    allocationAmount: 60000,
+    actual: 47180,
+    scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14 },
+  };
+  const open = project([line({ ...booked })], 0, 9, 12).lines[0];
+  expect(open.variance).toBeCloseTo(0, 2);
+  expect(open.unspentIsSaved).toBe(false);
+
+  const closed = project([line({ ...booked, closed: true })], 0, 9, 12).lines[0];
+  expect(closed.forecastRemaining).toBeCloseTo(11717.14, 2);
+  expect(closed.variance).toBeCloseTo(-1102.86, 2);
+  expect(closed.unspentIsSaved).toBe(true);
+  // The saving is exactly what the waterfall row says is left.
+  expect(closed.remaining).toBeCloseTo(-closed.variance, 2);
+});
+
+test('a closed line is not forecast to carry on at the pace it was running at', () => {
+  const spending = {
+    allocationKind: 'monthly' as const,
+    allocationAmount: 1000,
+    actual: 9000,
+    pacePerMonth: 1000,
+  };
+  expect(project([line({ ...spending })], 0, 9, 12).lines[0].forecastRemaining).toBeCloseTo(3000, 2);
+  expect(project([line({ ...spending, closed: true })], 0, 9, 12).lines[0].forecastRemaining).toBe(
+    0,
+  );
 });

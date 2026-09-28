@@ -170,6 +170,7 @@ export const budgetRouter = createTRPCRouter({
           allocationKind: line.allocationKind,
           allocationAmount: line.allocationAmount,
           discretionary: line.discretionary,
+          closed: line.closed,
           actual: line.actual,
           earmarkedIncome: earmarkedIncome.get(line.lineId) ?? 0,
           scheduled: scheduled.get(line.lineId) ?? { year: 0, toDate: 0, remaining: 0 },

@@ -126,6 +126,8 @@ export type LineTotals = {
   allocationKind: BudgetLineRow['allocationKind'];
   allocationAmount: number;
   discretionary: boolean;
+  /** Nothing more is expected here this year, so what is unspent is really spare. */
+  closed: boolean;
   /** Spent against this line so far, my share only. */
   actual: number;
   matchedCount: number;
@@ -191,6 +193,7 @@ export const summariseLines = (
     allocationKind: line.allocationKind,
     allocationAmount: Number(line.allocationAmount),
     discretionary: line.discretionary,
+    closed: line.closed,
     actual: 0,
     matchedCount: 0,
   }));
