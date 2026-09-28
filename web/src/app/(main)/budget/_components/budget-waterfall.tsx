@@ -18,7 +18,12 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
-import { budgetLineFormSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
+import {
+  budgetLineFormSchema,
+  emptyBudgetRule,
+  type budgetAllocationKinds,
+  type BudgetRule,
+} from '@/types/budget';
 
 import type { ColumnDef } from '@tanstack/react-table';
 
@@ -39,18 +44,34 @@ type WaterfallRow = {
   line: Detail['lines'][number] | undefined;
 };
 
+/**
+ * Every kind the enum allows, labelled.
+ *
+ * Typed as a total record rather than written out as an option list: a kind
+ * missing from the list leaves the select with nothing to show for a line that
+ * already uses it -- Gym, on its loan schedule, opened blank -- and submitting
+ * the form then quietly traded that kind for whichever one got picked instead.
+ * Adding a kind to the enum now fails to compile until it is named here.
+ */
+const ALLOCATION_LABELS: Record<(typeof budgetAllocationKinds)[number], string> = {
+  monthly: 'Fixed amount per month',
+  annual: 'Fixed amount per year',
+  earmarked: 'Funded only by earmarked income',
+  schedule: 'Taken from the loan schedule',
+  residual: 'Residual — whatever is left',
+};
+
+// Listed in the order they make sense in, which is not the order they are
+// stored in.
+const allocationKinds = Object.keys(ALLOCATION_LABELS) as (typeof budgetAllocationKinds)[number][];
+
 const lineFields = [
   { name: 'name' as const, label: 'Name', type: 'input' as const },
   {
     name: 'allocationKind' as const,
     label: 'Allocation',
     type: 'select' as const,
-    options: [
-      { label: 'Fixed amount per month', value: 'monthly' },
-      { label: 'Fixed amount per year', value: 'annual' },
-      { label: 'Funded only by earmarked income', value: 'earmarked' },
-      { label: 'Residual — whatever is left', value: 'residual' },
-    ],
+    options: allocationKinds.map((kind) => ({ label: ALLOCATION_LABELS[kind], value: kind })),
   },
   { name: 'allocationAmount' as const, label: 'Amount', type: 'input' as const },
   {
