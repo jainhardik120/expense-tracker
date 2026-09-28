@@ -52,12 +52,17 @@ export const EditableTable = <TData,>({
     <div className={cn('flex w-full flex-col gap-2.5', className)}>
       {children}
       <DataGrid<TData> {...grid} data-mode={mode} />
-      <div className="flex flex-col gap-2.5">
-        {enablePagination ? (
-          <DataTablePagination enableSelection={enableSelection} table={table} />
-        ) : null}
-        {actionBar !== undefined && hasSelectedRows ? actionBar : null}
-      </div>
+      {/* Only when there is something to put in it: an empty flex child still
+          contributes its parent's gap, which showed up as the grid sitting
+          lower in one mode than the other. */}
+      {enablePagination || (actionBar !== undefined && hasSelectedRows) ? (
+        <div className="flex flex-col gap-2.5">
+          {enablePagination ? (
+            <DataTablePagination enableSelection={enableSelection} table={table} />
+          ) : null}
+          {actionBar !== undefined && hasSelectedRows ? actionBar : null}
+        </div>
+      ) : null}
     </div>
   );
 };

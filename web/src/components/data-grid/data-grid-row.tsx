@@ -34,7 +34,7 @@ interface DataGridRowProps<TData> extends React.ComponentProps<'div'> {
   activeSearchMatch: CellPosition | null;
   dir: Direction;
   readOnly: boolean;
-  stretchColumns: boolean;
+  stretchColumns: boolean | 'last';
   adjustLayout: boolean;
 }
 
@@ -141,7 +141,9 @@ const DataGridRowImpl = <TData,>({
             key={cell.id}
             aria-colindex={colIndex + 1}
             className={cn({
-              grow: stretchColumns && columnId !== 'select',
+              grow:
+                columnId !== 'select' &&
+                (stretchColumns === true || (stretchColumns === 'last' && isLastColumn)),
               'border-e': showEndBorder && columnId !== 'select',
               'border-s': showStartBorder && columnId !== 'select',
               // Set here rather than on the renderer inside, so a column reads
@@ -160,7 +162,15 @@ const DataGridRowImpl = <TData,>({
           >
             {getCellRenderMode({ column: cell.column, readOnly }) === 'display' ? (
               <div
-                className={cn('size-full px-3 py-1.5', {
+                // `truncate` to match DataTable's cells, which never wrap: a
+                // column here has a fixed width, so a value one character too
+                // long would otherwise fold onto a second line and be cut off
+                // by the row's height rather than by its own edge.
+                //
+                // Deliberately not a flex box. Text alignment is set on the
+                // cell and inherited, and flex items do not answer to it -- a
+                // right-aligned amount would sit on the left again.
+                className={cn('size-full truncate px-3 py-1.5', {
                   'bg-primary/10': isRowSelected,
                 })}
               >

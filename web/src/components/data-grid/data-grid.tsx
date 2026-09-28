@@ -23,7 +23,13 @@ interface DataGridProps<TData>
     Omit<React.ComponentProps<'div'>, 'contextMenu'> {
   dir?: Direction;
   height?: number;
-  stretchColumns?: boolean;
+  /**
+   * `true` widens every column to fill the space. `'last'` widens only the
+   * final one, which keeps every other column at the width it asked for -- so
+   * a column shown by two different sets of columns sits in the same place in
+   * both, and the slack collects on the right instead of being shared out.
+   */
+  stretchColumns?: boolean | 'last';
   /** Shown in place of the rows when there are none. */
   emptyState?: React.ReactNode;
 }
@@ -105,7 +111,10 @@ export const DataGrid = <TData,>({
         aria-colcount={columns.length}
         aria-label="Data grid"
         aria-rowcount={rows.length + (onRowAddProp ? 1 : 0)}
-        className="relative grid overflow-auto rounded-md border select-none focus:outline-none"
+        // `text-sm` to match DataTable, which sets it on the <table> element
+        // and lets every cell inherit. Without it the grid falls back to the
+        // body's 16px and reads a size larger than every other table.
+        className="relative grid overflow-auto rounded-md border text-sm select-none focus:outline-none"
         data-slot="grid"
         role="grid"
         style={{
@@ -158,7 +167,10 @@ export const DataGrid = <TData,>({
                             : undefined
                     }
                     className={cn('relative', {
-                      grow: stretchColumns && header.column.id !== 'select',
+                      grow:
+                        header.column.id !== 'select' &&
+                        (stretchColumns === true ||
+                          (stretchColumns === 'last' && isLastColumn)),
                       'border-e': showEndBorder && header.column.id !== 'select',
                       'border-s': showStartBorder && header.column.id !== 'select',
                     })}
@@ -240,7 +252,11 @@ export const DataGrid = <TData,>({
             );
           })}
         </div>
-        {!readOnly && onRowAdd ? (
+        {/* `onRowAddProp`, not the callback below it: that one is a wrapper
+            this component always defines, so testing it showed an "Add row"
+            footer on every editable grid, including the ones with nothing to
+            add a row to. */}
+        {!readOnly && onRowAddProp ? (
           <div
             ref={footerRef}
             className="bg-background sticky bottom-0 z-10 grid border-t"

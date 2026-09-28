@@ -28,6 +28,7 @@ import type { Account, Friend } from '@/types';
 import type { CellOpts } from '@/types/data-grid';
 
 import { BulkImportActionBar } from './bulk-import-action-bar';
+import { SMS_COLUMN_SIZE } from './column-sizes';
 
 const GRID_HEIGHT = 620;
 
@@ -44,19 +45,6 @@ const STATUS_COLUMN_ID = 'actions';
 // sticky column sits on top of whatever scrolls under it, which at this width was
 // the tag column. So these are sized to fit, and the status text truncates with
 // the full reason on hover.
-const COLUMN_SIZE = {
-  select: 44,
-  merchant: 170,
-  bank: 120,
-  date: 115,
-  amount: 105,
-  kind: 150,
-  account: 160,
-  friend: 125,
-  category: 160,
-  tags: 190,
-  status: 200,
-};
 
 const toOptions = (values: string[]) => values.map((value) => ({ label: value, value }));
 
@@ -202,7 +190,7 @@ const createBulkImportColumns = ({
 }): ColumnDef<BulkImportRow>[] => [
   {
     id: SELECT_COLUMN_ID,
-    size: COLUMN_SIZE.select,
+    size: SMS_COLUMN_SIZE.gutter,
     enableSorting: false,
     header: ({ table }) => (
       <Checkbox
@@ -221,43 +209,43 @@ const createBulkImportColumns = ({
   // where the table puts them. The columns a message is *entered* with follow,
   // so switching into editing reads as new columns arriving on the right rather
   // than as a different table.
-  editableColumn('date', 'Date', COLUMN_SIZE.date, { variant: 'date' }),
-  editableColumn('amount', 'Amount', COLUMN_SIZE.amount, { variant: 'number' }),
-  readOnlyColumn('merchant', 'Merchant', COLUMN_SIZE.merchant, (row) => (
+  editableColumn('date', 'Date', SMS_COLUMN_SIZE.date, { variant: 'date' }),
+  editableColumn('amount', 'Amount', SMS_COLUMN_SIZE.amount, { variant: 'number' }),
+  readOnlyColumn('merchant', 'Merchant', SMS_COLUMN_SIZE.merchant, (row) => (
     <span className="truncate text-sm" title={row.merchant}>
       {row.merchant === '' ? '—' : row.merchant}
     </span>
   )),
-  readOnlyColumn('bankName', 'Bank', COLUMN_SIZE.bank, (row) => (
+  readOnlyColumn('bankName', 'Bank', SMS_COLUMN_SIZE.bank, (row) => (
     <span className="text-muted-foreground truncate text-sm">
       {row.bankName}
       {row.accountLast4 === '' ? '' : ` ····${row.accountLast4}`}
     </span>
   )),
-  editableColumn('statementKind', 'Kind', COLUMN_SIZE.kind, {
+  editableColumn('statementKind', 'Kind', SMS_COLUMN_SIZE.kind, {
     variant: 'select',
     options: statementKindOptions,
   }),
-  editableColumn('accountId', 'Account', COLUMN_SIZE.account, {
+  editableColumn('accountId', 'Account', SMS_COLUMN_SIZE.accountPicker, {
     variant: 'select',
     options: accounts.map((account) => ({ label: account.accountName, value: account.id })),
   }),
-  editableColumn('friendId', 'Friend', COLUMN_SIZE.friend, {
+  editableColumn('friendId', 'Friend', SMS_COLUMN_SIZE.friend, {
     variant: 'select',
     options: friends.map((friend) => ({ label: friend.name, value: friend.id })),
   }),
-  editableColumn('category', 'Category', COLUMN_SIZE.category, {
+  editableColumn('category', 'Category', SMS_COLUMN_SIZE.category, {
     variant: 'select',
     options: toOptions(categories),
   }),
-  editableColumn('tags', 'Tags', COLUMN_SIZE.tags, {
+  editableColumn('tags', 'Tags', SMS_COLUMN_SIZE.tags, {
     variant: 'multi-select',
     options: toOptions(tags),
     // A tag the user has not used before is a normal thing to want; the vocabulary
     // is their own history, not a fixed list.
     creatable: true,
   }),
-  readOnlyColumn(STATUS_COLUMN_ID, '', COLUMN_SIZE.status, (row) => (
+  readOnlyColumn(STATUS_COLUMN_ID, '', SMS_COLUMN_SIZE.rowStatus, (row) => (
     <RowStatusCell row={row} onIncludeChange={onIncludeChange} />
   )),
 ];
@@ -384,7 +372,7 @@ export const BulkImportGrid = ({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-2.5">
       <EditableTable {...dataGrid} enablePagination={false} height={GRID_HEIGHT} />
       <BulkImportActionBar
         accounts={accounts.map((account) => ({
@@ -415,7 +403,9 @@ export const BulkImportGrid = ({
           applyToSelected({ statementKind: kind as BulkImportRow['statementKind'] });
         }}
       />
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3">
+      {/* Sized to the pagination row this replaces, so the page below does not
+          jump when the mode changes. */}
+      <div className="flex min-h-10 flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-0">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Badge variant="secondary">{readiness.included.length} selected</Badge>
           {readiness.skipped > 0 ? (
@@ -428,7 +418,11 @@ export const BulkImportGrid = ({
           ) : null}
           <span className="text-muted-foreground">Net {formatCurrency(net, rows[0].currency)}</span>
         </div>
-        <Button disabled={!readiness.canImport || mutation.isPending} onClick={onImport}>
+        <Button
+          disabled={!readiness.canImport || mutation.isPending}
+          size="sm"
+          onClick={onImport}
+        >
           {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : null}
           Import {readiness.included.length} transaction
           {readiness.included.length === 1 ? '' : 's'}

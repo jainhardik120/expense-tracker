@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { Loader2, Pencil, X } from 'lucide-react';
+import { Pencil, X } from 'lucide-react';
 
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { EditableTable } from '@/components/editable-table/editable-table';
@@ -19,12 +19,15 @@ import { createSmsNotificationColumns } from './sms-notification-columns';
 type Estimate = RouterOutput['smsNotifications']['getPendingEstimate'];
 
 type SmsNotificationsData = RouterOutput['smsNotifications']['list'];
+type Queue = RouterOutput['smsNotifications']['getBulkImportRows'];
 type SmsNotificationsTableProps = Readonly<{
   data: SmsNotificationsData;
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
   estimate: Estimate;
+  /** The pending queue, read on the server so entering is instant. */
+  initialQueue: Queue;
 }>;
 
 /** How tall the rows area is allowed to grow before it scrolls internally. */
@@ -45,6 +48,7 @@ export default function SmsNotificationsTable({
   friendsData,
   categories,
   estimate,
+  initialQueue,
 }: SmsNotificationsTableProps) {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
 
@@ -82,9 +86,12 @@ export default function SmsNotificationsTable({
     pageCount: data.pageCount,
   });
 
-  // Only asked for once the user actually wants to enter anything.
+  // Seeded from the server, so switching to entering shows the rows straight
+  // away. A background refetch may still run, but there is never a moment with
+  // nothing to show -- which is what a spinner in place of the whole table was.
+  const utils = api.useUtils();
   const queue = api.smsNotifications.getBulkImportRows.useQuery(undefined, {
-    enabled: mode === 'edit',
+    initialData: initialQueue,
   });
 
   const canEdit = estimate.count > 0;
@@ -121,40 +128,37 @@ export default function SmsNotificationsTable({
   if (mode === 'edit') {
     return (
       <div className="flex w-full flex-col gap-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-muted-foreground text-sm">
-            Every pending message, filled in from how messages like it were filed before. Correct
-            anything that looks wrong, untick what should not go in, then enter the rest at once.
+        {/* Laid out like the toolbar it replaces -- one row, same height, the
+            mode button in the same place -- so the grid below it does not move
+            when the mode changes. */}
+        <div className="flex h-8 items-center justify-between gap-2">
+          <p className="text-muted-foreground truncate text-sm">
+            Filled in from how messages like these were filed before. Correct anything wrong, untick
+            what should stay out, then enter the rest at once.
           </p>
           {modeButton}
         </div>
-        {queue.isPending ? (
-          <div className="text-muted-foreground flex h-24 items-center justify-center rounded-md border text-sm">
-            <Loader2 className="mr-2 size-4 animate-spin" />
-            Reading the queue…
-          </div>
-        ) : (
-          <BulkImportGrid
-            // Keyed on the queue itself: once an import changes what is pending
-            // the editor starts again from the new rows, rather than holding
-            // edits to rows that no longer exist.
-            key={(queue.data?.rows ?? []).map((row) => row.id).join(',')}
-            accounts={accountsData}
-            categories={categories}
-            friends={friendsData}
-            initialRows={queue.data?.rows ?? []}
-            tags={queue.data?.tagOptions ?? []}
-            onImported={() => {
-              setMode('view');
-            }}
-          />
-        )}
+        <BulkImportGrid
+          // Keyed on the queue itself: once an import changes what is pending
+          // the editor starts again from the new rows, rather than holding
+          // edits to rows that no longer exist.
+          key={queue.data.rows.map((row) => row.id).join(',')}
+          accounts={accountsData}
+          categories={categories}
+          friends={friendsData}
+          initialRows={queue.data.rows}
+          tags={queue.data.tagOptions}
+          onImported={() => {
+            void utils.smsNotifications.getBulkImportRows.invalidate();
+            setMode('view');
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <EditableTable {...view} height={GRID_HEIGHT} stretchColumns>
+    <EditableTable {...view} height={GRID_HEIGHT} stretchColumns="last">
       <DataTableToolbar table={table}>{modeButton}</DataTableToolbar>
     </EditableTable>
   );

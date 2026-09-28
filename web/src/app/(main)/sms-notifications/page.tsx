@@ -17,11 +17,22 @@ export default async function SmsNotificationsPage({
     start: pageParams.date[0],
     end: pageParams.date[1],
   };
-  const data = await api.smsNotifications.list(queryParams);
-  const accounts = await api.accounts.getAccounts();
-  const friends = await api.friends.getFriends();
-  const categories = await api.statements.getCategories({});
-  const estimate = await api.smsNotifications.getPendingEstimate();
+  // Together rather than one after another: none of them depends on another's
+  // answer, and read sequentially they cost the sum of six round trips.
+  //
+  // The queue is read here even though nothing shows it yet. It is what the
+  // table switches to when the user starts entering, and fetching it at that
+  // moment meant a wait with nothing to look at -- while fetching it alongside
+  // the rest costs no wall clock at all, since it lands with everything else.
+  const [data, accounts, friends, categories, estimate, queue] = await Promise.all([
+    api.smsNotifications.list(queryParams),
+    api.accounts.getAccounts(),
+    api.friends.getFriends(),
+    api.statements.getCategories({}),
+    api.smsNotifications.getPendingEstimate(),
+    api.smsNotifications.getBulkImportRows(),
+  ]);
+
   return (
     <div className="flex flex-col gap-4">
       <PendingEstimate estimate={estimate} />
@@ -31,6 +42,7 @@ export default async function SmsNotificationsPage({
         data={data}
         estimate={estimate}
         friendsData={friends}
+        initialQueue={queue}
       />
     </div>
   );
