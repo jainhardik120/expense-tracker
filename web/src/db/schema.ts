@@ -218,6 +218,14 @@ export const emis = pgTable('emis', {
     .notNull()
     .$defaultFn(() => new Date()),
   iafe: numeric('iafe').notNull().default('0'),
+  // The same tags its instalments will carry. A budget line finds the loans it
+  // owns through the statements its rule claims, which leaves a loan taken out
+  // today -- no instalment recorded yet -- belonging to nothing. Tagging the
+  // loan itself lets the budget see it from the day it is signed.
+  tags: text('tags')
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
 });
 

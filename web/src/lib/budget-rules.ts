@@ -30,6 +30,19 @@ export const matchesRule = (statement: MatchableStatement, rule: BudgetRule): bo
   (rule.minAmount === null || statement.amount >= rule.minAmount);
 
 /**
+ * Whether a line claims a commitment by the commitment's own tags.
+ *
+ * A loan carries no category, counterparty or kind of its own -- only a name, a
+ * schedule, and whatever tags it was given -- so the rest of a rule has nothing
+ * to read. Tags alone decide, and only when the rule names some: treating an
+ * empty tag list as "no constraint" the way matchesRule does would hand every
+ * untagged loan to the first line that constrains nothing, which is usually the
+ * catch-all at the bottom.
+ */
+export const matchesByTags = (tags: string[], rule: BudgetRule): boolean =>
+  rule.tags.length > 0 && tags.some((tag) => rule.tags.includes(tag));
+
+/**
  * The first line that claims each statement, in order.
  *
  * First match wins so a statement is never counted twice: put Gifts above

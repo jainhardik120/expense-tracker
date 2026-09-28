@@ -7,7 +7,12 @@ import {
   splits,
   statements,
 } from '@/db/schema';
-import { assignToLine, matchesRule, type MatchableStatement } from '@/lib/budget-rules';
+import {
+  assignToLine,
+  matchesByTags,
+  matchesRule,
+  type MatchableStatement,
+} from '@/lib/budget-rules';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { getEMIs } from '@/server/helpers/emi';
@@ -277,6 +282,11 @@ export type ScheduleTotals = { year: number; toDate: number; remaining: number }
  * the statements its rule claims. A paid instalment carries its loan's id, and a
  * settled recurring payment carries its own, so the commitments behind a line
  * are the ones behind its own rows.
+ *
+ * A loan taken out before its first instalment falls due has no such row, and
+ * went missing from the budget entirely until its first payment was recorded --
+ * a flight booked in September stayed invisible until October. Those are placed
+ * by the tags on the loan itself.
  */
 export const getScheduledTotals = instrumentedFunction(
   'getScheduledTotals',
@@ -302,12 +312,43 @@ export const getScheduledTotals = instrumentedFunction(
       creditId: [],
     });
 
+    // Which line owns each loan, at most one apiece. Spend is assigned first
+    // match wins, and a schedule matched line by line instead would hand the
+    // same loan to every rule that fits: a washing machine tagged as a gift is
+    // claimed by Gifts, but it is also Shopping, and it is also whatever
+    // catch-all sits at the bottom, so its remaining instalments would be
+    // counted three times over.
+    const ownerByEmi = new Map<string, string>();
     for (const line of lines) {
       const rule = parseRule(line.rule);
-      const claimed = scoped.filter((statement) => matchesRule(statement, rule));
-      const emiIds = new Set(claimed.filter((s) => s.emiId !== null).map((s) => s.emiId as string));
+      for (const statement of scoped) {
+        if (
+          statement.emiId !== null &&
+          !ownerByEmi.has(statement.emiId) &&
+          matchesRule(statement, rule)
+        ) {
+          ownerByEmi.set(statement.emiId, line.id);
+        }
+      }
+    }
+
+    // A loan signed today has no instalment recorded yet, so no statement can
+    // speak for it; its own tags do instead. Only an explicit tag overlap
+    // counts -- reading the rest of the rule would give every untagged loan to
+    // the first line that constrains nothing.
+    for (const emi of emis) {
+      if (ownerByEmi.has(emi.id)) {
+        continue;
+      }
+      const owner = lines.find((line) => matchesByTags(emi.tags, parseRule(line.rule)));
+      if (owner !== undefined) {
+        ownerByEmi.set(emi.id, owner.id);
+      }
+    }
+
+    for (const line of lines) {
       const payments = emis
-        .filter((emi) => emiIds.has(emi.id))
+        .filter((emi) => ownerByEmi.get(emi.id) === line.id)
         .flatMap((emi) => getEmiPaymentsInRange(emi, emi.creditCardName, from, to, now));
       totals.set(line.id, {
         year: payments.reduce((sum, payment) => sum + payment.myShare, 0),

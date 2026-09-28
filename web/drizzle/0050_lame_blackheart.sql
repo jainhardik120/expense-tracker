@@ -1,0 +1,1 @@
+ALTER TABLE "emis" ADD COLUMN "tags" text[] DEFAULT '{}'::text[] NOT NULL;

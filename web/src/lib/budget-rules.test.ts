@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { matchesRule, assignToLine } from './budget-rules';
+import { matchesRule, matchesByTags, assignToLine } from './budget-rules';
 
 const empty = {
   categories: [],
@@ -59,4 +59,19 @@ test('an amount ceiling tells a regular salary apart from the bonus it arrives w
   const rule = { ...empty, categories: ['Salary'], maxAmount: 140000 };
   expect(matchesRule(regular, rule)).toBe(true);
   expect(matchesRule(withBonus, rule)).toBe(false);
+});
+
+test('a commitment is claimed by its own tags, and only by an explicit tag', () => {
+  expect(matchesByTags(['Flight'], { ...empty, tags: ['Flight'] })).toBe(true);
+  expect(matchesByTags(['Flight', 'Vashni'], { ...empty, tags: ['Gift', 'Vashni'] })).toBe(true);
+  expect(matchesByTags(['Flight'], { ...empty, tags: ['Gift'] })).toBe(false);
+});
+
+test('a catch-all line does not swallow untagged commitments', () => {
+  // matchesRule reads an empty tag list as "no constraint", which is right for a
+  // statement carrying a category and an account and wrong for a loan carrying
+  // neither -- every loan would land on the bottom line.
+  expect(matchesRule(stmt({ tags: [] }), empty)).toBe(true);
+  expect(matchesByTags([], empty)).toBe(false);
+  expect(matchesByTags(['Flight'], empty)).toBe(false);
 });

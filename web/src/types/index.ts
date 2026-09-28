@@ -561,6 +561,7 @@ export const createEmiSchema = emiCalculatorFormSchema.extend({
   firstInstallmentDate: z.date(),
   processingFeesDate: z.date(),
   iafe: optionalAmount,
+  tags: z.string().array(),
 });
 
 export const emiCalculatorParser = {

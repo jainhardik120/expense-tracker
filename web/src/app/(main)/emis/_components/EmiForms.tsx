@@ -51,6 +51,12 @@ const createEmiFormFields = (
     type: 'number',
     placeholder: '0',
   },
+  {
+    name: 'tags',
+    label: 'Tags',
+    type: 'stringArray',
+    placeholder: 'Tags the instalments will carry, e.g. Flight',
+  },
   ...(emiCalculationFormFields as unknown as FormField<z.infer<typeof createEmiSchema>>[]),
 ];
 
@@ -89,6 +95,7 @@ export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) =>
         firstInstallmentDate: currentDate,
         processingFeesDate: currentDate,
         iafe: '',
+        tags: [],
       }}
       fields={createEmiFormFields(creditCards)}
       mutation={mutation}
