@@ -1,9 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
-
 import { type ColumnDef } from '@tanstack/react-table';
-import { GripVertical, Link2, SquarePen, SquareSlash, Trash } from 'lucide-react';
+import { Link2, SquarePen, SquareSlash, Trash } from 'lucide-react';
 
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
@@ -24,7 +22,13 @@ import {
   isSelfTransfer,
 } from '@/types';
 
-import { STATEMENT_COLUMN_MIN, STATEMENT_COLUMN_SIZE } from './column-sizes';
+import {
+  AmountEditor,
+  EditableCell,
+  ReorderHandle,
+  SelectEditor,
+  TagsEditor,
+} from './editable-cells';
 import { LinkToRecurringPaymentDialog } from './RecurringPaymentLink';
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import {
@@ -161,88 +165,6 @@ const withCounts = (
     .filter((option) => !cascade || option.count > 0 || selectedValues.has(option.value));
 };
 
-/**
- * Marks the row a drag is currently hovering, so the drop target is visible.
- *
- * One class per entry: `classList.toggle` takes a single token and throws on a
- * string with a space in it, which killed the drag on its first movement.
- */
-const DROP_TARGET_CLASSES = ['ring-primary', 'ring-inset', 'ring-2'];
-
-const markDropTarget = (index: number | null) => {
-  for (const row of document.querySelectorAll('[data-slot="grid-row"]')) {
-    const isTarget = index !== null && row.getAttribute('data-index') === String(index);
-    for (const className of DROP_TARGET_CLASSES) {
-      row.classList.toggle(className, isTarget);
-    }
-  }
-};
-
-/**
- * Drag a row to put it somewhere else in the order.
- *
- * Not dnd-kit, which the table used: the grid's rows are absolutely positioned
- * and moved by the virtualiser's own transform, and a library that reorders by
- * applying its own transform to the same elements fights it. The row under the
- * pointer is asked for its index instead -- every row carries one -- which is
- * all a drop needs to know.
- */
-const ReorderHandle = ({
-  rowIndex,
-  onReorder,
-}: {
-  rowIndex: number;
-  onReorder: (from: number, to: number) => void;
-}) => {
-  const target = useRef<number>(rowIndex);
-  const dragging = useRef(false);
-
-  const finish = () => {
-    if (!dragging.current) {
-      return;
-    }
-    dragging.current = false;
-    markDropTarget(null);
-    if (target.current !== rowIndex) {
-      onReorder(rowIndex, target.current);
-    }
-  };
-
-  return (
-    <button
-      aria-label="Reorder statement"
-      className="text-muted-foreground hover:text-foreground flex size-8 cursor-grab items-center justify-center active:cursor-grabbing"
-      type="button"
-      onLostPointerCapture={finish}
-      onPointerDown={(event) => {
-        event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-        dragging.current = true;
-        target.current = rowIndex;
-      }}
-      onPointerMove={(event) => {
-        if (!dragging.current) {
-          return;
-        }
-        // The pointer is captured, so the events keep coming to the handle
-        // whatever it is over. Asking the document what is under it is what
-        // turns that into a row.
-        const row = document
-          .elementFromPoint(event.clientX, event.clientY)
-          ?.closest('[data-slot="grid-row"]');
-        const index = Number(row?.getAttribute('data-index') ?? Number.NaN);
-        if (!Number.isNaN(index)) {
-          target.current = index;
-          markDropTarget(index === rowIndex ? null : index);
-        }
-      }}
-      onPointerUp={finish}
-    >
-      <GripVertical className="size-4" />
-    </button>
-  );
-};
-
 export const createStatementColumns = ({
   onRefreshStatements,
   accountsData,
@@ -252,7 +174,8 @@ export const createStatementColumns = ({
   facetCounts,
   activeFilters,
   startingBalance,
-  onReorder,
+  mode,
+  onCellSave,
 }: {
   onRefreshStatements: () => void;
   accountsData: Account[];
@@ -261,8 +184,10 @@ export const createStatementColumns = ({
   tags: string[];
   facetCounts: FacetCounts;
   activeFilters: { category: string[]; tags: string[] };
-  /** Dropping a row on another one: both are positions in the current page. */
-  onReorder: (from: number, to: number) => void;
+  /** Whether cells are being read or corrected. */
+  mode: 'view' | 'edit';
+  /** Save one corrected field of one statement. */
+  onCellSave: (statement: Statement, patch: Partial<Statement>) => void;
   startingBalance?: {
     name: string;
     amount: number;
@@ -294,10 +219,8 @@ export const createStatementColumns = ({
     ),
     enableSorting: false,
     enableHiding: false,
-    size: STATEMENT_COLUMN_SIZE.select,
     // The grid floors every column at 60px unless it says otherwise, which is
     // twenty more than a tick box needs and pushed every column after it out.
-    minSize: STATEMENT_COLUMN_SIZE.select,
   },
   {
     accessorKey: 'createdAt',
@@ -307,8 +230,6 @@ export const createStatementColumns = ({
       return <DateCell date={date} />;
     },
     id: 'date',
-    size: STATEMENT_COLUMN_SIZE.date,
-    minSize: STATEMENT_COLUMN_MIN.date,
     meta: {
       label: 'Date',
       variant: 'dateRange',
@@ -319,8 +240,6 @@ export const createStatementColumns = ({
   {
     id: 'statementKind',
     accessorKey: 'statementKind',
-    size: STATEMENT_COLUMN_SIZE.statementKind,
-    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'Statement Kind',
     // Sorted by the server or not at all: it orders by date, amount and
     // category, so a heading offering to sort by anything else would be a
@@ -346,37 +265,70 @@ export const createStatementColumns = ({
   },
   {
     accessorKey: 'amount',
-    size: STATEMENT_COLUMN_SIZE.amount,
-    minSize: STATEMENT_COLUMN_MIN.data,
     header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
     enableSorting: true,
     cell: ({ row }) => {
-      const amount = Number.parseFloat(row.original.amount);
-      return (
+      const statement = row.original;
+      const amount = Number.parseFloat(statement.amount);
+      const display = (
         <span
           className={cn(
             'font-medium tabular-nums',
-            hasSignedAmount(row.original) && signedAmountClassName(amount),
+            hasSignedAmount(statement) && signedAmountClassName(amount),
           )}
         >
           {amount.toFixed(2)}
         </span>
       );
+      // A self transfer is two records with one endpoint each; correcting one
+      // of them through this form would write half of it.
+      if (isSelfTransfer(statement)) {
+        return display;
+      }
+      return (
+        <EditableCell align="right" display={display} mode={mode}>
+          {({ stop }) => (
+            <AmountEditor
+              stop={stop}
+              value={statement.amount}
+              onSave={(next) => {
+                onCellSave(statement, { amount: next });
+              }}
+            />
+          )}
+        </EditableCell>
+      );
     },
     meta: {
       align: 'right',
       label: 'Amount',
-      cell: { variant: 'number', step: 0.01 },
     },
   },
   {
     id: 'category',
     accessorKey: 'category',
-    size: STATEMENT_COLUMN_SIZE.category,
-    minSize: STATEMENT_COLUMN_MIN.data,
     header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
     enableSorting: true,
-    cell: ({ row }) => <>{isSelfTransfer(row.original) ? '-' : row.original.category}</>,
+    cell: ({ row }) => {
+      const statement = row.original;
+      if (isSelfTransfer(statement)) {
+        return <>-</>;
+      }
+      return (
+        <EditableCell display={statement.category} mode={mode}>
+          {({ stop }) => (
+            <SelectEditor
+              options={categories}
+              stop={stop}
+              value={statement.category}
+              onSave={(next) => {
+                onCellSave(statement, { category: next });
+              }}
+            />
+          )}
+        </EditableCell>
+      );
+    },
     meta: {
       label: 'Category',
       variant: 'multiSelect',
@@ -385,20 +337,12 @@ export const createStatementColumns = ({
         facetCounts.category,
         { cascade: true, selected: activeFilters.category },
       ),
-      // `variant` above is the filter's; this is the editor's. A category is
-      // one of a known set, so it is picked rather than typed.
-      cell: {
-        variant: 'select',
-        options: categories.map((category) => ({ label: category, value: category })),
-      },
     },
     enableColumnFilter: true,
   },
   {
     id: 'account',
     accessorKey: 'from',
-    size: STATEMENT_COLUMN_SIZE.account,
-    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'From',
     enableSorting: false,
     cell: ({ row }) => <>{getFromAccount(row.original) ?? '-'}</>,
@@ -418,8 +362,6 @@ export const createStatementColumns = ({
   },
   {
     accessorKey: 'to',
-    size: STATEMENT_COLUMN_SIZE.to,
-    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'To',
     enableSorting: false,
     cell: ({ row }) => <>{getToAccount(row.original) ?? '-'}</>,
@@ -429,8 +371,6 @@ export const createStatementColumns = ({
   },
   {
     accessorKey: 'expense',
-    size: STATEMENT_COLUMN_SIZE.expense,
-    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'Expense',
     enableSorting: false,
     cell: ({ row }) => {
@@ -476,25 +416,37 @@ export const createStatementColumns = ({
   {
     id: 'tags',
     accessorKey: 'tags',
-    size: STATEMENT_COLUMN_SIZE.tags,
-    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'Tags',
     enableSorting: false,
-    cell: ({ row }) => (
-      <>
-        {isSelfTransfer(row.original) ? (
-          '-'
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {row.original.tags.map((item: string) => (
-              <Badge key={item} className="max-w-[320px] px-2 py-1" variant="secondary">
-                <span className="min-w-0 truncate">{item}</span>
-              </Badge>
-            ))}
-          </div>
-        )}
-      </>
-    ),
+    cell: ({ row }) => {
+      const statement = row.original;
+      if (isSelfTransfer(statement)) {
+        return <>-</>;
+      }
+      const display = (
+        <div className="flex flex-wrap gap-2">
+          {statement.tags.map((item: string) => (
+            <Badge key={item} className="max-w-[320px] px-2 py-1" variant="secondary">
+              <span className="min-w-0 truncate">{item}</span>
+            </Badge>
+          ))}
+        </div>
+      );
+      return (
+        <EditableCell display={display} mode={mode}>
+          {({ stop }) => (
+            <TagsEditor
+              options={tags}
+              stop={stop}
+              value={statement.tags}
+              onSave={(next) => {
+                onCellSave(statement, { tags: next });
+              }}
+            />
+          )}
+        </EditableCell>
+      );
+    },
     meta: {
       label: 'Tags',
       variant: 'multiSelect',
@@ -515,8 +467,6 @@ export const createStatementColumns = ({
   },
   {
     accessorKey: 'actions',
-    size: STATEMENT_COLUMN_SIZE.actions,
-    minSize: STATEMENT_COLUMN_SIZE.actions,
     header: '',
     enableSorting: false,
     cell: ({ row }) => {
@@ -542,18 +492,15 @@ export const createStatementColumns = ({
     },
     meta: {
       label: 'Actions',
-      fixedWidth: true,
     },
     enableHiding: false,
   },
   {
     id: 'drag-handle',
     header: '',
-    size: STATEMENT_COLUMN_SIZE.dragHandle,
-    minSize: STATEMENT_COLUMN_SIZE.dragHandle,
-    meta: { fixedWidth: true },
-    cell: ({ row }) => <ReorderHandle rowIndex={row.index} onReorder={onReorder} />,
+    cell: () => <ReorderHandle />,
     enableSorting: false,
     enableHiding: false,
+    size: 40,
   },
 ];

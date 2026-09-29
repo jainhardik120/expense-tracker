@@ -75,6 +75,16 @@ type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
    * same place as each other.
    */
   layout?: 'auto' | 'fixed';
+  /**
+   * Fill the space the table is given instead of growing with its rows.
+   *
+   * For a screen that is the table: the rows take whatever is left once the
+   * toolbar and pagination have had theirs and scroll inside their own box, so
+   * the page around them never scrolls and the pagination stays put. The
+   * heading sticks to the top of that box, the way it would to the top of the
+   * page otherwise.
+   */
+  fill?: boolean;
 };
 
 // A row can hold its own buttons, links and dialog triggers; a click on one of
@@ -94,6 +104,7 @@ export const DataTable = <TData extends object>({
   onRowClick,
   enableSelection = true,
   layout = 'auto',
+  fill = false,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -101,16 +112,30 @@ export const DataTable = <TData extends object>({
   const hasSelectedRows = table.getFilteredSelectedRowModel().rows.length > 0;
 
   return (
-    <div className={cn('flex w-full flex-col gap-2.5 overflow-auto', className)} {...props}>
-      {children}
-      <div className={cn('overflow-hidden', showBorder && 'rounded-md border')}>
+    <div
+      className={cn(
+        'flex w-full flex-col gap-2.5',
+        fill ? 'min-h-0 flex-1' : 'overflow-auto',
+        className,
+      )}
+      {...props}
+    >
+      {/* The toolbar keeps its size; only the rows between it and the
+          pagination give way. */}
+      {fill ? <div className="shrink-0">{children}</div> : children}
+      <div
+        className={cn(
+          showBorder && 'rounded-md border',
+          fill ? 'min-h-0 flex-1 overflow-auto' : 'overflow-hidden',
+        )}
+      >
         <Sortable
           getItemValue={(item) => getItemValue(item.original)}
           value={rows}
           onValueChange={onValueChange}
         >
           <Table className={layout === 'fixed' ? 'table-fixed' : undefined}>
-            <TableHeader>
+            <TableHeader className={fill ? '[&_th]:sticky [&_th]:top-0 [&_th]:z-10' : undefined}>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
@@ -193,8 +218,10 @@ export const DataTable = <TData extends object>({
           </SortableOverlay>
         </Sortable>
       </div>
-      <div className="flex flex-col gap-2.5">
-        {enablePagination === true && <DataTablePagination enableSelection={enableSelection} table={table} />}
+      <div className={cn('flex flex-col gap-2.5', fill && 'shrink-0')}>
+        {enablePagination === true && (
+          <DataTablePagination enableSelection={enableSelection} table={table} />
+        )}
         {actionBar !== undefined && hasSelectedRows ? actionBar : null}
       </div>
     </div>
