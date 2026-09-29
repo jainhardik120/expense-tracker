@@ -286,7 +286,7 @@ export const createStatementColumns = ({
         return display;
       }
       return (
-        <EditableCell align="right" display={display} mode={mode}>
+        <EditableCell columnId="amount" display={display} mode={mode} rowIndex={row.index}>
           {({ stop }) => (
             <AmountEditor
               stop={stop}
@@ -315,7 +315,7 @@ export const createStatementColumns = ({
         return <>-</>;
       }
       return (
-        <EditableCell display={statement.category} mode={mode}>
+        <EditableCell columnId="category" display={statement.category} mode={mode} rowIndex={row.index}>
           {({ stop }) => (
             <SelectEditor
               options={categories}
@@ -433,7 +433,7 @@ export const createStatementColumns = ({
         </div>
       );
       return (
-        <EditableCell display={display} mode={mode}>
+        <EditableCell columnId="tags" display={display} mode={mode} rowIndex={row.index}>
           {({ stop }) => (
             <TagsEditor
               options={tags}

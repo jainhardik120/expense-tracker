@@ -188,7 +188,10 @@ export const DataTable = <TData extends object>({
                           <TableCell
                             key={cell.id}
                             className={cn(
-                              'h-10 py-1',
+                              // `relative` so a cell can be drawn right to its
+                              // own edges -- a spreadsheet's box sits on the
+                              // cell border, not inside its padding.
+                              'relative h-10 py-1',
                               background && 'bg-background',
                               alignmentClass(cell.column),
                             )}

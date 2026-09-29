@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { Check, GripVertical } from 'lucide-react';
 
@@ -27,55 +27,138 @@ import { SortableItemHandle } from '@/components/ui/sortable';
 import { cn } from '@/lib/utils';
 
 /**
+ * The box a spreadsheet draws round the cell you are on.
+ *
+ * Square, hard against the cell's edges and two pixels thick, because that is
+ * what makes a table feel like a grid you are working in rather than a page
+ * with a form on it. Drawn inside the cell so it does not push its neighbours
+ * apart, and over the padding rather than inside it -- a rounded control
+ * floating in the middle of a cell is the thing this replaces.
+ */
+const CELL_SURFACE = 'absolute inset-0 flex items-center px-2';
+
+/** Where the cursor is, for the arrow keys to move from. */
+const CELL_ATTR = 'data-editable-cell';
+
+/**
+ * Move to the next cell in a direction, as a spreadsheet does.
+ *
+ * Found by asking the document rather than by holding a map of the table in
+ * state: the cells already say where they are, and every one of them is on the
+ * screen -- this is a page of fifty rows, not a virtualised window.
+ */
+const moveFocus = (from: HTMLElement, rowStep: number, columnStep: number) => {
+  const cells = [...document.querySelectorAll<HTMLElement>(`[${CELL_ATTR}]`)];
+  const row = Number(from.dataset['row']);
+
+  if (rowStep !== 0) {
+    cells
+      .find(
+        (cell) => Number(cell.dataset['row']) === row + rowStep && cell.dataset['col'] === from.dataset['col'],
+      )
+      ?.focus();
+    return;
+  }
+  const inRow = cells.filter((cell) => Number(cell.dataset['row']) === row);
+  inRow[inRow.indexOf(from) + columnStep]?.focus();
+};
+
+/**
  * A cell that can be corrected where it sits.
  *
- * Nothing is rendered differently until the list is put into correcting mode,
- * and even then the cell shows its value until it is clicked: a table of fifty
- * rows would otherwise be a hundred and fifty controls, which is slow to draw
- * and hard to read. Clicking one opens the editor for that cell alone, which is
- * how a spreadsheet behaves and what "correct in place" was asking for.
+ * Nothing changes until the list is put into correcting mode. After that the
+ * cell behaves the way a spreadsheet's does: clicking picks it out, typing or
+ * Enter opens it, Escape abandons whatever was typed, and the arrow keys walk
+ * between cells without touching the mouse. It shows its value until opened,
+ * so a page stays fifty rows rather than becoming a hundred and fifty
+ * controls.
  */
 export const EditableCell = ({
   mode,
   display,
-  align = 'left',
+  rowIndex,
+  columnId,
   children,
 }: {
   mode: 'view' | 'edit';
   display: ReactNode;
-  align?: 'left' | 'right';
+  rowIndex: number;
+  columnId: string;
   /** Rendered once the cell is opened; call `stop` to close it again. */
   children: (props: { stop: () => void }) => ReactNode;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
 
+  const stop = useCallback(() => {
+    setIsOpen(false);
+    // Back to the cell rather than to the top of the page, so the next arrow
+    // key carries on from where the correction was made. Found by its address
+    // rather than held as a ref: the cell being returned to does not exist yet
+    // when this is called, and the address is already there for the arrows.
+    requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>(
+          `[${CELL_ATTR}][data-row="${rowIndex}"][data-col="${columnId}"]`,
+        )
+        ?.focus();
+    });
+  }, [rowIndex, columnId]);
+
   if (mode === 'view') {
     return <>{display}</>;
   }
-  if (isOpen) {
-    return (
-      <>
-        {children({
-          stop: () => {
-            setIsOpen(false);
-          },
-        })}
-      </>
-    );
-  }
+
   return (
-    <button
-      className={cn(
-        'hover:bg-muted/60 hover:ring-border -mx-1 flex w-[calc(100%+0.5rem)] items-center rounded-sm px-1 text-left hover:ring-1',
-        align === 'right' && 'justify-end text-right',
-      )}
-      type="button"
-      onClick={() => {
-        setIsOpen(true);
-      }}
-    >
+    <>
+      {/* Stays in flow, so opening a cell cannot change the height of a row. */}
       {display}
-    </button>
+      {isOpen ? (
+        children({ stop })
+      ) : (
+        <button
+          className={cn(
+            CELL_SURFACE,
+            // Invisible until wanted: the value is already drawn underneath, so
+            // all this contributes is the box. An outline rather than a ring --
+            // it is pulled inside the cell by its own offset, so the box sits
+            // on the cell's edges instead of straddling its neighbours.
+            'rounded-none opacity-0 transition-none',
+            'hover:outline-border hover:opacity-100 hover:-outline-offset-1 hover:outline-1',
+            'focus:outline-primary focus:opacity-100 focus:-outline-offset-2 focus:outline-2',
+          )}
+          data-col={columnId}
+          data-editable-cell=""
+          data-row={rowIndex}
+          type="button"
+          onDoubleClick={() => {
+            setIsOpen(true);
+          }}
+          onKeyDown={(event) => {
+            const STEPS: Partial<Record<string, [number, number]>> = {
+              ArrowDown: [1, 0],
+              ArrowUp: [-1, 0],
+              ArrowRight: [0, 1],
+              ArrowLeft: [0, -1],
+            };
+            const step = STEPS[event.key];
+            if (step) {
+              event.preventDefault();
+              moveFocus(event.currentTarget, step[0], step[1]);
+              return;
+            }
+            // Enter opens it; so does simply starting to type, which is how a
+            // spreadsheet lets you correct a cell without reaching for F2.
+            if (event.key === 'Enter' || (event.key.length === 1 && !event.metaKey && !event.ctrlKey)) {
+              event.preventDefault();
+              setIsOpen(true);
+            }
+          }}
+        >
+          {/* The value is already behind this, so the box is all that is drawn. */}
+          <span className="sr-only">Edit {columnId}</span>
+        </button>
+      )}
+    </>
   );
 };
 
@@ -92,25 +175,28 @@ export const AmountEditor = ({
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // The cell was clicked to open this, so the caret belongs in it. Selected
-  // rather than placed, because correcting an amount usually means replacing it.
+  // The cell was opened to type in, so the caret belongs here. Selected rather
+  // than placed, because correcting an amount usually means replacing it.
   useEffect(() => {
     inputRef.current?.select();
   }, []);
 
   const commit = () => {
-    stop();
     // A blank or unparseable box means the correction was abandoned, not that
     // the statement is now worth nothing.
     if (draft !== value && draft.trim() !== '' && !Number.isNaN(Number(draft))) {
       onSave(Number(draft).toFixed(2));
     }
+    stop();
   };
 
   return (
     <Input
       ref={inputRef}
-      className="h-7 px-1 text-right tabular-nums"
+      className={cn(
+        CELL_SURFACE,
+        'border-primary bg-background size-full rounded-none border-2 text-right tabular-nums shadow-none focus-visible:ring-0',
+      )}
       inputMode="decimal"
       step="0.01"
       type="number"
@@ -151,13 +237,15 @@ export const SelectEditor = ({
       }
     }}
     onValueChange={(next) => {
-      stop();
       if (next !== value) {
         onSave(next);
       }
+      stop();
     }}
   >
-    <SelectTrigger className="h-7 w-full px-1" size="sm">
+    <SelectTrigger
+      className={cn(CELL_SURFACE, 'border-primary bg-background rounded-none border-2 shadow-none')}
+    >
       <SelectValue />
     </SelectTrigger>
     <SelectContent>
@@ -207,13 +295,18 @@ export const TagsEditor = ({
         if (open) {
           return;
         }
-        stop();
         if (!isUnchanged) {
           onSave(draft);
         }
+        stop();
       }}
     >
-      <PopoverTrigger className="flex w-full flex-wrap gap-1 text-left">
+      <PopoverTrigger
+        className={cn(
+          CELL_SURFACE,
+          'border-primary bg-background gap-1 overflow-hidden rounded-none border-2',
+        )}
+      >
         {draft.length === 0 ? (
           <span className="text-muted-foreground">-</span>
         ) : (
