@@ -5,9 +5,10 @@ import { FileText, RefreshCw, Trash } from 'lucide-react';
 
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import { useTimezone } from '@/components/time-zone-setter';
 import { Badge } from '@/components/ui/badge';
 import { smsTransactionStatusEnum } from '@/db/schema';
-import { useIsMounted } from '@/hooks/use-is-mounted';
+import { zonedFormat } from '@/lib/date';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -26,17 +27,10 @@ const statusVariants: Record<string, 'default' | 'secondary' | 'destructive'> = 
   junked: 'destructive',
 };
 
+/** Printed from the reader's zone on both sides, so the column never resizes. */
 const DateCell = ({ date }: { date: Date }) => {
-  const isMounted = useIsMounted();
-  return isMounted
-    ? new Date(date).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '-';
+  const timezone = useTimezone();
+  return zonedFormat(date, "MMM dd, yyyy 'at' hh:mm a", timezone);
 };
 
 const JunkNotificationButton = ({

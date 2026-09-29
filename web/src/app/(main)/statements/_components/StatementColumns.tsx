@@ -6,11 +6,12 @@ import { GripVertical, Link2, SquarePen, SquareSlash, Trash } from 'lucide-react
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import { useTimezone } from '@/components/time-zone-setter';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SortableItemHandle } from '@/components/ui/sortable';
-import { useIsMounted } from '@/hooks/use-is-mounted';
+import { zonedFormat } from '@/lib/date';
 import { cn } from '@/lib/utils';
 import { getFromAccount, getToAccount } from '@/server/helpers/account';
 import { api } from '@/server/react';
@@ -116,17 +117,19 @@ const SelfTransferStatementActions = ({
   );
 };
 
+/**
+ * Formatted on the server as well as the client, so the column arrives at its
+ * final width.
+ *
+ * Rendering a placeholder until mount avoided a hydration mismatch -- the
+ * server's clock is UTC and the reader's is not -- but at the cost of every row
+ * resizing the moment the date appeared. The reader's zone is already in a
+ * cookie, which both sides can read, so both sides can print the same string
+ * the first time.
+ */
 const DateCell = ({ date }: { date: Date }) => {
-  const isMounted = useIsMounted();
-  return isMounted
-    ? new Date(date).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : '-';
+  const timezone = useTimezone();
+  return zonedFormat(date, "MMMM dd, yyyy 'at' hh:mm a", timezone);
 };
 
 type FacetCount = { value: string; count: number };
