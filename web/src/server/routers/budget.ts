@@ -114,9 +114,9 @@ export const budgetRouter = createTRPCRouter({
       // --- the cash outlook: what is left, and what it means for investing ---
       const accountsSummary = await getAccountsSummaryBetweenDates(ctx.db, ctx.user.id);
       const friendsSummary = await getFriendsSummaryBetweenDates(ctx.db, ctx.user.id);
-      const balanceToday =
-        accountsSummary.reduce((sum, a) => sum + a.finalBalance, 0) -
-        friendsSummary.reduce((sum, f) => sum + f.finalBalance, 0);
+      const inAccounts = accountsSummary.reduce((sum, a) => sum + a.finalBalance, 0);
+      const owedToFriends = friendsSummary.reduce((sum, f) => sum + f.finalBalance, 0);
+      const balanceToday = inAccounts - owedToFriends;
 
       // What the year opened with, read rather than typed: last year's residual
       // is money already earned and kept, and this year is free to spend it.
@@ -223,6 +223,8 @@ export const budgetRouter = createTRPCRouter({
         projection,
         // Cash facts for context; every projection comes from `projection`.
         balanceToday,
+        // The two halves of it, so the page can show its working.
+        balanceParts: { inAccounts, owedToFriends },
         pendingSpend: pendingSms.totalSpend,
         pendingCount: pendingSms.count,
         openingBalance,

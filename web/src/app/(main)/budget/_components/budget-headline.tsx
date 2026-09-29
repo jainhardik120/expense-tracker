@@ -14,6 +14,8 @@ import {
 import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 
+import { LeftBreakdown } from './left-breakdown';
+
 type Detail = RouterOutput['budget']['getYearDetail'];
 
 const DAYS_PER_MONTH = 30.4;
@@ -125,7 +127,10 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>What is left for the rest of the year</CardTitle>
+          <CardTitle className="flex items-center gap-1">
+            What is left for the rest of the year
+            <LeftBreakdown detail={detail} />
+          </CardTitle>
           <CardDescription>
             {months.toFixed(1)} months left to spend in, {incomeCyclesRemaining} more salaries.
             Everything already promised comes off first.
