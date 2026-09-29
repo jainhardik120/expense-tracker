@@ -3,6 +3,7 @@ package com.jainhardik120.expensetracker.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,6 +25,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.jainhardik120.expensetracker.ui.screens.InvestmentsScreen
+import com.jainhardik120.expensetracker.ui.screens.InvestmentsViewModel
 import com.jainhardik120.expensetracker.ui.screens.SettingsScreen
 import com.jainhardik120.expensetracker.ui.screens.StatementsScreen
 import com.jainhardik120.expensetracker.ui.screens.StatementsViewModel
@@ -36,6 +39,9 @@ object SummaryRoute
 
 @Serializable
 object StatementsRoute
+
+@Serializable
+object InvestmentsRoute
 
 @Serializable
 object SettingsRoute
@@ -56,6 +62,7 @@ fun MainApp(onLogout: () -> Unit) {
     val bottomNavItems = listOf(
         BottomNavItem("Home", Icons.Default.Home, SummaryRoute),
         BottomNavItem("Statements", Icons.AutoMirrored.Filled.List, StatementsRoute),
+        BottomNavItem("Invest", Icons.AutoMirrored.Filled.ShowChart, InvestmentsRoute),
         BottomNavItem("Settings", Icons.Default.Settings, SettingsRoute)
     )
 
@@ -104,6 +111,10 @@ fun MainApp(onLogout: () -> Unit) {
             composable<StatementsRoute> {
                 val viewModel: StatementsViewModel = hiltViewModel()
                 StatementsScreen(viewModel = viewModel)
+            }
+            composable<InvestmentsRoute> {
+                val viewModel: InvestmentsViewModel = hiltViewModel()
+                InvestmentsScreen(viewModel = viewModel)
             }
             composable<SettingsRoute> {
                 SettingsScreen(onLogout = onLogout)

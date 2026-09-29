@@ -34,3 +34,9 @@ val NearBlack = Color(0xFF121214)
 
 val Red400 = Color(0xFFF87171)
 val Red600 = Color(0xFFDC2626)
+
+// A gain needs a colour as much as a loss does, and the scheme has no slot for
+// one: `error` is the loss, and there is no `success`. Same tailwind greens the
+// investments page uses, light and dark.
+val Green400 = Color(0xFF4ADE80)
+val Green600 = Color(0xFF16A34A)

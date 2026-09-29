@@ -294,9 +294,3 @@ private fun AmountRow(
         )
     }
 }
-
-private fun formatAmount(value: Double): String {
-    val formatter = java.text.NumberFormat.getCurrencyInstance(Locale("en", "IN"))
-    formatter.maximumFractionDigits = 2
-    return formatter.format(value)
-}

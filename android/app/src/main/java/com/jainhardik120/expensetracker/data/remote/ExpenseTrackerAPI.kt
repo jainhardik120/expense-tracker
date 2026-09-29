@@ -5,6 +5,7 @@ import com.jainhardik120.expensetracker.data.entity.CreateSelfTransferBody
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
+import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
 import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
@@ -36,6 +37,9 @@ interface ExpenseTrackerAPI {
         dayStart: String,
         dayEnd: String
     ): Result<WidgetSummary, MessageError>
+
+    /** The whole portfolio, valued as of now. Read only. */
+    suspend fun getInvestments(): Result<InvestmentsOverview, MessageError>
 
     suspend fun getAccounts(): Result<List<AccountItem>, MessageError>
     suspend fun getFriends(): Result<List<FriendItem>, MessageError>

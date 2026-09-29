@@ -5,6 +5,7 @@ import com.jainhardik120.expensetracker.data.entity.CreateSelfTransferBody
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
+import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
 import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
@@ -155,6 +156,14 @@ class ExpenseTrackerAPIImpl(
             client.request(APIRoutes.selfTransfer(id)) {
                 method = HttpMethod.Delete
             }.body()
+        }
+    }
+
+    override suspend fun getInvestments(): Result<InvestmentsOverview, MessageError> {
+        return performApiRequest {
+            requestBuilder<InvestmentsOverview>(
+                url = APIRoutes.INVESTMENTS, method = HttpMethod.Get
+            )
         }
     }
 

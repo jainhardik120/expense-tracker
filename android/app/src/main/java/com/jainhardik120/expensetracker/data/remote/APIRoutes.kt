@@ -13,6 +13,7 @@ object APIRoutes {
     const val ACCOUNTS = "${BASE_URL}/accounts"
     const val FRIENDS = "${BASE_URL}/friends"
     const val WIDGET = "${BASE_URL}/widget"
+    const val INVESTMENTS = "${BASE_URL}/investments"
 
     fun statement(id: String) = "${STATEMENTS}/$id"
     fun selfTransfer(id: String) = "${SELF_TRANSFER}/$id"
