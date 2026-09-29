@@ -78,6 +78,19 @@ export const createFriendSchema = z.object({
   name: z.string(),
 });
 
+const inboxCategory = {
+  category: z.string().trim().min(1).optional(),
+  tags: z.string().array().optional(),
+};
+
+export const inboxResolutionSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('account'), accountId: z.uuid(), ...inboxCategory }),
+  z.object({ type: z.literal('expense'), ...inboxCategory }),
+  z.object({ type: z.literal('dismiss') }),
+]);
+
+export type InboxResolution = z.infer<typeof inboxResolutionSchema>;
+
 export const createSplitSchema = z.object({
   friendId: z.uuidv4(),
   amount: amount,
@@ -179,6 +192,9 @@ export type Statement = Omit<
 export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect & {
   type: 'self_transfer';
   statementKind: 'self_transfer';
+  mirrorOfSplitId: null;
+  mirrorOfStatementId: null;
+  categoryOverridden: boolean;
   accountId: null;
   friendId: null;
   category: null;
@@ -214,6 +230,9 @@ const statementSchema = z.object({
   fromAccount: z.null(),
   toAccount: z.null(),
   additionalAttributes: z.record(z.string(), z.unknown()),
+  mirrorOfSplitId: z.string().nullable(),
+  mirrorOfStatementId: z.string().nullable(),
+  categoryOverridden: z.boolean(),
   finalBalance: z.number().optional(),
 });
 
@@ -244,6 +263,9 @@ const selfTransferStatementSchema = z.object({
   fromAccount: z.string().nullable(),
   toAccount: z.string().nullable(),
   additionalAttributes: z.record(z.string(), z.unknown()).optional(),
+  mirrorOfSplitId: z.null(),
+  mirrorOfStatementId: z.null(),
+  categoryOverridden: z.boolean(),
   finalBalance: z.number().optional(),
 });
 const rowsCountSchema = z.object({
@@ -311,6 +333,10 @@ const friendSchema = z.object({
   userId: z.string(),
   createdAt: z.date().nullable(),
   name: z.string(),
+  email: z.string().nullable(),
+  linkedUserId: z.string().nullable(),
+  linkedProfileId: z.string().nullable(),
+  linkedAt: z.date().nullable(),
 });
 
 export const friendSummarySchema = z

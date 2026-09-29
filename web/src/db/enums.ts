@@ -22,3 +22,7 @@ export const inboundEmailStatuses = ['received', 'confirmation', 'rejected'] as 
 export const statementImportSources = ['upload', 'email'] as const;
 
 export const statementImportStatuses = ['review', 'applied', 'discarded'] as const;
+
+export const friendInvitationStatuses = ['pending', 'accepted', 'declined', 'revoked'] as const;
+
+export const friendStatementInboxStatuses = ['pending', 'accepted', 'dismissed'] as const;

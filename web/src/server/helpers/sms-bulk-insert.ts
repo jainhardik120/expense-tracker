@@ -16,6 +16,7 @@ import {
 } from '@/lib/sms-bulk-import';
 import { buildInsertHints, collectTagVocabulary, getHintsFor } from '@/lib/sms-insert-hints';
 import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
+import { reconcileStatement } from '@/server/helpers/friend-mirror';
 import { getLinkedHistory } from '@/server/helpers/sms-hints';
 
 export type BulkImportQueue = {
@@ -144,6 +145,12 @@ export const bulkInsertFromNotifications = instrumentedFunction(
           createdAt,
         })),
       );
+
+      for (const { statementId, row } of linked) {
+        if (row.statementKind === 'friend_transaction') {
+          await reconcileStatement(tx, statementId);
+        }
+      }
 
       const pairs = sql.join(
         linked.map(

@@ -124,6 +124,9 @@ const generateStatementUnionDetailedQuery = (
       toAccount: sql<string | null>`NULL`.as('to_account'),
       fromAccountId: sql<string | null>`NULL::uuid`.as('from_account_id'),
       toAccountId: sql<string | null>`NULL::uuid`.as('to_account_id'),
+      mirrorOfSplitId: statements.mirrorOfSplitId,
+      mirrorOfStatementId: statements.mirrorOfStatementId,
+      categoryOverridden: statements.categoryOverridden,
       tag: sql<string | null>`tag`.as('tag'),
     })
     .from(statements)
@@ -158,6 +161,9 @@ const generateStatementUnionDetailedQuery = (
         toAccount: toAccount.accountName,
         fromAccountId: selfTransferStatements.fromAccountId,
         toAccountId: selfTransferStatements.toAccountId,
+        mirrorOfSplitId: sql<string | null>`NULL::uuid`.as('mirror_of_split_id'),
+        mirrorOfStatementId: sql<string | null>`NULL::uuid`.as('mirror_of_statement_id'),
+        categoryOverridden: sql<boolean>`FALSE`.as('category_overridden'),
         tag: sql<string | null>`NULL`.as('tag'),
       })
       .from(selfTransferStatements)
@@ -287,6 +293,9 @@ export const getMergedStatements = instrumentedFunction(
             accountName: row.accountName,
             friendName: row.friendName,
             additionalAttributes: row.additionalAttributes,
+            mirrorOfSplitId: row.mirrorOfSplitId,
+            mirrorOfStatementId: row.mirrorOfStatementId,
+            categoryOverridden: row.categoryOverridden,
             fromAccountId: null,
             toAccountId: null,
             fromAccount: null,
@@ -307,6 +316,9 @@ export const getMergedStatements = instrumentedFunction(
             category: null,
             tags: [],
             splitAmount: 0,
+            mirrorOfSplitId: null,
+            mirrorOfStatementId: null,
+            categoryOverridden: false,
             accountName: null,
             friendName: null,
             additionalAttributes: {},

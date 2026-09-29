@@ -1,5 +1,6 @@
 import { desc, sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   pgTable,
   text,
   timestamp,
@@ -22,6 +23,8 @@ import { user } from './auth-schema';
 import {
   balanceCheckSources,
   inboundEmailStatuses,
+  friendInvitationStatuses,
+  friendStatementInboxStatuses,
   recurringPaymentFrequencies,
   smsTransactionStatuses,
   statementImportSources,
@@ -57,9 +60,20 @@ export const friendsProfiles = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    email: text('email'),
+    linkedUserId: text('linked_user_id').references(() => user.id, { onDelete: 'set null' }),
+    linkedProfileId: uuid('linked_profile_id').references((): AnyPgColumn => friendsProfiles.id, {
+      onDelete: 'set null',
+    }),
+    linkedAt: timestamp('linked_at'),
     createdAt: timestamp('created_at').$defaultFn(() => new Date()),
   },
-  (table) => [index('friends_profiles_user_idx').on(table.userId)],
+  (table) => [
+    index('friends_profiles_user_idx').on(table.userId),
+    index('friends_profiles_linked_user_idx')
+      .on(table.linkedUserId)
+      .where(sql`${table.linkedUserId} IS NOT NULL`),
+  ],
 );
 
 export const statements = pgTable(
@@ -86,6 +100,14 @@ export const statements = pgTable(
       .$type<StatementAttributes>()
       .notNull()
       .default({}),
+    mirrorOfSplitId: uuid('mirror_of_split_id').references((): AnyPgColumn => splits.id, {
+      onDelete: 'cascade',
+    }),
+    mirrorOfStatementId: uuid('mirror_of_statement_id').references(
+      (): AnyPgColumn => statements.id,
+      { onDelete: 'cascade' },
+    ),
+    categoryOverridden: boolean('category_overridden').notNull().default(false),
   },
   (table) => [
     check(
@@ -134,6 +156,12 @@ export const statements = pgTable(
     index('statements_account_created_idx')
       .on(table.accountId, table.createdAt)
       .where(sql`${table.accountId} IS NOT NULL`),
+    uniqueIndex('statements_mirror_of_split_idx')
+      .on(table.mirrorOfSplitId)
+      .where(sql`${table.mirrorOfSplitId} IS NOT NULL`),
+    uniqueIndex('statements_mirror_of_statement_idx')
+      .on(table.mirrorOfStatementId)
+      .where(sql`${table.mirrorOfStatementId} IS NOT NULL`),
   ],
 );
 
@@ -184,6 +212,83 @@ export const splits = pgTable(
   (table) => [
     index('splits_statement_id_idx').on(table.statementId),
     index('splits_user_statement_idx').on(table.userId, table.statementId),
+  ],
+);
+
+export const friendInvitationStatusEnum = pgEnum(
+  'friend_invitation_status',
+  friendInvitationStatuses,
+);
+
+export const friendInvitations = pgTable(
+  'friend_invitations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    inviterUserId: text('inviter_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    friendId: uuid('friend_id')
+      .notNull()
+      .references(() => friendsProfiles.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    status: friendInvitationStatusEnum().notNull().default('pending'),
+    respondedAt: timestamp('responded_at'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('friend_invitations_pending_friend_idx')
+      .on(table.friendId)
+      .where(sql`${table.status} = 'pending'`),
+    index('friend_invitations_email_status_idx').on(table.email, table.status),
+    index('friend_invitations_inviter_idx').on(table.inviterUserId),
+  ],
+);
+
+export const friendStatementInboxStatusEnum = pgEnum(
+  'friend_statement_inbox_status',
+  friendStatementInboxStatuses,
+);
+
+export const friendStatementInbox = pgTable(
+  'friend_statement_inbox',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    originStatementId: uuid('origin_statement_id')
+      .notNull()
+      .references(() => statements.id, { onDelete: 'cascade' }),
+    originUserId: text('origin_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    friendId: uuid('friend_id')
+      .notNull()
+      .references(() => friendsProfiles.id, { onDelete: 'cascade' }),
+    amount: numeric('amount').notNull(),
+    category: text('category').notNull(),
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    occurredAt: timestamp('occurred_at').notNull(),
+    status: friendStatementInboxStatusEnum().notNull().default('pending'),
+    resolvedStatementId: uuid('resolved_statement_id').references(() => statements.id, {
+      onDelete: 'set null',
+    }),
+    resolvedAt: timestamp('resolved_at'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('friend_statement_inbox_origin_idx').on(table.originStatementId, table.userId),
+    index('friend_statement_inbox_user_status_idx').on(table.userId, table.status),
+    index('friend_statement_inbox_resolved_idx')
+      .on(table.resolvedStatementId)
+      .where(sql`${table.resolvedStatementId} IS NOT NULL`),
   ],
 );
 
