@@ -2,16 +2,16 @@ package com.jainhardik120.expensetracker.widget
 
 import android.content.Context
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionRunCallback
-import androidx.glance.action.actionStartActivity
-import com.jainhardik120.expensetracker.MainActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -26,38 +26,40 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import androidx.compose.ui.graphics.Color
+import com.jainhardik120.expensetracker.MainActivity
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
 
-private val Rose = Color(0xFFF43F5E)
-private val RoseDeep = Color(0xFF4C0519)
-private val RosePale = Color(0xFFFFE4E6)
 private val Ink = Color(0xFF09090B)
-private val Card = Color(0xFF18181B)
 private val Muted = Color(0xFFA1A1AA)
 private val Paper = Color(0xFFFAFAFA)
+private val Gain = Color(0xFF4ADE80)
+private val Loss = Color(0xFFF87171)
+private val Rose = Color(0xFFF43F5E)
 
 private val TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
 /**
- * Four numbers at a glance: what is mine, what today has cost, what is still
- * sitting unread in the inbox, and what the goal leaves to spend.
+ * What the portfolio is worth, and which way it went.
+ *
+ * Deliberately not the same four numbers as the balance widget: that one is
+ * about the money you can spend, this one about the money you cannot.
  */
-class BalanceWidget : GlanceAppWidget() {
+class InvestmentWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent { GlanceTheme { WidgetBody() } }
+        provideContent { GlanceTheme { InvestmentWidgetBody() } }
     }
 }
 
 @Composable
-private fun WidgetBody() {
+private fun InvestmentWidgetBody() {
     val state = currentState<androidx.datastore.preferences.core.Preferences>()
-    val updatedAt = state[WidgetKeys.updatedAt]
-    val error = state[WidgetKeys.error]
+    val updatedAt = state[InvestmentWidgetKeys.updatedAt]
+    val error = state[InvestmentWidgetKeys.error]
 
     Column(
         modifier = GlanceModifier
@@ -65,47 +67,41 @@ private fun WidgetBody() {
             .background(Ink)
             .cornerRadius(20.dp)
             .padding(12.dp)
-            // Tapping the numbers opens the app, which is what tapping a
-            // widget usually does; the footer is the refresh.
+            // Tapping the numbers opens the app; the footer is the refresh.
             .clickable(actionStartActivity<MainActivity>())
     ) {
+        // The value gets the full width. It is the one figure worth reading
+        // from across the room, and sharing its row with anything else cost it
+        // the room to be that.
+        Tile(
+            label = "Portfolio",
+            value = money(state[InvestmentWidgetKeys.valuation]),
+            footnote = investedFootnote(state[InvestmentWidgetKeys.invested]),
+            emphasis = true,
+            modifier = GlanceModifier.fillMaxWidth().defaultWeight()
+        )
         Row(
             modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
             verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
             Tile(
-                label = "Balance",
-                value = money(state[WidgetKeys.balance]),
-                emphasis = true,
+                label = "Today",
+                value = signedMoney(state[InvestmentWidgetKeys.dayChange]),
+                footnote = percentageFootnote(
+                    state[InvestmentWidgetKeys.dayChangePercentage],
+                    state[InvestmentWidgetKeys.hasDayChangePercentage]
+                ),
+                tone = toneOf(state[InvestmentWidgetKeys.dayChange]),
                 modifier = GlanceModifier.defaultWeight()
             )
             Tile(
-                label = "Spent today",
-                value = money(state[WidgetKeys.spentToday]),
-                modifier = GlanceModifier.defaultWeight()
-            )
-        }
-        Row(
-            modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
-            verticalAlignment = Alignment.Vertical.CenterVertically
-        ) {
-            Tile(
-                label = pendingLabel(state[WidgetKeys.pendingCount]),
-                value = money(state[WidgetKeys.pendingAmount]),
-                modifier = GlanceModifier.defaultWeight()
-            )
-            Tile(
-                label = "Left this month",
-                value = if (state[WidgetKeys.hasBudget] == 1) {
-                    money(state[WidgetKeys.remainingThisMonth])
-                } else {
-                    "--"
-                },
-                footnote = if (state[WidgetKeys.hasBudget] == 1) {
-                    "${money(state[WidgetKeys.perDay])}/day"
-                } else {
-                    null
-                },
+                label = "Total P&L",
+                value = signedMoney(state[InvestmentWidgetKeys.pnl]),
+                footnote = percentageFootnote(
+                    state[InvestmentWidgetKeys.pnlPercentage],
+                    state[InvestmentWidgetKeys.hasPnlPercentage]
+                ),
+                tone = toneOf(state[InvestmentWidgetKeys.pnl]),
                 modifier = GlanceModifier.defaultWeight()
             )
         }
@@ -116,7 +112,7 @@ private fun WidgetBody() {
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .padding(top = 6.dp, bottom = 2.dp)
-                .clickable(actionRunCallback<RefreshWidgetAction>()),
+                .clickable(actionRunCallback<RefreshInvestmentWidgetAction>()),
             verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
             Text(
@@ -147,34 +143,44 @@ private fun Tile(
     value: String,
     modifier: GlanceModifier = GlanceModifier,
     emphasis: Boolean = false,
+    tone: Color? = null,
     footnote: String? = null
 ) {
-    Column(
-        modifier = modifier.padding(end = 8.dp)
-    ) {
+    Column(modifier = modifier.padding(end = 8.dp)) {
         Text(
             text = label.uppercase(Locale.getDefault()),
-            style = TextStyle(fontSize = 13.sp, color = ColorProvider(Muted))
+            style = TextStyle(fontSize = 12.sp, color = ColorProvider(Muted))
         )
         Text(
             text = value,
             style = TextStyle(
-                fontSize = if (emphasis) 34.sp else 26.sp,
+                fontSize = if (emphasis) 28.sp else 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = ColorProvider(if (emphasis) Rose else Paper)
+                color = ColorProvider(tone ?: if (emphasis) Rose else Paper)
             )
         )
         if (footnote != null) {
             Text(
                 text = footnote,
-                style = TextStyle(fontSize = 13.sp, color = ColorProvider(Muted))
+                style = TextStyle(fontSize = 12.sp, color = ColorProvider(Muted))
             )
         }
     }
 }
 
-private fun pendingLabel(count: Int?) = when (count) {
-    null, 0 -> "Unentered"
-    1 -> "Unentered · 1"
-    else -> "Unentered · $count"
+private fun toneOf(value: Double?): Color? = when {
+    value == null -> null
+    value < 0 -> Loss
+    value > 0 -> Gain
+    else -> null
+}
+
+private fun investedFootnote(invested: Double?): String? =
+    if (invested == null) null else "${money(invested)} in"
+
+private fun percentageFootnote(value: Double?, has: Int?): String? {
+    if (has != 1 || value == null) {
+        return null
+    }
+    return String.format(Locale.getDefault(), "%+.2f%%", value)
 }

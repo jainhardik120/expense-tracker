@@ -76,6 +76,18 @@
         </receiver>
 
         <receiver
+            android:name=".widget.InvestmentWidgetReceiver"
+            android:exported="true"
+            android:label="@string/investment_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/investment_widget_info" />
+        </receiver>
+
+        <receiver
             android:name=".receiver.SmsBroadcastReceiver"
             android:exported="true"
             android:permission="android.permission.BROADCAST_SMS">

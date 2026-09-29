@@ -2,4 +2,6 @@
     <string name="app_name">Expense Tracker</string>
     <string name="widget_label">Balance</string>
     <string name="widget_description">Balance, today\'s spending, unentered messages and what is left to spend.</string>
+    <string name="investment_widget_label">Investments</string>
+    <string name="investment_widget_description">Portfolio value, today\'s movement and total gain.</string>
 </resources>
