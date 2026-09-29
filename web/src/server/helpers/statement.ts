@@ -17,6 +17,7 @@ import {
   type accountFriendStatementsParserSchema,
   type SelfTransferStatement,
   type Statement,
+  parseStatementSort,
   type statementParserSchema,
 } from '@/types';
 
@@ -247,7 +248,7 @@ export const getMergedStatements = instrumentedFunction(
       input.category,
       input.tags,
       input.statementKind,
-      input.sort,
+      parseStatementSort(input.sort),
       input.start,
       input.end,
     );

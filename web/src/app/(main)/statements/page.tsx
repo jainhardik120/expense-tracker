@@ -48,6 +48,9 @@ export default async function Page({
     ...pageParams,
     start: pageParams.date[0],
     end: pageParams.date[1],
+    // Sent as the string the URL already holds, because the same procedure is
+    // served over REST, where a query parameter cannot be an array of objects.
+    sort: JSON.stringify(pageParams.sort),
   };
   // Independent of each other, so they run together rather than in a chain --
   // the facet counts alone are four grouped queries.

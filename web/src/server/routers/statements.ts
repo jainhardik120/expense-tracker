@@ -25,6 +25,7 @@ import {
   createStatementSchema,
   dateSchema,
   ONE_HUNDRED_PERCENTAGE,
+  parseStatementSort,
   statementParserSchema,
   statementsResponseSchema,
   updateStatementTaxableIncomeSchema,
@@ -101,11 +102,12 @@ export const statementsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       let statements = await getMergedStatements(ctx.db, ctx.user.id, input);
       let summary = null;
+      const sort = parseStatementSort(input.sort);
       // The running balance is an accumulation down the page, so it only reads
       // correctly while the page is in date order. Under any other sort the
       // number beside a row would be the balance of whatever happened to sort
       // above it, which is meaningless -- so it is not computed at all.
-      const isChronological = input.sort.length === 0 || input.sort[0].id === 'date';
+      const isChronological = sort.length === 0 || sort[0].id === 'date';
       if (
         isChronological &&
         input.account.length === 1 &&
@@ -121,7 +123,7 @@ export const statementsRouter = createTRPCRouter({
             accountId,
             statements,
             input,
-            input.sort.length > 0 && !input.sort[0].desc,
+            sort.length > 0 && !sort[0].desc,
           );
         summary = accountSummary;
         statements = accountStatements;

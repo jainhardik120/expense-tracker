@@ -460,6 +460,32 @@ export const statementSortSchema = z
   .optional()
   .default([]);
 
+export type StatementSort = z.infer<typeof statementSortSchema>;
+
+/**
+ * Sort as it travels, which is as the JSON string the URL already carries.
+ *
+ * `getStatements` is served over REST as well as tRPC, and a query parameter
+ * can only be a scalar -- an array of objects cannot be described in OpenAPI at
+ * all, and declaring one took down every external route, not just this one.
+ * The URL parser already stringifies this same array, so this is that string.
+ */
+export const statementSortParamSchema = z.string().optional().default('');
+
+/** Lenient on purpose: an unreadable sort is no sort, not a failed request. */
+export const parseStatementSort = (raw: string): StatementSort => {
+  if (raw === '') {
+    return [];
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    const result = statementSortSchema.safeParse(parsed);
+    return result.success ? result.data : [];
+  } catch {
+    return [];
+  }
+};
+
 export const statementParser = {
   ...pageParser,
   sort: sortStateParser(STATEMENT_SORTABLE_COLUMNS).withDefault([]),
@@ -497,12 +523,10 @@ export const summaryParser = {
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
 
-export type StatementSort = z.infer<typeof statementSortSchema>;
-
 export const statementParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
-  sort: statementSortSchema,
+  sort: statementSortParamSchema,
   statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional().default([]),
   account: z.string().array().optional().default([]),
   category: z.string().array().optional().default([]),
