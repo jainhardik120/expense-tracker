@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { investments } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import {
+  getInvestmentCategory,
+  investmentCategoryLabels,
+  investmentCategoryValues,
+  investmentKindLabels,
   investmentKindValues,
   investmentTimelineRangeValues,
   normalizeInvestmentKind,
@@ -15,6 +19,8 @@ import {
   buildInvestmentsRangeTimelines,
   searchInvestmentInstruments,
 } from '@/server/helpers/investment';
+import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
+import { enrichInvestments } from '@/server/helpers/investment/enrichment';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema, investmentParserSchema } from '@/types';
 
@@ -91,7 +97,135 @@ const getFilteredInvestments = async ({
     .orderBy(desc(investments.investmentDate));
 };
 
+/**
+ * The portfolio as one screenful, for a phone.
+ *
+ * The web page fetches a dashboard, several timelines and a paged table, and
+ * redraws parts of it as the user changes range. A phone screen and a
+ * home-screen widget want none of that: they want today's figure, what it cost,
+ * and what moved. So this is a single read with no history in it.
+ */
+const overviewFigures = {
+  invested: z.number(),
+  valuation: z.number(),
+  pnl: z.number(),
+  pnlPercentage: z.number().nullable(),
+  dayChange: z.number(),
+  dayChangePercentage: z.number().nullable(),
+};
+
+const investmentsOverviewSchema = z.object({
+  asOf: z.date(),
+  summary: z.object({
+    ...overviewFigures,
+    openPositions: z.number(),
+    closedPositions: z.number(),
+    totalPositions: z.number(),
+  }),
+  categories: z.array(
+    z.object({
+      category: z.enum(investmentCategoryValues),
+      /** Resolved here so the phone does not keep its own copy of the labels. */
+      label: z.string(),
+      ...overviewFigures,
+      openPositions: z.number(),
+      totalPositions: z.number(),
+    }),
+  ),
+  holdings: z.array(
+    z.object({
+      kind: z.enum(investmentKindValues),
+      /** The bucket it belongs to above -- RSUs split out of plain stocks. */
+      category: z.enum(investmentCategoryValues),
+      label: z.string(),
+      code: z.string(),
+      name: z.string(),
+      currency: z.string(),
+      isRsu: z.boolean(),
+      /** RSUs and the like are shown, but are not part of the totals above. */
+      isExcludedFromPortfolio: z.boolean(),
+      units: z.number(),
+      ...overviewFigures,
+      openPositions: z.number(),
+      totalPositions: z.number(),
+    }),
+  ),
+});
+
 export const investmentsRouter = createTRPCRouter({
+  getOverview: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments',
+      },
+    })
+    .input(z.void())
+    .output(investmentsOverviewSchema)
+    .query(async ({ ctx }) => {
+      const rows = await ctx.db
+        .select()
+        .from(investments)
+        .where(eq(investments.userId, ctx.user.id))
+        .orderBy(desc(investments.investmentDate));
+      const enriched = await enrichInvestments({ investmentsList: rows });
+      // Today for both ends of the range: the dashboard builds a daily series
+      // between them, and a series nothing here reads should not cost a day of
+      // market history per year the portfolio has existed.
+      const today = new Date();
+      const dashboard = await getInvestmentsDashboard({
+        investmentsList: enriched,
+        start: today,
+        end: today,
+      });
+
+      return {
+        asOf: today,
+        summary: {
+          invested: dashboard.summary.investedAmount,
+          valuation: dashboard.summary.valuationAmount,
+          pnl: dashboard.summary.pnl,
+          pnlPercentage: dashboard.summary.pnlPercentage,
+          dayChange: dashboard.summary.dayChange,
+          dayChangePercentage: dashboard.summary.dayChangePercentage,
+          openPositions: dashboard.summary.openPositions,
+          closedPositions: dashboard.summary.closedPositions,
+          totalPositions: dashboard.summary.totalPositions,
+        },
+        categories: dashboard.categoryBreakdown.map((row) => ({
+          category: row.category,
+          label: investmentCategoryLabels[row.category],
+          invested: row.investedAmount,
+          valuation: row.valuationAmount,
+          pnl: row.pnl,
+          pnlPercentage: row.pnlPercentage,
+          dayChange: row.dayChange,
+          dayChangePercentage: row.dayChangePercentage,
+          openPositions: row.openPositions,
+          totalPositions: row.totalPositions,
+        })),
+        holdings: dashboard.instrumentBreakdown.map((row) => ({
+          kind: row.kind,
+          category: getInvestmentCategory(row.kind, row.isRsu),
+          label: investmentKindLabels[row.kind],
+          code: row.code,
+          name: row.name,
+          currency: row.displayCurrency,
+          isRsu: row.isRsu,
+          isExcludedFromPortfolio: row.isExcludedFromPortfolio,
+          units: row.units,
+          invested: row.investedAmount,
+          valuation: row.valuationAmount,
+          pnl: row.pnl,
+          pnlPercentage: row.pnlPercentage,
+          dayChange: row.dayChange,
+          dayChangePercentage: row.dayChangePercentage,
+          openPositions: row.openPositions,
+          totalPositions: row.totalPositions,
+        })),
+      };
+    }),
+
   getInvestmentsPageData: protectedProcedure
     .input(investmentParserSchema)
     .query(async ({ ctx, input }) => {
