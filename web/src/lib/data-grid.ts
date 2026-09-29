@@ -76,7 +76,11 @@ export const parseCellKey = (cellKey: string): Required<CellPosition> => {
 
 export const getRowHeightValue = (rowHeight: RowHeightValue): number => {
   const rowHeightMap: Record<RowHeightValue, number> = {
-    short: 36,
+    // Matches a DataTable row exactly. The two draw the same lists on
+    // neighbouring screens, and a grid that sat five pixels tighter read as a
+    // different component rather than the same one with its editors switched
+    // on.
+    short: 41,
     medium: 56,
     tall: 76,
     'extra-tall': 96,

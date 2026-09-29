@@ -113,6 +113,16 @@ interface UseDataGridProps<TData> extends Omit<TableOptions<TData>, 'getCoreRowM
   rowHeight?: RowHeightValue;
   onRowHeightChange?: (rowHeight: RowHeightValue) => void;
   overscan?: number;
+  /**
+   * The height the rows area will have, in pixels, told to the virtualiser up
+   * front.
+   *
+   * It measures its scroll container to decide how many rows to draw, and on
+   * the server there is no container to measure -- so it drew none, the page
+   * arrived with an empty table and every row appeared at once on hydration.
+   * Given the height it can work the first screenful out without measuring.
+   */
+  initialHeight?: number;
   dir?: Direction;
   autoFocus?: boolean | Partial<CellPosition>;
   enableSingleCellSelection?: boolean;
@@ -127,6 +137,7 @@ const useDataGrid = <TData>({
   columns,
   rowHeight: rowHeightProp = DEFAULT_ROW_HEIGHT,
   overscan = OVERSCAN,
+  initialHeight,
   dir: dirProp,
   initialState,
   // Pulled out of `props` so it can be a dependency of the table state below.
@@ -1802,6 +1813,18 @@ const useDataGrid = <TData>({
         return;
       }
 
+      // A cell that holds a real control -- a tick box, the button a row's
+      // actions sit behind, a link -- lets the control have the click. The
+      // default is cancelled here to stop a drag selecting text across cells,
+      // and cancelling it over a checkbox stopped the checkbox ticking.
+      if (
+        (event.target as HTMLElement | null)?.closest(
+          'button, a, input, select, textarea, [role="checkbox"], [role="menuitem"]',
+        ) != null
+      ) {
+        return;
+      }
+
       event.preventDefault();
 
       if (!event.ctrlKey && !event.metaKey && !event.shiftKey) {
@@ -1953,8 +1976,14 @@ const useDataGrid = <TData>({
         store.setState('focusedCell', null);
         store.setState('editingCell', null);
       });
+
+      // Forwarded like sorting and filters are. Without it a caller that owns
+      // the selection never heard about a tick: the grid wrote the new value to
+      // its own store, the controlled value it was handed back never changed,
+      // and the box sprang straight back up.
+      propsRef.current.onRowSelectionChange?.(newRowSelection);
     },
-    [store, columnIds],
+    [store, columnIds, propsRef],
   );
 
   const onRowSelect = React.useCallback(
@@ -2219,6 +2248,9 @@ const useDataGrid = <TData>({
     getScrollElement: () => dataGridRef.current,
     estimateSize: () => rowHeightValue,
     overscan,
+    // Stands in for the measurement that cannot happen before there is a DOM,
+    // so the server renders the rows that will be on screen rather than none.
+    ...(initialHeight === undefined ? {} : { initialRect: { width: 0, height: initialHeight } }),
     measureElement: !isFirefox ? (element) => element?.getBoundingClientRect().height : undefined,
   });
 

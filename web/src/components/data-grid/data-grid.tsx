@@ -134,7 +134,12 @@ export const DataGrid = <TData,>({
             <div
               key={headerGroup.id}
               aria-rowindex={rowIndex + 1}
-              className="flex w-full"
+              // The height a DataTable header has. Left to its contents the row
+              // came out at whatever the tallest control in it happened to be --
+              // forty pixels where a column drew a sort button, twenty-eight
+              // where it drew plain text -- so two grids on neighbouring screens
+              // disagreed about how tall a header is.
+              className="flex min-h-10 w-full"
               data-slot="grid-header-row"
               role="row"
               tabIndex={-1}
@@ -166,14 +171,22 @@ export const DataGrid = <TData,>({
                             ? 'none'
                             : undefined
                     }
-                    className={cn('relative', {
-                      grow:
-                        header.column.id !== 'select' &&
-                        (stretchColumns === true ||
-                          (stretchColumns === 'last' && isLastColumn)),
-                      'border-e': showEndBorder && header.column.id !== 'select',
-                      'border-s': showStartBorder && header.column.id !== 'select',
-                    })}
+                    className={cn(
+                      'relative font-medium',
+                      // What a DataTable's <th> does with meta.align, so a
+                      // column of figures reads the same in both.
+                      header.column.columnDef.meta?.align === 'right' &&
+                        'text-right tabular-nums',
+                      {
+                        grow:
+                          header.column.id !== 'select' &&
+                          header.column.columnDef.meta?.fixedWidth !== true &&
+                          (stretchColumns === true ||
+                            (stretchColumns === 'last' && isLastColumn)),
+                        'border-e': showEndBorder && header.column.id !== 'select',
+                        'border-s': showStartBorder && header.column.id !== 'select',
+                      },
+                    )}
                     data-slot="grid-header-cell"
                     role="columnheader"
                     style={{
@@ -184,7 +197,14 @@ export const DataGrid = <TData,>({
                   >
                     {header.isPlaceholder ? null : typeof header.column.columnDef.header ===
                       'function' ? (
-                      <div className="size-full px-3 py-1.5">
+                      <div
+                        className={cn(
+                          'flex size-full items-center px-2 py-1',
+                          header.column.columnDef.meta?.align === 'right'
+                            ? 'justify-end'
+                            : 'justify-start',
+                        )}
+                      >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                       </div>
                     ) : (

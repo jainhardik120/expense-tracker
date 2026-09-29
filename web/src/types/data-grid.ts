@@ -81,6 +81,14 @@ declare module '@tanstack/react-table' {
      * table is built is the only honest way to ask.
      */
     hasDisplayCell?: boolean;
+    /**
+     * Keep the column at the width it declared when the grid stretches.
+     *
+     * For the columns that hold a control rather than a value -- a tick box, a
+     * grip -- where the control is the same size whatever room it is given, so
+     * a share of the spare width is just padding around it.
+     */
+    fixedWidth?: boolean;
   }
 
   // biome-ignore lint/correctness/noUnusedVariables: TData is used in the TableMeta interface

@@ -40,11 +40,14 @@ export const DataGridColumnHeader = <TData, TValue>({
   ...props
 }: DataGridColumnHeaderProps<TData, TValue>) => {
   const { column } = header;
-  const label = column.columnDef.meta?.label
-    ? column.columnDef.meta.label
-    : typeof column.columnDef.header === 'string'
+  // The column's own header wins. `meta.label` names it in the view menu and
+  // the filter chips, where a longer word is often wanted -- "Account" for a
+  // column the table heads "From" -- and reading that here made the grid's
+  // headers disagree with the table's for the same columns.
+  const label =
+    typeof column.columnDef.header === 'string'
       ? column.columnDef.header
-      : column.id;
+      : (column.columnDef.meta?.label ?? column.id);
 
   const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
 
@@ -111,7 +114,7 @@ export const DataGridColumnHeader = <TData, TValue>({
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger
           className={cn(
-            'hover:bg-accent/40 data-[state=open]:bg-accent/40 flex size-full items-center justify-between gap-2 p-2 text-sm [&_svg]:size-4',
+            'hover:bg-accent/40 data-[state=open]:bg-accent/40 flex size-full items-center justify-between gap-2 px-2 py-1 text-sm font-medium [&_svg]:size-4',
             isAnyColumnResizing && 'pointer-events-none',
             className,
           )}
@@ -243,14 +246,14 @@ const DataGridColumnResizerImpl = <TData, TValue>({
       aria-valuemin={defaultColumnDef.minSize}
       aria-valuenow={header.column.getSize()}
       className={cn(
-        "bg-border hover:bg-primary focus:bg-primary absolute -end-px top-0 z-50 h-full w-0.5 cursor-ew-resize touch-none transition-opacity select-none after:absolute after:inset-y-0 after:h-full after:w-[18px] after:content-[''] focus:outline-none",
-        // The grab target is wider than the handle and normally straddles it.
-        // On the last column the half that hangs past the edge is enough to
-        // give the whole grid a horizontal scrollbar it has no use for, so
-        // there it reaches inwards only.
+        "bg-border hover:bg-primary focus:bg-primary absolute top-0 z-50 h-full w-0.5 cursor-ew-resize touch-none transition-opacity select-none after:absolute after:inset-y-0 after:h-full after:w-[18px] after:content-[''] focus:outline-none",
+        // Both the handle and the wider grab target normally straddle the
+        // column's edge. On the last column anything hanging past that edge is
+        // enough to give the whole grid a horizontal scrollbar it has no use
+        // for, so there they both reach inwards only.
         isLastColumn
-          ? 'after:end-0'
-          : 'after:start-1/2 after:-translate-x-1/2',
+          ? 'end-0 after:end-0'
+          : '-end-px after:start-1/2 after:-translate-x-1/2',
         header.column.getIsResizing() ? 'bg-primary' : 'opacity-0 hover:opacity-100',
       )}
       role="separator"

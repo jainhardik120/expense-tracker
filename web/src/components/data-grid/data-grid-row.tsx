@@ -143,6 +143,7 @@ const DataGridRowImpl = <TData,>({
             className={cn({
               grow:
                 columnId !== 'select' &&
+                cell.column.columnDef.meta?.fixedWidth !== true &&
                 (stretchColumns === true || (stretchColumns === 'last' && isLastColumn)),
               'border-e': showEndBorder && columnId !== 'select',
               'border-s': showStartBorder && columnId !== 'select',
@@ -167,12 +168,17 @@ const DataGridRowImpl = <TData,>({
                 // long would otherwise fold onto a second line and be cut off
                 // by the row's height rather than by its own edge.
                 //
-                // Deliberately not a flex box. Text alignment is set on the
-                // cell and inherited, and flex items do not answer to it -- a
-                // right-aligned amount would sit on the left again.
-                className={cn('size-full truncate px-3 py-1.5', {
-                  'bg-primary/10': isRowSelected,
-                })}
+                // A flex box, for `items-center`: that is what a table cell's
+                // `align-middle` does, and as a plain block the content sat at
+                // the top of the row. Flex items do not answer to the inherited
+                // `text-align`, though, so the column's own alignment has to be
+                // restated as a justification or a right-aligned amount lands
+                // back on the left.
+                className={cn(
+                  'flex size-full items-center truncate px-2 py-1',
+                  cell.column.columnDef.meta?.align === 'right' ? 'justify-end' : 'justify-start',
+                  { 'bg-primary/10': isRowSelected },
+                )}
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </div>
