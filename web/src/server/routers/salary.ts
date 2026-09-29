@@ -76,7 +76,11 @@ const validateRevisionComponents = async (
   }
 };
 
-const getSalaryPageData = async (db: Database, userId: string, financialYearStart: number) => {
+export const getSalaryPageData = async (
+  db: Database,
+  userId: string,
+  financialYearStart: number,
+) => {
   const financialYear = getFinancialYearRange(financialYearStart);
   const [
     components,

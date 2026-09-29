@@ -1,0 +1,2 @@
+CREATE TYPE "public"."budget_income_source" AS ENUM('statements', 'pending_salary', 'pending_bonus');--> statement-breakpoint
+ALTER TABLE "budget_income_lines" ADD COLUMN "source" "budget_income_source" DEFAULT 'statements' NOT NULL;

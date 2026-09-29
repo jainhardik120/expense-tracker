@@ -24,6 +24,8 @@ import { BUDGET_COLUMN_SIZE, POSITION_INDENT } from './column-widths';
 
 import type { ColumnDef } from '@tanstack/react-table';
 
+import { BudgetIncomeHelp } from '../_help/budget-income-help';
+
 type Detail = RouterOutput['budget']['getYearDetail'];
 type IncomeLine = Detail['incomeLines'][number];
 
@@ -46,14 +48,49 @@ type IncomeRow =
   | { kind: 'opening'; id: typeof OPENING_ROW_ID; amount: number; destinationLineId: string | null }
   | ({ kind: 'line' } & IncomeLine);
 
+/** What a payroll-reading line covers, said the way a rule would say it. */
+const PAYROLL_CLAIM: Record<string, string> = {
+  pending_salary: 'pay still to come, from the salary schedule',
+  pending_bonus: 'bonuses still to come, from the salary schedule',
+};
+
+/** What a row says it covers: its rule, or the schedule it reads. */
+const describeClaims = (row: IncomeRow): string => {
+  if (row.kind === 'opening') {
+    return 'whatever last year closed with';
+  }
+  if (row.source === 'statements') {
+    return describeRule(row.rule as BudgetRule);
+  }
+  return PAYROLL_CLAIM[row.source];
+};
+
 const DESTINATION_LABEL: Record<string, string> = {
   waterfall: 'Down the waterfall',
   line: 'Earmarked to a line',
   excluded: 'Outside the budget',
 };
 
+const SOURCE_LABEL: Record<string, string> = {
+  statements: 'Matched from statements',
+  pending_salary: 'Salary still to be paid',
+  pending_bonus: 'Bonuses still to be paid',
+};
+
+/** A line reading the payroll has no rule: there are no statements to match. */
+type IncomeFormValues = z.input<typeof budgetIncomeLineSchema>;
+
+const readsPayroll = (values: IncomeFormValues) =>
+  values.source !== undefined && values.source !== 'statements';
+
 const incomeFields = (lineOptions: { label: string; value: string }[]) => [
   { name: 'name' as const, label: 'Name', type: 'input' as const },
+  {
+    name: 'source' as const,
+    label: 'Where the amount comes from',
+    type: 'select' as const,
+    options: Object.entries(SOURCE_LABEL).map(([value, label]) => ({ label, value })),
+  },
   {
     name: 'destination' as const,
     label: 'Where it goes',
@@ -70,9 +107,27 @@ const incomeFields = (lineOptions: { label: string; value: string }[]) => [
     type: 'select' as const,
     options: lineOptions,
   },
-  { name: 'rule.categories' as const, label: 'Categories', type: 'stringArray' as const },
-  { name: 'rule.tags' as const, label: 'Tags', type: 'stringArray' as const },
-  { name: 'rule.statementKinds' as const, label: 'Statement kinds', type: 'stringArray' as const },
+  {
+    name: 'rule.categories' as const,
+    label: 'Categories',
+    type: 'stringArray' as const,
+    displayCondition: (values: IncomeFormValues) => !readsPayroll(values),
+    valueWhenHidden: [] as string[],
+  },
+  {
+    name: 'rule.tags' as const,
+    label: 'Tags',
+    type: 'stringArray' as const,
+    displayCondition: (values: IncomeFormValues) => !readsPayroll(values),
+    valueWhenHidden: [] as string[],
+  },
+  {
+    name: 'rule.statementKinds' as const,
+    label: 'Statement kinds',
+    type: 'stringArray' as const,
+    displayCondition: (values: IncomeFormValues) => !readsPayroll(values),
+    valueWhenHidden: [] as string[],
+  },
 ];
 
 const describeRule = (rule: BudgetRule): string => {
@@ -114,6 +169,7 @@ const EditIncome = ({
         budgetYearId,
         name: line.name,
         rule: line.rule as BudgetRule,
+        source: line.source,
         destination: line.destination,
         destinationLineId: line.destinationLineId,
       }}
@@ -206,7 +262,7 @@ const incomeColumns = ({
   detail: Detail;
   lineOptions: { label: string; value: string }[];
 }): ColumnDef<IncomeRow>[] => {
-  const { year, lines } = detail;
+  const { year, lines, pendingByLine } = detail;
   const targetName = (id: string | null) =>
     id === null ? null : (lines.find((line) => line.id === id)?.name ?? '?');
 
@@ -236,7 +292,14 @@ const incomeColumns = ({
             </span>
           </span>
         ) : (
-          <span className="font-medium">{row.original.name}</span>
+          <span className="font-medium">
+            {row.original.name}
+            {Object.hasOwn(pendingByLine, row.original.id) ? (
+              <span className="text-muted-foreground ml-2 font-normal tabular-nums">
+                {formatCurrency(pendingByLine[row.original.id])}
+              </span>
+            ) : null}
+          </span>
         ),
       enableSorting: false,
     },
@@ -245,9 +308,7 @@ const incomeColumns = ({
       header: 'Claims',
       cell: ({ row }) => (
         <span className="text-muted-foreground text-xs">
-          {row.original.kind === 'opening'
-            ? 'whatever last year closed with'
-            : describeRule(row.original.rule as BudgetRule)}
+          {describeClaims(row.original)}
         </span>
       ),
       enableSorting: false,
@@ -361,7 +422,15 @@ export const BudgetIncome = ({ detail }: { detail: Detail }) => {
         });
       }}
     >
-      <DataTableToolbar table={table} title="Income">
+      <DataTableToolbar
+        table={table}
+        title={
+          <span className="flex items-center gap-1">
+            Income
+            <BudgetIncomeHelp />
+          </span>
+        }
+      >
         <MutationModal
           button={
             <Button size="sm" variant="outline">
@@ -371,6 +440,7 @@ export const BudgetIncome = ({ detail }: { detail: Detail }) => {
           defaultValues={{
             name: '',
             rule: emptyBudgetRule,
+            source: 'statements' as const,
             destination: 'waterfall' as const,
             destinationLineId: null,
             budgetYearId: year.id,

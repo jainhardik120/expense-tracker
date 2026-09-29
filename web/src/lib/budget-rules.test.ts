@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { matchesRule, matchesByTags, assignToLine } from './budget-rules';
+import { matchesRule, matchesByTags, assignToLine, resolveLoanOwners } from './budget-rules';
 
 const empty = {
   categories: [],
@@ -74,4 +74,76 @@ test('a catch-all line does not swallow untagged commitments', () => {
   expect(matchesRule(stmt({ tags: [] }), empty)).toBe(true);
   expect(matchesByTags([], empty)).toBe(false);
   expect(matchesByTags(['Flight'], empty)).toBe(false);
+});
+
+const loanLine = (over = {}) => ({ id: 'l', rule: { ...empty }, readsSchedule: false, ...over });
+const instalment = (emiId: string, over = {}) => ({ ...stmt(over), emiId });
+
+test('a schedule line knows its loan before a single instalment is recorded', () => {
+  const owners = resolveLoanOwners(
+    [loanLine({ id: 'gym', rule: { ...empty, tags: ['Gym EMI'] }, readsSchedule: true })],
+    [{ id: 'emi-gym', tags: ['Gym EMI'] }],
+    [],
+  );
+  expect(owners.get('emi-gym')).toBe('gym');
+});
+
+test('a schedule line ignores statements entirely', () => {
+  // The statement says Shopping, the loan is tagged Gym. The schedule line
+  // reads the loan, so the statement cannot drag it elsewhere.
+  const owners = resolveLoanOwners(
+    [
+      loanLine({ id: 'shopping', rule: { ...empty, categories: ['Shopping'] } }),
+      loanLine({ id: 'gym', rule: { ...empty, tags: ['Gym EMI'] }, readsSchedule: true }),
+    ],
+    [{ id: 'emi-gym', tags: ['Gym EMI'] }],
+    [instalment('emi-gym', { category: 'Shopping', tags: ['Gym EMI'] })],
+  );
+  expect(owners.get('emi-gym')).toBe('gym');
+});
+
+test('a loan lands on one line only, never on every rule that fits', () => {
+  const owners = resolveLoanOwners(
+    [
+      loanLine({ id: 'gifts', rule: { ...empty, tags: ['Gift'] } }),
+      loanLine({ id: 'shopping', rule: { ...empty, categories: ['Shopping'] } }),
+      loanLine({ id: 'living', rule: { ...empty } }),
+    ],
+    [{ id: 'emi-wm', tags: [] }],
+    [instalment('emi-wm', { category: 'Shopping', tags: ['Gift'] })],
+  );
+  expect([...owners.values()]).toEqual(['gifts']);
+});
+
+test('an untagged loan is never swept up by a catch-all line', () => {
+  const owners = resolveLoanOwners(
+    [loanLine({ id: 'living', rule: { ...empty } })],
+    [{ id: 'emi-new', tags: [] }],
+    [],
+  );
+  expect(owners.size).toBe(0);
+});
+
+test('naming a loan outranks a line above that merely matches its instalments', () => {
+  const owners = resolveLoanOwners(
+    [
+      loanLine({ id: 'flights', rule: { ...empty, tags: ['Flight'] } }),
+      loanLine({ id: 'trip', rule: { ...empty, tags: ['Flight'] }, readsSchedule: true }),
+    ],
+    [{ id: 'emi-fl', tags: ['Flight'] }],
+    [instalment('emi-fl', { tags: ['Flight'] })],
+  );
+  expect(owners.get('emi-fl')).toBe('trip');
+});
+
+test('ordinary lines keep their precedence among themselves', () => {
+  const owners = resolveLoanOwners(
+    [
+      loanLine({ id: 'gifts', rule: { ...empty, tags: ['Gift'] } }),
+      loanLine({ id: 'shopping', rule: { ...empty, categories: ['Shopping'] } }),
+    ],
+    [{ id: 'emi-wm', tags: [] }],
+    [instalment('emi-wm', { category: 'Shopping', tags: ['Gift'] })],
+  );
+  expect(owners.get('emi-wm')).toBe('gifts');
 });

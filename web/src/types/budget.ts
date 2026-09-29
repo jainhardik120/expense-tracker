@@ -42,6 +42,7 @@ export const budgetAllocationKinds = [
   'schedule',
 ] as const;
 export const budgetIncomeDestinations = ['waterfall', 'line', 'excluded'] as const;
+export const budgetIncomeSources = ['statements', 'pending_salary', 'pending_bonus'] as const;
 
 const NAME_REQUIRED = 'Name is required';
 
@@ -64,6 +65,7 @@ export const budgetLineSchema = z.object({
 export const budgetIncomeLineSchema = z.object({
   name: z.string().min(1, NAME_REQUIRED),
   rule: budgetRuleSchema,
+  source: z.enum(budgetIncomeSources).default('statements'),
   destination: z.enum(budgetIncomeDestinations),
   destinationLineId: z.string().nullable().default(null),
 });

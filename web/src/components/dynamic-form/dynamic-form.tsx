@@ -13,6 +13,7 @@ import {
 
 import {
   type FormField,
+  isFieldVisible,
   RenderFormInput,
   RenderLabelAfter,
 } from '@/components/dynamic-form/dynamic-form-fields';
@@ -77,6 +78,35 @@ const DynamicForm = <T extends FieldValues, U extends FieldValues>({
   // useWatch rather than form.watch(): watch() returns a fresh function the React
   // Compiler cannot memoize, so it bails out of optimising this whole component.
   const values = useWatch({ control: form.control }) as T;
+
+  // Put a hidden field back to what it is worth while hidden. Compared before
+  // writing because writing is what produces the next render: an unconditional
+  // set would re-trigger this on every pass. Serialised rather than compared by
+  // identity so that a field cleared to [] settles instead of writing a fresh
+  // empty array forever.
+  useEffect(() => {
+    // One value can be presented by more than one field -- the same amount is
+    // "Amount" on a monthly line and "Investment goal" on the residual one --
+    // and only one of them shows at a time. Clearing on the hidden one would
+    // wipe the value out from under the visible one.
+    const onScreen = new Set(
+      fields.filter((field) => isFieldVisible(field, values)).map((field) => field.name),
+    );
+    for (const field of fields) {
+      if (
+        field.valueWhenHidden === undefined ||
+        onScreen.has(field.name) ||
+        isFieldVisible(field, values)
+      ) {
+        continue;
+      }
+      const current = form.getValues(field.name);
+      if (JSON.stringify(current) !== JSON.stringify(field.valueWhenHidden)) {
+        form.setValue(field.name, field.valueWhenHidden, { shouldDirty: true });
+      }
+    }
+  }, [fields, values, form]);
+
   const formId = useId();
   return (
     <Form {...form}>
@@ -94,11 +124,7 @@ const DynamicForm = <T extends FieldValues, U extends FieldValues>({
         */}
         <div className={cn('grid gap-4 p-1', className)}>
           {fields.map((field) => {
-            const { displayCondition = true } = field;
-            if (
-              displayCondition === false ||
-              (typeof displayCondition === 'function' && !displayCondition(values))
-            ) {
+            if (!isFieldVisible(field, values)) {
               return null;
             }
             return (

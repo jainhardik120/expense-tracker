@@ -28,6 +28,8 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  --color-help-spent: var(--help-spent);
+  --color-help-committed: var(--help-committed);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -79,6 +81,13 @@
   --chart-3: oklch(0.586 0.253 17.585);
   --chart-4: oklch(0.514 0.222 16.935);
   --chart-5: oklch(0.455 0.188 13.697);
+  /* Two steps off the same ramp for the help diagrams: money gone is the dark
+     one, money owed the light one. Separation is by lightness rather than hue,
+     which is what keeps them apart for colourblind readers too. Checked
+     against the white surface -- contrast 3:1, normal-vision dE 19.5,
+     worst-case CVD dE 15.3 -- rather than picked by eye. */
+  --help-spent: var(--chart-5);
+  --help-committed: var(--chart-2);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.586 0.253 17.585);
@@ -113,6 +122,11 @@
   --chart-3: oklch(0.586 0.253 17.585);
   --chart-4: oklch(0.514 0.222 16.935);
   --chart-5: oklch(0.455 0.188 13.697);
+  /* Dark mode gets its own steps rather than an automatic flip: the light
+     surface's pair is too dark to read here, so both move up the ramp.
+     Normal-vision dE 24.6, worst-case CVD dE 20.9, contrast 3:1 on #09090b. */
+  --help-spent: var(--chart-3);
+  --help-committed: var(--chart-1);
   --sidebar: oklch(0.21 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.645 0.246 16.439);

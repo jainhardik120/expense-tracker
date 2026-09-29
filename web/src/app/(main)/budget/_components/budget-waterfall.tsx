@@ -29,6 +29,8 @@ import { BUDGET_COLUMN_SIZE, POSITION_INDENT } from './column-widths';
 
 import type { ColumnDef } from '@tanstack/react-table';
 
+import { BudgetLinesHelp } from '../_help/budget-lines-help';
+
 type Detail = RouterOutput['budget']['getYearDetail'];
 
 /** One line, with everything the table shows about it gathered in one place. */
@@ -68,6 +70,19 @@ const ALLOCATION_LABELS: Record<(typeof budgetAllocationKinds)[number], string> 
 // stored in.
 const allocationKinds = Object.keys(ALLOCATION_LABELS) as (typeof budgetAllocationKinds)[number][];
 
+type LineFormValues = z.input<typeof budgetLineFormSchema>;
+
+/** The kinds whose budget is a number somebody types in. */
+const TYPED_ALLOCATIONS = new Set(['monthly', 'annual']);
+
+/**
+ * Whether this line's budget is a loan schedule.
+ *
+ * Such a line finds its loans by tag alone, so a category, a kind or an account
+ * on its rule would sit there reading as though it did something.
+ */
+const readsSchedule = (values: LineFormValues) => values.allocationKind === 'schedule';
+
 const lineFields = [
   { name: 'name' as const, label: 'Name', type: 'input' as const },
   {
@@ -76,21 +91,74 @@ const lineFields = [
     type: 'select' as const,
     options: allocationKinds.map((kind) => ({ label: ALLOCATION_LABELS[kind], value: kind })),
   },
-  { name: 'allocationAmount' as const, label: 'Amount', type: 'input' as const },
+  {
+    name: 'allocationAmount' as const,
+    label: 'Amount',
+    type: 'input' as const,
+    // Only the two fixed allocations are a figure you type. The rest are read
+    // off income or off a loan schedule, and a box asking for a number that is
+    // then ignored is worse than no box.
+    displayCondition: (values: LineFormValues) => TYPED_ALLOCATIONS.has(values.allocationKind),
+    valueWhenHidden: '0',
+  },
+  {
+    // The same column, asked for differently. On the residual line the amount
+    // is not a budget at all -- nothing is allocated to it, it gets whatever
+    // survives -- it is the figure you are trying to finish the year with, and
+    // calling it "Amount" there explains nothing.
+    name: 'allocationAmount' as const,
+    label: 'Goal for the year',
+    type: 'input' as const,
+    description: 'What you are aiming to finish the year with.',
+    displayCondition: (values: LineFormValues) => values.allocationKind === 'residual',
+    valueWhenHidden: '0',
+  },
   {
     name: 'discretionary' as const,
     label: 'I can choose to spend less on this',
     type: 'checkbox' as const,
+    // You cannot decide to pay less of an instalment.
+    displayCondition: (values: LineFormValues) => !readsSchedule(values),
+    valueWhenHidden: false,
   },
   {
     name: 'closed' as const,
     label: 'Done for the year — nothing more to spend here',
     type: 'checkbox' as const,
+    // Closing a line says to stop assuming more spending. A schedule owes what
+    // it owes and a residual is whatever survives, so neither has an assumption
+    // to switch off.
+    displayCondition: (values: LineFormValues) =>
+      !readsSchedule(values) && values.allocationKind !== 'residual',
+    valueWhenHidden: false,
   },
-  { name: 'rule.categories' as const, label: 'Categories', type: 'stringArray' as const },
-  { name: 'rule.tags' as const, label: 'Tags', type: 'stringArray' as const },
-  { name: 'rule.statementKinds' as const, label: 'Statement kinds', type: 'stringArray' as const },
-  { name: 'rule.accounts' as const, label: 'Account / friend ids', type: 'stringArray' as const },
+  {
+    name: 'rule.tags' as const,
+    label: 'Tags',
+    type: 'stringArray' as const,
+    description: 'The only thing a loan schedule line matches on.',
+  },
+  {
+    name: 'rule.categories' as const,
+    label: 'Categories',
+    type: 'stringArray' as const,
+    displayCondition: (values: LineFormValues) => !readsSchedule(values),
+    valueWhenHidden: [] as string[],
+  },
+  {
+    name: 'rule.statementKinds' as const,
+    label: 'Statement kinds',
+    type: 'stringArray' as const,
+    displayCondition: (values: LineFormValues) => !readsSchedule(values),
+    valueWhenHidden: [] as string[],
+  },
+  {
+    name: 'rule.accounts' as const,
+    label: 'Account / friend ids',
+    type: 'stringArray' as const,
+    displayCondition: (values: LineFormValues) => !readsSchedule(values),
+    valueWhenHidden: [] as string[],
+  },
 ];
 
 /** A one-line read of what a rule claims, so the table explains itself. */
@@ -340,7 +408,15 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
           });
         }}
       >
-        <DataTableToolbar table={table} title={year.name}>
+        <DataTableToolbar
+          table={table}
+          title={
+            <span className="flex items-center gap-1">
+              {year.name}
+              <BudgetLinesHelp />
+            </span>
+          }
+        >
           <MutationModal
             button={
               <Button size="sm" variant="outline">

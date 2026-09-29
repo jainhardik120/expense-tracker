@@ -549,6 +549,20 @@ export const budgetIncomeDestinationEnum = pgEnum('budget_income_destination', [
   'excluded',
 ]);
 
+/**
+ * Where a line's amount comes from.
+ *
+ * Nearly all of them read the statements a rule claims. The pending ones are
+ * money that has not arrived yet, read off the salary schedule: what is still
+ * to be paid before the year closes, which a rule cannot match because there is
+ * nothing to match yet.
+ */
+export const budgetIncomeSourceEnum = pgEnum('budget_income_source', [
+  'statements',
+  'pending_salary',
+  'pending_bonus',
+]);
+
 export const budgetIncomeLines = pgTable('budget_income_lines', {
   id: uuid('id').defaultRandom().primaryKey(),
   budgetYearId: uuid('budget_year_id')
@@ -557,6 +571,7 @@ export const budgetIncomeLines = pgTable('budget_income_lines', {
   name: text('name').notNull(),
   position: integer('position').notNull(),
   rule: jsonb('rule').notNull().default({}),
+  source: budgetIncomeSourceEnum('source').notNull().default('statements'),
   destination: budgetIncomeDestinationEnum('destination').notNull(),
   // Set only when destination is 'line'. Cleared with the line it points at.
   destinationLineId: uuid('destination_line_id').references(() => budgetLines.id, {

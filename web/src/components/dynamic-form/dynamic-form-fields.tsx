@@ -1,7 +1,12 @@
 import { type ClipboardEvent, type KeyboardEvent, type ReactNode, useState } from 'react';
 
 import { X } from 'lucide-react';
-import { type ControllerRenderProps, type Path, type FieldValues } from 'react-hook-form';
+import {
+  type ControllerRenderProps,
+  type FieldValues,
+  type Path,
+  type PathValue,
+} from 'react-hook-form';
 
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +42,30 @@ export type FormField<T extends FieldValues = FieldValues> = {
   step?: number;
   render?: (field: ControllerRenderProps<T, Path<T>>) => ReactNode;
   displayCondition?: ((values: T) => boolean) | boolean;
+  /**
+   * What the field is worth once it is hidden.
+   *
+   * A field that has gone away should stop contributing. Without this the
+   * amount typed against a monthly allocation is still sitting in the form
+   * after the line is switched to a loan schedule, and is submitted -- invisibly
+   * -- along with everything else. Left undefined the value is kept, which is
+   * what you want for a field that comes back.
+   */
+  valueWhenHidden?: PathValue<T, Path<T>>;
+};
+
+/**
+ * Whether a field is currently shown.
+ *
+ * Shared so that the rendering and the clearing cannot disagree about it: a
+ * field cleared while still on screen would wipe itself as it was typed into.
+ */
+export const isFieldVisible = <T extends FieldValues = FieldValues>(
+  field: FormField<T>,
+  values: T,
+): boolean => {
+  const { displayCondition = true } = field;
+  return typeof displayCondition === 'function' ? displayCondition(values) : displayCondition;
 };
 
 type FieldProps<T extends FieldValues = FieldValues> = {

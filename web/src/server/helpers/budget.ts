@@ -9,14 +9,15 @@ import {
 } from '@/db/schema';
 import {
   assignToLine,
-  matchesByTags,
   matchesRule,
+  resolveLoanOwners,
   type MatchableStatement,
 } from '@/lib/budget-rules';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { getEMIs } from '@/server/helpers/emi';
 import { getEmiPaymentsInRange } from '@/server/helpers/emi-calculations';
+import { type PendingIncome } from '@/server/helpers/pending-income';
 import { budgetRuleSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
 export type BudgetLineRow = typeof budgetLines.$inferSelect;
@@ -150,7 +151,19 @@ export type LineTotals = {
 export const summariseIncome = (
   incomeLines: BudgetIncomeLineRow[],
   scoped: ScopedStatement[],
-): { waterfall: number; waterfallCount: number; earmarked: Map<string, number> } => {
+  /** Pay still to come, by the source the line reads it from. */
+  pending: PendingIncome = { salary: 0, bonus: 0, payments: 0 },
+): {
+  waterfall: number;
+  waterfallCount: number;
+  earmarked: Map<string, number>;
+  /** Of the pending income, what is destined for the waterfall. */
+  pendingWaterfall: number;
+  /** Of the pending income, what is destined for a line or the waterfall. */
+  pendingCounted: number;
+  /** What each pending line is worth, so the table can show it. */
+  pendingByLine: Map<string, number>;
+} => {
   const ordered = [...incomeLines].sort((a, b) => a.position - b.position);
   const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
   const earmarked = new Map<string, number>();
@@ -158,9 +171,49 @@ export const summariseIncome = (
   // Counted, not just summed: the budget runs on pay cycles rather than calendar
   // months, and how many have landed is what says how many are left.
   let waterfallCount = 0;
+  let pendingWaterfall = 0;
+  let pendingCounted = 0;
+  const pendingByLine = new Map<string, number>();
+
+  // Money that has not arrived cannot be matched by a rule, so the lines that
+  // read the payroll are settled first, on their own terms. Their destination
+  // then works exactly as it does for income that has: down the waterfall, onto
+  // one line, or out of the budget entirely.
+  const pendingAmountFor = (source: BudgetIncomeLineRow['source']): number | null => {
+    if (source === 'pending_salary') {
+      return pending.salary;
+    }
+    return source === 'pending_bonus' ? pending.bonus : null;
+  };
+  for (const line of parsed) {
+    const amount = pendingAmountFor(line.source);
+    if (amount === null || amount === 0) {
+      continue;
+    }
+    pendingByLine.set(line.id, amount);
+    if (line.destination === 'excluded') {
+      continue;
+    }
+    pendingCounted += amount;
+    if (line.destination === 'waterfall') {
+      pendingWaterfall += amount;
+      continue;
+    }
+    if (line.destinationLineId !== null) {
+      earmarked.set(
+        line.destinationLineId,
+        (earmarked.get(line.destinationLineId) ?? 0) + amount,
+      );
+    }
+  }
 
   for (const statement of scoped) {
-    const match = parsed.find((line) => matchesRule(statement, line.rule));
+    // A line that reads the payroll claims no statements, however open its rule
+    // looks: an empty rule matches everything, and one of these sitting above
+    // the salary line would swallow the salary itself.
+    const match = parsed.find(
+      (line) => line.source === 'statements' && matchesRule(statement, line.rule),
+    );
     if (match === undefined || match.destination === 'excluded') {
       continue;
     }
@@ -177,7 +230,7 @@ export const summariseIncome = (
     }
   }
 
-  return { waterfall, waterfallCount, earmarked };
+  return { waterfall, waterfallCount, earmarked, pendingWaterfall, pendingCounted, pendingByLine };
 };
 
 export const summariseLines = (
@@ -353,39 +406,17 @@ export const getScheduledTotals = instrumentedFunction(
       creditId: [],
     });
 
-    // Which line owns each loan, at most one apiece. Spend is assigned first
-    // match wins, and a schedule matched line by line instead would hand the
-    // same loan to every rule that fits: a washing machine tagged as a gift is
-    // claimed by Gifts, but it is also Shopping, and it is also whatever
-    // catch-all sits at the bottom, so its remaining instalments would be
-    // counted three times over.
-    const ownerByEmi = new Map<string, string>();
-    for (const line of lines) {
-      const rule = parseRule(line.rule);
-      for (const statement of scoped) {
-        if (
-          statement.emiId !== null &&
-          !ownerByEmi.has(statement.emiId) &&
-          matchesRule(statement, rule)
-        ) {
-          ownerByEmi.set(statement.emiId, line.id);
-        }
-      }
-    }
-
-    // A loan signed today has no instalment recorded yet, so no statement can
-    // speak for it; its own tags do instead. Only an explicit tag overlap
-    // counts -- reading the rest of the rule would give every untagged loan to
-    // the first line that constrains nothing.
-    for (const emi of emis) {
-      if (ownerByEmi.has(emi.id)) {
-        continue;
-      }
-      const owner = lines.find((line) => matchesByTags(emi.tags, parseRule(line.rule)));
-      if (owner !== undefined) {
-        ownerByEmi.set(emi.id, owner.id);
-      }
-    }
+    // Ownership is worked out over there, where it can be tested without a
+    // database in front of it.
+    const ownerByEmi = resolveLoanOwners(
+      lines.map((line) => ({
+        id: line.id,
+        rule: parseRule(line.rule),
+        readsSchedule: line.allocationKind === 'schedule',
+      })),
+      emis,
+      scoped,
+    );
 
     for (const line of lines) {
       const payments = emis

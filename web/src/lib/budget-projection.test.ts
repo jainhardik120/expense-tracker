@@ -56,11 +56,17 @@ test('an earmarked line is funded only by the income pointed at it', () => {
   expect(lines[0].remaining).toBe(-3512);
 });
 
-test('income still to come is projected from the rate so far', () => {
-  // 10 months of income at 100/month, two months left
-  const p = project([line({ allocationAmount: 0 })], 1000, 10, 12);
+test('income still to come is supplied by the payroll, not guessed from the past', () => {
+  // 1,000 received, and the schedule says 200 more is due before the year ends
+  const p = project([line({ allocationAmount: 0 })], 1000, 10, 12, 0, -1, 0, 200);
   expect(p.expectedTotalIncome).toBe(1200);
   expect(p.remainingMonths).toBe(2);
+});
+
+test('nothing is assumed about income the payroll has not promised', () => {
+  // Left to itself the old run rate invented two more months of pay here.
+  const p = project([line({ allocationAmount: 0 })], 1000, 10, 12);
+  expect(p.expectedTotalIncome).toBe(1000);
 });
 
 test('the residual is whatever the lines above it leave, and shrinks when they overspend', () => {
@@ -232,6 +238,10 @@ test('income earmarked at a line still counts towards what the year has to spend
     1200000,
     10,
     12,
+    0,
+    -1,
+    0,
+    240000,
   );
   const residual = withBonus.lines.filter((l) => l.lineId === 'inv')[0];
   // the trip's 28,948 comes off, and the bonus that paid for it goes on
@@ -473,4 +483,18 @@ test('a closed line is not forecast to carry on at the pace it was running at', 
   expect(project([line({ ...spending, closed: true })], 0, 9, 12).lines[0].forecastRemaining).toBe(
     0,
   );
+});
+
+test('a pending bonus kept out of the budget does not raise the goal', () => {
+  // The residual gets whatever the lines above leave, so income the user has
+  // pushed outside the budget must not reach it.
+  const lines = [
+    line({ lineId: 'living', allocationAmount: 1000, actual: 0 }),
+    line({ lineId: 'inv', allocationKind: 'residual', allocationAmount: 0 }),
+  ];
+  const salaryOnly = project(lines, 100000, 10, 12, 0, -1, 0, 20000);
+  const withBonus = project(lines, 100000, 10, 12, 0, -1, 0, 20000 + 7000);
+  const residual = (p: ReturnType<typeof project>) =>
+    p.lines.filter((l) => l.lineId === 'inv')[0].yearBudget;
+  expect(residual(withBonus) - residual(salaryOnly)).toBeCloseTo(7000, 2);
 });

@@ -54,3 +54,75 @@ export const assignToLine = <T extends { rule: BudgetRule }>(
   statement: MatchableStatement,
   lines: T[],
 ): number => lines.findIndex((line) => matchesRule(statement, line.rule));
+
+/** A loan, as the budget needs to see it: an id and the tags it was given. */
+export type ClaimableLoan = { id: string; tags: string[] };
+
+/** A line, as loan ownership needs to see it. */
+export type ClaimingLine = {
+  id: string;
+  rule: BudgetRule;
+  /**
+   * Whether this line's budget *is* a loan schedule.
+   *
+   * Such a line reads loans by their tags and never through a statement: it
+   * exists because of the loan, so it has to know the loan before the first
+   * instalment is paid, not after.
+   */
+  readsSchedule: boolean;
+};
+
+/**
+ * Which line owns each loan, at most one apiece.
+ *
+ * Ownership is exclusive because spending is: a washing machine tagged as a
+ * gift is claimed by Gifts, but it is also Shopping and also the catch-all at
+ * the bottom, and a loan matched line by line would have its remaining
+ * instalments counted once for each.
+ *
+ * Schedule lines are asked first, and read the loan's tags rather than any
+ * statement. Such a line is a declaration that it *is* that loan, which is a
+ * stronger claim than some line above it happening to match an instalment on
+ * category -- left to position alone, a gym plan filed under Shopping would be
+ * taken by Shopping and the Gym line would reconcile against nothing.
+ *
+ * Every other line then reads the statements it has claimed, in position order,
+ * so ordinary precedence is unchanged. Anything still unowned falls back to
+ * tags, which is what lets a loan signed this morning land somewhere at all.
+ */
+export const resolveLoanOwners = (
+  lines: ClaimingLine[],
+  loans: ClaimableLoan[],
+  instalments: (MatchableStatement & { emiId: string | null })[],
+): Map<string, string> => {
+  const owners = new Map<string, string>();
+
+  for (const line of lines.filter((candidate) => candidate.readsSchedule)) {
+    for (const loan of loans) {
+      if (!owners.has(loan.id) && matchesByTags(loan.tags, line.rule)) {
+        owners.set(loan.id, line.id);
+      }
+    }
+  }
+
+  for (const line of lines.filter((candidate) => !candidate.readsSchedule)) {
+    for (const instalment of instalments) {
+      const { emiId } = instalment;
+      if (emiId !== null && !owners.has(emiId) && matchesRule(instalment, line.rule)) {
+        owners.set(emiId, line.id);
+      }
+    }
+  }
+
+  for (const loan of loans) {
+    if (owners.has(loan.id)) {
+      continue;
+    }
+    const owner = lines.find((line) => matchesByTags(loan.tags, line.rule));
+    if (owner !== undefined) {
+      owners.set(loan.id, owner.id);
+    }
+  }
+
+  return owners;
+};

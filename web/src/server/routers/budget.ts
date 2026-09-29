@@ -14,6 +14,7 @@ import {
   summariseIncome,
   summariseLines,
 } from '@/server/helpers/budget';
+import { getPendingIncome } from '@/server/helpers/pending-income';
 import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
 import {
   getAccountsSummaryBetweenDates,
@@ -97,8 +98,17 @@ export const budgetRouter = createTRPCRouter({
         .orderBy(asc(budgetIncomeLines.position));
       const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, year.startDate, year.endDate);
       const { totals, unclaimed } = summariseLines(lines, scoped);
-      const income = summariseIncome(incomeLines, scoped);
       const now = new Date();
+      // What payroll still owes before the year closes, read off the salary
+      // schedule. Only the part of the window that has not happened yet: pay
+      // already received is a statement and is counted as one.
+      const pending = await getPendingIncome(
+        ctx.db,
+        ctx.user.id,
+        now,
+        year.endDate > now ? year.endDate : now,
+      );
+      const income = summariseIncome(incomeLines, scoped, pending);
       const totalMonths = monthsBetween(year.startDate, year.endDate);
 
       // --- the cash outlook: what is left, and what it means for investing ---
@@ -131,7 +141,10 @@ export const budgetRouter = createTRPCRouter({
       // count of those, not the elapsed time, that says how many are still coming.
       const cyclesTotal = Math.round(totalMonths);
       const cyclesElapsed = Math.min(income.waterfallCount, cyclesTotal);
-      const incomeCyclesRemaining = Math.max(cyclesTotal - cyclesElapsed, 0);
+      // Counted off the schedule rather than inferred from how many statements
+      // have arrived: two payslips in one month used to read as two cycles gone
+      // and silently drop a salary from the forecast.
+      const incomeCyclesRemaining = pending.payments;
       // Months still to be spent in, which is a different count: the last salary
       // of the year can arrive well before the year is over.
       const monthsRemaining = Math.max(
@@ -184,6 +197,7 @@ export const budgetRouter = createTRPCRouter({
         openingIsEarmarked ? 0 : openingBalance,
         monthsRemaining,
         pendingSms.totalSpend,
+        income.pendingWaterfall,
       );
       // --- where this cycle stands against the month's allowance ---
       const cycles = summariseByCycle(lines, scoped, year.startDate.getDate());
@@ -213,7 +227,11 @@ export const budgetRouter = createTRPCRouter({
         pendingCount: pendingSms.count,
         openingBalance,
         incomeCyclesRemaining,
-        monthlyIncome: cyclesElapsed > 0 ? income.waterfall / cyclesElapsed : 0,
+        // What is still to be paid, and what of it the budget counts. The two
+        // differ when a forecast bonus is pointed out of the budget.
+        pendingIncome: pending,
+        pendingCounted: income.pendingCounted,
+        pendingByLine: Object.fromEntries(income.pendingByLine),
         cycles,
         thisCycle,
         unclaimedCount: unclaimed.length,

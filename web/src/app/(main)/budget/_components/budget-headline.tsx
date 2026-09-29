@@ -88,7 +88,7 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
     projection,
     balanceToday,
     incomeCyclesRemaining,
-    monthlyIncome,
+    pendingCounted,
     pendingSpend,
     pendingCount,
     thisCycle,
@@ -107,7 +107,9 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
   } = projection;
 
   const months = projection.spendMonths;
-  const incomeRemaining = monthlyIncome * incomeCyclesRemaining;
+  // Read off the payroll schedule, not averaged out of past payslips: a raise
+  // in November is invisible to an average until November.
+  const incomeRemaining = pendingCounted;
   // The balance is behind by whatever is still sitting in the message queue.
   const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
   const perDay = safeToSpendPerMonth / DAYS_PER_MONTH;

@@ -110,11 +110,9 @@ export const monthsBetween = (from: Date, to: Date): number => {
 /**
  * Turn allocations and actuals into what is left, and at what pace.
  *
- * Income yet to arrive is projected from what has arrived rather than
- * configured: a rate that is wrong corrects itself as the year runs, where a
- * number typed in once stays wrong. The residual is whatever the lines above it
- * do not take, which is the point of the waterfall -- saving is what survives,
- * not something budgeted for.
+ * Income yet to arrive is passed in, not guessed at here. The residual is
+ * whatever the lines above it do not take, which is the point of the waterfall
+ * -- saving is what survives, not something budgeted for.
  */
 export const project = (
   lines: LineForProjection[],
@@ -136,10 +134,17 @@ export const project = (
    * place for it.
    */
   unrecordedSpend = 0,
+  /**
+   * Income still to arrive that is part of the budget.
+   *
+   * Read off the payroll schedule by the caller rather than averaged out of
+   * what has landed: an average cannot see a revision coming, and it cannot
+   * know that a year ending on the 23rd does not get the pay dated the 25th.
+   */
+  expectedFurtherIncome = 0,
 ): Projection => {
   const remainingMonths = Math.max(totalMonths - elapsedMonths, 0);
   const spendMonths = spendMonthsRemaining < 0 ? remainingMonths : spendMonthsRemaining;
-  const runRate = elapsedMonths > 0 ? incomeToDate / elapsedMonths : 0;
   // Everything the year has to spend, not just the salary. Income pointed at a
   // particular line is still income -- a bonus that paid for the trip funded it
   // out of the same pot -- and leaving it out while subtracting the line it
@@ -147,7 +152,7 @@ export const project = (
   // from last year belongs here too: it was earned then and kept, not spent.
   const earmarkedIncome = lines.reduce((sum, line) => sum + line.earmarkedIncome, 0);
   const expectedTotalIncome =
-    openingBalance + earmarkedIncome + incomeToDate + runRate * remainingMonths;
+    openingBalance + earmarkedIncome + incomeToDate + expectedFurtherIncome;
 
   // Income pointed at a line raises its budget whatever kind it is. A trip paid
   // for out of a bonus is funded, not overspent, and a shopping envelope topped
