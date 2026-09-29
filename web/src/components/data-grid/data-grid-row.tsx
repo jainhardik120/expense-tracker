@@ -10,6 +10,7 @@ import {
   getCellRenderMode,
   getColumnBorderVisibility,
   getColumnPinningStyle,
+  getColumnWidthStyle,
   getRowHeightValue,
 } from '@/lib/data-grid';
 import { cn } from '@/lib/utils';
@@ -141,10 +142,6 @@ const DataGridRowImpl = <TData,>({
             key={cell.id}
             aria-colindex={colIndex + 1}
             className={cn({
-              grow:
-                columnId !== 'select' &&
-                cell.column.columnDef.meta?.fixedWidth !== true &&
-                (stretchColumns === true || (stretchColumns === 'last' && isLastColumn)),
               'border-e': showEndBorder && columnId !== 'select',
               'border-s': showStartBorder && columnId !== 'select',
               // Set here rather than on the renderer inside, so a column reads
@@ -157,7 +154,12 @@ const DataGridRowImpl = <TData,>({
             role="gridcell"
             style={{
               ...getColumnPinningStyle({ column: cell.column, dir }),
-              width: `calc(var(--col-${columnId}-size) * 1px)`,
+              ...getColumnWidthStyle({
+                column: cell.column,
+                stretchColumns,
+                isLastColumn,
+                sizeVar: `--col-${columnId}-size`,
+              }),
             }}
             tabIndex={-1}
           >

@@ -11,7 +11,12 @@ import { DataGridRow } from '@/components/data-grid/data-grid-row';
 import { DataGridSearch } from '@/components/data-grid/data-grid-search';
 import { useAsRef } from '@/hooks/use-as-ref';
 import type { useDataGrid } from '@/hooks/use-data-grid';
-import { flexRender, getColumnBorderVisibility, getColumnPinningStyle } from '@/lib/data-grid';
+import {
+  flexRender,
+  getColumnBorderVisibility,
+  getColumnPinningStyle,
+  getColumnWidthStyle,
+} from '@/lib/data-grid';
 import { cn } from '@/lib/utils';
 import type { Direction } from '@/types/data-grid';
 
@@ -105,6 +110,29 @@ export const DataGrid = <TData,>({
     [onRowAddRef],
   );
 
+  /**
+   * The narrowest the columns will go before the list scrolls sideways.
+   *
+   * Needed as a width, not just as a limit on each column, because the rows are
+   * painted inside a contained box: content that overflows it is clipped rather
+   * than scrolled, so columns at their floor in a window narrower than their
+   * total would simply be cut off. Making the box itself that wide turns the
+   * overflow back into a scrollbar, which is what a table does.
+   */
+  const minGridWidth =
+    stretchColumns === true
+      ? table
+          .getVisibleLeafColumns()
+          .reduce(
+            (total, column) =>
+              total +
+              (column.columnDef.meta?.fixedWidth === true || column.getIsPinned() !== false
+                ? column.getSize()
+                : (column.columnDef.minSize ?? 0)),
+            0,
+          )
+      : undefined;
+
   return (
     <div
       data-slot="grid-wrapper"
@@ -144,6 +172,7 @@ export const DataGrid = <TData,>({
           className="bg-background sticky top-0 z-10 grid border-b"
           data-slot="grid-header"
           role="rowgroup"
+          style={{ minWidth: minGridWidth }}
         >
           {table.getHeaderGroups().map((headerGroup, rowIndex) => (
             <div
@@ -193,11 +222,6 @@ export const DataGrid = <TData,>({
                       header.column.columnDef.meta?.align === 'right' &&
                         'text-right tabular-nums',
                       {
-                        grow:
-                          header.column.id !== 'select' &&
-                          header.column.columnDef.meta?.fixedWidth !== true &&
-                          (stretchColumns === true ||
-                            (stretchColumns === 'last' && isLastColumn)),
                         'border-e': showEndBorder && header.column.id !== 'select',
                         'border-s': showStartBorder && header.column.id !== 'select',
                       },
@@ -206,7 +230,12 @@ export const DataGrid = <TData,>({
                     role="columnheader"
                     style={{
                       ...getColumnPinningStyle({ column: header.column, dir }),
-                      width: `calc(var(--header-${header.id}-size) * 1px)`,
+                      ...getColumnWidthStyle({
+                        column: header.column,
+                        stretchColumns,
+                        isLastColumn,
+                        sizeVar: `--header-${header.id}-size`,
+                      }),
                     }}
                     tabIndex={-1}
                   >
@@ -239,6 +268,7 @@ export const DataGrid = <TData,>({
             // With no rows the virtualiser measures nothing, so the body would
             // collapse and take the empty state with it.
             height: rows.length === 0 ? '6rem' : `${virtualTotalSize}px`,
+            minWidth: minGridWidth,
             contain: adjustLayout ? 'layout paint' : 'strict',
           }}
         >

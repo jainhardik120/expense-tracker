@@ -24,7 +24,7 @@ import {
   isSelfTransfer,
 } from '@/types';
 
-import { STATEMENT_COLUMN_SIZE } from './column-sizes';
+import { STATEMENT_COLUMN_MIN, STATEMENT_COLUMN_SIZE } from './column-sizes';
 import { LinkToRecurringPaymentDialog } from './RecurringPaymentLink';
 import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
 import {
@@ -308,6 +308,7 @@ export const createStatementColumns = ({
     },
     id: 'date',
     size: STATEMENT_COLUMN_SIZE.date,
+    minSize: STATEMENT_COLUMN_MIN.date,
     meta: {
       label: 'Date',
       variant: 'dateRange',
@@ -319,6 +320,7 @@ export const createStatementColumns = ({
     id: 'statementKind',
     accessorKey: 'statementKind',
     size: STATEMENT_COLUMN_SIZE.statementKind,
+    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'Statement Kind',
     // Sorted by the server or not at all: it orders by date, amount and
     // category, so a heading offering to sort by anything else would be a
@@ -345,6 +347,7 @@ export const createStatementColumns = ({
   {
     accessorKey: 'amount',
     size: STATEMENT_COLUMN_SIZE.amount,
+    minSize: STATEMENT_COLUMN_MIN.data,
     header: ({ column }) => <DataTableColumnHeader column={column} title="Amount" />,
     enableSorting: true,
     cell: ({ row }) => {
@@ -370,6 +373,7 @@ export const createStatementColumns = ({
     id: 'category',
     accessorKey: 'category',
     size: STATEMENT_COLUMN_SIZE.category,
+    minSize: STATEMENT_COLUMN_MIN.data,
     header: ({ column }) => <DataTableColumnHeader column={column} title="Category" />,
     enableSorting: true,
     cell: ({ row }) => <>{isSelfTransfer(row.original) ? '-' : row.original.category}</>,
@@ -394,6 +398,7 @@ export const createStatementColumns = ({
     id: 'account',
     accessorKey: 'from',
     size: STATEMENT_COLUMN_SIZE.account,
+    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'From',
     enableSorting: false,
     cell: ({ row }) => <>{getFromAccount(row.original) ?? '-'}</>,
@@ -414,6 +419,7 @@ export const createStatementColumns = ({
   {
     accessorKey: 'to',
     size: STATEMENT_COLUMN_SIZE.to,
+    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'To',
     enableSorting: false,
     cell: ({ row }) => <>{getToAccount(row.original) ?? '-'}</>,
@@ -424,6 +430,7 @@ export const createStatementColumns = ({
   {
     accessorKey: 'expense',
     size: STATEMENT_COLUMN_SIZE.expense,
+    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'Expense',
     enableSorting: false,
     cell: ({ row }) => {
@@ -470,6 +477,7 @@ export const createStatementColumns = ({
     id: 'tags',
     accessorKey: 'tags',
     size: STATEMENT_COLUMN_SIZE.tags,
+    minSize: STATEMENT_COLUMN_MIN.data,
     header: 'Tags',
     enableSorting: false,
     cell: ({ row }) => (

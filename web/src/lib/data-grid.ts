@@ -433,3 +433,45 @@ export const getFileIcon = (type: string): React.ComponentType<React.SVGProps<SV
   }
   return File;
 };
+
+/**
+ * How wide a column should be drawn.
+ *
+ * Two different rules, because a grid has to answer a question a table never
+ * asks. A `<table>` is laid out by the browser: it is given `width: 100%` and
+ * works the columns out from their contents, which is why it reflows when the
+ * window does. A virtualised grid cannot do that -- the browser would need
+ * every row present to measure the contents, and only a screenful exists -- so
+ * the widths have to be stated.
+ *
+ * Stating them in pixels is what makes a grid feel wrong next to a table: it
+ * is correct at one window size and overflows or leaves a gap at every other.
+ * So when the grid is asked to fill its container, the declared size is read as
+ * a *share* rather than a measurement -- `flex-grow` in proportion to it, from
+ * a zero basis -- and the columns divide up whatever width there is, at any
+ * window size, the way a table's do. `minWidth` is where it stops giving way
+ * and starts scrolling sideways, which is also what a table does.
+ *
+ * Columns holding a control opt out with `meta.fixedWidth`: a tick box is the
+ * same size on a phone as on a desktop, and a share of the page is not what it
+ * wants. A pinned column opts out too -- it is held in place by offsets
+ * measured in pixels from the sizes, so its real width has to match them.
+ */
+export const getColumnWidthStyle = <TData>(params: {
+  column: Column<TData>;
+  stretchColumns: boolean | 'last';
+  isLastColumn: boolean;
+  sizeVar: string;
+}): React.CSSProperties => {
+  const { column, stretchColumns, isLastColumn, sizeVar } = params;
+  const size = column.getSize();
+  const fixed: React.CSSProperties = { width: `calc(var(${sizeVar}) * 1px)` };
+
+  if (column.columnDef.meta?.fixedWidth === true || column.getIsPinned() !== false) {
+    return { ...fixed, flex: `0 0 auto` };
+  }
+  if (stretchColumns === true) {
+    return { flex: `${size} 1 0`, minWidth: `${column.columnDef.minSize ?? 0}px` };
+  }
+  return { ...fixed, flexGrow: stretchColumns === 'last' && isLastColumn ? 1 : undefined };
+};
