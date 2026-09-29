@@ -136,15 +136,17 @@ export const budgetRouter = createTRPCRouter({
         openingAccounts.reduce((sum, a) => sum + a.finalBalance, 0) -
         openingFriends.reduce((sum, f) => sum + f.finalBalance, 0);
 
-      // Pay cycles, not calendar months. The first salary of the year can land on
-      // day one, so after nine calendar months ten have been paid -- and it is the
-      // count of those, not the elapsed time, that says how many are still coming.
+      // Pay cycles, not calendar months: rent and money home go out with each
+      // salary, so what is still owed on them follows the pay dates rather than
+      // the calendar.
+      //
+      // Counted off the payroll schedule. Counting income statements instead
+      // read anything landing in the account as a month gone by, so pointing a
+      // bonus down the waterfall convinced the budget a cycle had passed and
+      // quietly erased a month of rent and money home from the commitments.
       const cyclesTotal = Math.round(totalMonths);
-      const cyclesElapsed = Math.min(income.waterfallCount, cyclesTotal);
-      // Counted off the schedule rather than inferred from how many statements
-      // have arrived: two payslips in one month used to read as two cycles gone
-      // and silently drop a salary from the forecast.
       const incomeCyclesRemaining = pending.payments;
+      const cyclesElapsed = Math.max(cyclesTotal - incomeCyclesRemaining, 0);
       // Months still to be spent in, which is a different count: the last salary
       // of the year can arrive well before the year is over.
       const monthsRemaining = Math.max(

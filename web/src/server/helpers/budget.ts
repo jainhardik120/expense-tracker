@@ -155,7 +155,6 @@ export const summariseIncome = (
   pending: PendingIncome = { salary: 0, bonus: 0, payments: 0 },
 ): {
   waterfall: number;
-  waterfallCount: number;
   earmarked: Map<string, number>;
   /** Of the pending income, what is destined for the waterfall. */
   pendingWaterfall: number;
@@ -168,9 +167,6 @@ export const summariseIncome = (
   const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
   const earmarked = new Map<string, number>();
   let waterfall = 0;
-  // Counted, not just summed: the budget runs on pay cycles rather than calendar
-  // months, and how many have landed is what says how many are left.
-  let waterfallCount = 0;
   let pendingWaterfall = 0;
   let pendingCounted = 0;
   const pendingByLine = new Map<string, number>();
@@ -219,7 +215,6 @@ export const summariseIncome = (
     }
     if (match.destination === 'waterfall') {
       waterfall += statement.myAmount;
-      waterfallCount += 1;
       continue;
     }
     if (match.destinationLineId !== null) {
@@ -230,7 +225,7 @@ export const summariseIncome = (
     }
   }
 
-  return { waterfall, waterfallCount, earmarked, pendingWaterfall, pendingCounted, pendingByLine };
+  return { waterfall, earmarked, pendingWaterfall, pendingCounted, pendingByLine };
 };
 
 export const summariseLines = (
