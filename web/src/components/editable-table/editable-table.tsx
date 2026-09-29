@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
  */
 type DataGridOwnProps = Pick<
   React.ComponentProps<typeof DataGrid>,
-  'height' | 'stretchColumns' | 'emptyState' | 'dir'
+  'height' | 'fill' | 'stretchColumns' | 'emptyState' | 'dir'
 >;
 
 type EditableTableProps<TData> = ReturnType<typeof useEditableTable<TData>> &
@@ -45,18 +45,22 @@ export const EditableTable = <TData,>({
   mode,
   ...grid
 }: EditableTableProps<TData>) => {
-  const { table } = grid;
+  const { table, fill = false } = grid;
   const hasSelectedRows = table.getFilteredSelectedRowModel().rows.length > 0;
 
   return (
-    <div className={cn('flex w-full flex-col gap-2.5', className)}>
-      {children}
+    <div className={cn('flex w-full flex-col gap-2.5', fill && 'min-h-0 flex-1', className)}>
+      {/* The toolbar and the pagination keep their size; only the grid between
+          them gives way, so both stay on screen while the rows scroll. The
+          wrapper is only there to hold `shrink-0`, so it is left out entirely
+          when the grid is not filling anything. */}
+      {fill ? <div className="shrink-0">{children}</div> : children}
       <DataGrid<TData> {...grid} data-mode={mode} />
       {/* Only when there is something to put in it: an empty flex child still
           contributes its parent's gap, which showed up as the grid sitting
           lower in one mode than the other. */}
       {enablePagination || (actionBar !== undefined && hasSelectedRows) ? (
-        <div className="flex flex-col gap-2.5">
+        <div className={cn('flex flex-col gap-2.5', fill && 'shrink-0')}>
           {enablePagination ? (
             <DataTablePagination enableSelection={enableSelection} table={table} />
           ) : null}

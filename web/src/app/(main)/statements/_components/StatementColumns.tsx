@@ -161,15 +161,20 @@ const withCounts = (
     .filter((option) => !cascade || option.count > 0 || selectedValues.has(option.value));
 };
 
-/** Marks the row a drag is currently hovering, so the drop target is visible. */
-const DROP_TARGET_CLASS = 'ring-primary ring-inset ring-2';
+/**
+ * Marks the row a drag is currently hovering, so the drop target is visible.
+ *
+ * One class per entry: `classList.toggle` takes a single token and throws on a
+ * string with a space in it, which killed the drag on its first movement.
+ */
+const DROP_TARGET_CLASSES = ['ring-primary', 'ring-inset', 'ring-2'];
 
 const markDropTarget = (index: number | null) => {
   for (const row of document.querySelectorAll('[data-slot="grid-row"]')) {
-    row.classList.toggle(
-      DROP_TARGET_CLASS,
-      index !== null && row.getAttribute('data-index') === String(index),
-    );
+    const isTarget = index !== null && row.getAttribute('data-index') === String(index);
+    for (const className of DROP_TARGET_CLASSES) {
+      row.classList.toggle(className, isTarget);
+    }
   }
 };
 
@@ -315,6 +320,10 @@ export const createStatementColumns = ({
     accessorKey: 'statementKind',
     size: STATEMENT_COLUMN_SIZE.statementKind,
     header: 'Statement Kind',
+    // Sorted by the server or not at all: it orders by date, amount and
+    // category, so a heading offering to sort by anything else would be a
+    // control that does nothing.
+    enableSorting: false,
     cell: ({ row }) => (
       <span className={cn('font-medium', statementKindClassName(row.original))}>
         {isSelfTransfer(row.original)
@@ -386,6 +395,7 @@ export const createStatementColumns = ({
     accessorKey: 'from',
     size: STATEMENT_COLUMN_SIZE.account,
     header: 'From',
+    enableSorting: false,
     cell: ({ row }) => <>{getFromAccount(row.original) ?? '-'}</>,
     meta: {
       label: 'Account',
@@ -405,6 +415,7 @@ export const createStatementColumns = ({
     accessorKey: 'to',
     size: STATEMENT_COLUMN_SIZE.to,
     header: 'To',
+    enableSorting: false,
     cell: ({ row }) => <>{getToAccount(row.original) ?? '-'}</>,
     meta: {
       label: 'To Account',
@@ -414,6 +425,7 @@ export const createStatementColumns = ({
     accessorKey: 'expense',
     size: STATEMENT_COLUMN_SIZE.expense,
     header: 'Expense',
+    enableSorting: false,
     cell: ({ row }) => {
       if (isSelfTransfer(row.original) || row.original.statementKind !== 'expense') {
         return <span className="text-muted-foreground">-</span>;
@@ -444,6 +456,7 @@ export const createStatementColumns = ({
           id: 'finalBalance',
           accessorFn: (row) => (row.finalBalance ?? 0).toFixed(2),
           header: startingBalance.name,
+          enableSorting: false,
           cell: ({ row }) => (
             <span className="tabular-nums">{(row.original.finalBalance ?? 0).toFixed(2)}</span>
           ),
@@ -458,6 +471,7 @@ export const createStatementColumns = ({
     accessorKey: 'tags',
     size: STATEMENT_COLUMN_SIZE.tags,
     header: 'Tags',
+    enableSorting: false,
     cell: ({ row }) => (
       <>
         {isSelfTransfer(row.original) ? (
@@ -494,7 +508,9 @@ export const createStatementColumns = ({
   {
     accessorKey: 'actions',
     size: STATEMENT_COLUMN_SIZE.actions,
+    minSize: STATEMENT_COLUMN_SIZE.actions,
     header: '',
+    enableSorting: false,
     cell: ({ row }) => {
       return (
         <>
@@ -518,6 +534,7 @@ export const createStatementColumns = ({
     },
     meta: {
       label: 'Actions',
+      fixedWidth: true,
     },
     enableHiding: false,
   },

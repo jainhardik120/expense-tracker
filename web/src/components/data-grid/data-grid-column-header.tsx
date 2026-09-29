@@ -109,6 +109,30 @@ export const DataGridColumnHeader = <TData, TValue>({
     [table.options.meta, column.id, onPointerDown],
   );
 
+  // A column that cannot be sorted reads as plain text, which is what the
+  // DataTable does with the same column. The menu behind the heading offers
+  // sorting, pinning and hiding; with sorting gone the two that remain are both
+  // reachable from the View menu, so all a trigger would add here is a control
+  // on every heading that looks like it sorts and does not.
+  if (!column.getCanSort()) {
+    return (
+      <>
+        <div
+          className={cn(
+            'flex size-full items-center px-2 py-1 text-sm font-medium',
+            column.columnDef.meta?.align === 'right' ? 'justify-end' : 'justify-start',
+            className,
+          )}
+        >
+          <span className="truncate">{label}</span>
+        </div>
+        {header.column.getCanResize() && (
+          <DataGridColumnResizer header={header} label={label} table={table} />
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <DropdownMenu modal={false}>

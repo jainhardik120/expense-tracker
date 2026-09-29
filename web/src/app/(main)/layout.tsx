@@ -43,7 +43,10 @@ export default async function Layout({ children }: Readonly<{ children: React.Re
               </div>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-4">{children}</div>
+          {/* `min-h-0`: a page that wants to be exactly as tall as the screen and
+              scroll inside itself needs a parent that will not be pushed taller
+              by its contents. Pages that simply grow are unaffected. */}
+          <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">{children}</div>
           {isAiAssistantEnabled() ? <FloatingChatbot /> : null}
         </SidebarInset>
       </SidebarProvider>

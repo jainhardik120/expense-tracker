@@ -29,8 +29,12 @@ export const STATEMENT_COLUMN_SIZE = {
   to: 147,
   expense: 147,
   tags: 147,
-  /** The one button the row's actions sit behind. */
-  actions: 147,
+  /**
+   * The one button the row's actions sit behind. Does not stretch: the button
+   * is the same size whatever room the column is given, so a share of the
+   * spare width only pushes it away from the grip beside it.
+   */
+  actions: 72,
   /** The grip a row is dragged by. Does not stretch. */
   dragHandle: 72,
 } as const;

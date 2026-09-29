@@ -35,7 +35,14 @@ import { CreateStatementForm } from './StatementForms';
 type StatementData = RouterOutput['statements']['getStatements'];
 type FacetCounts = RouterOutput['statements']['getFacetCounts'];
 
-/** How tall the rows area is allowed to grow before it scrolls internally. */
+/**
+ * What the virtualiser assumes the rows area is before it has been measured.
+ *
+ * The grid fills the screen, so its real height is not known until layout. This
+ * only decides how many rows the server draws; the body's total height comes
+ * from the row count either way, so guessing low costs a few rows appearing on
+ * hydration and never moves anything already on screen.
+ */
 const GRID_HEIGHT = 640;
 
 /**
@@ -265,6 +272,10 @@ const Table = ({
       className={
         mode === 'view' ? '[&_[role=gridcell]]:border-e-0 [&_[role=columnheader]]:border-e-0' : ''
       }
+      // The screen is the table: the rows take what the toolbar and pagination
+      // leave and scroll inside that, so the page itself never scrolls and the
+      // pagination stays where it was put.
+      fill
       height={GRID_HEIGHT}
       // Every column shares the extra width, which is what a table does with
       // it. Stretching only the last one sent all of it to the actions column

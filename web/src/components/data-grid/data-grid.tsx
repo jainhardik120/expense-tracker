@@ -24,6 +24,14 @@ interface DataGridProps<TData>
   dir?: Direction;
   height?: number;
   /**
+   * Fill the space the grid is given instead of capping at `height`.
+   *
+   * For a screen that is the table: the rows area takes whatever is left once
+   * the toolbar and pagination have had theirs, and scrolls inside itself, so
+   * the page around it never does.
+   */
+  fill?: boolean;
+  /**
    * `true` widens every column to fill the space. `'last'` widens only the
    * final one, which keeps every other column at the width it asked for -- so
    * a column shown by two different sets of columns sits in the same place in
@@ -58,6 +66,7 @@ export const DataGrid = <TData,>({
   pasteDialog,
   onRowAdd: onRowAddProp,
   height = 600,
+  fill = false,
   stretchColumns = false,
   emptyState = 'No results.',
   adjustLayout = false,
@@ -101,7 +110,7 @@ export const DataGrid = <TData,>({
       data-slot="grid-wrapper"
       dir={dir}
       {...props}
-      className={cn('relative flex w-full flex-col', className)}
+      className={cn('relative flex w-full flex-col', fill && 'min-h-0 flex-1', className)}
     >
       {searchState ? <DataGridSearch {...searchState} /> : null}
       <DataGridContextMenu columns={columns} contextMenu={contextMenu} tableMeta={tableMeta} />
@@ -114,12 +123,18 @@ export const DataGrid = <TData,>({
         // `text-sm` to match DataTable, which sets it on the <table> element
         // and lets every cell inherit. Without it the grid falls back to the
         // body's 16px and reads a size larger than every other table.
-        className="relative grid overflow-auto rounded-md border text-sm select-none focus:outline-none"
+        className={cn(
+          'relative grid overflow-auto rounded-md border text-sm select-none focus:outline-none',
+          // `min-h-0` or a flex item refuses to shrink below its content, and
+          // the rows would push the pagination off the bottom of the screen
+          // rather than scrolling inside their own box.
+          fill && 'min-h-0 flex-1',
+        )}
         data-slot="grid"
         role="grid"
         style={{
           ...columnSizeVars,
-          maxHeight: `${height}px`,
+          ...(fill ? {} : { maxHeight: `${height}px` }),
         }}
         tabIndex={0}
         onContextMenu={onDataGridContextMenu}
