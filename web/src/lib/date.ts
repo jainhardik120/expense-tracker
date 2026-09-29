@@ -1,4 +1,9 @@
 import {
+  addDays,
+  addMonths,
+  addQuarters,
+  addWeeks,
+  addYears,
   endOfDay,
   endOfHour,
   endOfMinute,
@@ -10,6 +15,9 @@ import {
   format,
   startOfDay,
   startOfMonth,
+  startOfQuarter,
+  startOfWeek,
+  startOfYear,
 } from 'date-fns';
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { getCookies } from 'next-client-cookies/server';
@@ -168,4 +176,46 @@ export const startOfMonthLocal = (date: Date, timeZone: string = 'UTC') => {
 export const endOfMonthLocal = (date: Date, timeZone: string = 'UTC') => {
   const zoned = toZonedTime(date, timeZone);
   return fromZonedTime(endOfMonth(zoned), timeZone);
+};
+
+/**
+ * Every period start between two dates, in the reader's zone.
+ *
+ * Aggregations only return the periods that had something in them, which is
+ * invisible on a busy chart and badly misleading on a quiet one: three payments
+ * seventeen days apart get drawn at even spacing, as though time itself were
+ * regular. Charting against this instead keeps the axis proportional and a week
+ * with no spending reading as zero rather than as nothing at all.
+ */
+export const periodStartsBetween = (
+  start: Date,
+  end: Date,
+  trunc: DateTruncUnit,
+  timeZone: string,
+): Date[] => {
+  const step: Record<DateTruncUnit, (date: Date, amount: number) => Date> = {
+    day: addDays,
+    week: addWeeks,
+    month: addMonths,
+    quarter: addQuarters,
+    year: addYears,
+  };
+  const floor: Record<DateTruncUnit, (date: Date) => Date> = {
+    day: startOfDay,
+    week: startOfWeek,
+    month: startOfMonth,
+    quarter: startOfQuarter,
+    year: startOfYear,
+  };
+  const starts: Date[] = [];
+  let cursor = floor[trunc](toZonedTime(start, timeZone));
+  const last = floor[trunc](toZonedTime(end, timeZone));
+  // Capped so a bad range cannot spin here forever or hand a chart a million
+  // points it has no way to draw.
+  const LIMIT = 400;
+  while (cursor <= last && starts.length < LIMIT) {
+    starts.push(fromZonedTime(cursor, timeZone));
+    cursor = step[trunc](cursor, 1);
+  }
+  return starts;
 };

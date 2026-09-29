@@ -13,7 +13,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ChartContainer } from '@/components/ui/chart';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { formatTruncatedDate, formatTruncatedPeriodSpan } from '@/lib/date';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ALL_EXPENSES, writeChartScopeCookie } from '@/lib/chart-scope';
+import {
+  formatTruncatedDate,
+  formatTruncatedPeriodSpan,
+  periodStartsBetween,
+} from '@/lib/date';
 import type {
   AggregatedAccountTransferSummary,
   AggregatedFriendTransferSummary,
@@ -61,38 +73,61 @@ export const ExpensesLineChart = ({
   unit,
   range,
   allCategories,
+  scope,
+  scopeOptions,
 }: {
   data: {
     date: Date;
     expenses: number;
-    categoryWiseSummary: Record<string, { expenses: number; outsideTransactions: number }>;
+    /**
+     * Only the categories this period actually saw. Indexing it with anything
+     * else is a miss, not a zero-valued hit, which is why the lookup below is
+     * guarded -- scoping the chart to a budget line changes the whole set.
+     */
+    categoryWiseSummary: Record<
+      string,
+      { expenses: number; outsideTransactions: number } | undefined
+    >;
   }[];
   unit: DateTruncUnit;
   range: DateRange;
   allCategories: string[];
+  /** The budget line the chart is showing, or ALL_EXPENSES. */
+  scope: string;
+  scopeOptions: { id: string; name: string }[];
 }) => {
   const timezone = useTimezone();
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(
-    () => new Set(allCategories),
-  );
+  const router = useRouter();
+  // Keyed on the categories themselves. Narrowing the chart to a budget line
+  // changes which categories exist at all, and a selection carried over from
+  // the old list would ask this data for a category it has never heard of.
+  const categoriesKey = allCategories.join('\u0000');
+  const [selection, setSelection] = useState<{ key: string; categories: Set<string> }>(() => ({
+    key: categoriesKey,
+    categories: new Set(allCategories),
+  }));
+  if (selection.key !== categoriesKey) {
+    setSelection({ key: categoriesKey, categories: new Set(allCategories) });
+  }
+  const selectedCategories = selection.categories;
 
   const toggleAllCategories = () => {
-    if (selectedCategories.size === allCategories.length) {
-      setSelectedCategories(new Set());
-    } else {
-      setSelectedCategories(new Set(allCategories));
-    }
+    setSelection((prev) => ({
+      key: prev.key,
+      categories:
+        prev.categories.size === allCategories.length ? new Set() : new Set(allCategories),
+    }));
   };
 
   const toggleCategory = (category: string) => {
-    setSelectedCategories((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(category)) {
-        newSet.delete(category);
+    setSelection((prev) => {
+      const next = new Set(prev.categories);
+      if (next.has(category)) {
+        next.delete(category);
       } else {
-        newSet.add(category);
+        next.add(category);
       }
-      return newSet;
+      return { key: prev.key, categories: next };
     });
   };
 
@@ -106,8 +141,24 @@ export const ExpensesLineChart = ({
     return labels;
   }, [selectedCategories]);
 
+  // Charted against the calendar rather than against whichever periods happened
+  // to contain something. A budget line paid once a month otherwise draws three
+  // points at even spacing, and a curve through them invents a slow decline
+  // between payments that never happened.
+  const series = useMemo(() => {
+    const byPeriod = new Map(data.map((row) => [row.date.getTime(), row]));
+    return periodStartsBetween(range.start, range.end, unit, timezone).map(
+      (date) =>
+        byPeriod.get(date.getTime()) ?? {
+          date,
+          expenses: 0,
+          categoryWiseSummary: {},
+        },
+    );
+  }, [data, range, unit, timezone]);
+
   const chartData = useMemo(() => {
-    return data.map((d) => {
+    return series.map((d) => {
       const filteredData: Record<string, string | number> = {
         date: formatTruncatedDate(d.date, unit, timezone),
       };
@@ -119,7 +170,7 @@ export const ExpensesLineChart = ({
 
       let total = 0;
       for (const category of selectedCategories) {
-        const amount = d.categoryWiseSummary[category].expenses;
+        const amount = d.categoryWiseSummary[category]?.expenses ?? 0;
         filteredData[category] = amount;
         total += amount;
       }
@@ -130,7 +181,7 @@ export const ExpensesLineChart = ({
 
       return filteredData;
     });
-  }, [data, selectedCategories, unit, timezone, range]);
+  }, [series, selectedCategories, unit, timezone, range]);
 
   const finalDataLabels = useMemo(() => {
     if (selectedCategories.size === 0) {
@@ -162,6 +213,29 @@ export const ExpensesLineChart = ({
           From: {formatTruncatedDate(range.start, unit, timezone)} To:{' '}
           {formatTruncatedDate(range.end, unit, timezone)}
         </CardDescription>
+        {scopeOptions.length === 0 ? null : (
+          <Select
+            value={scope}
+            onValueChange={(next) => {
+              // Remembered in a cookie and re-read on the server, so the next
+              // visit opens on the same line instead of on everything.
+              writeChartScopeCookie(next);
+              router.refresh();
+            }}
+          >
+            <SelectTrigger className="mt-2 h-8 w-full" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_EXPENSES}>All expenses</SelectItem>
+              {scopeOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-3">

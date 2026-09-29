@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { getTimezone } from '@/lib/date';
+import { claimedStatementIds } from '@/server/helpers/chart-scope';
 import {
   addAccountsSummary,
   addFriendsSummary,
@@ -68,11 +69,23 @@ export const summaryRouter = createTRPCRouter({
     .input(
       z.object({
         aggregateBy: DateTruncEnum,
+        /**
+         * Narrows every figure to the expenses one budget line claims.
+         *
+         * Resolved here rather than by rule in SQL because a line only owns
+         * what no line above it took first, and that order is not something a
+         * where clause can express.
+         */
+        budgetLineId: z.string().optional(),
         ...dateSchema,
       }),
     )
     .query(async ({ ctx, input }) => {
       const tz = await getTimezone();
+      const onlyStatementIds =
+        input.budgetLineId === undefined
+          ? undefined
+          : await claimedStatementIds(ctx.db, ctx.user.id, input.budgetLineId, input.start, input.end);
       const rawData = await getRawDataForAggregation(
         ctx.db,
         ctx.user.id,
@@ -80,6 +93,7 @@ export const summaryRouter = createTRPCRouter({
         tz,
         input.start,
         input.end,
+        onlyStatementIds,
       );
       const processedAggregations = processAggregatedData(rawData);
       const aggregatedAccountsSummaryData = addAccountsSummary(rawData.accountsSummary);

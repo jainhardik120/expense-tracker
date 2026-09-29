@@ -430,3 +430,50 @@ export const getScheduledTotals = instrumentedFunction(
     return totals;
   },
 );
+
+/** A budget line as the dashboard's chart selector needs it. */
+export type ExpenseLineOption = { id: string; name: string };
+
+/**
+ * The lines that can claim an expense, in the order they claim them.
+ *
+ * A line whose rule admits no expenses -- money home is a friend transaction,
+ * investments are outside transactions -- would only ever draw an empty chart,
+ * so it is not offered.
+ */
+export const expenseLineOptions = (lines: BudgetLineRow[]): ExpenseLineOption[] =>
+  [...lines]
+    .sort((a, b) => a.position - b.position)
+    .filter((line) => {
+      if (line.allocationKind === 'residual') {
+        return false;
+      }
+      const { statementKinds } = parseRule(line.rule);
+      return statementKinds.length === 0 || statementKinds.includes('expense');
+    })
+    .map((line) => ({ id: line.id, name: line.name }));
+
+/**
+ * The statements one line claims, by id.
+ *
+ * Every line is offered the statements first, because that is the only way to
+ * honour first match wins: read on its own a catch-all line's rule matches the
+ * rent and the flights too, and a chart scoped to it would double what the
+ * budget says it spent.
+ */
+export const statementIdsForLine = (
+  lines: BudgetLineRow[],
+  scoped: ScopedStatement[],
+  lineId: string,
+): string[] => {
+  const ordered = [...lines].sort((a, b) => a.position - b.position);
+  const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
+  const claimed: string[] = [];
+  for (const statement of scoped) {
+    const index = assignToLine(statement, parsed);
+    if (index !== -1 && parsed[index].id === lineId) {
+      claimed.push(statement.id);
+    }
+  }
+  return claimed;
+};

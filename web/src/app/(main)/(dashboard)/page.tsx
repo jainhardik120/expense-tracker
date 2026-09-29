@@ -1,6 +1,9 @@
+import { cookies } from 'next/headers';
+
 import { createLoader, type SearchParams } from 'nuqs/server';
 
 import { AsyncComponent } from '@/components/async-component';
+import { ALL_EXPENSES, CHART_SCOPE_COOKIE, parseChartScope } from '@/lib/chart-scope';
 import { getDefaultDateRange, getTimezone } from '@/lib/date';
 import { api } from '@/server/server';
 import { aggregationParser } from '@/types';
@@ -30,6 +33,25 @@ export default async function Page({
     aggregateBy: params.period,
     ...dateParams,
   });
+
+  // Which budget line the expenses chart opens on, remembered from last time.
+  // Checked against the lines that still exist, so deleting the line you were
+  // watching drops you back to everything rather than to an empty chart.
+  const expenseLines = await api.budget.getExpenseLines();
+  const storedScope = parseChartScope((await cookies()).get(CHART_SCOPE_COOKIE)?.value);
+  const chartScope = expenseLines.some((line) => line.id === storedScope)
+    ? storedScope
+    : ALL_EXPENSES;
+  // Only the expenses chart narrows. The cards and tables beside it are still
+  // answering "where did everything go", which a single line cannot answer.
+  const chartPromise =
+    chartScope === ALL_EXPENSES
+      ? aggregationPromise
+      : api.summary.getAggregatedData({
+          aggregateBy: params.period,
+          budgetLineId: chartScope,
+          ...dateParams,
+        });
   const creditAccountsPromise = api.emis.getCreditCardsWithOutstandingBalance({
     uptoDate: endOfYear,
     rangeStart: dateParams.start,
@@ -40,7 +62,7 @@ export default async function Page({
     <div className="flex flex-col gap-4">
       <FilterPanel />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <AsyncComponent promise={aggregationPromise}>
+        <AsyncComponent promise={chartPromise}>
           {(aggregationData) => (
             <ExpensesLineChart
               allCategories={Object.entries(aggregationData.categoryWiseTotals)
@@ -51,6 +73,8 @@ export default async function Page({
                 expenses: agg.totalExpenses,
               }))}
               range={dateParams}
+              scope={chartScope}
+              scopeOptions={expenseLines}
               unit={params.period}
             />
           )}

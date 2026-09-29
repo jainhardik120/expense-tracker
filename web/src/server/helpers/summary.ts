@@ -36,6 +36,8 @@ type AggregationArguments = {
     table: PgTable | Subquery | PgViewBase | SQL;
     on: SQL | undefined;
   };
+  /** Narrows the rows before they are grouped, for a chart scoped to one line. */
+  extraConditions?: SQL[];
 };
 
 type AggregatedStatementResult = {
@@ -134,8 +136,9 @@ const aggregatedStatementsSummary = (aggregationArguments: AggregationArguments)
     start,
     end,
     extraJoin,
+    extraConditions = [],
   } = aggregationArguments;
-  const conditions = buildQueryConditions(statements, userId, start, end);
+  const conditions = [...buildQueryConditions(statements, userId, start, end), ...extraConditions];
   const query = db
     .select({
       ...selectColumns,
@@ -163,8 +166,9 @@ const aggregatedFriendsData = (aggregationArguments: AggregationArguments) => {
     start,
     end,
     extraJoin,
+    extraConditions = [],
   } = aggregationArguments;
-  const conditions = buildQueryConditions(statements, userId, start, end);
+  const conditions = [...buildQueryConditions(statements, userId, start, end), ...extraConditions];
   const query = db
     .select({
       ...selectColumns,
@@ -198,8 +202,12 @@ const aggregatedSplitsData = (aggregationArguments: AggregationArguments) => {
     start,
     end,
     extraJoin,
+    extraConditions = [],
   } = aggregationArguments;
-  const conditions = buildQueryConditions(statements, userId, start, end);
+  // Narrowed alongside the statements they belong to: a split is a deduction
+  // from one statement, and subtracting every split from one line's spending
+  // would drag other people's shares of other lines into it.
+  const conditions = [...buildQueryConditions(statements, userId, start, end), ...extraConditions];
   const query = db
     .select({
       ...selectColumns,
@@ -488,6 +496,14 @@ export const getRawDataForAggregation = instrumentedFunction(
     timezone: string,
     start?: Date,
     end?: Date,
+    /**
+     * When given, only these statements count.
+     *
+     * An empty list is not the same as no list: it means a budget line claimed
+     * nothing in this range, and the chart should be empty rather than show
+     * everything.
+     */
+    onlyStatementIds?: string[],
   ) => {
     const params = {
       db: db,
@@ -516,6 +532,14 @@ export const getRawDataForAggregation = instrumentedFunction(
         category: sql<string>`${statements.category}`,
       },
       aggregationBy: [statementAggregation, sql<string>`${statements.category}`],
+      extraConditions:
+        onlyStatementIds === undefined
+          ? []
+          : [
+              onlyStatementIds.length === 0
+                ? sql`false`
+                : inArray(statements.id, onlyStatementIds),
+            ],
     };
     const selfTransferParams = {
       ...params,

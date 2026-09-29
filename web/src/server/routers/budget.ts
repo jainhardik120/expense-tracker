@@ -5,6 +5,7 @@ import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
 import { monthsBetween, project } from '@/lib/budget-projection';
 import { matchesRule } from '@/lib/budget-rules';
 import {
+  expenseLineOptions,
   getScheduledTotals,
   getStatementsInWindow,
   parseRule,
@@ -49,7 +50,35 @@ const assertOwnedYear = async (
   return found[0];
 };
 
+/** The most recent year, which is the one the dashboard reads lines from. */
+const latestYear = async (db: Parameters<typeof getStatementsInWindow>[0], userId: string) => {
+  const years = await db
+    .select()
+    .from(budgetYears)
+    .where(eq(budgetYears.userId, userId))
+    .orderBy(asc(budgetYears.startDate));
+  return years.at(-1) ?? null;
+};
+
 export const budgetRouter = createTRPCRouter({
+  /**
+   * The lines the dashboard chart can be scoped to.
+   *
+   * Read from the latest year: the chart's own date range can reach back
+   * further, but the lines you are watching are this year's.
+   */
+  getExpenseLines: protectedProcedure.query(async ({ ctx }) => {
+    const year = await latestYear(ctx.db, ctx.user.id);
+    if (year === null) {
+      return [];
+    }
+    const lines = await ctx.db
+      .select()
+      .from(budgetLines)
+      .where(eq(budgetLines.budgetYearId, year.id));
+    return expenseLineOptions(lines);
+  }),
+
   getYears: protectedProcedure.query(async ({ ctx }) =>
     ctx.db
       .select()
