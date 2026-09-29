@@ -49,18 +49,17 @@ const CELL_ATTR = 'data-editable-cell';
  */
 const moveFocus = (from: HTMLElement, rowStep: number, columnStep: number) => {
   const cells = [...document.querySelectorAll<HTMLElement>(`[${CELL_ATTR}]`)];
-  const row = Number(from.dataset['row']);
 
-  if (rowStep !== 0) {
-    cells
-      .find(
-        (cell) => Number(cell.dataset['row']) === row + rowStep && cell.dataset['col'] === from.dataset['col'],
-      )
-      ?.focus();
-    return;
-  }
-  const inRow = cells.filter((cell) => Number(cell.dataset['row']) === row);
-  inRow[inRow.indexOf(from) + columnStep]?.focus();
+  // Stepping through the cells that exist rather than to a row number, because
+  // not every row has every cell -- a self transfer has no category and no
+  // tags -- and aiming at a row that has none of them would strand the cursor.
+  // They come out of the document in reading order, so filtering by column
+  // leaves them in row order.
+  const line =
+    rowStep === 0
+      ? cells.filter((cell) => cell.dataset['row'] === from.dataset['row'])
+      : cells.filter((cell) => cell.dataset['col'] === from.dataset['col']);
+  line[line.indexOf(from) + (rowStep === 0 ? columnStep : rowStep)]?.focus();
 };
 
 /**
@@ -84,25 +83,40 @@ export const EditableCell = ({
   display: ReactNode;
   rowIndex: number;
   columnId: string;
-  /** Rendered once the cell is opened; call `stop` to close it again. */
-  children: (props: { stop: () => void }) => ReactNode;
+  /**
+   * Rendered once the cell is opened; call `stop` to close it again. `seed` is
+   * the character that opened it, when it was opened by typing rather than by
+   * Enter -- a spreadsheet starts the correction with it rather than dropping
+   * it on the floor.
+   */
+  children: (props: { stop: () => void; seed: string | null }) => ReactNode;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [seed, setSeed] = useState<string | null>(null);
+
+  const wasOpen = useRef(false);
 
   const stop = useCallback(() => {
     setIsOpen(false);
-    // Back to the cell rather than to the top of the page, so the next arrow
-    // key carries on from where the correction was made. Found by its address
-    // rather than held as a ref: the cell being returned to does not exist yet
-    // when this is called, and the address is already there for the arrows.
-    requestAnimationFrame(() => {
+    setSeed(null);
+  }, []);
+
+  // Closing a cell puts the cursor back on it, so the next arrow key carries on
+  // from where the correction was made rather than from the top of the page.
+  // After the render that puts the cell back, not in `stop` itself: the thing
+  // to focus does not exist at the moment the editor asks to be closed. Found
+  // by its address rather than held as a ref, which is already how the arrow
+  // keys find their way about.
+  useEffect(() => {
+    if (!isOpen && wasOpen.current) {
       document
         .querySelector<HTMLElement>(
           `[${CELL_ATTR}][data-row="${rowIndex}"][data-col="${columnId}"]`,
         )
         ?.focus();
-    });
-  }, [rowIndex, columnId]);
+    }
+    wasOpen.current = isOpen;
+  }, [isOpen, rowIndex, columnId]);
 
   if (mode === 'view') {
     return <>{display}</>;
@@ -110,10 +124,13 @@ export const EditableCell = ({
 
   return (
     <>
-      {/* Stays in flow, so opening a cell cannot change the height of a row. */}
-      {display}
+      {/* Stays in flow even while being corrected, so opening a cell cannot
+          change the height of a row -- but hidden, because an input is only
+          part-opaque in the dark theme and the old value showed through the
+          new one. */}
+      <span className={isOpen ? 'invisible' : undefined}>{display}</span>
       {isOpen ? (
-        children({ stop })
+        children({ stop, seed })
       ) : (
         <button
           className={cn(
@@ -131,6 +148,7 @@ export const EditableCell = ({
           data-row={rowIndex}
           type="button"
           onDoubleClick={() => {
+            setSeed(null);
             setIsOpen(true);
           }}
           onKeyDown={(event) => {
@@ -150,6 +168,7 @@ export const EditableCell = ({
             // spreadsheet lets you correct a cell without reaching for F2.
             if (event.key === 'Enter' || (event.key.length === 1 && !event.metaKey && !event.ctrlKey)) {
               event.preventDefault();
+              setSeed(event.key === 'Enter' ? null : event.key);
               setIsOpen(true);
             }
           }}
@@ -165,20 +184,27 @@ export const EditableCell = ({
 /** A number, corrected by typing over it. */
 export const AmountEditor = ({
   value,
+  seed,
   stop,
   onSave,
 }: {
   value: string;
+  seed: string | null;
   stop: () => void;
   onSave: (next: string) => void;
 }) => {
-  const [draft, setDraft] = useState(value);
+  const [draft, setDraft] = useState(seed ?? value);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // The cell was opened to type in, so the caret belongs here. Selected rather
-  // than placed, because correcting an amount usually means replacing it.
+  // The cell was opened to type in, so the caret belongs here, and the whole
+  // value is selected because correcting an amount usually means replacing it.
+  // Unless a character opened the cell, in which case it has already replaced
+  // it and the caret belongs after it.
   useEffect(() => {
-    inputRef.current?.select();
+    if (seed === null) {
+      inputRef.current?.select();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const commit = () => {
@@ -195,11 +221,17 @@ export const AmountEditor = ({
       ref={inputRef}
       className={cn(
         CELL_SURFACE,
-        'border-primary bg-background size-full rounded-none border-2 text-right tabular-nums shadow-none focus-visible:ring-0',
+        'border-primary bg-background size-full rounded-none border-2 text-right tabular-nums shadow-none',
+        // The same box as the selected cell it replaces. Left alone the input
+        // takes the focus ring's colour instead, so a cell changed colour at
+        // the moment it opened.
+        'focus-visible:border-primary focus-visible:ring-0',
       )}
+      // Deliberately text rather than number: a number input refuses to have
+      // its contents selected, so typing over a cell could not replace what was
+      // there, and it carries spinner arrows that a spreadsheet cell does not.
       inputMode="decimal"
-      step="0.01"
-      type="number"
+      type="text"
       value={draft}
       onBlur={commit}
       onChange={(event) => {
@@ -244,7 +276,11 @@ export const SelectEditor = ({
     }}
   >
     <SelectTrigger
-      className={cn(CELL_SURFACE, 'border-primary bg-background rounded-none border-2 shadow-none')}
+      className={cn(
+        CELL_SURFACE,
+        'border-primary bg-background rounded-none border-2 shadow-none',
+        'focus-visible:border-primary focus-visible:ring-0',
+      )}
     >
       <SelectValue />
     </SelectTrigger>

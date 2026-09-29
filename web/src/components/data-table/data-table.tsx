@@ -115,7 +115,13 @@ export const DataTable = <TData extends object>({
     <div
       className={cn(
         'flex w-full flex-col gap-2.5',
-        fill ? 'min-h-0 flex-1' : 'overflow-auto',
+        // A height, not a share of one. Growing to fill works only while the
+        // rows are short: the panel this sits in takes its height from its
+        // contents, so a long enough table pushes it past the screen and the
+        // page scrolls after all. Told exactly how tall to be, it cannot.
+        // The subtraction is the app's chrome above and below -- the 4rem
+        // header and the 2rem of padding around the page.
+        fill ? 'h-[calc(100svh-var(--page-chrome,6rem))] min-h-0' : 'overflow-auto',
         className,
       )}
       {...props}

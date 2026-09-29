@@ -287,8 +287,9 @@ export const createStatementColumns = ({
       }
       return (
         <EditableCell columnId="amount" display={display} mode={mode} rowIndex={row.index}>
-          {({ stop }) => (
+          {({ stop, seed }) => (
             <AmountEditor
+              seed={seed}
               stop={stop}
               value={statement.amount}
               onSave={(next) => {
