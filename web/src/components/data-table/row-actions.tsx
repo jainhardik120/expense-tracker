@@ -65,11 +65,51 @@ export const RowActions = ({
                 event.preventDefault();
               }}
             >
-              {action}
+              <PortalEventBoundary>{action}</PortalEventBoundary>
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
+    </div>
+  );
+};
+
+/**
+ * Keeps a dialog's events from bubbling back into the menu that opened it.
+ *
+ * The menu stays open so the action it holds is never unmounted, which means a
+ * dialog opened from here is still a React child of the menu item -- portalled
+ * out of the menu's DOM, but not out of its tree. React bubbles events along
+ * the tree rather than the DOM, so every keystroke and click inside the dialog
+ * arrived back at the menu, which read them as interactions with itself: the
+ * space bar became typeahead and was swallowed before the field could see it,
+ * and a click in a field was taken for a click on the menu item.
+ *
+ * Only events from outside this element's own DOM are stopped. Anything the
+ * trigger itself raises still reaches the menu, so arrow keys and Enter go on
+ * working.
+ */
+const PortalEventBoundary = ({ children }: { children: ReactNode }) => {
+  const stopIfPortalled = (event: React.SyntheticEvent) => {
+    if (!(event.currentTarget as Node).contains(event.target as Node)) {
+      event.stopPropagation();
+    }
+  };
+  return (
+    // Not an interactive element: these handlers only decline events that were
+    // never meant for the menu. Giving it a role or a tab stop would put a
+    // control in the tree that does nothing when you reach it.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+    <div
+      className="w-full"
+      onClick={stopIfPortalled}
+      onKeyDown={stopIfPortalled}
+      onKeyUp={stopIfPortalled}
+      onPointerDown={stopIfPortalled}
+      onPointerMove={stopIfPortalled}
+      onPointerUp={stopIfPortalled}
+    >
+      {children}
     </div>
   );
 };
