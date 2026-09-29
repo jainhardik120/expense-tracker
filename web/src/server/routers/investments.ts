@@ -1,3 +1,4 @@
+import { subDays } from 'date-fns';
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -21,10 +22,14 @@ import {
 } from '@/server/helpers/investment';
 import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
+import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema, investmentParserSchema } from '@/types';
 
 const SEARCH_QUERY_MAX_LENGTH = 120;
+
+/** Days of price history the phone's overview asks for. */
+const HISTORY_DAYS = 10;
 
 const optionalToNull = (value: string | undefined): string | null => {
   if (value === undefined || value.trim() === '') {
@@ -168,15 +173,31 @@ export const investmentsRouter = createTRPCRouter({
         .from(investments)
         .where(eq(investments.userId, ctx.user.id))
         .orderBy(desc(investments.investmentDate));
-      const enriched = await enrichInvestments({ investmentsList: rows });
-      // Today for both ends of the range: the dashboard builds a daily series
-      // between them, and a series nothing here reads should not cost a day of
-      // market history per year the portfolio has existed.
       const today = new Date();
+      // Enough history to hold a previous close. The day's movement is this
+      // price against the one before it, so with no history there is no
+      // "before" and every holding looks flat -- which is exactly what the
+      // phone showed while the web page showed real movement. Ten days rather
+      // than one: the previous close can be several days back over a weekend
+      // or a run of holidays.
+      const context = await buildInvestmentMarketDataContext({
+        investmentsList: rows,
+        historyStartDate: subDays(today, HISTORY_DAYS),
+        historyEndDate: today,
+      });
+      const enriched = await enrichInvestments({
+        investmentsList: rows,
+        marketDataContext: context,
+      });
+      // Today for both ends of the range: the dashboard builds a daily series
+      // between them, and a series nothing here reads should not cost a point
+      // per day the portfolio has existed.
       const dashboard = await getInvestmentsDashboard({
         investmentsList: enriched,
         start: today,
         end: today,
+        historyByInstrumentKey: context.historyByInstrumentKey,
+        usdInrHistory: context.usdInrHistory,
       });
 
       return {
