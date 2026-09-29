@@ -55,6 +55,8 @@ export const auth = betterAuth({
             ? [
                 `https://local-dev-mac.hardikja.in`,
                 `https://local-dev-mac.hardikja.in/api/external`,
+                `https://local-dev.hardikja.in`,
+                `https://local-dev.hardikja.in/api/external`,
               ]
             : [],
         ].flat(),
@@ -102,7 +104,7 @@ export const auth = betterAuth({
   // rather than a guess at the scheme.
   trustedOrigins: [
     ...(env.NODE_ENV === 'development'
-      ? ['http://localhost:3000', 'https://local-dev-mac.hardikja.in']
+      ? ['http://localhost:3000', 'https://local-dev-mac.hardikja.in', 'https://local-dev.hardikja.in']
       : []),
     ...(process.env.VERCEL_URL === undefined ? [] : [`https://${process.env.VERCEL_URL}`]),
     ...(env.AUTH_TRUSTED_ORIGINS ?? '')
