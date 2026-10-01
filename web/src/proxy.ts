@@ -7,6 +7,7 @@ import { auth } from '@/lib/auth';
 
 const publicPaths: Array<RegExp> = [
   /^\/auth(\/|$)/,
+  /^\/home$/,
   /^\/privacy$/,
   /^\/terms$/,
   /^\/support$/,
@@ -103,6 +104,13 @@ export const proxy = async (request: NextRequest) => {
     request,
   );
   if (session === null) {
+    // The root is the dashboard, which is no use to someone who has not signed
+    // in; send them to the page that explains what this is instead of a login
+    // form with no context. Every other path still asks them to sign in and
+    // returns them to where they were headed.
+    if (path === '/') {
+      return apply(NextResponse.redirect(new URL('/home', request.url)));
+    }
     const redirectUri = encodeURIComponent(request.nextUrl.pathname + request.nextUrl.search);
     return apply(
       NextResponse.redirect(new URL(`/auth/login?redirect=${redirectUri}`, request.url)),
