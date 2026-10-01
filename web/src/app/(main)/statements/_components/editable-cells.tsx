@@ -280,6 +280,12 @@ export const SelectEditor = ({
         CELL_SURFACE,
         'border-primary bg-background rounded-none border-2 shadow-none',
         'focus-visible:border-primary focus-visible:ring-0',
+        // A select trigger is built to be as wide as its value and as tall as
+        // a form control, which is not what a cell is. Both have to be undone
+        // for the box to reach the cell's edges: the width merges away, but
+        // the height is set behind an attribute selector that outranks a plain
+        // class, so it takes the important modifier to beat it.
+        'h-auto! w-auto',
       )}
     >
       <SelectValue />
@@ -374,7 +380,18 @@ export const TagsEditor = ({
             ) : null}
             <CommandGroup>
               {options.map((option) => (
-                <CommandItem key={option} value={option} onSelect={toggle}>
+                <CommandItem
+                  key={option}
+                  value={option}
+                  // Not `onSelect={toggle}`: cmdk hands the handler its own
+                  // normalised copy of the value, which is lower-cased. A tag
+                  // that is already on the statement never matched the list, so
+                  // ticking it off added a second, lower-case one instead of
+                  // taking it away. The option itself is what was meant.
+                  onSelect={() => {
+                    toggle(option);
+                  }}
+                >
                   <Check
                     className={cn('size-4', draft.includes(option) ? 'opacity-100' : 'opacity-0')}
                   />

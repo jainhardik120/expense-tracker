@@ -70,6 +70,11 @@ const Table = ({
   facetCounts: FacetCounts;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
+  // The row a shift-click extends the selection from. State rather than a ref
+  // because ticking a box re-renders the table anyway -- the selection itself
+  // lives in the table's state -- so there is nothing to be saved by hiding it
+  // from React, and a ref read inside a render is a rule it is right to have.
+  const [anchorRow, setAnchorRow] = useState<number | null>(null);
   const [optimisticData, updateOptimisticData] = useOptimistic<
     (Statement | SelfTransferStatement)[],
     OptimisticUpdateAction
@@ -120,6 +125,8 @@ const Table = ({
   const columns = createStatementColumns({
     mode,
     onCellSave,
+    anchorRow,
+    setAnchorRow,
     onRefreshStatements: () => {
       router.refresh();
     },

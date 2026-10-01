@@ -1,4 +1,17 @@
-import { and, eq, sql, inArray, gte, lt, ne, asc, desc, or, type SQL } from 'drizzle-orm';
+import {
+  and,
+  arrayOverlaps,
+  eq,
+  sql,
+  inArray,
+  gte,
+  lt,
+  ne,
+  asc,
+  desc,
+  or,
+  type SQL,
+} from 'drizzle-orm';
 import { unionAll, alias } from 'drizzle-orm/pg-core';
 import { type z } from 'zod';
 
@@ -184,7 +197,11 @@ const getMergedStatementsDetailedRaw = (
   start?: Date,
   end?: Date,
 ) => {
-  const union = generateStatementUnionDetailedQuery(db, tags.length > 0);
+  // Not unnested, even when filtering by tag. Unnesting gives a row per tag,
+  // so a statement carrying two of the tags being filtered for came back twice
+  // -- the list showed it twice and the page count was wrong. Asking whether
+  // the arrays overlap needs no unnesting and cannot duplicate a row.
+  const union = generateStatementUnionDetailedQuery(db, false);
   const conditions = [];
   conditions.push(eq(union.userId, userId));
   if (start !== undefined) {
@@ -212,7 +229,7 @@ const getMergedStatementsDetailedRaw = (
     conditions.push(inArray(union.category, category));
   }
   if (tags.length > 0) {
-    conditions.push(inArray(union.tag, tags));
+    conditions.push(arrayOverlaps(union.tags, tags));
   }
   if (statementKind.length > 0) {
     conditions.push(inArray(union.statementKind, statementKind));

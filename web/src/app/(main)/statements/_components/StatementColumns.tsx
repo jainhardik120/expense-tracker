@@ -176,6 +176,8 @@ export const createStatementColumns = ({
   startingBalance,
   mode,
   onCellSave,
+  anchorRow,
+  setAnchorRow,
 }: {
   onRefreshStatements: () => void;
   accountsData: Account[];
@@ -188,6 +190,9 @@ export const createStatementColumns = ({
   mode: 'view' | 'edit';
   /** Save one corrected field of one statement. */
   onCellSave: (statement: Statement, patch: Partial<Statement>) => void;
+  /** The row last ticked, which a shift-click extends the selection from. */
+  anchorRow: number | null;
+  setAnchorRow: (index: number | null) => void;
   startingBalance?: {
     name: string;
     amount: number;
@@ -207,13 +212,47 @@ export const createStatementColumns = ({
         }}
       />
     ),
-    cell: ({ row }) => (
+    cell: ({ row, table }) => (
       <Checkbox
         aria-label="Select row"
         checked={row.getIsSelected()}
         className="translate-y-0.5"
+        // Shift extends the selection from the last row ticked to this one, the
+        // way a file list does, so a run of statements is picked out with two
+        // clicks rather than twenty. Handled on the click rather than on the
+        // change because only the event knows whether shift was held; stopping
+        // it there also stops the tick box toggling itself a second time, since
+        // the range below already covers this row.
         onCheckedChange={(value) => {
           row.toggleSelected(value === true);
+        }}
+        onClick={(event) => {
+          const anchor = anchorRow;
+          if (event.shiftKey && anchor !== null && anchor !== row.index) {
+            event.preventDefault();
+            const select = !row.getIsSelected();
+            const { rows } = table.getRowModel();
+            const from = Math.min(anchor, row.index);
+            const to = Math.max(anchor, row.index);
+            // Written once, as a whole. Toggling the rows one at a time looks
+            // right and is not: each call works out the new selection from the
+            // state it was rendered with, so they overwrite one another and
+            // only the last row of the run survives.
+            const selection = { ...table.getState().rowSelection };
+            for (let index = from; index <= to; index++) {
+              const id = rows.at(index)?.id;
+              if (id === undefined) {
+                continue;
+              }
+              if (select) {
+                selection[id] = true;
+              } else {
+                delete selection[id];
+              }
+            }
+            table.setRowSelection(selection);
+          }
+          setAnchorRow(row.index);
         }}
       />
     ),
