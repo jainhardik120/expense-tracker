@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
 
 import {
@@ -120,14 +120,17 @@ export const calculateSchedule = (
 
     totalInterest += interest;
     totalGST += gst;
+    // Shifted whole months from the first instalment, keeping its time of day.
+    // Rebuilding the date from its year/month/day parts read the parts in the
+    // server's zone and handed back midnight there, so an instalment stored as
+    // the 30th in IST came back as the 29th -- and one EMI showed up twice, on
+    // two different dates, because its fee kept the time and its instalment did
+    // not. `addMonths` also pins a month-end: the 31st plus a month is the last
+    // day of the next month, where a raw date rolls over into the one after.
     const date =
       inputValues.firstInstallmentDate === undefined
         ? undefined
-        : new Date(
-            inputValues.firstInstallmentDate.getFullYear(),
-            inputValues.firstInstallmentDate.getMonth() + month - 1,
-            inputValues.firstInstallmentDate.getDate(),
-          );
+        : addMonths(inputValues.firstInstallmentDate, month - 1);
     schedule.push({
       installment: month,
       emi,
@@ -414,6 +417,14 @@ export type PaymentStatus = 'paid' | 'missed' | 'upcoming';
 
 export type ScheduledEmiPayment = {
   emiId: string;
+  /**
+   * Which row of the schedule this is; 0 is the processing fee.
+   *
+   * A fee charged on the same day as the first instalment makes the two
+   * indistinguishable by loan and date alone, which is all it takes for one to
+   * stand in for the other wherever payments are keyed.
+   */
+  installment: number;
   emiName: string;
   cardName: string;
   creditId: string;
@@ -467,6 +478,7 @@ export const getEmiPaymentsInRange = (
     const unpaidStatus: PaymentStatus = date < now ? 'missed' : 'upcoming';
     payments.push({
       emiId: emi.id,
+      installment: row.installment,
       emiName: emi.name,
       cardName,
       creditId: emi.creditId,

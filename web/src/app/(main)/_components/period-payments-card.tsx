@@ -102,7 +102,7 @@ export const PeriodPaymentsCard = ({
 
   const payments = useMemo<PeriodPayment[]>(() => {
     const emiItems = periodEmiPayments.map((payment) => ({
-      key: `emi-${payment.emiId}-${payment.date.toISOString()}`,
+      key: `emi-${payment.emiId}-${payment.installment}-${payment.date.toISOString()}`,
       type: 'EMI' as const,
       name: payment.emiName,
       source: payment.cardName,
@@ -246,7 +246,12 @@ export const PeriodPaymentsCard = ({
           <DataTable
             background={false}
             enablePagination={false}
-            getItemValue={(r) => r.name}
+            // The row's own key, not its name: a loan's processing fee and its
+            // first instalment are two payments under one name, and React
+            // given the same key twice duplicates or drops a row rather than
+            // replacing it -- which left last month's payment stranded in the
+            // table after switching months.
+            getItemValue={(r) => r.key}
             showBorder={false}
             table={table}
           />

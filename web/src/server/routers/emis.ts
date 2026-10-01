@@ -533,7 +533,7 @@ export const emisRouter = createTRPCRouter({
       // stands in for it. Beyond next month there are no bills, and then the
       // installment is the only concrete figure we have.
       const emiKey = (payment: (typeof periodEmiPayments)[number]) =>
-        `${payment.emiId}-${payment.date.toISOString()}`;
+        `${payment.emiId}-${payment.installment}-${payment.date.toISOString()}`;
       const absorbedEmiKeys = new Set<string>();
 
       const periodCardBills = getCardBillsInRange(
