@@ -259,6 +259,12 @@ export const createStatementColumns = ({
     enableSorting: false,
     enableHiding: false,
     meta: { selectable: false },
+    // Declared, unlike the columns that hold a value. A table laid out
+    // automatically treats a column's declared width as what it would like and
+    // shares out the slack in proportion, so a column that says nothing is
+    // taken to want the default 150 and gets a full share of a wide screen --
+    // which left the tick box marooned a long way from the first date.
+    size: 40,
   },
   {
     accessorKey: 'createdAt',
