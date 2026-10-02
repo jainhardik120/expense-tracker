@@ -8,7 +8,10 @@ import {
   type Table as TanstackTable,
 } from '@tanstack/react-table';
 
-import { DataTableCellSelectionStatus } from '@/components/data-table/data-table-cell-selection-status';
+import {
+  DataTableCellSelectionStatus,
+  hasCellSelectionSummary,
+} from '@/components/data-table/data-table-cell-selection-status';
 import { DataTablePagination } from '@/components/data-table/data-table-pagination';
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable';
 import {
@@ -259,11 +262,16 @@ export const DataTable = <TData extends object>({
         </Sortable>
       </div>
       <div className={cn('flex flex-col gap-2.5', fill && 'shrink-0')}>
-        {enableCellSelection ? (
-          <DataTableCellSelectionStatus stats={cellSelection.stats} />
-        ) : null}
         {enablePagination === true && (
-          <DataTablePagination enableSelection={enableSelection} table={table} />
+          <DataTablePagination
+            enableSelection={enableSelection}
+            status={
+              hasCellSelectionSummary(cellSelection.stats) ? (
+                <DataTableCellSelectionStatus stats={cellSelection.stats} />
+              ) : null
+            }
+            table={table}
+          />
         )}
         {actionBar !== undefined && hasSelectedRows ? actionBar : null}
       </div>

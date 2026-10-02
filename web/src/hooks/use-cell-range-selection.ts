@@ -236,6 +236,12 @@ export const useCellRangeSelection = ({
         return;
       }
       if (event.key === 'Escape') {
+        // Escape already means "drop the selected rows", from the action bar
+        // that watches the window for it. Stopping it here lets the two layer
+        // the way they should: the first Escape dismisses the cells, and with
+        // them gone the second reaches the rows. Without it one press did both,
+        // so checking a total cost you the rows you had ticked.
+        event.stopPropagation();
         clear();
         return;
       }

@@ -16,6 +16,14 @@ interface DataTablePaginationProps<TData> extends React.ComponentProps<'div'> {
   table: Table<TData>;
   pageSizeOptions?: number[];
   enableSelection?: boolean;
+  /**
+   * Shown instead of the number of selected rows.
+   *
+   * The two never have anything to say at once, and this is the only line at
+   * the foot of the table that is always there -- putting anything below it
+   * would move the table every time it appeared.
+   */
+  status?: React.ReactNode;
 }
 
 export const DataTablePagination = <TData,>({
@@ -23,6 +31,7 @@ export const DataTablePagination = <TData,>({
   pageSizeOptions = [10, 20, 30, 40, 50],
   className,
   enableSelection = true,
+  status,
   ...props
 }: DataTablePaginationProps<TData>) => (
   <div
@@ -33,12 +42,13 @@ export const DataTablePagination = <TData,>({
     {...props}
   >
     <div className="text-muted-foreground flex-1 text-sm whitespace-nowrap">
-      {enableSelection === true && table.getFilteredSelectedRowModel().rows.length > 0 ? (
-        <>
-          {table.getFilteredSelectedRowModel().rows.length} of{' '}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
-        </>
-      ) : null}
+      {status ??
+        (enableSelection === true && table.getFilteredSelectedRowModel().rows.length > 0 ? (
+          <>
+            {table.getFilteredSelectedRowModel().rows.length} of{' '}
+            {table.getFilteredRowModel().rows.length} row(s) selected.
+          </>
+        ) : null)}
     </div>
     <div className="flex flex-col-reverse flex-wrap items-center justify-end gap-4 sm:flex-row sm:gap-6 lg:gap-8">
       <div className="flex items-center space-x-2">
