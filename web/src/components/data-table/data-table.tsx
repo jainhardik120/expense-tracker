@@ -1,4 +1,4 @@
-import type * as React from 'react';
+import * as React from 'react';
 
 import {
   defaultColumnSizing,
@@ -8,6 +8,7 @@ import {
   type Table as TanstackTable,
 } from '@tanstack/react-table';
 
+import { DataTableCellSelectionStatus } from '@/components/data-table/data-table-cell-selection-status';
 import { DataTablePagination } from '@/components/data-table/data-table-pagination';
 import { Sortable, SortableContent, SortableItem, SortableOverlay } from '@/components/ui/sortable';
 import {
@@ -18,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useCellRangeSelection } from '@/hooks/use-cell-range-selection';
 import { getCommonPinningStyles } from '@/lib/data-table';
 import { cn } from '@/lib/utils';
 
@@ -85,6 +87,13 @@ type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
    * page otherwise.
    */
   fill?: boolean;
+  /**
+   * Let a rectangle of cells be swept out with the pointer, copied, and totalled.
+   *
+   * Off by default: a table whose rows are a list of links wants a click to
+   * follow one, not to start a selection.
+   */
+  enableCellSelection?: boolean;
 };
 
 // A row can hold its own buttons, links and dialog triggers; a click on one of
@@ -105,11 +114,17 @@ export const DataTable = <TData extends object>({
   enableSelection = true,
   layout = 'auto',
   fill = false,
+  enableCellSelection = false,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
   const hasRows = rows.length > 0;
   const hasSelectedRows = table.getFilteredSelectedRowModel().rows.length > 0;
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+  const cellSelection = useCellRangeSelection({
+    enabled: enableCellSelection,
+    containerRef: bodyRef,
+  });
 
   return (
     <div
@@ -130,10 +145,12 @@ export const DataTable = <TData extends object>({
           pagination give way. */}
       {fill ? <div className="shrink-0">{children}</div> : children}
       <div
+        ref={bodyRef}
         className={cn(
           showBorder && 'rounded-md border',
           fill ? 'min-h-0 flex-1 overflow-auto' : 'overflow-hidden',
         )}
+        {...(enableCellSelection ? cellSelection.containerHandlers : {})}
       >
         <Sortable
           getItemValue={(item) => getItemValue(item.original)}
@@ -190,7 +207,7 @@ export const DataTable = <TData extends object>({
                               }
                         }
                       >
-                        {row.getVisibleCells().map((cell) => (
+                        {row.getVisibleCells().map((cell, columnIndex) => (
                           <TableCell
                             key={cell.id}
                             className={cn(
@@ -200,7 +217,21 @@ export const DataTable = <TData extends object>({
                               'relative h-10 py-1',
                               background && 'bg-background',
                               alignmentClass(cell.column),
+                              enableCellSelection &&
+                                cell.column.columnDef.meta?.selectable !== false &&
+                                cellSelection.isSelected(row.index, columnIndex) &&
+                                'bg-primary/15',
                             )}
+                            data-cell-col={
+                              enableCellSelection && cell.column.columnDef.meta?.selectable !== false
+                                ? columnIndex
+                                : undefined
+                            }
+                            data-cell-row={
+                              enableCellSelection && cell.column.columnDef.meta?.selectable !== false
+                                ? row.index
+                                : undefined
+                            }
                             style={{
                               ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
                               ...widthStyle(cell.column, layout),
@@ -228,6 +259,9 @@ export const DataTable = <TData extends object>({
         </Sortable>
       </div>
       <div className={cn('flex flex-col gap-2.5', fill && 'shrink-0')}>
+        {enableCellSelection ? (
+          <DataTableCellSelectionStatus stats={cellSelection.stats} />
+        ) : null}
         {enablePagination === true && (
           <DataTablePagination enableSelection={enableSelection} table={table} />
         )}

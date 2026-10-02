@@ -184,6 +184,9 @@ const Table = ({
       // The screen is the table: the rows take what the toolbar and pagination
       // leave and scroll inside that, so the page itself never scrolls and the
       // pagination stays where it was put.
+      // Reading, not correcting: a sweep over the cells answers "what do these
+      // come to" where a press on one would otherwise open it.
+      enableCellSelection={mode === 'view'}
       fill
       getItemValue={(item) => item.id}
       table={table}

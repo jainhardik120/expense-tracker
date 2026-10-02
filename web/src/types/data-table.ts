@@ -19,6 +19,14 @@ declare module '@tanstack/react-table' {
      * down the page rather than read one by one.
      */
     align?: 'left' | 'right';
+    /**
+     * Whether the column takes part in a swept-out cell selection.
+     *
+     * False for the columns that hold a control rather than a value -- a tick
+     * box, a row's menu, a drag handle -- which have nothing to total and
+     * nothing worth copying.
+     */
+    selectable?: boolean;
   }
 }
 

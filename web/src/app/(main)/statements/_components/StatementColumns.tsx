@@ -258,8 +258,7 @@ export const createStatementColumns = ({
     ),
     enableSorting: false,
     enableHiding: false,
-    // The grid floors every column at 60px unless it says otherwise, which is
-    // twenty more than a tick box needs and pushed every column after it out.
+    meta: { selectable: false },
   },
   {
     accessorKey: 'createdAt',
@@ -532,12 +531,14 @@ export const createStatementColumns = ({
     },
     meta: {
       label: 'Actions',
+      selectable: false,
     },
     enableHiding: false,
   },
   {
     id: 'drag-handle',
     header: '',
+    meta: { selectable: false },
     cell: () => <ReorderHandle />,
     enableSorting: false,
     enableHiding: false,
