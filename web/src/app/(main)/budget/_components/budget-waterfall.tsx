@@ -26,6 +26,7 @@ import {
 } from '@/types/budget';
 
 import { BUDGET_COLUMN_SIZE, POSITION_INDENT } from './column-widths';
+import { LineBreakdown } from './line-breakdown';
 
 import type { ColumnDef } from '@tanstack/react-table';
 
@@ -47,6 +48,8 @@ type WaterfallRow = {
   closed: boolean;
   overspent: boolean;
   line: Detail['lines'][number] | undefined;
+  projected: Detail['projection']['lines'][number] | undefined;
+  matchedCount: number;
 };
 
 /**
@@ -236,7 +239,10 @@ const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) 
   );
 };
 
-const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
+const waterfallColumns = (
+  budgetYearId: string,
+  projection: Detail['projection'],
+): ColumnDef<WaterfallRow>[] => [
   {
     id: 'position',
     // Both the heading and the number carry the same indent, so the column
@@ -329,6 +335,14 @@ const waterfallColumns = (budgetYearId: string): ColumnDef<WaterfallRow>[] => [
     header: '',
     cell: ({ row }) => (
       <RowActions>
+        {row.original.projected === undefined ? null : (
+          <LineBreakdown
+            claims={describeRule(row.original.rule)}
+            line={row.original.projected}
+            matchedCount={row.original.matchedCount}
+            projection={projection}
+          />
+        )}
         <EditLine budgetYearId={budgetYearId} row={row.original} />
         <DeleteLine budgetYearId={budgetYearId} id={row.original.lineId} />
       </RowActions>
@@ -376,6 +390,8 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
     remaining: projected.get(line.lineId)?.remaining ?? 0,
     overspent: projected.get(line.lineId)?.overspent ?? false,
     line: lineById.get(line.lineId),
+    projected: projected.get(line.lineId),
+    matchedCount: line.matchedCount,
   }));
 
   // The dropped row stays where it was dropped while the reorder is in flight.
@@ -385,7 +401,7 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
 
   const { table } = useDataTable({
     data: rows,
-    columns: waterfallColumns(year.id),
+    columns: waterfallColumns(year.id, projection),
     pageCount: -1,
   });
 
