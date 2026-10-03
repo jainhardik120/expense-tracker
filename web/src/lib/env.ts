@@ -7,6 +7,13 @@ export const env = createEnv({
     AWS_ACCESS_KEY_ID: z.string(),
     AWS_SECRET_ACCESS_KEY: z.string(),
     DATABASE_URL: z.url(),
+    /**
+     * Connections each process may hold. Defaults to 1, which is what the hosted
+     * database on Vercel can afford -- see `src/lib/db.ts`. With Postgres on the
+     * same machine there is no such ceiling, and 1 makes every page run its
+     * queries one after another, so raise it there.
+     */
+    DATABASE_POOL_MAX: z.coerce.number().int().positive().default(1),
     EMAIL_SENDER_ADDRESS: z.string(),
     NODE_ENV: z.enum(['development', 'test', 'production']),
     /**
@@ -43,6 +50,7 @@ export const env = createEnv({
     AWS_SECRET_ACCESS_KEY: process.env['AWS_SECRET_ACCESS_KEY'],
     EMAIL_SENDER_ADDRESS: process.env['EMAIL_SENDER_ADDRESS'],
     DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_POOL_MAX: process.env['DATABASE_POOL_MAX'],
     NEXT_PUBLIC_BASE_URL: process.env['NEXT_PUBLIC_BASE_URL'],
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
       process.env['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL'],

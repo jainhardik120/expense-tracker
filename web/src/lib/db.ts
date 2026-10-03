@@ -35,7 +35,11 @@ const createPool = () => {
     // serialises them — `buildReportInput` runs six in a `Promise.all` — which
     // is worth a second on the report download to stop ordinary navigation
     // failing.
-    max: 1,
+    //
+    // That is the default, not a constant: a database on the same machine has
+    // no such budget, and there the serialising is all cost. `DATABASE_POOL_MAX`
+    // raises it where the database can take it.
+    max: env.DATABASE_POOL_MAX,
     // Kept for the non-Fluid case (local runs, any self-hosted deployment),
     // where the loop keeps running and this does reclaim an idle connection.
     idleTimeoutMillis: 10000,
