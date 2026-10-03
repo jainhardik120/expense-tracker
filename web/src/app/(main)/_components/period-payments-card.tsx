@@ -11,7 +11,7 @@ import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
-type SummaryData = RouterOutput['summary']['getAggregatedData'];
+type SummaryData = Pick<RouterOutput['summary']['getAggregatedData'], 'accountsSummary'>;
 type PaymentStatus = 'paid' | 'missed' | 'upcoming';
 
 type PeriodPayment = {

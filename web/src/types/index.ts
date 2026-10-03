@@ -363,6 +363,15 @@ export const defaultFriendSummary = {
   finalBalance: new Decimal(0),
 };
 
+/**
+ * A period's totals without its per-account and per-friend breakdown.
+ *
+ * The breakdown is a row per account per period -- most of the dashboard's
+ * payload -- and nothing that draws a period reads it, so it is left on the
+ * server.
+ */
+export type PeriodTotals = Omit<ProcessedAggregationData, 'accountsSummary' | 'friendsSummary'>;
+
 export type ProcessedAggregationData = {
   date: Date;
   endDate: Date;

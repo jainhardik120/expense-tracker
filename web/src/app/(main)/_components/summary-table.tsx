@@ -14,7 +14,10 @@ import { createAccountColumns } from './account-columns';
 import { CreateAccountForm } from './account-forms';
 import { CreateFriendForm } from './friend-forms';
 
-type SummaryData = RouterOutput['summary']['getAggregatedData'];
+type SummaryData = Pick<
+  RouterOutput['summary']['getAggregatedData'],
+  'accountsSummary' | 'friendsSummary'
+>;
 type CreditData = RouterOutput['accounts']['getCreditCards'];
 
 const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData }) => {

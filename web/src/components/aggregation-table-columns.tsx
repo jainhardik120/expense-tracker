@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { formatTruncatedDate } from '@/lib/date';
 import { cn } from '@/lib/utils';
-import type { ProcessedAggregationData } from '@/types';
+import type { PeriodTotals } from '@/types';
 
 import type { ColumnDef } from '@tanstack/react-table';
 
@@ -29,7 +29,7 @@ const DrilldownLink = ({
   className,
   ...props
 }: {
-  row: ProcessedAggregationData;
+  row: PeriodTotals;
   kinds: string[];
 } & Omit<React.ComponentProps<typeof Link>, 'href'>) => {
   const start = typeof row.date === 'string' ? new Date(row.date) : row.date;
@@ -48,7 +48,7 @@ const DrilldownLink = ({
 export const aggregationTableColumns = (
   unit: string,
   timezone: string,
-): ColumnDef<ProcessedAggregationData>[] => [
+): ColumnDef<PeriodTotals>[] => [
   {
     accessorKey: 'date',
     header: 'Date',

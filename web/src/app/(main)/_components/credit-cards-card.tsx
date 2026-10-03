@@ -9,7 +9,7 @@ import { type RouterOutput } from '@/server/routers';
 import { PERCENTAGE_DIVISOR } from '@/types';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
-type SummaryData = RouterOutput['summary']['getAggregatedData'];
+type SummaryData = Pick<RouterOutput['summary']['getAggregatedData'], 'accountsSummary'>;
 
 const UTILISATION_DECIMALS = 1;
 

@@ -18,6 +18,42 @@ import SummaryTable from '../_components/summary-table';
 
 const loader = createLoader(aggregationParser);
 
+type Aggregation = Awaited<ReturnType<typeof api.summary.getAggregatedData>>;
+
+/**
+ * What the client components are handed, and nothing more.
+ *
+ * Everything passed to a client component is serialised into the page, and the
+ * aggregation carries a balance row per account and per friend for every
+ * period -- 350 KB of a 630 KB September dashboard, read by none of them.
+ */
+const periodTotals = (aggregation: Aggregation) =>
+  aggregation.periodAggregations.map(
+    ({
+      date,
+      endDate,
+      totalAccountsSummary,
+      totalFriendsSummary,
+      totalExpenses,
+      categoryWiseSummary,
+    }) => ({
+      date,
+      endDate,
+      totalAccountsSummary,
+      totalFriendsSummary,
+      totalExpenses,
+      categoryWiseSummary,
+    }),
+  );
+
+const cardSummary = (aggregation: Aggregation) => ({
+  accountsSummary: aggregation.accountsSummary,
+  friendsSummary: aggregation.friendsSummary,
+  aggregatedAccountsSummaryData: aggregation.aggregatedAccountsSummaryData,
+  aggregatedFriendsSummaryData: aggregation.aggregatedFriendsSummaryData,
+  myExpensesTotal: aggregation.myExpensesTotal,
+});
+
 export default async function Page({
   searchParams,
 }: Readonly<{ searchParams: Promise<SearchParams> }>) {
@@ -69,8 +105,9 @@ export default async function Page({
                 .filter(([, amount]) => amount > 0)
                 .map(([category]) => category)}
               data={aggregationData.periodAggregations.map((agg) => ({
-                ...agg,
+                date: agg.date,
                 expenses: agg.totalExpenses,
+                categoryWiseSummary: agg.categoryWiseSummary,
               }))}
               range={dateParams}
               scope={chartScope}
@@ -96,7 +133,7 @@ export default async function Page({
           loadingFallbackClassName="col-span-1 md:col-span-2 xl:col-span-1"
           promise={aggregationPromise}
         >
-          {(summaryData) => <SummaryCard data={summaryData} />}
+          {(summaryData) => <SummaryCard data={cardSummary(summaryData)} />}
         </AsyncComponent>
       </div>
       <AsyncComponent
@@ -104,18 +141,18 @@ export default async function Page({
         promise={Promise.all([aggregationPromise, creditAccountsPromise])}
       >
         {([summaryData, creditData]) => (
-          <SummaryTable creditData={creditData.cards} data={summaryData} />
+          <SummaryTable creditData={creditData.cards} data={cardSummary(summaryData)} />
         )}
       </AsyncComponent>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <AsyncComponent promise={Promise.all([creditAccountsPromise, aggregationPromise])}>
           {([creditData, summaryData]) => (
-            <CreditCardsCard creditData={creditData} summaryData={summaryData} />
+            <CreditCardsCard creditData={creditData} summaryData={cardSummary(summaryData)} />
           )}
         </AsyncComponent>
         <AsyncComponent promise={Promise.all([aggregationPromise, creditAccountsPromise])}>
           {([summaryData, creditData]) => (
-            <PeriodPaymentsCard creditData={creditData} summaryData={summaryData} />
+            <PeriodPaymentsCard creditData={creditData} summaryData={cardSummary(summaryData)} />
           )}
         </AsyncComponent>
         <AsyncComponent promise={creditAccountsPromise}>
@@ -124,7 +161,7 @@ export default async function Page({
       </div>
       <AsyncComponent loadingFallbackClassName="h-[400]" promise={aggregationPromise}>
         {(aggregationData) => (
-          <AggregationTable data={aggregationData.periodAggregations} unit={params.period} />
+          <AggregationTable data={periodTotals(aggregationData)} unit={params.period} />
         )}
       </AsyncComponent>
     </div>
