@@ -8,6 +8,7 @@ import { db } from '@/lib/db';
 import logger from '@/lib/logger';
 import { reportBranding } from '@/server/reports/branding';
 import { defaultExpenseReportTemplate } from '@/server/reports/default-template';
+import { renderOneAtATime } from '@/server/reports/render-queue';
 import { buildReportInput } from '@/server/reports/report-input';
 
 export const runtime = 'nodejs';
@@ -64,10 +65,12 @@ export const POST = async (request: Request) => {
       timezone,
     });
 
-    const pdf = await renderReportToBuffer(template, {
-      input,
-      branding: reportBranding(session.user.name, timezone),
-    });
+    const pdf = await renderOneAtATime(() =>
+      renderReportToBuffer(template, {
+        input,
+        branding: reportBranding(session.user.name, timezone),
+      }),
+    );
 
     return new Response(Buffer.from(pdf) as unknown as BodyInit, {
       headers: {

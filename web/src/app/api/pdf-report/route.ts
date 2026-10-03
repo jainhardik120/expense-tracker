@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth';
 import { getTimezone } from '@/lib/date';
 import { reportBranding } from '@/server/reports/branding';
+import { renderOneAtATime } from '@/server/reports/render-queue';
 
 // react-pdf and the json-render registry are Node-only.
 export const runtime = 'nodejs';
@@ -22,10 +23,10 @@ export const POST = async (request: Request) => {
   const body = (await request.json()) as { template: unknown; input?: unknown };
   const template = resolveReportTemplate(body.template);
 
-  const pdf = await renderReportToBuffer(template, {
-    input: body.input,
-    branding: reportBranding(session.user.name, await getTimezone()),
-  });
+  const branding = reportBranding(session.user.name, await getTimezone());
+  const pdf = await renderOneAtATime(() =>
+    renderReportToBuffer(template, { input: body.input, branding }),
+  );
 
   return new Response(Buffer.from(pdf) as unknown as BodyInit, {
     headers: { 'content-type': 'application/pdf' },
