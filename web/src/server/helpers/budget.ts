@@ -1,11 +1,6 @@
-import { and, eq, gte, lt, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
-import { splits,
-  type budgetIncomeLines,
-  type budgetLines,
-  type budgetYears,
-  statements,
-} from '@/db/schema';
+import { type budgetIncomeLines, type budgetLines, type budgetYears } from '@/db/schema';
 import {
   assignToLine,
   matchesRule,
@@ -55,60 +50,60 @@ type ScopedStatement = MatchableStatement & {
  * so only the ones actually falling inside the window are here -- a 24 month
  * loan contributes the installments it reached, not its whole principal.
  */
+/** A Date as Drizzle writes it for a timestamp column: UTC, without the zone. */
+const toTimestamp = (date: Date): string => date.toISOString().replace('T', ' ').replace('Z', '');
+
 export const getStatementsInWindow = instrumentedFunction(
   'getStatementsInWindow',
   async (db: Database, userId: string, start: Date, end: Date): Promise<ScopedStatement[]> => {
-    // All of the user's splits, summed per statement and hash-joined in one
-    // pass -- four times cheaper than a lookup per statement.
-    const owedByStatement = db
-      .select({
-        statementId: splits.statementId,
-        owed: sql<string>`sum(${splits.amount})`.as('owed'),
-      })
-      .from(splits)
-      .where(eq(splits.userId, userId))
-      .groupBy(splits.statementId)
-      .as('owed_by_statement');
-    const rows = await db
-      .select({
-        id: statements.id,
-        createdAt: statements.createdAt,
-        category: statements.category,
-        tags: statements.tags,
-        statementKind: statements.statementKind,
-        accountId: statements.accountId,
-        friendId: statements.friendId,
-        amount: statements.amount,
-        emiId: sql<string | null>`${statements.additionalAttributes}->>'emiId'`,
-        // What friends owe back on this statement, summed in the same query
-        // from the user's splits in one pass. Fetched separately this was an IN
-        // list of every statement id in the window -- over a thousand parameters
-        // to build, send and plan on each budget load.
-        owed: sql<string | null>`${owedByStatement.owed}`,
-      })
-      .from(statements)
-      .leftJoin(owedByStatement, eq(owedByStatement.statementId, statements.id))
-      .where(
-        and(
-          eq(statements.userId, userId),
-          gte(statements.createdAt, start),
-          lt(statements.createdAt, end),
-        ),
-      );
+    // Plain SQL rather than the query builder: this is the largest result on the
+    // budget page -- a year of statements -- and Drizzle's per-row, per-column
+    // mapping was most of what it cost, more than the query itself. The rows are
+    // converted here instead, the same way: amounts from numeric strings, and
+    // the timestamp as epoch milliseconds so the Date does not depend on the
+    // process's time zone. Bounds are sent as Drizzle sends them for a
+    // timestamp column, so the comparison and the index it uses are unchanged.
+    //
+    // Each statement carries what friends owe back on it, from the user's
+    // splits summed once and hash-joined -- not an IN list of every statement id
+    // in the window, which was over a thousand parameters per load.
+    const { rows } = await db.execute<{
+      id: string;
+      created_ms: string;
+      category: string | null;
+      tags: string[];
+      kind: ScopedStatement['statementKind'];
+      account_id: string | null;
+      friend_id: string | null;
+      amount: string;
+      emi_id: string | null;
+      owed: string | null;
+    }>(sql`
+      select s.id, (extract(epoch from s.created_at) * 1000)::bigint as created_ms, s.category,
+             s.tags, s."statementKind" as kind, s.account_id, s.friend_id, s.amount,
+             s.additional_attributes->>'emiId' as emi_id, o.owed
+      from statements s
+      left join (
+        select statement_id, sum(amount) as owed from splits
+        where user_id = ${userId} group by statement_id
+      ) o on o.statement_id = s.id
+      where s.user_id = ${userId}
+        and s.created_at >= ${toTimestamp(start)}::timestamp
+        and s.created_at < ${toTimestamp(end)}::timestamp`);
 
     return rows.map((row) => {
       const myAmount = Number(row.amount) - Number(row.owed ?? 0);
       return {
         id: row.id,
-        createdAt: row.createdAt,
+        createdAt: new Date(Number(row.created_ms)),
         category: row.category,
         tags: row.tags,
-        statementKind: row.statementKind,
+        statementKind: row.kind,
         amount: Number(row.amount),
-        emiId: row.emiId,
-        accountRefs: [row.accountId, row.friendId],
+        emiId: row.emi_id,
+        accountRefs: [row.account_id, row.friend_id],
         myAmount,
-        costAmount: row.statementKind === 'outside_transaction' ? -myAmount : myAmount,
+        costAmount: row.kind === 'outside_transaction' ? -myAmount : myAmount,
       };
     });
   },
