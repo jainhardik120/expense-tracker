@@ -393,6 +393,13 @@
       "when": 1791047046386,
       "tag": "0055_declare_user_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1791053525027,
+      "tag": "0056_per_user_and_covering_indexes",
+      "breakpoints": true
     }
   ]
 }

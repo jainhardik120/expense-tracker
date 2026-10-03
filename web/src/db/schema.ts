@@ -28,24 +28,34 @@ export const statementKindEnum = pgEnum('statement_kinds', [
   'self_transfer',
 ]);
 
-export const bankAccount = pgTable('bank_account', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  startingBalance: numeric('starting_balance').notNull(),
-  accountName: text('account_name').notNull(),
-  createdAt: timestamp('created_at').$defaultFn(() => new Date()),
-});
+export const bankAccount = pgTable(
+  'bank_account',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    startingBalance: numeric('starting_balance').notNull(),
+    accountName: text('account_name').notNull(),
+    createdAt: timestamp('created_at').$defaultFn(() => new Date()),
+  },
+  // Every read is one user's rows; without this it was the whole table, every user's.
+  (table) => [index('bank_account_user_idx').on(table.userId)],
+);
 
-export const friendsProfiles = pgTable('friends_profiles', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  createdAt: timestamp('created_at').$defaultFn(() => new Date()),
-});
+export const friendsProfiles = pgTable(
+  'friends_profiles',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at').$defaultFn(() => new Date()),
+  },
+  // Every read is one user's rows; without this it was the whole table, every user's.
+  (table) => [index('friends_profiles_user_idx').on(table.userId)],
+);
 
 export const statements = pgTable(
   'statements',
@@ -108,7 +118,19 @@ export const statements = pgTable(
     // Every per-user window -- a month's statements, a balance up to a date --
     // reads through this. It was created by hand on the hosted database and
     // is declared here so a database built from migrations has it too.
+    // Migration 0056 adds INCLUDE (account_id, friend_id, "statementKind", amount,
+    // category), which Drizzle cannot express: the balance and expense sums read
+    // only those columns, so they are answered from the index without visiting
+    // the table at all.
     index('statements_user_created_id_idx').on(table.userId, desc(table.createdAt), table.id),
+    // The few statements that are an EMI instalment or a recurring payment,
+    // found without reading every statement the user has.
+    index('statements_user_emi_idx')
+      .on(table.userId, sql`(${table.additionalAttributes}->>'emiId')`)
+      .where(sql`${table.additionalAttributes}->>'emiId' IS NOT NULL`),
+    index('statements_user_recurring_idx')
+      .on(table.userId)
+      .where(sql`${table.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`),
   ],
 );
 
@@ -163,6 +185,8 @@ export const splits = pgTable(
     // One user's splits. Without it, finding them meant reading every split in
     // the table and keeping the ones whose statement was theirs -- at a
     // thousand users, 1.7 s for a query the dashboard runs twice.
+    // Migration 0056 adds INCLUDE (friend_id, amount), so the per-friend sums
+    // never visit the table.
     index('splits_user_statement_idx').on(table.userId, table.statementId),
   ],
 );
@@ -182,25 +206,30 @@ export const reportBoundaries = pgTable(
   (table) => [index('report_boundaries_user_date_idx').on(table.userId, table.boundaryDate)],
 );
 
-export const investments = pgTable('investments', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  investmentKind: text('investment_kind').notNull(),
-  instrumentCode: text('instrument_code'),
-  stockMarket: text('stock_market'),
-  isRsu: boolean('is_rsu').notNull().default(false),
-  investmentDate: timestamp('investment_date').notNull(),
-  investmentAmount: numeric('investment_amount').notNull(),
-  maturityDate: timestamp('maturity_date'),
-  maturityAmount: numeric('maturity_amount'),
-  amount: numeric('amount'),
-  units: numeric('units'),
-  annualRate: numeric('annual_rate'),
-  isClosed: boolean('is_closed').notNull().default(false),
-  closedAt: timestamp('closed_at'),
-});
+export const investments = pgTable(
+  'investments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    investmentKind: text('investment_kind').notNull(),
+    instrumentCode: text('instrument_code'),
+    stockMarket: text('stock_market'),
+    isRsu: boolean('is_rsu').notNull().default(false),
+    investmentDate: timestamp('investment_date').notNull(),
+    investmentAmount: numeric('investment_amount').notNull(),
+    maturityDate: timestamp('maturity_date'),
+    maturityAmount: numeric('maturity_amount'),
+    amount: numeric('amount'),
+    units: numeric('units'),
+    annualRate: numeric('annual_rate'),
+    isClosed: boolean('is_closed').notNull().default(false),
+    closedAt: timestamp('closed_at'),
+  },
+  // Every read is one user's rows; without this it was the whole table, every user's.
+  (table) => [index('investments_user_idx').on(table.userId)],
+);
 
 export const creditCardAccounts = pgTable('credit_card_accounts', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -212,41 +241,46 @@ export const creditCardAccounts = pgTable('credit_card_accounts', {
   billingDate: integer('billing_date').notNull().default(1),
 });
 
-export const emis = pgTable('emis', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  creditId: uuid('credit_id')
-    .notNull()
-    .references(() => creditCardAccounts.id, { onDelete: 'no action' }),
-  principal: numeric('principal').notNull(),
-  tenure: numeric('tenure').notNull(),
-  annualInterestRate: numeric('annual_interest_rate').notNull(),
-  processingFees: numeric('processing_fees').notNull(),
-  processingFeesGst: numeric('processing_fees_gst').notNull(),
-  gst: numeric('gst').notNull(),
-  createdAt: timestamp('created_at')
-    .notNull()
-    .$defaultFn(() => new Date()),
-  firstInstallmentDate: timestamp('first_installment_date')
-    .notNull()
-    .$defaultFn(() => new Date()),
-  processingFeesDate: timestamp('processing_fees_date')
-    .notNull()
-    .$defaultFn(() => new Date()),
-  iafe: numeric('iafe').notNull().default('0'),
-  // The same tags its instalments will carry. A budget line finds the loans it
-  // owns through the statements its rule claims, which leaves a loan taken out
-  // today -- no instalment recorded yet -- belonging to nothing. Tagging the
-  // loan itself lets the budget see it from the day it is signed.
-  tags: text('tags')
-    .array()
-    .notNull()
-    .default(sql`'{}'::text[]`),
-  additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
-});
+export const emis = pgTable(
+  'emis',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    creditId: uuid('credit_id')
+      .notNull()
+      .references(() => creditCardAccounts.id, { onDelete: 'no action' }),
+    principal: numeric('principal').notNull(),
+    tenure: numeric('tenure').notNull(),
+    annualInterestRate: numeric('annual_interest_rate').notNull(),
+    processingFees: numeric('processing_fees').notNull(),
+    processingFeesGst: numeric('processing_fees_gst').notNull(),
+    gst: numeric('gst').notNull(),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+    firstInstallmentDate: timestamp('first_installment_date')
+      .notNull()
+      .$defaultFn(() => new Date()),
+    processingFeesDate: timestamp('processing_fees_date')
+      .notNull()
+      .$defaultFn(() => new Date()),
+    iafe: numeric('iafe').notNull().default('0'),
+    // The same tags its instalments will carry. A budget line finds the loans it
+    // owns through the statements its rule claims, which leaves a loan taken out
+    // today -- no instalment recorded yet -- belonging to nothing. Tagging the
+    // loan itself lets the budget see it from the day it is signed.
+    tags: text('tags')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
+  },
+  // Every read is one user's rows; without this it was the whole table, every user's.
+  (table) => [index('emis_user_idx').on(table.userId)],
+);
 
 export const recurringPaymentFrequencyEnum = pgEnum('recurring_payment_frequency', [
   'daily',
@@ -270,44 +304,54 @@ export const smsTransactionStatusEnum = pgEnum('sms_transaction_status', [
   'junked',
 ]);
 
-export const recurringPayments = pgTable('recurring_payments', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  amount: numeric('amount').notNull(),
-  frequency: recurringPaymentFrequencyEnum().notNull(),
-  frequencyMultiplier: numeric('frequency_multiplier').notNull().default('1'),
-  startDate: timestamp('start_date').notNull(),
-  endDate: timestamp('end_date'),
-  category: text('category').notNull(),
-  createdAt: timestamp('created_at')
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
+export const recurringPayments = pgTable(
+  'recurring_payments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    amount: numeric('amount').notNull(),
+    frequency: recurringPaymentFrequencyEnum().notNull(),
+    frequencyMultiplier: numeric('frequency_multiplier').notNull().default('1'),
+    startDate: timestamp('start_date').notNull(),
+    endDate: timestamp('end_date'),
+    category: text('category').notNull(),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  // Every read is one user's rows; without this it was the whole table, every user's.
+  (table) => [index('recurring_payments_user_idx').on(table.userId)],
+);
 
-export const smsNotifications = pgTable('sms_notifications', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  amount: numeric('amount').notNull(),
-  type: smsTransactionTypeEnum().notNull(),
-  merchant: text('merchant'),
-  reference: text('reference'),
-  accountLast4: text('account_last_4'),
-  smsBody: text('sms_body').notNull(),
-  sender: text('sender').notNull(),
-  createdAt: timestamp('timestamp').notNull(),
-  bankName: text('bank_name').notNull(),
-  isFromCard: boolean('is_from_card').notNull().default(false),
-  currency: text('currency').notNull().default('INR'),
-  fromAccount: text('from_account'),
-  toAccount: text('to_account'),
-  status: smsTransactionStatusEnum().notNull().default('pending'),
-  additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
-});
+export const smsNotifications = pgTable(
+  'sms_notifications',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    amount: numeric('amount').notNull(),
+    type: smsTransactionTypeEnum().notNull(),
+    merchant: text('merchant'),
+    reference: text('reference'),
+    accountLast4: text('account_last_4'),
+    smsBody: text('sms_body').notNull(),
+    sender: text('sender').notNull(),
+    createdAt: timestamp('timestamp').notNull(),
+    bankName: text('bank_name').notNull(),
+    isFromCard: boolean('is_from_card').notNull().default(false),
+    currency: text('currency').notNull().default('INR'),
+    fromAccount: text('from_account'),
+    toAccount: text('to_account'),
+    status: smsTransactionStatusEnum().notNull().default('pending'),
+    additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
+  },
+  // Every read is one user's rows; without this it was the whole table, every user's.
+  (table) => [index('sms_notifications_user_idx').on(table.userId)],
+);
 
 // One PDF report template per user. The four fields mirror @helix-hq/pdf-report's
 // ReportTemplate contract: the code step turns raw statement data into display
@@ -496,22 +540,27 @@ export const salaryTaxSettings = pgTable(
  * The year is whatever span the budget covers; it does not have to be a calendar
  * year, and typically starts on the salary cycle rather than in January.
  */
-export const budgetYears = pgTable('budget_years', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  startDate: timestamp('start_date').notNull(),
-  endDate: timestamp('end_date').notNull(),
-  // Where what last year finished with is spent. Left unset it joins the general
-  // pot; pointed at a line it funds that line and nothing else, which is how a
-  // leftover earmarked for the flight home can be seen to have fallen short.
-  openingBalanceLineId: uuid('opening_balance_line_id'),
-  createdAt: timestamp('created_at')
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
+export const budgetYears = pgTable(
+  'budget_years',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    startDate: timestamp('start_date').notNull(),
+    endDate: timestamp('end_date').notNull(),
+    // Where what last year finished with is spent. Left unset it joins the general
+    // pot; pointed at a line it funds that line and nothing else, which is how a
+    // leftover earmarked for the flight home can be seen to have fallen short.
+    openingBalanceLineId: uuid('opening_balance_line_id'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  // Every read is one user's rows; without this it was the whole table, every user's.
+  (table) => [index('budget_years_user_idx').on(table.userId)],
+);
 
 /** How a line claims money: a fixed sum per month, per year, or whatever is left. */
 export const budgetAllocationKindEnum = pgEnum('budget_allocation_kind', [
