@@ -1,10 +1,9 @@
-import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm';
+import { and, eq, gte, lt, sql } from 'drizzle-orm';
 
 import {
   type budgetIncomeLines,
   type budgetLines,
   type budgetYears,
-  splits,
   statements,
 } from '@/db/schema';
 import {
@@ -70,6 +69,18 @@ export const getStatementsInWindow = instrumentedFunction(
         friendId: statements.friendId,
         amount: statements.amount,
         emiId: sql<string | null>`${statements.additionalAttributes}->>'emiId'`,
+        // What friends owe back on this statement, summed in the same query.
+        // Fetched separately this was an IN list of every statement id in the
+        // window -- over a thousand parameters to build, send and plan on each
+        // budget load -- for what the splits index answers per row on its own.
+        //
+        // Written with explicit table names: in a single-table select Drizzle
+        // leaves columns unqualified, and an unqualified "id" inside the
+        // subquery is the split's own id, not the statement's.
+        owed: sql<string>`(
+          select coalesce(sum(s.amount), 0) from splits s
+          where s.user_id = ${userId} and s.statement_id = "statements"."id"
+        )`,
       })
       .from(statements)
       .where(
@@ -80,30 +91,8 @@ export const getStatementsInWindow = instrumentedFunction(
         ),
       );
 
-    // Fetched separately and joined here rather than as a correlated subquery:
-    // one extra round trip, and the arithmetic is somewhere it can be read.
-    const splitRows =
-      rows.length === 0
-        ? []
-        : await db
-            .select({ statementId: splits.statementId, amount: splits.amount })
-            .from(splits)
-            .where(
-              inArray(
-                splits.statementId,
-                rows.map((row) => row.id),
-              ),
-            );
-    const owedByFriends = new Map<string, number>();
-    for (const split of splitRows) {
-      owedByFriends.set(
-        split.statementId,
-        (owedByFriends.get(split.statementId) ?? 0) + Number(split.amount),
-      );
-    }
-
     return rows.map((row) => {
-      const myAmount = Number(row.amount) - (owedByFriends.get(row.id) ?? 0);
+      const myAmount = Number(row.amount) - Number(row.owed);
       return {
         id: row.id,
         createdAt: row.createdAt,
