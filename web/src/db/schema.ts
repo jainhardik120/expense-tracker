@@ -131,6 +131,12 @@ export const statements = pgTable(
     index('statements_user_recurring_idx')
       .on(table.userId)
       .where(sql`${table.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`),
+    // The salary credit behind each salary payment, looked up once per payment
+    // on the budget page: without it, every lookup read all of the user's
+    // statements.
+    index('statements_user_salary_payment_idx')
+      .on(table.userId, sql`(${table.additionalAttributes}->>'salaryPaymentId')`)
+      .where(sql`${table.additionalAttributes}->>'salaryPaymentId' IS NOT NULL`),
   ],
 );
 

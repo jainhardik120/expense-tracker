@@ -400,6 +400,13 @@
       "when": 1791053525027,
       "tag": "0056_per_user_and_covering_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1791056243537,
+      "tag": "0057_salary_payment_statement_index",
+      "breakpoints": true
     }
   ]
 }

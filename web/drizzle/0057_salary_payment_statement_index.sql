@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS "statements_user_salary_payment_idx" ON "statements" USING btree ("user_id",("additional_attributes"->>'salaryPaymentId')) WHERE "statements"."additional_attributes"->>'salaryPaymentId' IS NOT NULL;
