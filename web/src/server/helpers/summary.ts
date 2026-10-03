@@ -45,29 +45,60 @@ type AggregatedStatementResult = {
   totalAmount: number;
 };
 
+/** The summaries of no rows at all, which most account-period pairs are. */
+const EMPTY_ACCOUNT_SUMMARY: AccountTransferSummary = {
+  expenses: 0,
+  selfTransfers: 0,
+  outsideTransactions: 0,
+  friendTransactions: 0,
+  totalTransfers: 0,
+};
+
+const EMPTY_FRIEND_SUMMARY: FriendTransferSummary = {
+  paidByFriend: 0,
+  splits: 0,
+  friendTransactions: 0,
+  totalTransfers: 0,
+};
+
+/**
+ * Sums by kind, in exact decimal arithmetic.
+ *
+ * One pass with an accumulator per kind: each kind still adds the same values
+ * in the same order as filtering per kind did, so the results are identical,
+ * without building an array per kind on every call. With no rows the answer is
+ * all zeros, returned without the arithmetic -- most account-period pairs in a
+ * report are empty, and each one was a dozen Decimal operations for nothing.
+ */
 export const getFinalBalanceFromStatements = (
   ...statements: AggregatedStatementResult[]
 ): AccountTransferSummary => {
-  const expenses = statements
-    .filter((statement) => statement.statementKind === 'expense')
-    .reduce((acc, cur) => {
-      return acc.plus(cur.totalAmount);
-    }, new Decimal(0));
-  const outsideTransactions = statements
-    .filter((statement) => statement.statementKind === 'outside_transaction')
-    .reduce((acc, cur) => {
-      return acc.plus(cur.totalAmount);
-    }, new Decimal(0));
-  const friendTransactions = statements
-    .filter((statement) => statement.statementKind === 'friend_transaction')
-    .reduce((acc, cur) => {
-      return acc.plus(cur.totalAmount);
-    }, new Decimal(0));
-  const selfTransfers = statements
-    .filter((statement) => statement.statementKind === undefined)
-    .reduce((acc, cur) => {
-      return acc.plus(cur.totalAmount);
-    }, new Decimal(0));
+  if (statements.length === 0) {
+    return { ...EMPTY_ACCOUNT_SUMMARY };
+  }
+  let expenses = new Decimal(0);
+  let outsideTransactions = new Decimal(0);
+  let friendTransactions = new Decimal(0);
+  let selfTransfers = new Decimal(0);
+  for (const statement of statements) {
+    switch (statement.statementKind) {
+      case 'expense':
+        expenses = expenses.plus(statement.totalAmount);
+        break;
+      case 'outside_transaction':
+        outsideTransactions = outsideTransactions.plus(statement.totalAmount);
+        break;
+      case 'friend_transaction':
+        friendTransactions = friendTransactions.plus(statement.totalAmount);
+        break;
+      case undefined:
+        selfTransfers = selfTransfers.plus(statement.totalAmount);
+        break;
+      case 'self_transfer':
+        // Not summed here: transfers arrive as rows without a kind.
+        break;
+    }
+  }
   return {
     expenses: expenses.toNumber(),
     selfTransfers: selfTransfers.toNumber(),
@@ -84,21 +115,29 @@ export const getFinalBalanceFromStatements = (
 export const getFinalBalancesFromFriendStatements = (
   ...statements: AggregatedStatementResult[]
 ): FriendTransferSummary => {
-  const expenses = statements
-    .filter((statement) => statement.statementKind === 'expense')
-    .reduce((acc, cur) => {
-      return acc.plus(cur.totalAmount);
-    }, new Decimal(0));
-  const friendTransactions = statements
-    .filter((statement) => statement.statementKind === 'friend_transaction')
-    .reduce((acc, cur) => {
-      return acc.plus(cur.totalAmount);
-    }, new Decimal(0));
-  const splits = statements
-    .filter((statement) => statement.statementKind === undefined)
-    .reduce((acc, cur) => {
-      return acc.plus(cur.totalAmount);
-    }, new Decimal(0));
+  if (statements.length === 0) {
+    return { ...EMPTY_FRIEND_SUMMARY };
+  }
+  let expenses = new Decimal(0);
+  let friendTransactions = new Decimal(0);
+  let splits = new Decimal(0);
+  for (const statement of statements) {
+    switch (statement.statementKind) {
+      case 'expense':
+        expenses = expenses.plus(statement.totalAmount);
+        break;
+      case 'friend_transaction':
+        friendTransactions = friendTransactions.plus(statement.totalAmount);
+        break;
+      case undefined:
+        splits = splits.plus(statement.totalAmount);
+        break;
+      case 'outside_transaction':
+      case 'self_transfer':
+        // Not part of a friend balance.
+        break;
+    }
+  }
   return {
     paidByFriend: expenses.toNumber(),
     splits: splits.toNumber(),
