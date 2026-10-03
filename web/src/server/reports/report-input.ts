@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gte, lt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -156,13 +156,29 @@ export const buildReportInput = async ({
   });
   const periodStarts = periods.map((period) => new Date(period.start).getTime());
 
-  const [accountRows, friendRows, statementRows, selfTransferRows, investmentRows, splitRows] =
+  // Each statement's split total, summed from the user's splits in one pass and
+  // joined on, rather than every split the user has ever made fetched to add up.
+  const owedByStatement = db
+    .select({
+      statementId: splits.statementId,
+      owed: sql<string>`sum(${splits.amount})`.as('owed'),
+    })
+    .from(splits)
+    .where(eq(splits.userId, userId))
+    .groupBy(splits.statementId)
+    .as('owed_by_statement');
+
+  const [accountRows, friendRows, statementRows, selfTransferRows, investmentRows, [prior]] =
     await Promise.all([
       db.select().from(bankAccount).where(eq(bankAccount.userId, userId)),
       db.select().from(friendsProfiles).where(eq(friendsProfiles.userId, userId)),
       db
-        .select()
+        .select({
+          ...getTableColumns(statements),
+          owed: sql<string | null>`${owedByStatement.owed}`,
+        })
         .from(statements)
+        .leftJoin(owedByStatement, eq(owedByStatement.statementId, statements.id))
         .where(
           and(
             eq(statements.userId, userId),
@@ -170,7 +186,10 @@ export const buildReportInput = async ({
             lt(statements.createdAt, spanEnd),
           ),
         )
-        .orderBy(asc(statements.createdAt)),
+        // Ties broken by id, newest first: what the (user_id, created_at desc,
+        // id) index gave when this was a plain scan of it, made explicit now
+        // that a join decides the plan.
+        .orderBy(asc(statements.createdAt), desc(statements.id)),
       db
         .select()
         .from(selfTransferStatements)
@@ -193,60 +212,36 @@ export const buildReportInput = async ({
           ),
         )
         .orderBy(asc(investments.investmentDate)),
-      db.select().from(splits).where(eq(splits.userId, userId)),
+      // Everything before the span, to seed the balances the periods then move --
+      // summed here rather than fetched whole: a long history was thousands of
+      // rows read only to be added up. Mirrors the app's own aggregation: an
+      // account moves on rows carrying an account, a friend balance on rows
+      // carrying a friend (every one adds -- they paid for you, or a friend
+      // transaction was recorded), and a row can be both. The splits friends
+      // owe on those same statements come off the friend side.
+      db
+        .select({
+          accountSide: sql<string>`coalesce(sum(case when ${statements.accountId} is null then 0 when ${statements.statementKind} = 'expense' then -${statements.amount} else ${statements.amount} end), 0)`,
+          friendSide: sql<string>`coalesce(sum(case when ${statements.friendId} is null then 0 else ${statements.amount} end), 0)`,
+          splitSide: sql<string>`coalesce((
+            select sum(p.amount) from splits p join statements s on s.id = p.statement_id
+            where p.user_id = ${userId} and s.user_id = ${userId} and s.created_at < ${spanStart}
+          ), 0)`,
+        })
+        .from(statements)
+        .where(and(eq(statements.userId, userId), lt(statements.createdAt, spanStart))),
     ]);
 
   const accountName = new Map(accountRows.map((row) => [row.id, row.accountName]));
   const friendName = new Map(friendRows.map((row) => [row.id, row.name]));
 
-  const splitTotalByStatement = new Map<string, number>();
-  for (const split of splitRows) {
-    splitTotalByStatement.set(
-      split.statementId,
-      (splitTotalByStatement.get(split.statementId) ?? 0) + parseFloatSafe(split.amount),
-    );
-  }
-
-  // Everything before the span, to seed the balances the periods then move.
-  const priorRows = await db
-    .select({
-      id: statements.id,
-      amount: statements.amount,
-      statementKind: statements.statementKind,
-      accountId: statements.accountId,
-      friendId: statements.friendId,
-    })
-    .from(statements)
-    .where(and(eq(statements.userId, userId), lt(statements.createdAt, spanStart)));
   const startingTotal = accountRows.reduce(
     (total, row) => total + parseFloatSafe(row.startingBalance),
     0,
   );
-
-  // Mirrors the app's own aggregation: an account moves on rows carrying an
-  // account, a friend balance on rows carrying a friend, and a row can be both.
-  // Splits on statements from before the span only — `splitRows` covers all time.
-  const priorIds = new Set(priorRows.map((row) => row.id));
-  const priorSplitTotal = splitRows.reduce(
-    (total, split) =>
-      priorIds.has(split.statementId) ? total + parseFloatSafe(split.amount) : total,
-    0,
-  );
-
-  const accountSide = priorRows.reduce((total, row) => {
-    if (row.accountId === null) {
-      return total;
-    }
-    const amount = parseFloatSafe(row.amount);
-    return row.statementKind === 'expense' ? total - amount : total + amount;
-  }, 0);
-  // A friend balance rises both when they pay for you and when a friend
-  // transaction is recorded, so every row carrying a friend adds; the splits they
-  // owe you are taken off below.
-  const friendSide = priorRows.reduce(
-    (total, row) => (row.friendId === null ? total : total + parseFloatSafe(row.amount)),
-    0,
-  );
+  const accountSide = Number(prior.accountSide);
+  const friendSide = Number(prior.friendSide);
+  const priorSplitTotal = Number(prior.splitSide);
 
   return {
     generatedAt: localWallClock(new Date(), timezone),
@@ -261,7 +256,7 @@ export const buildReportInput = async ({
       account: row.accountId === null ? '' : (accountName.get(row.accountId) ?? ''),
       friend: row.friendId === null ? '' : (friendName.get(row.friendId) ?? ''),
       tags: row.tags,
-      splitAmount: splitTotalByStatement.get(row.id) ?? 0,
+      splitAmount: Number(row.owed ?? 0),
     })),
     selfTransfers: selfTransferRows.map((row) => ({
       periodIndex: periodIndexFor(row.createdAt, periodStarts),
