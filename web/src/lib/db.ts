@@ -60,16 +60,19 @@ const createPool = () => {
 const pool = globalForDb.expenseTrackerPool ?? createPool();
 globalForDb.expenseTrackerPool = pool;
 
+// Every query, with its parameters, is a debug-level line: worth having in
+// development, but formatting ~40 of them per dashboard load was the second
+// largest cost of rendering it in production. Without debug enabled Drizzle is
+// given no logger at all, so it does not even build the arguments.
 export const db = drizzle({
   client: pool,
-  logger: {
-    logQuery: (query, params) => {
-      logger.info(`Query Executed`, {
-        query: query,
-        params: params,
-      });
-    },
-  },
+  logger: logger.isDebugEnabled()
+    ? {
+        logQuery: (query, params) => {
+          logger.debug(`Query Executed`, { query, params });
+        },
+      }
+    : false,
 });
 
 instrumentDrizzleClient(db);

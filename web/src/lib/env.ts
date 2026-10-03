@@ -14,6 +14,12 @@ export const env = createEnv({
      * queries one after another, so raise it there.
      */
     DATABASE_POOL_MAX: z.coerce.number().int().positive().default(1),
+    /**
+     * How much the server logs. Defaults to `debug` in development and `info`
+     * elsewhere; `debug` is what prints every database query, which is too much
+     * work to do on every request in production.
+     */
+    LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).optional(),
     EMAIL_SENDER_ADDRESS: z.string(),
     NODE_ENV: z.enum(['development', 'test', 'production']),
     /**
@@ -51,6 +57,7 @@ export const env = createEnv({
     EMAIL_SENDER_ADDRESS: process.env['EMAIL_SENDER_ADDRESS'],
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_POOL_MAX: process.env['DATABASE_POOL_MAX'],
+    LOG_LEVEL: process.env['LOG_LEVEL'],
     NEXT_PUBLIC_BASE_URL: process.env['NEXT_PUBLIC_BASE_URL'],
     NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL:
       process.env['NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL'],
