@@ -1,5 +1,5 @@
 import { endOfMonth, parse } from 'date-fns';
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { emis, selfTransferStatements, statements, recurringPayments } from '@/db/schema';
@@ -415,7 +415,65 @@ export const emisRouter = createTRPCRouter({
                 endOfMonth(parse(lastEmiMonth, 'yyyy-MM', new Date())).getTime(),
               ),
             );
+      // Everything falling due inside the period selected at the top of the dashboard.
+      // Defaults to the current month when the caller does not narrow it down.
+      // Snapped to whole months: the dashboard's range ends "today" by default, which
+      // is right for expenses but would hide the rest of this month's payments, and
+      // the period is picked a month at a time anyway.
+      const now = new Date();
+      const periodStart = startOfMonthLocal(input?.rangeStart ?? now, timezone);
+      const periodEnd = endOfMonthLocal(input?.rangeEnd ?? now, timezone);
       const cardAccountIds = cards.map((card) => card.accountId);
+      // A bill only looks at a card's balance on a due date inside the period, the
+      // credits after that, and the balance today -- never at a moment before the
+      // period starts (or before now, for a period still ahead). So everything
+      // older than that is one number per card, summed in Postgres and folded into
+      // the card's starting balance, and only the rows since come back as rows.
+      // Fetching the whole history brought ~1,000 rows a load into Node to add up.
+      const cutoff = periodStart < now ? periodStart : now;
+      const openingByAccount = new Map<string, number>();
+      if (cardAccountIds.length > 0) {
+        const openingStatements = await ctx.db
+          .select({
+            accountId: statements.accountId,
+            delta: sql<string>`COALESCE(SUM(CASE WHEN ${statements.statementKind} = 'expense' THEN -${statements.amount} ELSE ${statements.amount} END), 0)`,
+          })
+          .from(statements)
+          .where(
+            and(
+              eq(statements.userId, ctx.user.id),
+              inArray(statements.accountId, cardAccountIds),
+              lt(statements.createdAt, cutoff),
+            ),
+          )
+          .groupBy(statements.accountId);
+        const openingTransfers = await ctx.db.execute<{ account_id: string; delta: string }>(sql`
+          select account_id, coalesce(sum(delta), 0) as delta from (
+            select ${selfTransferStatements.toAccountId} as account_id, ${selfTransferStatements.amount} as delta
+            from ${selfTransferStatements}
+            where ${selfTransferStatements.userId} = ${ctx.user.id}
+              and ${inArray(selfTransferStatements.toAccountId, cardAccountIds)}
+              and ${selfTransferStatements.createdAt} < ${cutoff}
+            union all
+            select ${selfTransferStatements.fromAccountId}, -${selfTransferStatements.amount}
+            from ${selfTransferStatements}
+            where ${selfTransferStatements.userId} = ${ctx.user.id}
+              and ${inArray(selfTransferStatements.fromAccountId, cardAccountIds)}
+              and ${selfTransferStatements.createdAt} < ${cutoff}
+          ) moves
+          group by account_id`);
+        for (const row of [
+          ...openingStatements.map((o) => ({ accountId: o.accountId, delta: o.delta })),
+          ...openingTransfers.rows.map((o) => ({ accountId: o.account_id, delta: o.delta })),
+        ]) {
+          if (row.accountId !== null) {
+            openingByAccount.set(
+              row.accountId,
+              (openingByAccount.get(row.accountId) ?? 0) + Number(row.delta),
+            );
+          }
+        }
+      }
       const cardStatements =
         cardAccountIds.length === 0
           ? []
@@ -431,6 +489,7 @@ export const emisRouter = createTRPCRouter({
                 and(
                   eq(statements.userId, ctx.user.id),
                   inArray(statements.accountId, cardAccountIds),
+                  gte(statements.createdAt, cutoff),
                 ),
               );
       const cardTransfers =
@@ -451,6 +510,7 @@ export const emisRouter = createTRPCRouter({
                     inArray(selfTransferStatements.fromAccountId, cardAccountIds),
                     inArray(selfTransferStatements.toAccountId, cardAccountIds),
                   ),
+                  gte(selfTransferStatements.createdAt, cutoff),
                 ),
               );
       const cardActivities: CreditCardActivity[] = [
@@ -506,14 +566,6 @@ export const emisRouter = createTRPCRouter({
             sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
           ),
         );
-      // Everything falling due inside the period selected at the top of the dashboard.
-      // Defaults to the current month when the caller does not narrow it down.
-      // Snapped to whole months: the dashboard's range ends "today" by default, which
-      // is right for expenses but would hide the rest of this month's payments, and
-      // the period is picked a month at a time anyway.
-      const now = new Date();
-      const periodStart = startOfMonthLocal(input?.rangeStart ?? now, timezone);
-      const periodEnd = endOfMonthLocal(input?.rangeEnd ?? now, timezone);
 
       const periodEmiPayments = allEMIs.flatMap((emi) =>
         getEmiPaymentsInRange(emi, emi.creditCardName, periodStart, periodEnd, now),
@@ -539,7 +591,8 @@ export const emisRouter = createTRPCRouter({
       const periodCardBills = getCardBillsInRange(
         cards.map((card) => ({
           ...card,
-          startingBalance: Number(card.startingBalance),
+          startingBalance:
+            Number(card.startingBalance) + (openingByAccount.get(card.accountId) ?? 0),
           cardName: card.accountName,
         })),
         cardActivities,
