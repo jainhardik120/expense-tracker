@@ -1,8 +1,9 @@
+import { addMonths, differenceInCalendarDays } from 'date-fns';
 import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
-import { monthsBetween, project } from '@/lib/budget-projection';
+import { cycleAllowance, monthsBetween, project } from '@/lib/budget-projection';
 import { matchesRule } from '@/lib/budget-rules';
 import {
   expenseLineOptions,
@@ -240,10 +241,28 @@ export const budgetRouter = createTRPCRouter({
         cycles.find((row) => row.cycle === openCycle),
         lines,
       );
+      const cycleStartDay = year.startDate.getDate();
+      const [cycleYear, cycleMonth] = openCycle.split('-').map(Number);
+      const cycleStart = new Date(cycleYear, cycleMonth - 1, cycleStartDay);
+      const nextCycle = addMonths(cycleStart, 1);
+      const cycleEnd = nextCycle < year.endDate ? nextCycle : year.endDate;
+      // Messages still in the queue were spent, and almost always in this cycle.
+      // Counting them here keeps the figure still while they are entered: they
+      // move from the queue into the cycle, and the total does not change.
+      const daysLeft = Math.max(differenceInCalendarDays(cycleEnd, now), 0);
       const thisCycle = {
         key: openCycle,
-        spent: spentThisCycle,
-        remaining: projection.safeToSpendPerMonth - spentThisCycle,
+        endsOn: cycleEnd,
+        daysLeft,
+        recorded: spentThisCycle,
+        ...cycleAllowance({
+          affordable: projection.affordable,
+          spent: spentThisCycle + pendingSms.totalSpend,
+          monthsFromCycleStart: monthsBetween(cycleStart, year.endDate),
+          cycleMonths: monthsBetween(cycleStart, cycleEnd),
+          daysLeftInCycle: daysLeft,
+          daysInCycle: differenceInCalendarDays(cycleEnd, cycleStart),
+        }),
       };
 
       return {

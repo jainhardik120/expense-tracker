@@ -97,6 +97,12 @@ export type Projection = {
    * Negative means the goal is already out of reach without cutting commitments.
    */
   safeToSpendPerMonth: number;
+  /**
+   * The discretionary money that reaches the goal, over all of `spendMonths`.
+   * What `safeToSpendPerMonth` divides; kept whole so a cycle can work back to
+   * what it was on the day it opened.
+   */
+  affordable: number;
 };
 
 /** Whole months between two dates, fractional so a part-month is not lost. */
@@ -303,5 +309,76 @@ export const project = (
     pacePerMonth: discretionary.reduce((sum, line) => sum + line.pacePerMonth, 0),
     budgetPerMonth: discretionary.reduce((sum, line) => sum + line.allocationAmount, 0),
     safeToSpendPerMonth: spendMonths > 0 ? affordable / spendMonths : affordable,
+    affordable,
+  };
+};
+
+export type CycleAllowance = {
+  /** The monthly figure, fixed on the day the cycle opened. */
+  perMonth: number;
+  /** What this cycle gets of it -- all of it, unless the year ends inside the cycle. */
+  allowance: number;
+  /** Discretionary spending since the cycle opened, queued messages included. */
+  spent: number;
+  remaining: number;
+  /** What is left spread over the days the cycle still has, today included. */
+  perDay: number;
+  /** What an even pace through the allowance would have spent by the end of today. */
+  onPace: number;
+  /** What has been spent per day so far, today counted as one of the days. */
+  spentPerDay: number;
+};
+
+/**
+ * This cycle's allowance, as it stood on the day the cycle opened.
+ *
+ * Recomputing the allowance from today counts this cycle's spending twice: once
+ * in the money left, which is then spread over the months, and again when it is
+ * taken off the month. Every rupee spent early in a cycle took more than a rupee
+ * off what was left of it, and in the last cycle, with under a month to divide
+ * by, the "monthly" figure came out larger than all the money there was.
+ *
+ * Adding this cycle's spending back gives what was affordable on the day it
+ * opened, and dividing by the months from then gives a figure that stays put
+ * until the next cycle -- spending moves what is left of it, not the figure.
+ */
+export const cycleAllowance = ({
+  affordable,
+  spent,
+  monthsFromCycleStart,
+  cycleMonths,
+  daysLeftInCycle,
+  daysInCycle,
+}: {
+  /** Affordable as of now, with this cycle's spending already taken out. */
+  affordable: number;
+  spent: number;
+  /** From the day the cycle opened to the end of the year. */
+  monthsFromCycleStart: number;
+  /** How much of a month this cycle is, cut short if the year ends inside it. */
+  cycleMonths: number;
+  daysLeftInCycle: number;
+  daysInCycle: number;
+}): CycleAllowance => {
+  const atOpening = affordable + spent;
+  const perMonth = monthsFromCycleStart > 0 ? atOpening / monthsFromCycleStart : atOpening;
+  // The last cycle of the year is all that is left, not a month's share of it.
+  const allowance =
+    monthsFromCycleStart > cycleMonths ? perMonth * cycleMonths : atOpening;
+  const remaining = allowance - spent;
+  // Today is counted as gone: spending it has already done should not read as
+  // ahead of pace just because the day has not ended.
+  const daysGone = Math.min(daysInCycle - daysLeftInCycle + 1, daysInCycle);
+  const onPace = daysInCycle > 0 ? (allowance * daysGone) / daysInCycle : allowance;
+  return {
+    perMonth,
+    allowance,
+    spent,
+    remaining,
+    perDay: daysLeftInCycle > 0 ? remaining / daysLeftInCycle : remaining,
+    onPace,
+    // Over the same days as `onPace`, so the average is above the allowance's
+    // per-day share exactly when the total is above `onPace`.
+    spentPerDay: daysGone > 0 ? spent / daysGone : spent,
   };
 };

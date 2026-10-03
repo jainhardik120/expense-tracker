@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { project, monthsBetween } from './budget-projection';
+import { cycleAllowance, project, monthsBetween } from './budget-projection';
 
 const line = (over = {}) => ({
   lineId: 'l',
@@ -497,4 +497,66 @@ test('a pending bonus kept out of the budget does not raise the goal', () => {
   const residual = (p: ReturnType<typeof project>) =>
     p.lines.filter((l) => l.lineId === 'inv')[0].yearBudget;
   expect(residual(withBonus) - residual(salaryOnly)).toBeCloseTo(7000, 2);
+});
+
+// 30,000 affordable on the day a cycle opened, three months from the year's end.
+const opening = { monthsFromCycleStart: 3, cycleMonths: 1, daysLeftInCycle: 20, daysInCycle: 30 };
+
+test('the month figure is what it was when the cycle opened, whatever has been spent since', () => {
+  const untouched = cycleAllowance({ ...opening, affordable: 30000, spent: 0 });
+  const spentEarly = cycleAllowance({ ...opening, affordable: 26000, spent: 4000 });
+  expect(untouched.perMonth).toBe(10000);
+  expect(spentEarly.perMonth).toBe(10000);
+});
+
+test('a rupee spent this cycle takes exactly a rupee off what is left of it', () => {
+  const { remaining, perDay } = cycleAllowance({ ...opening, affordable: 26000, spent: 4000 });
+  expect(remaining).toBe(6000);
+  expect(perDay).toBe(300);
+});
+
+test('overspending a cycle shows below zero rather than shrinking the month', () => {
+  const { perMonth, remaining } = cycleAllowance({ ...opening, affordable: 18000, spent: 12000 });
+  expect(perMonth).toBe(10000);
+  expect(remaining).toBe(-2000);
+});
+
+test('the last cycle of the year gets everything that is left, not more', () => {
+  // A month left on the day it opened; 3,000 spent, 5,000 still there.
+  const last = cycleAllowance({
+    affordable: 5000,
+    spent: 3000,
+    monthsFromCycleStart: 1,
+    cycleMonths: 1,
+    daysLeftInCycle: 10,
+    daysInCycle: 30,
+  });
+  expect(last.remaining).toBe(5000);
+  expect(last.perDay).toBe(500);
+});
+
+test('a year ending inside a cycle hands that cycle the lot, not a month of it', () => {
+  // Ten days of year when the cycle opened: dividing by a third of a month
+  // would quote three times the money there is.
+  const short = cycleAllowance({
+    affordable: 2000,
+    spent: 1000,
+    monthsFromCycleStart: 1 / 3,
+    cycleMonths: 1 / 3,
+    daysLeftInCycle: 4,
+    daysInCycle: 10,
+  });
+  expect(short.allowance).toBe(3000);
+  expect(short.remaining).toBe(2000);
+});
+
+test('the pace to compare against counts today as already spent in', () => {
+  // Ten days in, today the eleventh: eleven thirtieths of the month.
+  const { onPace } = cycleAllowance({ ...opening, affordable: 26000, spent: 4000 });
+  expect(onPace).toBeCloseTo(3666.67, 2);
+});
+
+test('the daily average is over the same days as the pace it is compared with', () => {
+  const { spentPerDay } = cycleAllowance({ ...opening, affordable: 26000, spent: 4400 });
+  expect(spentPerDay).toBe(400);
 });

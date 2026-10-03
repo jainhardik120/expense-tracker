@@ -14,12 +14,6 @@ import { summaryRouter } from './summary';
 const callBudget = createCallerFactory(budgetRouter);
 const callSummary = createCallerFactory(summaryRouter);
 
-/**
- * The figure the budget page divides a month's allowance by, kept identical so
- * the widget and the page never disagree about what a day is worth.
- */
-const DAYS_PER_MONTH = 30.4;
-
 const widgetSchema = z.object({
   /** Accounts less friends: the money that is actually mine. */
   balance: z.number(),
@@ -84,12 +78,13 @@ export const widgetRouter = createTRPCRouter({
           ? null
           : await (async () => {
               const detail = await budgetCaller.getYearDetail({ budgetYearId: year.id });
-              const perMonth = detail.projection.safeToSpendPerMonth;
               // Taken whole from the detail rather than worked out again here,
-              // so the tile and the budget page always agree.
+              // so the tile and the budget page always agree. The day figure is
+              // what is left of this cycle over its days, not the month's
+              // average: it is the one that says how to spend today.
               return {
-                perDay: perMonth / DAYS_PER_MONTH,
-                perMonth,
+                perDay: detail.thisCycle.perDay,
+                perMonth: detail.thisCycle.perMonth,
                 remainingThisMonth: detail.thisCycle.remaining,
                 goal: detail.projection.goal,
               };

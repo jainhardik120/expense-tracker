@@ -22,6 +22,9 @@ const DAYS_PER_MONTH = 30.4;
 
 /** Figures below zero are the ones worth noticing, wherever they appear. */
 const OVERDRAWN = 'text-red-600';
+const MUTED = 'text-muted-foreground';
+/** Spending behind the month's even pace, so there is more to come. */
+const UNDER_PACE = 'text-green-600';
 
 const Row = ({
   label,
@@ -41,7 +44,7 @@ const Row = ({
       strong ? 'font-semibold' : ''
     }`}
   >
-    <span className={strong ? '' : 'text-muted-foreground'}>
+    <span className={strong ? '' : MUTED}>
       {label}
       {note === undefined ? null : (
         <span className="text-muted-foreground/70 ml-2 text-xs">{note}</span>
@@ -77,7 +80,7 @@ const Scenario = ({
       </TableCell>
       <TableCell className="text-right tabular-nums">
         {formatCurrency(invested)}
-        <span className={`ml-2 text-xs ${against < 0 ? OVERDRAWN : 'text-muted-foreground'}`}>
+        <span className={`ml-2 text-xs ${against < 0 ? OVERDRAWN : MUTED}`}>
           {against < 0 ? `${formatCurrency(-against)} short` : 'on target'}
         </span>
       </TableCell>
@@ -102,7 +105,6 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
     projectedAtBudget,
     commitmentsRemaining,
     discretionaryRemaining,
-    safeToSpendPerMonth,
     pacePerMonth,
     budgetPerMonth,
     unrecordedSpend,
@@ -114,7 +116,6 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
   const incomeRemaining = pendingCounted;
   // The balance is behind by whatever is still sitting in the message queue.
   const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
-  const perDay = safeToSpendPerMonth / DAYS_PER_MONTH;
   // The cycle runs from the day of the month the year opened on, so saying
   // which day it started is the difference between this figure reading as the
   // calendar month and reading as what it is.
@@ -122,6 +123,8 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
     setDate(parse(thisCycle.key, 'yyyy-MM', new Date()), detail.year.startDate.getDate()),
     'd MMM',
   );
+  const cycleCloses = format(thisCycle.endsOn, 'd MMM');
+  const paceColour = thisCycle.spent > thisCycle.onPace ? OVERDRAWN : UNDER_PACE;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -182,16 +185,15 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
         <CardContent className="space-y-4">
           <div className="rounded-lg border p-3">
             <p className="text-muted-foreground text-xs">To reach your goal, spend at most</p>
-            <div className="flex flex-wrap items-baseline gap-x-3">
-              <p className="text-3xl font-semibold">
-                {formatCurrency(safeToSpendPerMonth)}
-                <span className="text-muted-foreground ml-1 text-sm font-normal">/month</span>
-              </p>
-              <p className="text-muted-foreground text-lg">
-                {formatCurrency(perDay)}
-                <span className="ml-1 text-sm">/day</span>
-              </p>
-            </div>
+            <p className="text-3xl font-semibold">
+              {formatCurrency(thisCycle.perMonth)}
+              <span className="text-muted-foreground ml-1 text-sm font-normal">/month</span>
+            </p>
+            {/* Worked out as of the day the cycle opened, so spending moves what
+                is left of it below and not this figure. */}
+            <p className="text-muted-foreground/70 text-xs">
+              Set on {cycleOpened}, holds until {cycleCloses}
+            </p>
             {/* The same number the phone widget shows, read from the same
                 field, so the two can never be seen to disagree. */}
             <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 border-t pt-3">
@@ -204,9 +206,33 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
                 {formatCurrency(thisCycle.remaining)}
               </p>
             </div>
-            <p className="text-muted-foreground/70 text-xs">
-              {formatCurrency(thisCycle.spent)} spent since {cycleOpened}
-            </p>
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+              <p className="text-muted-foreground/70 text-xs">
+                <span
+                  className={`font-semibold ${paceColour}`}
+                  title={`An even pace would have spent ${formatCurrency(thisCycle.onPace)} by today`}
+                >
+                  {formatCurrency(thisCycle.recorded)}
+                </span>{' '}
+                spent since {cycleOpened}, averaging{' '}
+                <span className={`font-semibold ${paceColour}`}>
+                  {formatCurrency(thisCycle.spentPerDay)}/day
+                </span>
+                {thisCycle.spent > thisCycle.recorded
+                  ? `, ${formatCurrency(thisCycle.spent - thisCycle.recorded)} more waiting in messages`
+                  : ''}
+              </p>
+              <p
+                className={`text-sm tabular-nums ${
+                  thisCycle.perDay < 0 ? OVERDRAWN : MUTED
+                }`}
+              >
+                {formatCurrency(thisCycle.perDay)}
+                <span className="ml-1 text-xs">
+                  /day for {thisCycle.daysLeft} {thisCycle.daysLeft === 1 ? 'day' : 'days'}
+                </span>
+              </p>
+            </div>
           </div>
 
           <Table>
@@ -236,7 +262,7 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
                 highlight
                 invested={goal}
                 label="To hit your goal"
-                perMonth={safeToSpendPerMonth}
+                perMonth={thisCycle.perMonth}
               />
             </TableBody>
           </Table>
