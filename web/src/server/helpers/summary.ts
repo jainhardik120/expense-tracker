@@ -543,11 +543,7 @@ export const getRawDataForAggregation = instrumentedFunction(
       extraConditions:
         onlyStatementIds === undefined
           ? []
-          : [
-              onlyStatementIds.length === 0
-                ? sql`false`
-                : inArray(statements.id, onlyStatementIds),
-            ],
+          : [onlyStatementIds.length === 0 ? sql`false` : inArray(statements.id, onlyStatementIds)],
     };
     const selfTransferParams = {
       ...params,
@@ -576,6 +572,33 @@ export const getRawDataForAggregation = instrumentedFunction(
     };
   },
 );
+
+/**
+ * Rows grouped under one key, each group in the order the rows arrived.
+ *
+ * The period loop below asks, for every period, for every account, friend and
+ * category, which rows belong there. Filtering the whole list for each of
+ * those made the work periods x (accounts + friends + categories) x rows, the
+ * biggest single cost of rendering the dashboard. Grouped once, each question
+ * is a lookup.
+ */
+const groupRows = <T>(rows: T[], key: (row: T) => string): Map<string, T[]> => {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const k = key(row);
+    const group = groups.get(k);
+    if (group === undefined) {
+      groups.set(k, [row]);
+    } else {
+      group.push(row);
+    }
+  }
+  return groups;
+};
+
+/** A period and an account, friend or category, as one key. */
+const periodKey = (periodStart: Date | number, id: string | null): string =>
+  `${typeof periodStart === 'number' ? periodStart : periodStart.getTime()}|${id ?? '\u0000'}`;
 
 export const processAggregatedData = ({
   accountsSummary,
@@ -616,18 +639,30 @@ export const processAggregatedData = ({
   for (const friend of friendsSummary) {
     lastPeriodBalances[friend.friend.id] = friend.startingBalance;
   }
+  const statementsByAccount = groupRows(statementData, (exp) =>
+    periodKey(exp.periodStart, exp.accountId),
+  );
+  const transfersByAccount = groupRows(selfTransferData, (exp) =>
+    periodKey(exp.periodStart, exp.accountId),
+  );
+  const friendRowsByFriend = groupRows(friendsData, (exp) =>
+    periodKey(exp.periodStart, exp.friendId),
+  );
+  const splitsByFriend = groupRows(splitsData, (exp) => periodKey(exp.periodStart, exp.friendId));
+  const statementsByCategory = groupRows(statementData, (exp) =>
+    periodKey(exp.periodStart, exp.category),
+  );
+  const friendRowsByCategory = groupRows(friendsData, (exp) =>
+    periodKey(exp.periodStart, exp.category),
+  );
+  const splitsByCategory = groupRows(splitsData, (exp) => periodKey(exp.periodStart, exp.category));
   const periodAggregations = uniquePeriodStarts.map((date, idx) => {
+    const time = date.getTime();
     const processedAccountSummary: (AggregatedAccountTransferSummary & { accountId: string })[] =
       [];
     for (const account of accountsSummary) {
-      const a = statementData.filter(
-        (exp) =>
-          exp.accountId === account.account.id && exp.periodStart.getTime() === date.getTime(),
-      );
-      const b = selfTransferData.filter(
-        (exp) =>
-          exp.accountId === account.account.id && exp.periodStart.getTime() === date.getTime(),
-      );
+      const a = statementsByAccount.get(periodKey(time, account.account.id)) ?? [];
+      const b = transfersByAccount.get(periodKey(time, account.account.id)) ?? [];
       const summaryData = getFinalBalanceFromStatements(...a, ...b);
       const startingBalance = lastPeriodBalances[account.account.id];
       const finalBalance = new Decimal(startingBalance).plus(summaryData.totalTransfers).toNumber();
@@ -641,12 +676,8 @@ export const processAggregatedData = ({
     }
     const processedFriendSummary: (AggregatedFriendTransferSummary & { friendId: string })[] = [];
     for (const friend of friendsSummary) {
-      const a = friendsData.filter(
-        (exp) => exp.friendId === friend.friend.id && exp.periodStart.getTime() === date.getTime(),
-      );
-      const b = splitsData.filter(
-        (exp) => exp.friendId === friend.friend.id && exp.periodStart.getTime() === date.getTime(),
-      );
+      const a = friendRowsByFriend.get(periodKey(time, friend.friend.id)) ?? [];
+      const b = splitsByFriend.get(periodKey(time, friend.friend.id)) ?? [];
       const summaryData = getFinalBalancesFromFriendStatements(...a, ...b);
       const startingBalance = lastPeriodBalances[friend.friend.id];
       const finalBalance = new Decimal(startingBalance).plus(summaryData.totalTransfers).toNumber();
@@ -668,16 +699,10 @@ export const processAggregatedData = ({
       }
     > = {};
     for (const category of uniqueCategories) {
-      const filteredStatements = statementData.filter(
-        (exp) => exp.category === category && exp.periodStart.getTime() === date.getTime(),
-      );
+      const filteredStatements = statementsByCategory.get(periodKey(time, category)) ?? [];
       const statementsSummary = getFinalBalanceFromStatements(...filteredStatements);
-      const friendsStatements = friendsData.filter(
-        (exp) => exp.category === category && exp.periodStart.getTime() === date.getTime(),
-      );
-      const splitsStatements = splitsData.filter(
-        (exp) => exp.category === category && exp.periodStart.getTime() === date.getTime(),
-      );
+      const friendsStatements = friendRowsByCategory.get(periodKey(time, category)) ?? [];
+      const splitsStatements = splitsByCategory.get(periodKey(time, category)) ?? [];
       const friendsSummary = getFinalBalancesFromFriendStatements(
         ...friendsStatements,
         ...splitsStatements,
