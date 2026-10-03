@@ -495,6 +495,28 @@ type SplitsAggregatedData = Awaited<ReturnType<typeof aggregatedSplitsData>>[num
   periodStart: Date;
   category: string;
 };
+/** An account with nothing summed against it: present, so its rows can be attributed. */
+const withoutAccountBalance = (account: Account): AccountSummary => ({
+  account,
+  startingBalance: 0,
+  expenses: 0,
+  selfTransfers: 0,
+  outsideTransactions: 0,
+  friendTransactions: 0,
+  totalTransfers: 0,
+  finalBalance: 0,
+});
+
+const withoutFriendBalance = (friend: Friend): FriendSummary => ({
+  friend,
+  startingBalance: 0,
+  paidByFriend: 0,
+  splits: 0,
+  friendTransactions: 0,
+  totalTransfers: 0,
+  finalBalance: 0,
+});
+
 export const getRawDataForAggregation = instrumentedFunction(
   'getRawDataForAggregation',
   async (
@@ -513,6 +535,12 @@ export const getRawDataForAggregation = instrumentedFunction(
      */
     onlyStatementIds?: string[],
   ) => {
+    // Narrowed to one budget line, this feeds a chart of that line's spending.
+    // Balances mean nothing for a slice of the statements, and computing them
+    // was most of the second aggregation the dashboard runs: the accounts and
+    // friends are still needed to attribute expenses, but not their balances,
+    // and self transfers are never expenses at all.
+    const withBalances = onlyStatementIds === undefined;
     const params = {
       db: db,
       userId: userId,
@@ -555,13 +583,17 @@ export const getRawDataForAggregation = instrumentedFunction(
     const statementData = (await aggregatedStatementsSummary(
       statementParams,
     )) as StatementAggregatedData[];
-    const selfTransferData = (await aggregatedSelfTransfersData(
-      selfTransferParams,
-    )) as SelfTransferAggregatedData[];
+    const selfTransferData = withBalances
+      ? ((await aggregatedSelfTransfersData(selfTransferParams)) as SelfTransferAggregatedData[])
+      : [];
     const friendsData = (await aggregatedFriendsData(statementParams)) as FriendsAggregatedData[];
     const splitsData = (await aggregatedSplitsData(statementParams)) as SplitsAggregatedData[];
-    const startingBalances = await getAccountsSummaryBetweenDates(db, userId, start, end);
-    const startingFriendsBalances = await getFriendsSummaryBetweenDates(db, userId, start, end);
+    const startingBalances = withBalances
+      ? await getAccountsSummaryBetweenDates(db, userId, start, end)
+      : (await getAccounts(db, userId)).map(withoutAccountBalance);
+    const startingFriendsBalances = withBalances
+      ? await getFriendsSummaryBetweenDates(db, userId, start, end)
+      : (await getFriends(db, userId)).map(withoutFriendBalance);
     return {
       accountsSummary: startingBalances,
       friendsSummary: startingFriendsBalances,
