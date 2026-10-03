@@ -386,6 +386,13 @@
       "when": 1790615056489,
       "tag": "0054_seed_pending_income_lines",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1791047046386,
+      "tag": "0055_declare_user_indexes",
+      "breakpoints": true
     }
   ]
 }

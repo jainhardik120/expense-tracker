@@ -207,7 +207,15 @@ const aggregatedSplitsData = (aggregationArguments: AggregationArguments) => {
   // Narrowed alongside the statements they belong to: a split is a deduction
   // from one statement, and subtracting every split from one line's spending
   // would drag other people's shares of other lines into it.
-  const conditions = [...buildQueryConditions(statements, userId, start, end), ...extraConditions];
+  //
+  // The split's own owner is checked as well as the statement's. It is the same
+  // user either way, but only this lets Postgres start from the user's splits
+  // instead of reading every split there is to find the ones joined to them.
+  const conditions = [
+    eq(splits.userId, userId),
+    ...buildQueryConditions(statements, userId, start, end),
+    ...extraConditions,
+  ];
   const query = db
     .select({
       ...selectColumns,

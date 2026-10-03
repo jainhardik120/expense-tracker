@@ -105,6 +105,10 @@ export const statements = pgTable(
     `,
     ),
     index('statements_created_at_idx').on(desc(table.createdAt)),
+    // Every per-user window -- a month's statements, a balance up to a date --
+    // reads through this. It was created by hand on the hosted database and
+    // is declared here so a database built from migrations has it too.
+    index('statements_user_created_id_idx').on(table.userId, desc(table.createdAt), table.id),
   ],
 );
 
@@ -126,27 +130,42 @@ export const selfTransferStatements = pgTable(
       .notNull()
       .$defaultFn(() => new Date()),
   },
-  (table) => [index('self_transfer_statements_created_at_idx').on(desc(table.createdAt))],
+  (table) => [
+    index('self_transfer_statements_created_at_idx').on(desc(table.createdAt)),
+    // As statements_user_created_id_idx: made by hand, declared here.
+    index('self_transfer_user_created_id_idx').on(table.userId, desc(table.createdAt), table.id),
+  ],
 );
 
-export const splits = pgTable('splits', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  statementId: uuid('statement_id')
-    .notNull()
-    .references(() => statements.id, { onDelete: 'cascade' }),
-  amount: numeric('amount').notNull(),
-  friendId: uuid('friend_id')
-    .notNull()
-    .references(() => friendsProfiles.id, {
-      onDelete: 'no action',
-    }),
-  createdAt: timestamp('created_at')
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
+export const splits = pgTable(
+  'splits',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    statementId: uuid('statement_id')
+      .notNull()
+      .references(() => statements.id, { onDelete: 'cascade' }),
+    amount: numeric('amount').notNull(),
+    friendId: uuid('friend_id')
+      .notNull()
+      .references(() => friendsProfiles.id, {
+        onDelete: 'no action',
+      }),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    // A statement's splits. Made by hand on the hosted database; declared here.
+    index('splits_statement_id_idx').on(table.statementId),
+    // One user's splits. Without it, finding them meant reading every split in
+    // the table and keeping the ones whose statement was theirs -- at a
+    // thousand users, 1.7 s for a query the dashboard runs twice.
+    index('splits_user_statement_idx').on(table.userId, table.statementId),
+  ],
+);
 
 export const reportBoundaries = pgTable(
   'report_boundaries',
