@@ -10,7 +10,28 @@ export default async function ReportsPage() {
   ]);
   return (
     <div className="flex flex-col gap-6">
-      <ReportsTable initialBoundaries={boundaries} initialReport={reportData.periodAggregations} />
+      {/* Only what a row draws: each period's per-account and per-friend
+          balances are most of the aggregation, and the table reads none of it. */}
+      <ReportsTable
+        initialBoundaries={boundaries}
+        initialReport={reportData.periodAggregations.map(
+          ({
+            date,
+            endDate,
+            totalAccountsSummary,
+            totalFriendsSummary,
+            totalExpenses,
+            categoryWiseSummary,
+          }) => ({
+            date,
+            endDate,
+            totalAccountsSummary,
+            totalFriendsSummary,
+            totalExpenses,
+            categoryWiseSummary,
+          }),
+        )}
+      />
       <ReportPanel boundaries={boundaries} />
     </div>
   );

@@ -20,7 +20,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useDataTable } from '@/hooks/use-data-table';
-import type { ProcessedAggregationData } from '@/types';
+import type { PeriodTotals } from '@/types';
 
 import { BoundaryListItem, CreateBoundaryForm } from './boundary-forms';
 import { DownloadReportDialog } from './download-report-dialog';
@@ -33,7 +33,7 @@ interface Boundary {
 }
 
 interface ReportsTableProps {
-  initialReport: ProcessedAggregationData[];
+  initialReport: PeriodTotals[];
   initialBoundaries: Boundary[];
 }
 
