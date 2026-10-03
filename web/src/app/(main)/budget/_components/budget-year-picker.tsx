@@ -2,6 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 
+import { Pencil } from 'lucide-react';
+import { z } from 'zod';
+
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +27,43 @@ const yearFields = [
   { name: 'endDate' as const, label: 'Ends', type: 'date' as const },
 ];
 
+/**
+ * Rename the year or move its dates.
+ *
+ * Sends the whole year back, not just what the form shows: the update replaces
+ * every column, and leaving out where last year's leftover goes would quietly
+ * put it back in the general pot.
+ */
+const EditYear = ({ year }: { year: Years[number] }) => {
+  const router = useRouter();
+  const mutation = api.budget.updateYear.useMutation();
+  return (
+    <MutationModal
+      button={
+        <Button variant="outline">
+          <Pencil />
+          Edit
+        </Button>
+      }
+      defaultValues={{
+        id: year.id,
+        name: year.name,
+        startDate: year.startDate,
+        endDate: year.endDate,
+        openingBalanceLineId: year.openingBalanceLineId,
+      }}
+      fields={yearFields}
+      mutation={mutation}
+      refresh={() => {
+        router.refresh();
+      }}
+      schema={budgetYearSchema.extend({ id: z.string() })}
+      successToast={() => 'Budget year updated'}
+      titleText="Edit Budget Year"
+    />
+  );
+};
+
 export const BudgetYearPicker = ({
   years,
   selectedId,
@@ -33,6 +73,7 @@ export const BudgetYearPicker = ({
 }) => {
   const router = useRouter();
   const mutation = api.budget.createYear.useMutation();
+  const selected = years.find((year) => year.id === selectedId);
 
   const newYearForm = (
     <MutationModal
@@ -83,6 +124,7 @@ export const BudgetYearPicker = ({
           ))}
         </SelectContent>
       </Select>
+      {selected === undefined ? null : <EditYear key={selected.id} year={selected} />}
       {newYearForm}
     </div>
   );
