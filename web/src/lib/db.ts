@@ -1,7 +1,9 @@
+import { createHash } from 'node:crypto';
+
 import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
 import { attachDatabasePool } from '@vercel/functions';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { Pool, type QueryConfig } from 'pg';
 
 import { env } from '@/lib/env';
 import logger from '@/lib/logger';
@@ -57,7 +59,48 @@ const createPool = () => {
   return created;
 };
 
-const pool = globalForDb.expenseTrackerPool ?? createPool();
+/**
+ * Beyond this many parameters a query is an `IN (...)` list whose text changes
+ * with its length, so it is never run twice and naming it would only fill the
+ * connection's statement cache.
+ */
+const MAX_PREPARED_PARAMS = 50;
+/** Enough of the digest to make a collision between two query texts out of the question. */
+const STATEMENT_NAME_LENGTH = 24;
+
+/**
+ * Every query as a named prepared statement, named after its own text.
+ *
+ * Unnamed, Postgres parses and plans each query from scratch on every call --
+ * nearly a fifth of its time on the dashboard went on planning the same thirty
+ * or so query shapes over and over. Named, a connection parses a shape once and,
+ * after a few runs, reuses its plan. The name is a hash of the SQL, so one name
+ * can never stand for two different statements.
+ */
+const prepareEverything = (target: Pool) => {
+  const query = target.query.bind(target) as (...args: unknown[]) => unknown;
+  (target as unknown as { query: (...args: unknown[]) => unknown }).query = (
+    config: unknown,
+    values?: unknown,
+    ...rest: unknown[]
+  ) => {
+    if (
+      typeof config === 'object' &&
+      config !== null &&
+      'text' in config &&
+      (config as QueryConfig).name === undefined &&
+      !(Array.isArray(values) && values.length > MAX_PREPARED_PARAMS)
+    ) {
+      const { text } = config as QueryConfig;
+      const name = `q_${createHash('sha256').update(text).digest('base64url').slice(0, STATEMENT_NAME_LENGTH)}`;
+      return query({ ...config, name }, values, ...rest);
+    }
+    return query(config, values, ...rest);
+  };
+  return target;
+};
+
+const pool = globalForDb.expenseTrackerPool ?? prepareEverything(createPool());
 globalForDb.expenseTrackerPool = pool;
 
 // Every query, with its parameters, is a debug-level line: worth having in
