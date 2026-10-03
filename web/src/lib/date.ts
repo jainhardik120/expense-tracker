@@ -22,6 +22,7 @@ import {
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { getCookies } from 'next-client-cookies/server';
 
+import { cachedDateFormat } from '@/lib/format';
 import { TIMEZONE_COOKIE, type DateTruncUnit } from '@/types';
 
 const truncFormatMap: Record<DateTruncUnit, string> = {
@@ -73,7 +74,7 @@ export const formatTruncatedDate = (
  * back should be handed the instant instead.
  */
 export const localWallClock = (date: Date, timeZone: string): string => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
+  const parts = cachedDateFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
