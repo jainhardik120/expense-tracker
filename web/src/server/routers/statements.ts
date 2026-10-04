@@ -378,6 +378,7 @@ export const statementsRouter = createTRPCRouter({
             total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
           })
           .from(splits)
+          .where(eq(splits.userId, ctx.user.id))
           .groupBy(splits.statementId),
       );
       const rawStatements = await db
@@ -452,8 +453,8 @@ export const statementsRouter = createTRPCRouter({
       }
       const { statementAmount, totalAllocated, kind } = await getStatementAmountAndSplits(
         ctx.db,
+        ctx.user.id,
         input.statementId,
-        '',
       );
       if (kind !== 'expense') {
         throw new Error('Cannot add split. Statement is not an expense.');
@@ -506,6 +507,7 @@ export const statementsRouter = createTRPCRouter({
       const { statementId } = currentSplit[0];
       const { statementAmount, totalAllocated } = await getStatementAmountAndSplits(
         ctx.db,
+        ctx.user.id,
         statementId,
         input.splitId,
       );

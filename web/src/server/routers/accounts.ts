@@ -106,6 +106,15 @@ export const accountsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await validateAccountOwnership(ctx.db, input.accountId, ctx.user.id);
+      const owned = await ctx.db
+        .select({ id: creditCardAccounts.id })
+        .from(creditCardAccounts)
+        .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
+        .where(and(eq(creditCardAccounts.id, input.id), eq(bankAccount.userId, ctx.user.id)))
+        .limit(1);
+      if (owned.length === 0) {
+        throw new Error(CREDIT_CARD_NOT_FOUND);
+      }
       const result = await ctx.db
         .update(creditCardAccounts)
         .set({

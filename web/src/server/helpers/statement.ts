@@ -44,13 +44,14 @@ import {
 
 export const getStatementAmountAndSplits = async (
   db: Database,
+  userId: string,
   statementId: string,
-  exceptSplitId: string = '',
+  exceptSplitId?: string,
 ) => {
   const statementResult = await db
     .select({ amount: statements.amount, kind: statements.statementKind })
     .from(statements)
-    .where(eq(statements.id, statementId));
+    .where(and(eq(statements.id, statementId), eq(statements.userId, userId)));
   if (statementResult.length === 0) {
     throw new Error('Statement not found');
   }
@@ -58,11 +59,13 @@ export const getStatementAmountAndSplits = async (
   const query = db
     .select({ sum: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number) })
     .from(splits);
-  if (exceptSplitId.trim() === '') {
-    query.where(eq(splits.statementId, statementId));
-  } else {
-    query.where(and(eq(splits.statementId, statementId), ne(splits.id, exceptSplitId)));
-  }
+  query.where(
+    and(
+      eq(splits.userId, userId),
+      eq(splits.statementId, statementId),
+      exceptSplitId === undefined ? undefined : ne(splits.id, exceptSplitId),
+    ),
+  );
   const totalAllocatedResult = await query.then((res) => res[0]);
   return {
     kind: statement.kind,
