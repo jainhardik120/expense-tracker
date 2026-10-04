@@ -134,7 +134,8 @@ export const bulkInsertFromNotifications = instrumentedFunction(
             eq(smsNotifications.status, 'pending'),
             inArray(smsNotifications.id, ids),
           ),
-        );
+        )
+        .for('update');
 
       const timestampById = new Map(pending.map((row) => [row.id, row.createdAt]));
       const importable = rows.filter((row) => timestampById.has(row.id));
@@ -184,6 +185,7 @@ export const bulkInsertFromNotifications = instrumentedFunction(
         FROM (VALUES ${pairs}) AS source(notification_id, statement_id)
         WHERE target.id = source.notification_id
           AND target.user_id = ${userId}
+          AND target.status = 'pending'
       `);
 
       return { imported: linked.length, stale: rows.length - linked.length };
