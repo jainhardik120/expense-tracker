@@ -43,6 +43,12 @@ class StatementsViewModel @Inject constructor(
     var friends by mutableStateOf<List<FriendItem>>(emptyList())
         private set
 
+    var categories by mutableStateOf<List<String>>(emptyList())
+        private set
+
+    var tags by mutableStateOf<List<String>>(emptyList())
+        private set
+
     var showCreateDialog by mutableStateOf(false)
         private set
 
@@ -56,6 +62,7 @@ class StatementsViewModel @Inject constructor(
         loadStatements()
         loadAccounts()
         loadFriends()
+        loadSuggestions()
     }
 
     fun loadStatements() {
@@ -104,6 +111,21 @@ class StatementsViewModel @Inject constructor(
         }
     }
 
+    private fun loadSuggestions() {
+        makeApiCall(call = { api.getCategories() }) { response ->
+            categories = response
+        }
+        makeApiCall(call = { api.getTags() }) { response ->
+            tags = response
+        }
+    }
+
+    private fun onSaved() {
+        closeCreateDialog()
+        loadStatements()
+        loadSuggestions()
+    }
+
     fun openCreateDialog() {
         editingStatement = null
         showCreateDialog = true
@@ -125,8 +147,7 @@ class StatementsViewModel @Inject constructor(
             preExecuting = { isSaving = true },
             onDoneExecuting = { isSaving = false }
         ) {
-            closeCreateDialog()
-            loadStatements()
+            onSaved()
         }
     }
 
@@ -136,8 +157,7 @@ class StatementsViewModel @Inject constructor(
             preExecuting = { isSaving = true },
             onDoneExecuting = { isSaving = false }
         ) {
-            closeCreateDialog()
-            loadStatements()
+            onSaved()
         }
     }
 
@@ -147,8 +167,7 @@ class StatementsViewModel @Inject constructor(
             preExecuting = { isSaving = true },
             onDoneExecuting = { isSaving = false }
         ) {
-            closeCreateDialog()
-            loadStatements()
+            onSaved()
         }
     }
 
@@ -158,8 +177,7 @@ class StatementsViewModel @Inject constructor(
             preExecuting = { isSaving = true },
             onDoneExecuting = { isSaving = false }
         ) {
-            closeCreateDialog()
-            loadStatements()
+            onSaved()
         }
     }
 

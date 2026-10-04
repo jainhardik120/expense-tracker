@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jainhardik120.expensetracker.data.entity.StatementItem
+import com.jainhardik120.expensetracker.ui.CollectUiEvents
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -55,6 +56,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatementsScreen(viewModel: StatementsViewModel) {
+    CollectUiEvents(viewModel)
     val listState = rememberLazyListState()
     var selectedStatement by remember { mutableStateOf<StatementItem?>(null) }
 
@@ -85,6 +87,8 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
         CreateStatementDialog(
             accounts = viewModel.accounts,
             friends = viewModel.friends,
+            categories = viewModel.categories,
+            tagSuggestions = viewModel.tags,
             isSaving = viewModel.isSaving,
             onDismiss = { viewModel.closeCreateDialog() },
             onCreateStatement = { viewModel.createStatement(it) },

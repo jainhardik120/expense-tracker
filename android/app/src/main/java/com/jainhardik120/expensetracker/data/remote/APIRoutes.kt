@@ -13,7 +13,11 @@ object APIRoutes {
     const val FRIENDS = "${BASE_URL}/friends"
     const val WIDGET = "${BASE_URL}/widget"
     const val INVESTMENTS = "${BASE_URL}/investments"
+    const val CATEGORIES = "${STATEMENTS}/categories"
+    const val TAGS = "${STATEMENTS}/tags"
 
     fun statement(id: String) = "${STATEMENTS}/$id"
     fun selfTransfer(id: String) = "${SELF_TRANSFER}/$id"
+    fun smsNotification(id: String) = "${SEND_NOTIFICATION}/$id"
+    fun smsNotificationHints(id: String) = "${SEND_NOTIFICATION}/$id/hints"
 }

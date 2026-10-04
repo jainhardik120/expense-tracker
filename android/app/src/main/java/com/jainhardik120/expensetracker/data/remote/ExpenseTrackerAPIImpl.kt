@@ -9,6 +9,9 @@ import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
 import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
+import com.jainhardik120.expensetracker.data.entity.SmsInsertHints
+import com.jainhardik120.expensetracker.data.entity.SmsNotificationsResponse
+import com.jainhardik120.expensetracker.data.entity.UpdateSmsNotificationBody
 import com.jainhardik120.expensetracker.data.entity.StatementsResponse
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
 import com.jainhardik120.expensetracker.data.entity.WidgetSummary
@@ -179,6 +182,52 @@ class ExpenseTrackerAPIImpl(
         return performApiRequest {
             requestBuilder<List<FriendItem>>(
                 url = APIRoutes.FRIENDS, method = HttpMethod.Get
+            )
+        }
+    }
+
+    override suspend fun getCategories(): Result<List<String>, MessageError> {
+        return performApiRequest {
+            requestBuilder<List<String>>(url = APIRoutes.CATEGORIES, method = HttpMethod.Get)
+        }
+    }
+
+    override suspend fun getTags(): Result<List<String>, MessageError> {
+        return performApiRequest {
+            requestBuilder<List<String>>(url = APIRoutes.TAGS, method = HttpMethod.Get)
+        }
+    }
+
+    override suspend fun getSmsNotifications(
+        page: Int,
+        perPage: Int,
+        status: String?
+    ): Result<SmsNotificationsResponse, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.SEND_NOTIFICATION) {
+                method = HttpMethod.Get
+                parameter("page", page)
+                parameter("perPage", perPage)
+                if (status != null) parameter("status", status)
+            }.body()
+        }
+    }
+
+    override suspend fun updateSmsNotification(
+        id: String,
+        body: UpdateSmsNotificationBody
+    ): Result<IDResult, MessageError> {
+        return performApiRequest {
+            requestBuilder<UpdateSmsNotificationBody, IDResult>(
+                url = APIRoutes.smsNotification(id), method = HttpMethod.Patch, body = body
+            )
+        }
+    }
+
+    override suspend fun getSmsInsertHints(id: String): Result<SmsInsertHints, MessageError> {
+        return performApiRequest {
+            requestBuilder<SmsInsertHints>(
+                url = APIRoutes.smsNotificationHints(id), method = HttpMethod.Get
             )
         }
     }

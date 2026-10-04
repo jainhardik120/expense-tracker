@@ -1,6 +1,7 @@
 package com.jainhardik120.expensetracker.widget
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -8,10 +9,10 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
-import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
@@ -26,6 +27,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.jainhardik120.expensetracker.AppDestination
 import com.jainhardik120.expensetracker.MainActivity
 import java.time.Instant
 import java.time.ZoneId
@@ -45,12 +47,16 @@ private val TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 class InvestmentWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent { GlanceTheme { InvestmentWidgetBody() } }
+        val openInvestments = Intent(context, MainActivity::class.java)
+            .setAction(AppDestination.ACTION_OPEN)
+            .putExtra(AppDestination.EXTRA, AppDestination.INVESTMENTS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        provideContent { GlanceTheme { InvestmentWidgetBody(openInvestments) } }
     }
 }
 
 @Composable
-private fun InvestmentWidgetBody() {
+private fun InvestmentWidgetBody(openInvestments: Intent) {
     val state = currentState<androidx.datastore.preferences.core.Preferences>()
     val updatedAt = state[InvestmentWidgetKeys.updatedAt]
     val error = state[InvestmentWidgetKeys.error]
@@ -61,7 +67,7 @@ private fun InvestmentWidgetBody() {
             .background(Ink)
             .cornerRadius(20.dp)
             .padding(12.dp)
-            .clickable(actionStartActivity<MainActivity>())
+            .clickable(actionStartActivity(openInvestments))
     ) {
         Tile(
             label = "Portfolio",

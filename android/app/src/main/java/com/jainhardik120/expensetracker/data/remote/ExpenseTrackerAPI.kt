@@ -9,6 +9,9 @@ import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
 import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
+import com.jainhardik120.expensetracker.data.entity.SmsInsertHints
+import com.jainhardik120.expensetracker.data.entity.SmsNotificationsResponse
+import com.jainhardik120.expensetracker.data.entity.UpdateSmsNotificationBody
 import com.jainhardik120.expensetracker.data.entity.StatementsResponse
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
 import com.jainhardik120.expensetracker.data.entity.WidgetSummary
@@ -40,5 +43,20 @@ interface ExpenseTrackerAPI {
 
     suspend fun getAccounts(): Result<List<AccountItem>, MessageError>
     suspend fun getFriends(): Result<List<FriendItem>, MessageError>
+    suspend fun getCategories(): Result<List<String>, MessageError>
+    suspend fun getTags(): Result<List<String>, MessageError>
+
+    suspend fun getSmsNotifications(
+        page: Int,
+        perPage: Int,
+        status: String?
+    ): Result<SmsNotificationsResponse, MessageError>
+
+    suspend fun updateSmsNotification(
+        id: String,
+        body: UpdateSmsNotificationBody
+    ): Result<IDResult, MessageError>
+
+    suspend fun getSmsInsertHints(id: String): Result<SmsInsertHints, MessageError>
 }
 

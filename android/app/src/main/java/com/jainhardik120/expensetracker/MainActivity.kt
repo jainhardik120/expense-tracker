@@ -48,11 +48,17 @@ import com.jainhardik120.expensetracker.ui.auth.LoginScreen
 import com.jainhardik120.expensetracker.ui.theme.ExpenseTrackerTheme
 import com.jainhardik120.expensetracker.widget.WidgetRefreshScheduler
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val destinationRequests = MutableStateFlow<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null) {
+            destinationRequests.value = AppDestination.from(intent)
+        }
         WidgetRefreshScheduler.ensureScheduled(this)
         enableEdgeToEdge()
         setContent {
@@ -93,11 +99,22 @@ class MainActivity : ComponentActivity() {
                     }
 
                     is AuthState.SignedIn -> PermissionGate(activity = this@MainActivity) {
-                        MainApp(onLogout = vm::logout)
+                        val destination by destinationRequests.collectAsState()
+                        MainApp(
+                            onLogout = vm::logout,
+                            requestedDestination = destination,
+                            onDestinationHandled = { destinationRequests.value = null }
+                        )
                     }
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        AppDestination.from(intent)?.let { destinationRequests.value = it }
     }
 
     override fun onStop() {

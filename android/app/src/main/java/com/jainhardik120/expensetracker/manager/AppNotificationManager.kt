@@ -12,6 +12,8 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import com.jainhardik120.expensetracker.AppDestination
+import com.jainhardik120.expensetracker.MainActivity
 import com.jainhardik120.expensetracker.parser.core.ParsedTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.atomic.AtomicInteger
@@ -35,7 +37,8 @@ class AppNotificationManager @Inject constructor(
             title = "Transaction message received",
             message = buildTransactionMessage(parsedTransaction),
             smallIcon = android.R.drawable.stat_notify_more,
-            priority = NotificationCompat.PRIORITY_DEFAULT
+            priority = NotificationCompat.PRIORITY_DEFAULT,
+            destination = AppDestination.SMS
         )
     }
 
@@ -59,7 +62,8 @@ class AppNotificationManager @Inject constructor(
         title: String,
         message: String,
         smallIcon: Int,
-        priority: Int
+        priority: Int,
+        destination: String? = null
     ) {
         if (!canPostNotifications()) {
             return
@@ -71,17 +75,19 @@ class AppNotificationManager @Inject constructor(
             return
         }
 
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-        val pendingIntent = launchIntent?.let {
-            PendingIntent.getActivity(
-                context,
-                0,
-                it.apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+        val launchIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (destination != null) {
+                action = AppDestination.ACTION_OPEN
+                putExtra(AppDestination.EXTRA, destination)
+            }
         }
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            destination?.hashCode() ?: 0,
+            launchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(smallIcon)
