@@ -11,6 +11,7 @@ import {
   desc,
   or,
   type SQL,
+  count,
 } from 'drizzle-orm';
 import { unionAll, alias } from 'drizzle-orm/pg-core';
 import { type z } from 'zod';
@@ -361,32 +362,19 @@ export const getRowsCount = instrumentedFunction(
     if (input.category.length > 0) {
       statementConditions.push(inArray(statements.category, input.category));
     }
-    let statementCount = 0;
     if (input.tags.length > 0) {
-      statementConditions.push(inArray(sql`tag`, input.tags));
-      statementCount = (
-        await db
-          .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
-          .from(statements)
-          .crossJoin(sql`unnest(${statements.tags}) as tag`)
-          .where(and(...statementConditions))
-      )[0].count;
-    } else {
-      statementCount = (
-        await db
-          .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
-          .from(statements)
-          .where(and(...statementConditions))
-      )[0].count;
+      statementConditions.push(arrayOverlaps(statements.tags, input.tags));
     }
+    const [{ statementCount }] = await db
+      .select({ statementCount: count() })
+      .from(statements)
+      .where(and(...statementConditions));
     let selfTransferStatementCount = 0;
     if (input.category.length === 0 && input.tags.length === 0) {
-      selfTransferStatementCount = (
-        await db
-          .select({ count: sql<number>`COUNT(*)`.mapWith(Number) })
-          .from(selfTransferStatements)
-          .where(and(...selfTransferStatementConditions))
-      )[0].count;
+      [{ selfTransferStatementCount }] = await db
+        .select({ selfTransferStatementCount: count() })
+        .from(selfTransferStatements)
+        .where(and(...selfTransferStatementConditions));
     }
     return {
       statementCount,
