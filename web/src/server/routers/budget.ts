@@ -30,12 +30,10 @@ import {
   budgetYearSchema,
 } from '@/types/budget';
 
-/** Enough example statements to show why a line moved, without shipping them all. */
 const SAMPLE_STATEMENT_LIMIT = 10;
 
 const YEAR_NOT_FOUND = 'Budget year not found';
 
-/** Every mutation goes through this: a year id from the client is not trusted. */
 const assertOwnedYear = async (
   db: Parameters<typeof getStatementsInWindow>[0],
   userId: string,
@@ -51,7 +49,6 @@ const assertOwnedYear = async (
   return found[0];
 };
 
-/** The most recent year, which is the one the dashboard reads lines from. */
 const latestYear = async (db: Parameters<typeof getStatementsInWindow>[0], userId: string) => {
   const years = await db
     .select()
@@ -62,12 +59,6 @@ const latestYear = async (db: Parameters<typeof getStatementsInWindow>[0], userI
 };
 
 export const budgetRouter = createTRPCRouter({
-  /**
-   * The lines the dashboard chart can be scoped to.
-   *
-   * Read from the latest year: the chart's own date range can reach back
-   * further, but the lines you are watching are this year's.
-   */
   getExpenseLines: protectedProcedure.query(async ({ ctx }) => {
     const year = await latestYear(ctx.db, ctx.user.id);
     if (year === null) {
@@ -111,7 +102,6 @@ export const budgetRouter = createTRPCRouter({
       await ctx.db.delete(budgetYears).where(eq(budgetYears.id, input.id));
     }),
 
-  /** The year with its lines, and what each line has actually claimed so far. */
   getYearDetail: protectedProcedure
     .input(z.object({ budgetYearId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -129,9 +119,6 @@ export const budgetRouter = createTRPCRouter({
       const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, year.startDate, year.endDate);
       const { totals, unclaimed } = summariseLines(lines, scoped);
       const now = new Date();
-      // What payroll still owes before the year closes, read off the salary
-      // schedule. Only the part of the window that has not happened yet: pay
-      // already received is a statement and is counted as one.
       const pending = await getPendingIncome(
         ctx.db,
         ctx.user.id,
@@ -141,15 +128,12 @@ export const budgetRouter = createTRPCRouter({
       const income = summariseIncome(incomeLines, scoped, pending);
       const totalMonths = monthsBetween(year.startDate, year.endDate);
 
-      // --- the cash outlook: what is left, and what it means for investing ---
       const accountsSummary = await getAccountsSummaryBetweenDates(ctx.db, ctx.user.id);
       const friendsSummary = await getFriendsSummaryBetweenDates(ctx.db, ctx.user.id);
       const inAccounts = accountsSummary.reduce((sum, a) => sum + a.finalBalance, 0);
       const owedToFriends = friendsSummary.reduce((sum, f) => sum + f.finalBalance, 0);
       const balanceToday = inAccounts - owedToFriends;
 
-      // What the year opened with, read rather than typed: last year's residual
-      // is money already earned and kept, and this year is free to spend it.
       const openingAccounts = await getAccountsSummaryBetweenDates(
         ctx.db,
         ctx.user.id,
@@ -166,27 +150,14 @@ export const budgetRouter = createTRPCRouter({
         openingAccounts.reduce((sum, a) => sum + a.finalBalance, 0) -
         openingFriends.reduce((sum, f) => sum + f.finalBalance, 0);
 
-      // Pay cycles, not calendar months: rent and money home go out with each
-      // salary, so what is still owed on them follows the pay dates rather than
-      // the calendar.
-      //
-      // Counted off the payroll schedule. Counting income statements instead
-      // read anything landing in the account as a month gone by, so pointing a
-      // bonus down the waterfall convinced the budget a cycle had passed and
-      // quietly erased a month of rent and money home from the commitments.
       const cyclesTotal = Math.round(totalMonths);
       const incomeCyclesRemaining = pending.payments;
       const cyclesElapsed = Math.max(cyclesTotal - incomeCyclesRemaining, 0);
-      // Months still to be spent in, which is a different count: the last salary
-      // of the year can arrive well before the year is over.
       const monthsRemaining = Math.max(
         monthsBetween(now, year.endDate > now ? year.endDate : now),
         0,
       );
 
-      // Last year's leftover is income like any other. Pointed at a line it funds
-      // that line alone, so a shortfall against it is visible; otherwise it joins
-      // the general pot. Either way it is counted exactly once.
       const earmarkedIncome = new Map(income.earmarked);
       const openingIsEarmarked = year.openingBalanceLineId !== null;
       if (year.openingBalanceLineId !== null) {
@@ -196,8 +167,6 @@ export const budgetRouter = createTRPCRouter({
         );
       }
 
-      // Transactions sit in the inbox for days before being entered, so the
-      // balance above is stale by whatever is waiting there.
       const pendingSms = await getPendingSmsEstimate(ctx.db, ctx.user.id);
 
       const scheduled = await getScheduledTotals(
@@ -231,12 +200,8 @@ export const budgetRouter = createTRPCRouter({
         pendingSms.totalSpend,
         income.pendingWaterfall,
       );
-      // --- where this cycle stands against the month's allowance ---
       const cycles = summariseByCycle(lines, scoped, year.startDate.getDate());
       const openCycle = cycleKeyFor(now, year.startDate.getDate());
-      // Every reader of "left this month" -- this page and the phone widget --
-      // takes the answer from here, so the two can never quote different
-      // figures for the same day.
       const spentThisCycle = spentOnDiscretionary(
         cycles.find((row) => row.cycle === openCycle),
         lines,
@@ -246,9 +211,6 @@ export const budgetRouter = createTRPCRouter({
       const cycleStart = new Date(cycleYear, cycleMonth - 1, cycleStartDay);
       const nextCycle = addMonths(cycleStart, 1);
       const cycleEnd = nextCycle < year.endDate ? nextCycle : year.endDate;
-      // Messages still in the queue were spent, and almost always in this cycle.
-      // Counting them here keeps the figure still while they are entered: they
-      // move from the queue into the cycle, and the total does not change.
       const daysLeft = Math.max(differenceInCalendarDays(cycleEnd, now), 0);
       const thisCycle = {
         key: openCycle,
@@ -271,16 +233,12 @@ export const budgetRouter = createTRPCRouter({
         incomeLines,
         totals,
         projection,
-        // Cash facts for context; every projection comes from `projection`.
         balanceToday,
-        // The two halves of it, so the page can show its working.
         balanceParts: { inAccounts, owedToFriends },
         pendingSpend: pendingSms.totalSpend,
         pendingCount: pendingSms.count,
         openingBalance,
         incomeCyclesRemaining,
-        // What is still to be paid, and what of it the budget counts. The two
-        // differ when a forecast bonus is pointed out of the budget.
         pendingIncome: pending,
         pendingCounted: income.pendingCounted,
         pendingByLine: Object.fromEntries(income.pendingByLine),
@@ -299,7 +257,6 @@ export const budgetRouter = createTRPCRouter({
         .select({ position: budgetLines.position })
         .from(budgetLines)
         .where(eq(budgetLines.budgetYearId, input.budgetYearId));
-      // New lines go to the bottom, just above wherever the residual sits.
       const position = existing.reduce((max, row) => Math.max(max, row.position), -1) + 1;
       const [created] = await ctx.db
         .insert(budgetLines)
@@ -323,7 +280,6 @@ export const budgetRouter = createTRPCRouter({
       await ctx.db.delete(budgetLines).where(eq(budgetLines.id, input.id));
     }),
 
-  /** Order is the whole semantics of the waterfall, so it is set explicitly. */
   reorderLines: protectedProcedure
     .input(z.object({ budgetYearId: z.string(), orderedIds: z.array(z.string()) }))
     .mutation(async ({ ctx, input }) => {
@@ -359,11 +315,6 @@ export const budgetRouter = createTRPCRouter({
       await ctx.db.update(budgetIncomeLines).set(rest).where(eq(budgetIncomeLines.id, id));
     }),
 
-  /**
-   * Income lines are matched in order, the same way spending lines are, so the
-   * order has to be editable for the advice the page gives -- put the specific
-   * rules above the general ones -- to be followable at all.
-   */
   reorderIncomeLines: protectedProcedure
     .input(z.object({ budgetYearId: z.string(), orderedIds: z.array(z.string()) }))
     .mutation(async ({ ctx, input }) => {
@@ -382,13 +333,6 @@ export const budgetRouter = createTRPCRouter({
       await ctx.db.delete(budgetIncomeLines).where(eq(budgetIncomeLines.id, input.id));
     }),
 
-  /**
-   * What a rule would claim, before saving it.
-   *
-   * Ignores the ordering deliberately: this answers "does my rule describe the
-   * right transactions", which is a different question from "what will this line
-   * end up with once the lines above it have taken their share".
-   */
   previewRule: protectedProcedure
     .input(z.object({ budgetYearId: z.string(), rule: budgetRuleSchema }))
     .query(async ({ ctx, input }) => {

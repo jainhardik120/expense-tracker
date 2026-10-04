@@ -61,11 +61,6 @@ interface UseDataTableProps<TData>
   scroll?: boolean;
   shallow?: boolean;
   startTransition?: React.TransitionStartFunction;
-  /**
-   * Opt in to remembering the page size under this key. The choice is written to
-   * a cookie; the server decides what to do with it on the next visit. Left
-   * unset, the size lasts only as long as the URL does.
-   */
   persistPageSizeKey?: string;
 }
 
@@ -264,8 +259,6 @@ export const useDataTable = <TData>(props: UseDataTableProps<TData>) => {
     defaultColumn: {
       ...tableProps.defaultColumn,
       enableColumnFilter: false,
-      // Opt in, like filtering. Sorting is done in SQL, so a column is only
-      // sortable once the server knows how to order by it.
       enableSorting: false,
     },
     enableRowSelection: true,

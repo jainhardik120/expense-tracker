@@ -453,8 +453,6 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    // A test says what a specific number should be, so naming the numbers
-    // would only move the answer somewhere the reader has to go and find.
     files: ['src/**/*.test.ts'],
     rules: {
       'no-magic-numbers': 'off',

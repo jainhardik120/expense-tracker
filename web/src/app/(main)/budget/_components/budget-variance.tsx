@@ -14,14 +14,6 @@ import { type RouterOutput } from '@/server/routers';
 
 type Detail = RouterOutput['budget']['getYearDetail'];
 
-/**
- * Why saving fell short of the plan.
- *
- * Every rupee spent above a line's allowance came out of what would otherwise
- * have been invested, so the variances add up to exactly the gap. Lines with no
- * allowance -- gifts, a trip -- are the clearest case: nothing was set aside for
- * them, so all of it came out of saving.
- */
 type ProjectedLine = Detail['projection']['lines'][number];
 
 const Section = ({
@@ -93,7 +85,6 @@ const Section = ({
   </div>
 );
 
-/** Rounding noise, not a real over- or underspend. */
 const VARIANCE_EPSILON = 0.5;
 
 export const BudgetVariance = ({ detail }: { detail: Detail }) => {
@@ -103,9 +94,6 @@ export const BudgetVariance = ({ detail }: { detail: Detail }) => {
     .filter((line) => line.variance > VARIANCE_EPSILON)
     .sort((a, b) => b.variance - a.variance);
   const under = spendLines.filter((line) => line.variance < -VARIANCE_EPSILON);
-  // Money not spent is only saved if nothing is still coming for it. An envelope
-  // holds its balance for the trip yet to be booked; rent paid under budget is
-  // not a plan to overpay later.
   const reserved = under
     .filter((line) => !line.unspentIsSaved)
     .sort((a, b) => a.variance - b.variance);

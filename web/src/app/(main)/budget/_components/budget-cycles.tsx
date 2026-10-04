@@ -13,13 +13,6 @@ import type { ColumnDef } from '@tanstack/react-table';
 
 type Detail = RouterOutput['budget']['getYearDetail'];
 
-/**
- * A cycle, or the average of them all.
- *
- * The average is a row rather than a table footer because the table renders a
- * row model and has no footer to put it in -- and as a row it stays aligned
- * with the columns above it however many lines the budget has.
- */
 type CycleRow = {
   key: string;
   label: string;
@@ -28,7 +21,6 @@ type CycleRow = {
   isAverage: boolean;
 };
 
-/** The average row is the only one set in bold, in every column. */
 const EMPHASIS = 'font-semibold';
 
 const cycleColumns = (names: string[]): ColumnDef<CycleRow>[] => [
@@ -73,8 +65,6 @@ const cycleColumns = (names: string[]): ColumnDef<CycleRow>[] => [
 
 export const BudgetCycles = ({ detail }: { detail: Detail }) => {
   const { cycles, lines } = detail;
-  // Column order follows the waterfall, so the table reads the same way the
-  // budget does rather than in whatever order the data arrived.
   const names = [...lines].sort((a, b) => a.position - b.position).map((line) => line.name);
   const used = names.filter((name) => cycles.some((cycle) => (cycle.perLine[name] ?? 0) !== 0));
 

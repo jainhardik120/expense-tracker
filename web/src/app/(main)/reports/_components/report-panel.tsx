@@ -29,19 +29,9 @@ const REPORT_STALE_TIME_MS = REPORT_STALE_MINUTES * MS_PER_MINUTE;
 
 type Boundary = { id: string; boundaryDate: Date };
 
-/**
- * The report, on the page.
- *
- * Reads the same template and runs the same code step as the PDF, so the two
- * cannot disagree; the download button here just asks for the same span back as
- * a file. The span lives in the URL so a particular report can be linked to and
- * survives a reload.
- */
 export const ReportPanel = ({ boundaries }: { boundaries: Boundary[] }) => {
   const first = boundaries[0]?.id ?? '';
   const last = boundaries[boundaries.length - 1]?.id ?? '';
-  // URL first so a linked report opens the span it names, then whatever was
-  // last chosen anywhere in the app, then the whole range.
   const [span, setSpan] = useSpanQueryState(
     boundaries.map((boundary) => boundary.id),
     { from: first, to: last },

@@ -7,41 +7,15 @@ export const env = createEnv({
     AWS_ACCESS_KEY_ID: z.string(),
     AWS_SECRET_ACCESS_KEY: z.string(),
     DATABASE_URL: z.url(),
-    /**
-     * Connections each process may hold. Defaults to 1, which is what the hosted
-     * database on Vercel can afford -- see `src/lib/db.ts`. With Postgres on the
-     * same machine there is no such ceiling, and 1 makes every page run its
-     * queries one after another, so raise it there.
-     */
     DATABASE_POOL_MAX: z.coerce.number().int().positive().default(1),
-    /**
-     * How much the server logs. Defaults to `debug` in development and `info`
-     * elsewhere; `debug` is what prints every database query, which is too much
-     * work to do on every request in production.
-     */
     LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).optional(),
     EMAIL_SENDER_ADDRESS: z.string(),
     NODE_ENV: z.enum(['development', 'test', 'production']),
-    /**
-     * Extra origins better-auth will accept sign-ins from, comma separated.
-     *
-     * Production otherwise trusts only `https://$VERCEL_URL`, which a local
-     * `next start` can never satisfy — the browser sends `http://localhost:3000`
-     * and no value of VERCEL_URL makes that match, so the scheme alone rejects
-     * every local login. Set it in `.env` rather than rediscovering it.
-     */
     AUTH_TRUSTED_ORIGINS: z.string().optional(),
     GITHUB_CLIENT_ID: z.string(),
     GITHUB_CLIENT_SECRET: z.string(),
     COINGECKO_API_KEY: z.string(),
     REDIS_URL: z.string().optional(),
-    /**
-     * Opt in to the experimental AI assistant. Off unless set to 'true'.
-     *
-     * The assistant proxies an AI gateway key and hands the model a caller with
-     * full read and write access to the account, so it stays off by default and
-     * has to be turned on deliberately rather than left on by forgetting.
-     */
     AI_ASSISTANT_ENABLED: z.string().optional(),
   },
   client: {

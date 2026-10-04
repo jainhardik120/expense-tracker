@@ -59,11 +59,6 @@ export const getSortingStateParser = <TData>(columnIds?: string[] | Set<string>)
 
 export type SortItem<TId extends string = string> = { id: TId; desc: boolean };
 
-/**
- * The same sort parser as getSortingStateParser, without the generic tie to a
- * row type. Server loaders and tRPC inputs need to read the `sort` parameter
- * too, and they have no TData to key the column ids off.
- */
 export const sortStateParser = <TId extends string = string>(columnIds?: readonly TId[]) =>
   createGenericParser<SortItem<TId>>(
     z.array(sortingItemSchema),

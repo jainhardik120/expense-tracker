@@ -6,9 +6,7 @@ const REBATE_LIMIT = 1_200_000;
 const REBATE_MAX = 60_000;
 
 const PAISE_PER_RUPEE = 100;
-/** April, zero-indexed: the Indian financial year runs April to March. */
 const FINANCIAL_YEAR_START_MONTH = 3;
-/** Salary dates are pinned to midday UTC so a timezone shift cannot move the day. */
 export const MIDDAY_UTC_HOUR = 12;
 const SUNDAY = 0;
 const SATURDAY = 6;
@@ -96,7 +94,6 @@ export const getFinancialYearStart = (date: Date) => {
   return date.getUTCMonth() >= FINANCIAL_YEAR_START_MONTH ? year : year - 1;
 };
 
-/** Renders a financial year the way it is written in India: 2026 -> "2026-27". */
 export const formatFinancialYearLabel = (financialYearStart: number) => {
   const SHORT_YEAR_DIGITS = 2;
   return `${financialYearStart}\u2013${String(financialYearStart + 1).slice(-SHORT_YEAR_DIGITS)}`;

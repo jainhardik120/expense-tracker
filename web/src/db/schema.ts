@@ -18,10 +18,8 @@ import {
 import { user } from './auth-schema';
 import { recurringPaymentFrequencies, smsTransactionStatuses, statementKinds } from './enums';
 
-/** Most Indian employers pay towards the end of the month. */
 const DEFAULT_PAY_DAY = 25;
 
-// Expense Tracker Schema
 export const statementKindEnum = pgEnum('statement_kinds', statementKinds);
 
 export const bankAccount = pgTable(
@@ -35,7 +33,6 @@ export const bankAccount = pgTable(
     accountName: text('account_name').notNull(),
     createdAt: timestamp('created_at').$defaultFn(() => new Date()),
   },
-  // Every read is one user's rows; without this it was the whole table, every user's.
   (table) => [index('bank_account_user_idx').on(table.userId)],
 );
 
@@ -49,7 +46,6 @@ export const friendsProfiles = pgTable(
     name: text('name').notNull(),
     createdAt: timestamp('created_at').$defaultFn(() => new Date()),
   },
-  // Every read is one user's rows; without this it was the whole table, every user's.
   (table) => [index('friends_profiles_user_idx').on(table.userId)],
 );
 
@@ -84,7 +80,6 @@ export const statements = pgTable(
        (${table.accountId} IS NULL AND ${table.friendId} IS NOT NULL))
     `,
     ),
-    // Friend transaction: Both accountId AND friendId should be filled
     check(
       'friend_transaction_check',
       sql`
@@ -92,7 +87,6 @@ export const statements = pgTable(
       (${table.friendId} IS NOT NULL)
     `,
     ),
-    // Outside transaction: friendId should be undefined
     check(
       'outside_transaction_check',
       sql`
@@ -111,25 +105,13 @@ export const statements = pgTable(
     `,
     ),
     index('statements_created_at_idx').on(desc(table.createdAt)),
-    // Every per-user window -- a month's statements, a balance up to a date --
-    // reads through this. It was created by hand on the hosted database and
-    // is declared here so a database built from migrations has it too.
-    // Migration 0056 adds INCLUDE (account_id, friend_id, "statementKind", amount,
-    // category), which Drizzle cannot express: the balance and expense sums read
-    // only those columns, so they are answered from the index without visiting
-    // the table at all.
     index('statements_user_created_id_idx').on(table.userId, desc(table.createdAt), table.id),
-    // The few statements that are an EMI instalment or a recurring payment,
-    // found without reading every statement the user has.
     index('statements_user_emi_idx')
       .on(table.userId, sql`(${table.additionalAttributes}->>'emiId')`)
       .where(sql`${table.additionalAttributes}->>'emiId' IS NOT NULL`),
     index('statements_user_recurring_idx')
       .on(table.userId)
       .where(sql`${table.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`),
-    // The salary credit behind each salary payment, looked up once per payment
-    // on the budget page: without it, every lookup read all of the user's
-    // statements.
     index('statements_user_salary_payment_idx')
       .on(table.userId, sql`(${table.additionalAttributes}->>'salaryPaymentId')`)
       .where(sql`${table.additionalAttributes}->>'salaryPaymentId' IS NOT NULL`),
@@ -156,7 +138,6 @@ export const selfTransferStatements = pgTable(
   },
   (table) => [
     index('self_transfer_statements_created_at_idx').on(desc(table.createdAt)),
-    // As statements_user_created_id_idx: made by hand, declared here.
     index('self_transfer_user_created_id_idx').on(table.userId, desc(table.createdAt), table.id),
   ],
 );
@@ -182,13 +163,7 @@ export const splits = pgTable(
       .$defaultFn(() => new Date()),
   },
   (table) => [
-    // A statement's splits. Made by hand on the hosted database; declared here.
     index('splits_statement_id_idx').on(table.statementId),
-    // One user's splits. Without it, finding them meant reading every split in
-    // the table and keeping the ones whose statement was theirs -- at a
-    // thousand users, 1.7 s for a query the dashboard runs twice.
-    // Migration 0056 adds INCLUDE (friend_id, amount), so the per-friend sums
-    // never visit the table.
     index('splits_user_statement_idx').on(table.userId, table.statementId),
   ],
 );
@@ -229,7 +204,6 @@ export const investments = pgTable(
     isClosed: boolean('is_closed').notNull().default(false),
     closedAt: timestamp('closed_at'),
   },
-  // Every read is one user's rows; without this it was the whole table, every user's.
   (table) => [index('investments_user_idx').on(table.userId)],
 );
 
@@ -270,17 +244,12 @@ export const emis = pgTable(
       .notNull()
       .$defaultFn(() => new Date()),
     iafe: numeric('iafe').notNull().default('0'),
-    // The same tags its instalments will carry. A budget line finds the loans it
-    // owns through the statements its rule claims, which leaves a loan taken out
-    // today -- no instalment recorded yet -- belonging to nothing. Tagging the
-    // loan itself lets the budget see it from the day it is signed.
     tags: text('tags')
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
     additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
   },
-  // Every read is one user's rows; without this it was the whole table, every user's.
   (table) => [index('emis_user_idx').on(table.userId)],
 );
 
@@ -317,7 +286,6 @@ export const recurringPayments = pgTable(
       .notNull()
       .$defaultFn(() => new Date()),
   },
-  // Every read is one user's rows; without this it was the whole table, every user's.
   (table) => [index('recurring_payments_user_idx').on(table.userId)],
 );
 
@@ -344,14 +312,9 @@ export const smsNotifications = pgTable(
     status: smsTransactionStatusEnum().notNull().default('pending'),
     additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
   },
-  // Every read is one user's rows; without this it was the whole table, every user's.
   (table) => [index('sms_notifications_user_idx').on(table.userId)],
 );
 
-// One PDF report template per user. The four fields mirror @helix-hq/pdf-report's
-// ReportTemplate contract: the code step turns raw statement data into display
-// values, and the spec places them. Per-user because the calculations encode an
-// individual's own way of reading their money.
 export const reportTemplates = pgTable('report_templates', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id')
@@ -528,13 +491,6 @@ export const salaryTaxSettings = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.financialYearStart] })],
 );
 
-/**
- * A budget is a waterfall: income enters at the top, ordered lines take their
- * share, and whatever survives is the residual -- what you managed to save.
- *
- * The year is whatever span the budget covers; it does not have to be a calendar
- * year, and typically starts on the salary cycle rather than in January.
- */
 export const budgetYears = pgTable(
   'budget_years',
   {
@@ -545,36 +501,22 @@ export const budgetYears = pgTable(
     name: text('name').notNull(),
     startDate: timestamp('start_date').notNull(),
     endDate: timestamp('end_date').notNull(),
-    // Where what last year finished with is spent. Left unset it joins the general
-    // pot; pointed at a line it funds that line and nothing else, which is how a
-    // leftover earmarked for the flight home can be seen to have fallen short.
     openingBalanceLineId: uuid('opening_balance_line_id'),
     createdAt: timestamp('created_at')
       .notNull()
       .$defaultFn(() => new Date()),
   },
-  // Every read is one user's rows; without this it was the whole table, every user's.
   (table) => [index('budget_years_user_idx').on(table.userId)],
 );
 
-/** How a line claims money: a fixed sum per month, per year, or whatever is left. */
 export const budgetAllocationKindEnum = pgEnum('budget_allocation_kind', [
   'monthly',
   'annual',
   'residual',
-  // Funded only by income earmarked to it -- a trip paid for out of a bonus.
   'earmarked',
-  // Taken from the loan schedule rather than typed in. An instalment plan that
-  // starts in March or runs nine months of a twelve month year has no sensible
-  // monthly figure for the year, so the schedule is asked instead.
   'schedule',
 ]);
 
-/**
- * Lines are evaluated in `position` order and the first one whose rule matches a
- * statement claims it, so nothing is counted twice and a catch-all line at the
- * bottom picks up everything that was not claimed above it.
- */
 export const budgetLines = pgTable(
   'budget_lines',
   {
@@ -584,19 +526,10 @@ export const budgetLines = pgTable(
       .references(() => budgetYears.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     position: integer('position').notNull(),
-    // Statement filter: categories, tags, friends, accounts, kinds. An empty
-    // rule matches everything, which is what makes a catch-all line work.
     rule: jsonb('rule').notNull().default({}),
     allocationKind: budgetAllocationKindEnum('allocation_kind').notNull(),
     allocationAmount: numeric('allocation_amount').notNull().default('0'),
-    // Whether day to day choices move this. Rent and money sent home are fixed
-    // commitments, so counting them as money you could spend would tell you that
-    // you can afford things you cannot.
     discretionary: boolean('discretionary').notNull().default(true),
-    // Nothing more is expected on this line this year. An envelope is assumed
-    // to be used up -- the flight home is still going to be booked -- so until
-    // the flights are booked its unspent balance is reserved rather than saved.
-    // Closing it says the spending is done and what is left over is real.
     closed: boolean('closed').notNull().default(false),
     createdAt: timestamp('created_at')
       .notNull()
@@ -605,21 +538,12 @@ export const budgetLines = pgTable(
   (table) => [index('budget_lines_year_position_idx').on(table.budgetYearId, table.position)],
 );
 
-/** Where income goes: down the waterfall, onto one line, or out of the budget. */
 export const budgetIncomeDestinationEnum = pgEnum('budget_income_destination', [
   'waterfall',
   'line',
   'excluded',
 ]);
 
-/**
- * Where a line's amount comes from.
- *
- * Nearly all of them read the statements a rule claims. The pending ones are
- * money that has not arrived yet, read off the salary schedule: what is still
- * to be paid before the year closes, which a rule cannot match because there is
- * nothing to match yet.
- */
 export const budgetIncomeSourceEnum = pgEnum('budget_income_source', [
   'statements',
   'pending_salary',
@@ -636,7 +560,6 @@ export const budgetIncomeLines = pgTable('budget_income_lines', {
   rule: jsonb('rule').notNull().default({}),
   source: budgetIncomeSourceEnum('source').notNull().default('statements'),
   destination: budgetIncomeDestinationEnum('destination').notNull(),
-  // Set only when destination is 'line'. Cleared with the line it points at.
   destinationLineId: uuid('destination_line_id').references(() => budgetLines.id, {
     onDelete: 'set null',
   }),

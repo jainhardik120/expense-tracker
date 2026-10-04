@@ -394,7 +394,6 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
   ] as const;
   const marketData = useMemo(
     () => marketQueries.flatMap(([, query]) => (query.data === undefined ? [] : [query.data])),
-    // Each query result is an explicit dependency; the tuple itself is recreated on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       fixedDepositQuery.data,

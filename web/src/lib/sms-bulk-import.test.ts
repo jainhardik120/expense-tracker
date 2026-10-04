@@ -18,9 +18,6 @@ const CATEGORY_REQUIRED = 'Category is required';
 const LAST_OF_SEPTEMBER = '2026-09-30';
 const IST = 'Asia/Kolkata';
 
-// The module is imported through a suppressed .ts specifier, so these factories
-// borrow their parameter types from the functions under test rather than
-// restating them — otherwise every string literal widens and stops matching.
 type Notification = Parameters<typeof buildInitialRow>[0];
 type Fields = Parameters<typeof getFieldsProblem>[0];
 type Row = Parameters<typeof getRowProblem>[0];
@@ -54,8 +51,6 @@ const gridRow = (over: Partial<Row> = {}): Row =>
   ({ ...fields(), id: 'n1', include: true, ...over }) as Row;
 
 test('a card spend becomes a positive expense', () => {
-  // Expense statements are stored positive and subtracted from the balance, so
-  // the amount the message reported carries over untouched.
   const row = buildInitialRow(notification({ type: 'credit' }), NO_HINTS, IST);
   expect(row.statementKind).toBe('expense');
   expect(row.amount).toBe(450.5);
@@ -74,7 +69,6 @@ test('money leaving for an investment becomes a negative outside transaction', (
 });
 
 test('the sign comes from the message type, not from the stored amount', () => {
-  // Messages always report a magnitude; a stray sign should not flip the meaning.
   const row = buildInitialRow(
     notification({ type: 'investment', amount: '-450.5' }),
     NO_HINTS,
@@ -104,26 +98,20 @@ test('a row with nothing to go on starts blank but included', () => {
   expect(row.category).toBe('');
   expect(row.tags).toStrictEqual([]);
   expect(row.include).toBe(true);
-  // And is therefore blocked until the user fills it in.
   expect(getRowProblem(row)).toBe(CATEGORY_REQUIRED);
 });
 
 test("the grid date is the day the message arrived in the reader's timezone", () => {
-  // 18:15 UTC on the 30th is 23:45 on the 30th in IST.
   const row = buildInitialRow(
     notification({ createdAt: new Date(Date.UTC(2026, 8, 30, 18, 15, 0)) }),
     NO_HINTS,
     IST,
   );
   expect(row.date).toBe(LAST_OF_SEPTEMBER);
-  // The moment itself is kept untouched so the time of day survives the import.
   expect(row.timestamp.toISOString()).toBe('2026-09-30T18:15:00.000Z');
 });
 
 test('a transaction just after midnight IST is not filed on the previous day', () => {
-  // 18:58 UTC on the 16th is 00:28 on the 17th in IST. Reading the day off the
-  // instant without saying whose day it is offered the 16th, and that is what
-  // the user then imported.
   const afterMidnightIst = new Date('2026-09-16T18:58:19.000Z');
   expect(formatGridDate(afterMidnightIst)).toBe('2026-09-16');
   expect(formatGridDateInZone(afterMidnightIst, IST)).toBe('2026-09-17');
@@ -133,8 +121,6 @@ test('a transaction just after midnight IST is not filed on the previous day', (
 });
 
 test('a transaction just after midnight IST on the 1st stays in its own month', () => {
-  // 19:10 UTC on 31 August is 00:40 on 1 September in IST, and the month a
-  // transaction lands in is the month it is budgeted against.
   expect(formatGridDateInZone(new Date('2026-08-31T19:10:00.000Z'), IST)).toBe('2026-09-01');
 });
 
@@ -154,7 +140,6 @@ test('a day that does not exist is rejected rather than rolled forward', () => {
   expect(parseGridDate('2026-13-01')).toBeNull();
   expect(parseGridDate('26-09-30')).toBeNull();
   expect(parseGridDate('')).toBeNull();
-  // A real leap day is fine.
   expect(parseGridDate('2028-02-29')).not.toBeNull();
 });
 
@@ -193,7 +178,6 @@ test('a row needs a category and a non-zero amount', () => {
   expect(getFieldsProblem(fields({ category: '   ' }))).toBe(CATEGORY_REQUIRED);
   expect(getFieldsProblem(fields({ amount: 0 }))).toBe('Amount is required');
   expect(getFieldsProblem(fields({ amount: Number.NaN }))).toBe('Amount is required');
-  // A negative amount is meaningful, not an error.
   expect(getFieldsProblem(fields({ amount: -20 }))).toBeNull();
 });
 
@@ -234,7 +218,6 @@ test('a bulk change touches only the selected rows', () => {
   const rows = [gridRow({ id: 'a' }), gridRow({ id: 'b' }), gridRow({ id: 'c' })];
   const updated = updateRows(rows, new Set(['a', 'c']), { category: 'Travel' });
   expect(updated.map((row) => row.category)).toStrictEqual(['Travel', 'Food', 'Travel']);
-  // The originals are left as they were.
   expect(rows[0].category).toBe('Food');
 });
 
@@ -268,7 +251,6 @@ test('the tag menu keeps history order and appends what the user created', () =>
     gridRow({ id: 'a', tags: ['Curd', 'Kachori'] }),
     gridRow({ id: 'b', tags: ['Bhel'] }),
   ];
-  // History order is by how often each was used, so it must not be re-sorted.
   expect(collectTagOptions(rows, ['Curd', 'Dosa'])).toStrictEqual([
     'Curd',
     'Dosa',

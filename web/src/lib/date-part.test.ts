@@ -15,8 +15,6 @@ const stamp = (date: Date) =>
   ].join('-');
 
 test('keeps the picked day when it does not exist in the base month', () => {
-  // Creating a statement on 26 Sep and picking 31 Oct used to land on 1 Oct,
-  // because setting the day before the month overflowed 30-day September.
   const base = new Date(2026, 8, 26, 14, 30, 15);
   expect(stamp(withDatePart(base, new Date(2026, 9, 31)))).toBe('2026-10-31-14-30-15');
   expect(stamp(withDatePart(base, new Date(2026, 7, 31)))).toBe('2026-8-31-14-30-15');
@@ -50,22 +48,19 @@ test('does not mutate the base date', () => {
 });
 
 test("a zoned date part replaces the day the user was shown, not the server's", () => {
-  // 18:58 UTC on 16 Sep is 00:28 on 17 Sep in IST. Leaving the grid's date
-  // alone has to leave the instant alone.
   const base = new Date('2026-09-16T18:58:19.000Z');
   const unchanged = withZonedDatePart(base, new Date(2026, 8, 17), IST);
   expect(unchanged.toISOString()).toBe(base.toISOString());
 });
 
 test('a zoned date part moves the transaction by exactly the days asked for', () => {
-  const base = new Date('2026-09-16T18:58:19.000Z'); // 17 Sep 00:28 IST
+  const base = new Date('2026-09-16T18:58:19.000Z');
   const moved = withZonedDatePart(base, new Date(2026, 8, 20), IST);
-  // Still 00:28 IST, now on the 20th.
   expect(moved.toISOString()).toBe('2026-09-19T18:58:19.000Z');
 });
 
 test('a zoned date part keeps the overflow guard', () => {
-  const base = new Date('2026-09-16T05:00:00.000Z'); // 10:30 IST
+  const base = new Date('2026-09-16T05:00:00.000Z');
   const moved = withZonedDatePart(base, new Date(2026, 9, 31), IST);
   expect(moved.toISOString()).toBe('2026-10-31T05:00:00.000Z');
 });

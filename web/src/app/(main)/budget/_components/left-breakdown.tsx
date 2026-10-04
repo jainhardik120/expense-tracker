@@ -12,7 +12,6 @@ import { type RouterOutput } from '@/server/routers';
 
 type Detail = RouterOutput['budget']['getYearDetail'];
 
-/** A heading for one step of the working. */
 const Step = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section className="flex flex-col gap-2">
     <h3 className="text-sm font-semibold">{title}</h3>
@@ -20,14 +19,6 @@ const Step = ({ title, children }: { title: string; children: React.ReactNode })
   </section>
 );
 
-/**
- * Every figure on the card, with the arithmetic that produced it.
- *
- * The card is four numbers and an answer, and three of the four are themselves
- * sums of things that live on other pages -- what is in the accounts, what the
- * payroll still owes, what each line has left to pay. Saying so here is the
- * difference between a number you trust and one you take on faith.
- */
 export const LeftBreakdown = ({ detail }: { detail: Detail }) => {
   const [open, setOpen] = useState(false);
   const {
@@ -42,12 +33,9 @@ export const LeftBreakdown = ({ detail }: { detail: Detail }) => {
   const { commitmentsRemaining, discretionaryRemaining, lines, spendMonths } = projection;
 
   const totalAvailable = balanceToday - pendingSpend + pendingCounted;
-  // What the payroll owes but the budget is told to ignore.
   const keptOut = pendingIncome.salary + pendingIncome.bonus - pendingCounted;
   const left = totalAvailable - commitmentsRemaining;
 
-  // The same test the projection uses: everything except day-to-day spending,
-  // which is what is left over rather than something already promised.
   const commitments = lines
     .filter(
       (line) =>
@@ -100,9 +88,6 @@ export const LeftBreakdown = ({ detail }: { detail: Detail }) => {
             result={{ label: 'Balance today', value: balanceToday }}
             rows={[
               { label: 'Sitting in your accounts', value: balanceParts.inAccounts },
-              // The sign says which way the friends ledger points, so the label
-              // follows it: a positive balance there is money you owe, a
-              // negative one is money still to come back to you.
               balanceParts.owedToFriends > 0
                 ? { label: 'Owed to friends', value: -balanceParts.owedToFriends }
                 : { label: 'Lent out, still owed to you', value: -balanceParts.owedToFriends },
@@ -124,8 +109,6 @@ export const LeftBreakdown = ({ detail }: { detail: Detail }) => {
                 note: `${String(pendingIncome.payments)} pay dates`,
               },
               { label: 'Bonuses still to be paid', value: pendingIncome.bonus },
-              // Only when some of it is pointed out of the budget, so the rows
-              // always add up to the figure underneath them.
               ...(keptOut === 0
                 ? []
                 : [

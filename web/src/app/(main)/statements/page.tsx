@@ -11,12 +11,6 @@ import Table from './_components/table';
 
 const loader = createLoader(statementParser);
 
-/**
- * Send an unparameterised visit to the size last chosen, before rendering.
- *
- * Only when the URL says nothing: a link carrying ?perPage opens at the size it
- * names, whoever follows it.
- */
 const redirectToStoredPageSize = async (raw: SearchParams) => {
   if (raw['perPage'] !== undefined) {
     return;
@@ -48,18 +42,12 @@ export default async function Page({
     ...pageParams,
     start: pageParams.date[0],
     end: pageParams.date[1],
-    // Sent as the string the URL already holds, because the same procedure is
-    // served over REST, where a query parameter cannot be an array of objects.
     sort: JSON.stringify(pageParams.sort),
   };
-  // Independent of each other, so they run together rather than in a chain --
-  // the facet counts alone are four grouped queries.
   const [data, friends, accounts, categories, tags, facetCounts] = await Promise.all([
     api.statements.getStatements(queryParams),
     api.friends.getFriends(),
     api.accounts.getAccounts(),
-    // Unfiltered: these feed the create and edit forms, which must offer every
-    // category and tag that exists, not just the ones the current filter admits.
     api.statements.getCategories({}),
     api.statements.getTags({}),
     api.statements.getFacetCounts(queryParams),

@@ -37,7 +37,6 @@ export const formatSlabRange = (lower: number, upper: number | null) => {
   return `Above ${formatCurrency(lower)} up to ${formatCurrency(upper)}`;
 };
 
-/** How much of a row's TDS comes from an adjustment rather than the payslip. */
 export const tdsAdjustment = (
   row: SalaryRow,
   kind: 'bonus_tds' | 'year_end_reconciliation',
@@ -52,13 +51,6 @@ export const tdsAdjustment = (
 
 const NOON = 12;
 
-/**
- * A date that means a calendar day, pinned to noon UTC.
- *
- * Effective dates, pay dates and expected dates are days rather than instants,
- * and noon is far enough from both midnights that no reader's timezone shifts
- * them onto the day before or after.
- */
 export const asCalendarDay = (date: Date) =>
   new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), NOON));
 

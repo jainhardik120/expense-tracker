@@ -97,14 +97,13 @@ export const auth = betterAuth({
       );
     },
   },
-  // The deployment itself, plus anything AUTH_TRUSTED_ORIGINS names. A local
-  // `next start` runs in production mode, where the deployment origin is the
-  // only one trusted and the browser's `http://localhost:3000` cannot match it
-  // whatever VERCEL_URL is set to — so local logins need an explicit entry
-  // rather than a guess at the scheme.
   trustedOrigins: [
     ...(env.NODE_ENV === 'development'
-      ? ['http://localhost:3000', 'https://local-dev-mac.hardikja.in', 'https://local-dev.hardikja.in']
+      ? [
+          'http://localhost:3000',
+          'https://local-dev-mac.hardikja.in',
+          'https://local-dev.hardikja.in',
+        ]
       : []),
     ...(process.env.VERCEL_URL === undefined ? [] : [`https://${process.env.VERCEL_URL}`]),
     ...(env.AUTH_TRUSTED_ORIGINS ?? '')

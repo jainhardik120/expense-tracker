@@ -4,7 +4,6 @@ import { reportInputSchema } from './report-input';
 
 import type { ReportTemplate } from '@helix-hq/pdf-report';
 
-/** Display-ready values. The spec only places these; it computes nothing. */
 const outputSchema = z.object({
   title: z.string(),
   subtitle: z.string(),
@@ -15,18 +14,6 @@ const outputSchema = z.object({
   categoryRows: z.array(z.array(z.string())),
 });
 
-/**
- * The template a user starts from.
- *
- * Deliberately plain: it totals expenses by category and draws them once. What a
- * category *means* to someone — which one is rent, which friend is a monthly
- * transfer home, which tag marks a one-off — is theirs, and belongs in their own
- * template rather than in everybody's starting point.
- *
- * Editing this file changes what a new user begins with. It does not change a
- * template that has already been saved: that is a row in `report_templates`,
- * edited at /reports/template.
- */
 const CODE = `type Statement = {
   periodIndex: number;
   date: string;

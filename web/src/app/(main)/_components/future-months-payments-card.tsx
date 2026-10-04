@@ -69,8 +69,6 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
   const timezone = useTimezone();
   const [, setDateRange] = useQueryStates(dateParser, { shallow: false });
 
-  // Picking a month here drives the page's date filter, so the rest of the
-  // dashboard -- the Payments card especially -- follows along to that month.
   const selectMonth = (month: string) => {
     const monthStart = parse(month, 'yyyy-MM', new Date());
     void setDateRange({
@@ -95,8 +93,6 @@ export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCar
         const emiPayments = paymentsByMonth[month] ?? [];
         const recurringPaymentsList = recurringPaymentsByMonth[month] ?? [];
 
-        // myShare, not the full installment: a split EMI bills the friends' portions
-        // to the card too, but only my share is money I actually owe.
         const emiTotal = emiPayments.reduce((sum, p) => sum + p.myShare, 0);
         const recurringTotal = recurringPaymentsList.reduce((sum, p) => sum + p.amount, 0);
 

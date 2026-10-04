@@ -42,24 +42,9 @@ export type FormField<T extends FieldValues = FieldValues> = {
   step?: number;
   render?: (field: ControllerRenderProps<T, Path<T>>) => ReactNode;
   displayCondition?: ((values: T) => boolean) | boolean;
-  /**
-   * What the field is worth once it is hidden.
-   *
-   * A field that has gone away should stop contributing. Without this the
-   * amount typed against a monthly allocation is still sitting in the form
-   * after the line is switched to a loan schedule, and is submitted -- invisibly
-   * -- along with everything else. Left undefined the value is kept, which is
-   * what you want for a field that comes back.
-   */
   valueWhenHidden?: PathValue<T, Path<T>>;
 };
 
-/**
- * Whether a field is currently shown.
- *
- * Shared so that the rendering and the clearing cannot disagree about it: a
- * field cleared while still on screen would wipe itself as it was typed into.
- */
 export const isFieldVisible = <T extends FieldValues = FieldValues>(
   field: FormField<T>,
   values: T,
@@ -269,9 +254,6 @@ const RenderedColorInput = <T extends FieldValues = FieldValues>(props: FieldPro
   <Input type="color" {...props.field} />
 );
 
-// `number` hands the browser's string straight through, which is what the
-// money schemas in this app expect; this one keeps the value a number, for
-// the schemas that ask for one.
 const RenderedIntegerInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
   <Input
     max={props.formField.max}

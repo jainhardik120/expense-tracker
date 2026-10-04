@@ -121,13 +121,6 @@ export const ComponentDialog = ({ onSaved }: { onSaved: () => void }) => {
   );
 };
 
-/**
- * The amount of every monthly component, as one field.
- *
- * The schema wants the components that were actually given an amount, which is
- * a single array value rather than one field per component -- so it renders
- * through the form kit's `custom` type instead of being pulled out of the form.
- */
 const RevisionComponentAmounts = ({
   components,
   value,
@@ -289,9 +282,6 @@ const bonusFields = (components: SalaryComponent[]): FormField<CreateBonusInput>
   { name: 'notes', label: 'Notes', type: 'textarea' },
 ];
 
-// Built per render rather than once at import: `new Date()` in a module
-// constant is the same instant for the life of the tab, and differs between
-// the server render and the client's.
 const bonusDefaults = (): CreateBonusInput => ({
   componentId: '',
   expectedDate: new Date(),
@@ -569,7 +559,6 @@ export const TaxProjectionDialog = ({ data }: { data: SalaryData }) => {
   );
 };
 
-/** The earnings and deductions that make up one month's payslip. */
 const PaymentLines = ({
   value,
   onChange,
@@ -753,7 +742,6 @@ export const PaymentDialog = ({
   const updatePayment = api.salary.updatePayment.useMutation();
   const mutation = {
     isPending: updatePayment.isPending,
-    // An empty notes box means no note, not an empty one.
     mutateAsync: async (values: UpdatePaymentInput) =>
       updatePayment.mutateAsync({
         ...values,
@@ -794,11 +782,6 @@ export const PaymentDialog = ({
   );
 };
 
-/**
- * Components and revisions: the definitions behind the payroll, rather than
- * the payroll itself. They live behind a dialog because they are edited rarely
- * and read never.
- */
 export const SalarySetupDialog = ({ data, onSaved }: { data: SalaryData; onSaved: () => void }) => {
   const [open, setOpen] = useState(false);
   const deleteComponent = api.salary.deleteComponent.useMutation();

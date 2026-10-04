@@ -1,27 +1,3 @@
-/**
- * Guessing how a message should be filed, from how messages like it were filed
- * before.
- *
- * A message that has already been entered remembers the statement it became, so
- * the history of (message -> statement) pairs is the only training data there
- * is. Three signals come out of it:
- *
- *   - the account, keyed on the card's last four digits where the message has
- *     them and on the bank name otherwise;
- *   - the category, keyed on the merchant;
- *   - the tags, also keyed on the merchant.
- *
- * Only the ten most recent pairs for a key are counted, so that a merchant
- * re-categorised last month outranks the way it was filed all last year. Within
- * those ten, the most frequent value wins.
- *
- * The single-message version of this lives in the smsNotifications router and
- * asks the database one key at a time. Bulk insert needs a hint for every
- * pending message at once, so the history is read in one query and the keying
- * happens here instead — same answers, one round trip.
- */
-
-/** A message that was already entered, paired with the statement it became. */
 export type LinkedHistoryEntry = {
   bankName: string;
   accountLast4: string | null;
@@ -31,7 +7,6 @@ export type LinkedHistoryEntry = {
   tags: string[] | null;
 };
 
-/** The fields of a pending message that a hint can be keyed on. */
 export type HintSubject = {
   id: string;
   bankName: string;
@@ -40,24 +15,15 @@ export type HintSubject = {
 };
 
 export type InsertHints = {
-  /** Candidate accounts, most frequently used first. */
   accountIds: string[];
-  /** Candidate categories, most frequently used first. */
   categories: string[];
-  /** Candidate tags, most frequently used first. */
   tags: string[];
 };
 
-/** How many recent pairs a key is allowed to learn from. */
 export const HISTORY_WINDOW = 10;
 
 const EMPTY_HINTS: InsertHints = { accountIds: [], categories: [], tags: [] };
 
-/**
- * Whether the last-four field is usable as a key. Banks send placeholders like
- * "XXXX" and "0000" for accounts they do not want to name, and those would
- * otherwise collide into one very confident, very wrong bucket.
- */
 export const getIsUsableLast4 = (accountLast4: string | null): accountLast4 is string => {
   if (accountLast4 === null) {
     return false;
@@ -66,7 +32,6 @@ export const getIsUsableLast4 = (accountLast4: string | null): accountLast4 is s
   return !Number.isNaN(parsed) && parsed > 0;
 };
 
-/** Values ordered by how often they occur, ties broken by how recently. */
 const rankByFrequency = (values: string[]): string[] => {
   const counts = new Map<string, number>();
   for (const value of values) {
@@ -92,12 +57,6 @@ const groupBy = <T>(entries: T[], keyOf: (entry: T) => string | null): Map<strin
   return groups;
 };
 
-/**
- * Builds a hint for each subject from the linked history.
- *
- * `history` must be ordered newest first — the window that decides which pairs
- * count is taken off the front.
- */
 export const buildInsertHints = (
   history: LinkedHistoryEntry[],
   subjects: HintSubject[],
@@ -111,8 +70,6 @@ export const buildInsertHints = (
   const hintsById = new Map<string, InsertHints>();
 
   for (const subject of subjects) {
-    // The last four digits are the stronger signal; the bank name is the
-    // fallback for messages that do not carry them.
     const accountSource = getIsUsableLast4(subject.accountLast4)
       ? (byLast4.get(subject.accountLast4) ?? [])
       : (byBank.get(subject.bankName) ?? []);
@@ -124,7 +81,6 @@ export const buildInsertHints = (
         .filter((accountId): accountId is string => accountId !== null),
     );
 
-    // Category and tags only have a key when the message names a merchant.
     const merchantSource =
       subject.merchant === null
         ? []
@@ -146,15 +102,6 @@ export const buildInsertHints = (
   return hintsById;
 };
 
-/**
- * The tags worth offering in the grid's tag menu, most used first.
- *
- * Drawn from the linked history rather than from every tag on every statement,
- * because the full list runs to hundreds of entries — mostly raw bank narration
- * left behind by CSV imports ("by debit card-OTHPOS420218971072Innoviti POS
- * GURGAON--") — and a menu that long is not a menu. What remains is the set the
- * user has actually chosen for messages like these.
- */
 export const collectTagVocabulary = (history: LinkedHistoryEntry[]): string[] => {
   const counts = new Map<string, number>();
   for (const entry of history) {

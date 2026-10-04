@@ -28,22 +28,8 @@ interface DataGridProps<TData>
     Omit<React.ComponentProps<'div'>, 'contextMenu'> {
   dir?: Direction;
   height?: number;
-  /**
-   * Fill the space the grid is given instead of capping at `height`.
-   *
-   * For a screen that is the table: the rows area takes whatever is left once
-   * the toolbar and pagination have had theirs, and scrolls inside itself, so
-   * the page around it never does.
-   */
   fill?: boolean;
-  /**
-   * `true` widens every column to fill the space. `'last'` widens only the
-   * final one, which keeps every other column at the width it asked for -- so
-   * a column shown by two different sets of columns sits in the same place in
-   * both, and the slack collects on the right instead of being shared out.
-   */
   stretchColumns?: boolean | 'last';
-  /** Shown in place of the rows when there are none. */
   emptyState?: React.ReactNode;
 }
 
@@ -110,15 +96,6 @@ export const DataGrid = <TData,>({
     [onRowAddRef],
   );
 
-  /**
-   * The narrowest the columns will go before the list scrolls sideways.
-   *
-   * Needed as a width, not just as a limit on each column, because the rows are
-   * painted inside a contained box: content that overflows it is clipped rather
-   * than scrolled, so columns at their floor in a window narrower than their
-   * total would simply be cut off. Making the box itself that wide turns the
-   * overflow back into a scrollbar, which is what a table does.
-   */
   const minGridWidth =
     stretchColumns === true
       ? table
@@ -148,14 +125,8 @@ export const DataGrid = <TData,>({
         aria-colcount={columns.length}
         aria-label="Data grid"
         aria-rowcount={rows.length + (onRowAddProp ? 1 : 0)}
-        // `text-sm` to match DataTable, which sets it on the <table> element
-        // and lets every cell inherit. Without it the grid falls back to the
-        // body's 16px and reads a size larger than every other table.
         className={cn(
           'relative grid overflow-auto rounded-md border text-sm select-none focus:outline-none',
-          // `min-h-0` or a flex item refuses to shrink below its content, and
-          // the rows would push the pagination off the bottom of the screen
-          // rather than scrolling inside their own box.
           fill && 'min-h-0 flex-1',
         )}
         data-slot="grid"
@@ -178,11 +149,6 @@ export const DataGrid = <TData,>({
             <div
               key={headerGroup.id}
               aria-rowindex={rowIndex + 1}
-              // The height a DataTable header has. Left to its contents the row
-              // came out at whatever the tallest control in it happened to be --
-              // forty pixels where a column drew a sort button, twenty-eight
-              // where it drew plain text -- so two grids on neighbouring screens
-              // disagreed about how tall a header is.
               className="flex min-h-10 w-full"
               data-slot="grid-header-row"
               role="row"
@@ -217,10 +183,7 @@ export const DataGrid = <TData,>({
                     }
                     className={cn(
                       'relative font-medium',
-                      // What a DataTable's <th> does with meta.align, so a
-                      // column of figures reads the same in both.
-                      header.column.columnDef.meta?.align === 'right' &&
-                        'text-right tabular-nums',
+                      header.column.columnDef.meta?.align === 'right' && 'text-right tabular-nums',
                       {
                         'border-e': showEndBorder && header.column.id !== 'select',
                         'border-s': showStartBorder && header.column.id !== 'select',
@@ -265,8 +228,6 @@ export const DataGrid = <TData,>({
           data-slot="grid-body"
           role="rowgroup"
           style={{
-            // With no rows the virtualiser measures nothing, so the body would
-            // collapse and take the empty state with it.
             height: rows.length === 0 ? '6rem' : `${virtualTotalSize}px`,
             minWidth: minGridWidth,
             contain: adjustLayout ? 'layout paint' : 'strict',
@@ -317,10 +278,6 @@ export const DataGrid = <TData,>({
             );
           })}
         </div>
-        {/* `onRowAddProp`, not the callback below it: that one is a wrapper
-            this component always defines, so testing it showed an "Add row"
-            footer on every editable grid, including the ones with nothing to
-            add a row to. */}
         {!readOnly && onRowAddProp ? (
           <div
             ref={footerRef}

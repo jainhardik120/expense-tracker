@@ -40,10 +40,6 @@ export const DataGridColumnHeader = <TData, TValue>({
   ...props
 }: DataGridColumnHeaderProps<TData, TValue>) => {
   const { column } = header;
-  // The column's own header wins. `meta.label` names it in the view menu and
-  // the filter chips, where a longer word is often wanted -- "Account" for a
-  // column the table heads "From" -- and reading that here made the grid's
-  // headers disagree with the table's for the same columns.
   const label =
     typeof column.columnDef.header === 'string'
       ? column.columnDef.header
@@ -109,11 +105,6 @@ export const DataGridColumnHeader = <TData, TValue>({
     [table.options.meta, column.id, onPointerDown],
   );
 
-  // A column that cannot be sorted reads as plain text, which is what the
-  // DataTable does with the same column. The menu behind the heading offers
-  // sorting, pinning and hiding; with sorting gone the two that remain are both
-  // reachable from the View menu, so all a trigger would add here is a control
-  // on every heading that looks like it sorts and does not.
   if (!column.getCanSort()) {
     return (
       <>
@@ -271,13 +262,7 @@ const DataGridColumnResizerImpl = <TData, TValue>({
       aria-valuenow={header.column.getSize()}
       className={cn(
         "bg-border hover:bg-primary focus:bg-primary absolute top-0 z-50 h-full w-0.5 cursor-ew-resize touch-none transition-opacity select-none after:absolute after:inset-y-0 after:h-full after:w-[18px] after:content-[''] focus:outline-none",
-        // Both the handle and the wider grab target normally straddle the
-        // column's edge. On the last column anything hanging past that edge is
-        // enough to give the whole grid a horizontal scrollbar it has no use
-        // for, so there they both reach inwards only.
-        isLastColumn
-          ? 'end-0 after:end-0'
-          : '-end-px after:start-1/2 after:-translate-x-1/2',
+        isLastColumn ? 'end-0 after:end-0' : '-end-px after:start-1/2 after:-translate-x-1/2',
         header.column.getIsResizing() ? 'bg-primary' : 'opacity-0 hover:opacity-100',
       )}
       role="separator"

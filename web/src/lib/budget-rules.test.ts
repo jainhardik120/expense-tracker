@@ -27,7 +27,6 @@ test('an empty rule claims everything, so a catch-all line works', () => {
 test('fields are ANDed, values within a field are ORed', () => {
   expect(matchesRule(stmt(), { ...empty, categories: ['Food', 'Shopping'] })).toBe(true);
   expect(matchesRule(stmt(), { ...empty, categories: ['Food'] })).toBe(false);
-  // category matches but the tag does not
   expect(matchesRule(stmt(), { ...empty, categories: ['Shopping'], tags: ['Flight'] })).toBe(false);
 });
 
@@ -68,9 +67,6 @@ test('a commitment is claimed by its own tags, and only by an explicit tag', () 
 });
 
 test('a catch-all line does not swallow untagged commitments', () => {
-  // matchesRule reads an empty tag list as "no constraint", which is right for a
-  // statement carrying a category and an account and wrong for a loan carrying
-  // neither -- every loan would land on the bottom line.
   expect(matchesRule(stmt({ tags: [] }), empty)).toBe(true);
   expect(matchesByTags([], empty)).toBe(false);
   expect(matchesByTags(['Flight'], empty)).toBe(false);
@@ -89,8 +85,6 @@ test('a schedule line knows its loan before a single instalment is recorded', ()
 });
 
 test('a schedule line ignores statements entirely', () => {
-  // The statement says Shopping, the loan is tagged Gym. The schedule line
-  // reads the loan, so the statement cannot drag it elsewhere.
   const owners = resolveLoanOwners(
     [
       loanLine({ id: 'shopping', rule: { ...empty, categories: ['Shopping'] } }),

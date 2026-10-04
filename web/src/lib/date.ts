@@ -36,8 +36,6 @@ const truncFormatMap: Record<DateTruncUnit, string> = {
   year: 'yyyy',
 };
 
-// Postgres `date_trunc('week', ...)` starts its weeks on Monday, so the
-// matching end has to as well.
 const truncEndMap: Record<DateTruncUnit, (date: Date) => Date> = {
   second: endOfSecond,
   minute: endOfMinute,
@@ -60,19 +58,6 @@ export const formatTruncatedDate = (
   return format(zonedDate, formatStr);
 };
 
-/**
- * An instant written as the reader's wall clock: `YYYY-MM-DDTHH:mm`.
- *
- * Stored timestamps are instants, and the calendar day an instant falls on
- * depends on who is looking. A purchase at 00:30 on 1 January in Delhi is
- * 19:00 on 31 December in UTC, so anything that slices a day out of
- * `toISOString()` reports the wrong date for half the night, every night.
- *
- * The result deliberately carries no zone suffix: it is a wall clock, not an
- * instant, and is meant for display and for grouping by day. Sorting still
- * works, because the format is lexicographic. Anything that needs the instant
- * back should be handed the instant instead.
- */
 export const localWallClock = (date: Date, timeZone: string): string => {
   const parts = cachedDateFormat('en-CA', {
     timeZone,
@@ -85,23 +70,15 @@ export const localWallClock = (date: Date, timeZone: string): string => {
   }).formatToParts(date);
   const find = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((part) => part.type === type)?.value ?? '';
-  // en-CA renders midnight as 24 rather than 00 in some runtimes.
   const hour = find('hour') === '24' ? '00' : find('hour');
   return `${find('year')}-${find('month')}-${find('day')}T${hour}:${find('minute')}`;
 };
 
-/** date-fns formatting, in the reader's timezone rather than the server's. */
 export const zonedFormat = (date: Date | string, pattern: string, timeZone: string): string => {
   const value = typeof date === 'string' ? new Date(date) : date;
   return format(toZonedTime(value, timeZone), pattern);
 };
 
-/**
- * The calendar days a bucket actually covers, clipped to the range that was
- * asked for. A label like `2026 W39` says nothing about where the week fell,
- * and the first and last buckets of a range are usually partial ones, so the
- * clipped span is what a reader needs to make sense of the number.
- */
 export const formatTruncatedPeriodSpan = (
   date: Date | string,
   trunc: DateTruncUnit,
@@ -129,10 +106,8 @@ export const formatTruncatedPeriodSpan = (
   return `${sameYear ? startText.slice(0, -YEAR_LENGTH) : startText} – ${endText}`;
 };
 
-/** Length of a `YYYY-MM-DD` date, as it appears at the head of an ISO timestamp. */
 const ISO_DATE_LENGTH = 10;
 
-/** Just the reader's calendar day, `YYYY-MM-DD`. */
 export const localDay = (date: Date, timeZone: string): string =>
   localWallClock(date, timeZone).slice(0, ISO_DATE_LENGTH);
 
@@ -179,15 +154,6 @@ export const endOfMonthLocal = (date: Date, timeZone: string = 'UTC') => {
   return fromZonedTime(endOfMonth(zoned), timeZone);
 };
 
-/**
- * Every period start between two dates, in the reader's zone.
- *
- * Aggregations only return the periods that had something in them, which is
- * invisible on a busy chart and badly misleading on a quiet one: three payments
- * seventeen days apart get drawn at even spacing, as though time itself were
- * regular. Charting against this instead keeps the axis proportional and a week
- * with no spending reading as zero rather than as nothing at all.
- */
 export const periodStartsBetween = (
   start: Date,
   end: Date,
@@ -211,8 +177,6 @@ export const periodStartsBetween = (
   const starts: Date[] = [];
   let cursor = floor[trunc](toZonedTime(start, timeZone));
   const last = floor[trunc](toZonedTime(end, timeZone));
-  // Capped so a bad range cannot spin here forever or hand a chart a million
-  // points it has no way to draw.
   const LIMIT = 400;
   while (cursor <= last && starts.length < LIMIT) {
     starts.push(fromZonedTime(cursor, timeZone));

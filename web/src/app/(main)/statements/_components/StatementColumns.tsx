@@ -122,16 +122,6 @@ const SelfTransferStatementActions = ({
   );
 };
 
-/**
- * Formatted on the server as well as the client, so the column arrives at its
- * final width.
- *
- * Rendering a placeholder until mount avoided a hydration mismatch -- the
- * server's clock is UTC and the reader's is not -- but at the cost of every row
- * resizing the moment the date appeared. The reader's zone is already in a
- * cookie, which both sides can read, so both sides can print the same string
- * the first time.
- */
 const DateCell = ({ date }: { date: Date }) => {
   const timezone = useTimezone();
   return zonedFormat(date, "MMMM dd, yyyy 'at' hh:mm a", timezone);
@@ -142,17 +132,6 @@ type FacetCounts = Record<'account' | 'category' | 'tags' | 'statementKind', Fac
 
 type FilterOption = { label: string; value: string; count: number };
 
-/**
- * Filter options annotated with how many rows each value currently matches.
- *
- * Top-level filters keep every value and let the zeroes show: their value sets
- * are small, and a list that silently shrinks reads as broken. The ones below
- * them drop what no longer matches -- with a category chosen, the tags outside
- * it are noise rather than information, and there are hundreds of them.
- *
- * A value that is currently selected is always kept, whatever its count, so a
- * filter can still be seen and cleared after something above it narrowed it away.
- */
 const withCounts = (
   options: { label: string; value: string }[],
   counts: FacetCount[],
@@ -186,11 +165,8 @@ export const createStatementColumns = ({
   tags: string[];
   facetCounts: FacetCounts;
   activeFilters: { category: string[]; tags: string[] };
-  /** Whether cells are being read or corrected. */
   mode: 'view' | 'edit';
-  /** Save one corrected field of one statement. */
   onCellSave: (statement: Statement, patch: Partial<Statement>) => void;
-  /** The row last ticked, which a shift-click extends the selection from. */
   anchorRow: number | null;
   setAnchorRow: (index: number | null) => void;
   startingBalance?: {
@@ -217,12 +193,6 @@ export const createStatementColumns = ({
         aria-label="Select row"
         checked={row.getIsSelected()}
         className="translate-y-0.5"
-        // Shift extends the selection from the last row ticked to this one, the
-        // way a file list does, so a run of statements is picked out with two
-        // clicks rather than twenty. Handled on the click rather than on the
-        // change because only the event knows whether shift was held; stopping
-        // it there also stops the tick box toggling itself a second time, since
-        // the range below already covers this row.
         onCheckedChange={(value) => {
           row.toggleSelected(value === true);
         }}
@@ -234,10 +204,6 @@ export const createStatementColumns = ({
             const { rows } = table.getRowModel();
             const from = Math.min(anchor, row.index);
             const to = Math.max(anchor, row.index);
-            // Written once, as a whole. Toggling the rows one at a time looks
-            // right and is not: each call works out the new selection from the
-            // state it was rendered with, so they overwrite one another and
-            // only the last row of the run survives.
             const selection = { ...table.getState().rowSelection };
             for (let index = from; index <= to; index++) {
               const id = rows.at(index)?.id;
@@ -259,11 +225,6 @@ export const createStatementColumns = ({
     enableSorting: false,
     enableHiding: false,
     meta: { selectable: false },
-    // Declared, unlike the columns that hold a value. A table laid out
-    // automatically treats a column's declared width as what it would like and
-    // shares out the slack in proportion, so a column that says nothing is
-    // taken to want the default 150 and gets a full share of a wide screen --
-    // which left the tick box marooned a long way from the first date.
     size: 40,
   },
   {
@@ -285,9 +246,6 @@ export const createStatementColumns = ({
     id: 'statementKind',
     accessorKey: 'statementKind',
     header: 'Statement Kind',
-    // Sorted by the server or not at all: it orders by date, amount and
-    // category, so a heading offering to sort by anything else would be a
-    // control that does nothing.
     enableSorting: false,
     cell: ({ row }) => (
       <span className={cn('font-medium', statementKindClassName(row.original))}>
@@ -324,8 +282,6 @@ export const createStatementColumns = ({
           {amount.toFixed(2)}
         </span>
       );
-      // A self transfer is two records with one endpoint each; correcting one
-      // of them through this form would write half of it.
       if (isSelfTransfer(statement)) {
         return display;
       }
@@ -360,7 +316,12 @@ export const createStatementColumns = ({
         return <>-</>;
       }
       return (
-        <EditableCell columnId="category" display={statement.category} mode={mode} rowIndex={row.index}>
+        <EditableCell
+          columnId="category"
+          display={statement.category}
+          mode={mode}
+          rowIndex={row.index}
+        >
           {({ stop }) => (
             <SelectEditor
               options={categories}
@@ -423,8 +384,6 @@ export const createStatementColumns = ({
         return <span className="text-muted-foreground">-</span>;
       }
       const { splitAmount } = row.original;
-      // Without a split this just repeats the amount, so it stays quiet; once a
-      // split makes the two differ, this is the number that is actually yours.
       return (
         <span
           className={cn(
@@ -500,8 +459,6 @@ export const createStatementColumns = ({
         facetCounts.tags,
         { cascade: true, selected: activeFilters.tags },
       ),
-      // Creatable, unlike the category: the tags are a vocabulary that grows,
-      // and refusing a new one here would mean leaving the grid to add it.
       cell: {
         variant: 'multi-select',
         creatable: true,

@@ -1,9 +1,6 @@
 'use client';
 
-/* eslint-disable react/prop-types -- every component here is bound to a catalog
-   entry whose zod schema is the prop contract, and json-render validates against
-   it before calling us. The rule cannot see through the shared `Props<T>`
-   wrapper and reports each field as unvalidated. */
+/* eslint-disable react/prop-types */
 import type { ReactNode } from 'react';
 
 import Link from 'next/link';
@@ -23,22 +20,10 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-/** Matches the default vertical rhythm of the report layout. */
 const DEFAULT_SPACER_HEIGHT = 8;
-
-/**
- * DOM implementations of the report catalog.
- *
- * The PDF versions of these live in @helix-hq/pdf-report and draw with
- * react-pdf. These draw the same components with the app's own shadcn
- * primitives, so a report on the page looks like the rest of the app rather
- * than like a PDF embedded in it, while binding to the identical props.
- */
 
 type Props<T> = { props: T; children?: ReactNode };
 
-// The palette the PDF uses, carried on the spec by the branding step so the two
-// renderings colour the same slice the same way.
 const FALLBACK_PALETTE = ['#ec003f', '#2563eb', '#f59e0b', '#7c3aed', '#059669', '#0891b2'];
 
 const HEADING_CLASS: Record<string, string> = {
@@ -47,12 +32,9 @@ const HEADING_CLASS: Record<string, string> = {
   h3: 'text-lg font-semibold',
 };
 
-/** Treats absent, null and empty alike, which is how a template hides a field. */
 const blank = (value?: string | null) => value === null || value === undefined || value === '';
 
 const ALIGN_CLASS: Record<string, string> = {
-  // Tabular figures with the right edge: a column of amounts is only
-  // comparable down the page if its digits are the same width.
   right: 'text-right tabular-nums',
   center: 'text-center',
   left: 'text-left',
@@ -67,7 +49,6 @@ const TONE_CLASS: Record<string, string> = {
 };
 const toneClass = (tone?: string | null) => TONE_CLASS[tone ?? ''] ?? '';
 
-/** A container that only exists to group children in a PDF. */
 const Passthrough = ({ children }: Props<unknown>) => <>{children}</>;
 
 const Stack = ({ props, children }: Props<{ gap?: number | null; flex?: number | null }>) => (
@@ -92,10 +73,7 @@ const Inline = ({
 );
 
 export const reportViewComponents = {
-  // ---------------------------------------------------------------- shell ---
   Document: Passthrough,
-  // A page break means nothing here, so the branded page furniture — wordmark,
-  // generated-at, footer — is dropped: the app already frames the content.
   Page: ({ children }: Props<unknown>) => <div className="flex flex-col gap-6">{children}</div>,
   ReportPage: ({ children }: Props<unknown>) => (
     <div className="flex flex-col gap-6">{children}</div>
@@ -108,10 +86,8 @@ export const reportViewComponents = {
     <div style={{ height: props.height ?? DEFAULT_SPACER_HEIGHT }} />
   ),
   Divider: () => <hr className="border-border my-2" />,
-  // Page furniture with no meaning in a scrolling page.
   PageNumber: () => null,
 
-  // ------------------------------------------------------------- typography ---
   Heading: ({ props }: Props<{ text: string; level?: string | null; align?: string | null }>) => {
     const size = HEADING_CLASS[props.level ?? 'h3'] ?? HEADING_CLASS.h3;
     return <h2 className={cn(size, alignClass(props.align))}>{props.text}</h2>;
@@ -153,7 +129,6 @@ export const reportViewComponents = {
     );
   },
 
-  // ----------------------------------------------------------------- panels ---
   Section: ({ props, children }: Props<{ title?: string | null; subtitle?: string | null }>) => (
     <Card>
       {blank(props.title) ? null : (
@@ -186,7 +161,6 @@ export const reportViewComponents = {
       </div>
     ),
 
-  // ----------------------------------------------------------------- tables ---
   DataTable: ({
     props,
   }: Props<{
@@ -232,9 +206,6 @@ export const reportViewComponents = {
                 {props.headers.map((_, column) => (
                   // eslint-disable-next-line react/no-array-index-key
                   <TableCell key={column} className={alignClass(props.align?.[column])}>
-                    {/* The anchor covers the row rather than wrapping the text, so
-                        a linked row reads exactly like an unlinked one — the same
-                        reason the PDF lays an annotation over the row. */}
                     {column === 0 && href !== null ? (
                       <Link aria-label={cells[0]} className="absolute inset-0" href={href} />
                     ) : null}
@@ -278,7 +249,6 @@ export const reportViewComponents = {
     </Table>
   ),
 
-  // ----------------------------------------------------------------- charts ---
   PieChart: ({
     props,
   }: Props<{
@@ -300,9 +270,6 @@ export const reportViewComponents = {
     return (
       <div className="flex flex-col gap-3">
         {blank(props.title) ? null : <p className="text-sm font-medium">{props.title}</p>}
-        {/* An explicit height, not an aspect ratio: this sits in a flex column
-            with no intrinsic width, so `aspect-square` resolves to zero and the
-            chart never gets drawn. */}
         <ChartContainer className="h-[220px] w-full" config={{}}>
           <RePieChart>
             <Pie

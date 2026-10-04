@@ -113,15 +113,6 @@ interface UseDataGridProps<TData> extends Omit<TableOptions<TData>, 'getCoreRowM
   rowHeight?: RowHeightValue;
   onRowHeightChange?: (rowHeight: RowHeightValue) => void;
   overscan?: number;
-  /**
-   * The height the rows area will have, in pixels, told to the virtualiser up
-   * front.
-   *
-   * It measures its scroll container to decide how many rows to draw, and on
-   * the server there is no container to measure -- so it drew none, the page
-   * arrived with an empty table and every row appeared at once on hydration.
-   * Given the height it can work the first screenful out without measuring.
-   */
   initialHeight?: number;
   dir?: Direction;
   autoFocus?: boolean | Partial<CellPosition>;
@@ -140,9 +131,6 @@ const useDataGrid = <TData>({
   initialHeight,
   dir: dirProp,
   initialState,
-  // Pulled out of `props` so it can be a dependency of the table state below.
-  // Left in `props` it would only ever be read through a ref, and a caller that
-  // owns its own sorting or filters would find the grid ignoring every change.
   state: controlledState,
   ...props
 }: UseDataGridProps<TData>) => {
@@ -269,8 +257,6 @@ const useDataGrid = <TData>({
 
   const prevCellSelectionMapRef = useLazyRef(() => new Map<number, Set<string>>());
 
-  // Memoize per-row selection sets to prevent unnecessary row re-renders
-  // Each row gets a stable Set reference that only changes when its cells' selection changes
   const cellSelectionMap = React.useMemo(() => {
     const { selectedCells } = selectionState;
 
@@ -309,8 +295,6 @@ const useDataGrid = <TData>({
     map: Map<string, number>;
   } | null>(null);
 
-  // Pre-compute visual row index map for O(1) lookups (used by select column)
-  // Cache is invalidated when row model identity changes (sorting/filtering)
   const getVisualRowIndex = React.useCallback((rowId: string): number | undefined => {
     const rows = tableRef.current?.getRowModel().rows;
     if (!rows) {
@@ -1112,8 +1096,6 @@ const useDataGrid = <TData>({
     [store, navigableColumnIds, propsRef, onDataUpdate, selectRange, restoreFocus],
   );
 
-  // Release focus guard after delay to allow async data re-renders to settle.
-  // 300ms accounts for db sync and virtualized cell mounting.
   const releaseFocusGuard = React.useCallback((immediate = false) => {
     if (immediate) {
       focusGuardRef.current = false;
@@ -1347,7 +1329,6 @@ const useDataGrid = <TData>({
       if (newRowIndex !== rowIndex || newColumnId !== columnId) {
         focusCell(newRowIndex, newColumnId);
 
-        // Calculate and apply scrolls synchronously to avoid flashing
         const container = dataGridRef.current;
         if (!container) {
           return;
@@ -1357,7 +1338,6 @@ const useDataGrid = <TData>({
         const cellKey = getCellKey(newRowIndex, newColumnId);
         const targetCell = cellMapRef.current.get(cellKey);
 
-        // If target row is not rendered, scroll it into view first
         if (!targetRow) {
           if (rowVirtualizer) {
             const align =
@@ -1375,7 +1355,6 @@ const useDataGrid = <TData>({
 
             rowVirtualizer.scrollToIndex(newRowIndex, { align });
 
-            // Wait for row to render before horizontal scroll
             if (newColumnId !== columnId) {
               requestAnimationFrame(() => {
                 const cellKeyRetry = getCellKey(newRowIndex, newColumnId);
@@ -1396,7 +1375,6 @@ const useDataGrid = <TData>({
               });
             }
           } else {
-            // Fallback: use direct scroll calculation when virtualizer is not available
             const rowHeightValue = getRowHeightValue(rowHeight);
             const estimatedScrollTop = newRowIndex * rowHeightValue;
             container.scrollTop = estimatedScrollTop;
@@ -1405,7 +1383,6 @@ const useDataGrid = <TData>({
           return;
         }
 
-        // Vertical scrolling for rendered rows that changed
         if (newRowIndex !== rowIndex && targetRow) {
           requestAnimationFrame(() => {
             const containerRect = container.getBoundingClientRect();
@@ -1418,7 +1395,6 @@ const useDataGrid = <TData>({
             const isFullyVisible = rowRect.top >= viewportTop && rowRect.bottom <= viewportBottom;
 
             if (!isFullyVisible) {
-              // Only apply vertical scroll for vertical navigation
               const isVerticalNavigation =
                 direction === 'up' ||
                 direction === 'down' ||
@@ -1445,7 +1421,6 @@ const useDataGrid = <TData>({
           });
         }
 
-        // Horizontal scrolling for rendered cells
         if (newColumnId !== columnId && targetCell) {
           requestAnimationFrame(() => {
             const scrollDirection = getScrollDirection(direction);
@@ -1674,8 +1649,6 @@ const useDataGrid = <TData>({
     [store],
   );
 
-  // Compute search match data for targeted row re-renders
-  // Maps rowIndex -> Set of columnIds that have matches in that row
   const searchMatchesByRow = React.useMemo(() => {
     if (searchMatches.length === 0) {
       return null;
@@ -1813,10 +1786,6 @@ const useDataGrid = <TData>({
         return;
       }
 
-      // A cell that holds a real control -- a tick box, the button a row's
-      // actions sit behind, a link -- lets the control have the click. The
-      // default is cancelled here to stop a drag selecting text across cells,
-      // and cancelling it over a checkbox stopped the checkbox ticking.
       if (
         (event.target as HTMLElement | null)?.closest(
           'button, a, input, select, textarea, [role="checkbox"], [role="menuitem"]',
@@ -1977,10 +1946,6 @@ const useDataGrid = <TData>({
         store.setState('editingCell', null);
       });
 
-      // Forwarded like sorting and filters are. Without it a caller that owns
-      // the selection never heard about a tick: the grid wrote the new value to
-      // its own store, the controlled value it was handed back never changed,
-      // and the box sprang straight back up.
       propsRef.current.onRowSelectionChange?.(newRowSelection);
     },
     [store, columnIds, propsRef],
@@ -2061,8 +2026,6 @@ const useDataGrid = <TData>({
 
   const defaultColumn: Partial<ColumnDef<TData>> = React.useMemo(
     () => ({
-      // Note: cell is rendered directly in DataGridRow to bypass flexRender's
-      // unstable cell.getContext() (see TanStack Table issue #4794)
       minSize: MIN_COLUMN_SIZE,
       maxSize: MAX_COLUMN_SIZE,
     }),
@@ -2074,7 +2037,6 @@ const useDataGrid = <TData>({
       ...propsRef.current.meta,
       dataGridRef,
       cellMapRef,
-      // Use getters for frequently changing state values to avoid recreating meta
       get focusedCell() {
         return store.getState().focusedCell;
       },
@@ -2157,12 +2119,6 @@ const useDataGrid = <TData>({
   const getMemoizedFilteredRowModel = React.useMemo(() => getFilteredRowModel(), []);
   const getMemoizedSortedRowModel = React.useMemo(() => getSortedRowModel(), []);
 
-  // Memoize state object to reduce shallow equality checks
-  // Each of these three is the caller's if the caller supplies one, and the
-  // grid's own otherwise -- so a grid can be dropped in uncontrolled and still
-  // sort and filter itself, while a page that keeps that state in the URL stays
-  // the single source of truth. The change handlers already forward to the
-  // caller's, so a controlled value round-trips.
   const tableState = React.useMemo<Partial<TableState>>(
     () => ({
       ...controlledState,
@@ -2213,7 +2169,6 @@ const useDataGrid = <TData>({
     tableRef.current = table;
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: columnSizingInfo and columnSizing are used for calculating the column size vars
   const columnSizeVars = React.useMemo(() => {
     const headers = table.getFlatHeaders();
     const colSizes: { [key: string]: number } = {};
@@ -2235,7 +2190,6 @@ const useDataGrid = <TData>({
     React.useCallback(() => false, []),
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: columnPinning is used for calculating the adjustLayout
   const adjustLayout = React.useMemo(() => {
     const { columnPinning } = table.getState();
     return (
@@ -2248,8 +2202,6 @@ const useDataGrid = <TData>({
     getScrollElement: () => dataGridRef.current,
     estimateSize: () => rowHeightValue,
     overscan,
-    // Stands in for the measurement that cannot happen before there is a DOM,
-    // so the server renders the rows that will be on screen rather than none.
     ...(initialHeight === undefined ? {} : { initialRect: { width: 0, height: initialHeight } }),
     measureElement: !isFirefox ? (element) => element?.getBoundingClientRect().height : undefined,
   });
@@ -2291,7 +2243,6 @@ const useDataGrid = <TData>({
         }
         const currentRowCount = propsRef.current.data.length;
 
-        // If the requested row doesn't exist yet, wait for data to update
         if (rowIndex >= currentRowCount && retryCount > 0) {
           await new Promise((resolve) => setTimeout(resolve, 50));
           await onScrollAndFocus(retryCount - 1);
@@ -2307,7 +2258,6 @@ const useDataGrid = <TData>({
 
         await new Promise((resolve) => requestAnimationFrame(resolve));
 
-        // Adjust scroll position to account for sticky header/footer
         const container = dataGridRef.current;
         const targetRow = rowMapRef.current.get(safeRowIndex);
 
@@ -2324,10 +2274,8 @@ const useDataGrid = <TData>({
 
           if (!isFullyVisible) {
             if (rowRect.top < viewportTop) {
-              // Row is partially hidden by header - scroll up
               container.scrollTop -= viewportTop - rowRect.top;
             } else if (rowRect.bottom > viewportBottom) {
-              // Row is partially hidden by footer - scroll down
               container.scrollTop += rowRect.bottom - viewportBottom;
             }
           }
@@ -2373,7 +2321,6 @@ const useDataGrid = <TData>({
       try {
         result = await propsRef.current.onRowAdd(event);
       } catch {
-        // Callback threw an error, don't proceed with scroll/focus
         return;
       }
 
@@ -2383,8 +2330,6 @@ const useDataGrid = <TData>({
 
       onSelectionClear();
 
-      // Trust the returned rowIndex from the callback
-      // onScrollToRow will handle retries if the row isn't rendered yet
       const targetRowIndex = result.rowIndex ?? initialRowCount;
       const targetColumnId = result.columnId;
 
@@ -2431,8 +2376,6 @@ const useDataGrid = <TData>({
         return;
       }
 
-      // Cell editing keyboard events (Enter, Tab, Escape) are handled by the cell variants
-      // to ensure proper value commitment before navigation
       if (currentState.editingCell) {
         return;
       }
@@ -2582,9 +2525,7 @@ const useDataGrid = <TData>({
               columnId: targetColumnId,
             });
           })
-          .catch(() => {
-            // Callback threw an error, don't proceed with scroll/focus
-          });
+          .catch(() => {});
         return;
       }
 
@@ -3071,7 +3012,6 @@ const useDataGrid = <TData>({
     }
   }, [store, propsRef, data, columns, navigableColumnIds, focusCell]);
 
-  // Restore focus to container when virtualized cells are unmounted
   React.useEffect(() => {
     const container = dataGridRef.current;
     if (!container) {
@@ -3136,7 +3076,6 @@ const useDataGrid = <TData>({
       if (dataGridRef.current && !dataGridRef.current.contains(event.target as Node)) {
         const elements = document.elementsFromPoint(event.clientX, event.clientY);
 
-        // Compensate for event.target bubbling up
         const isInsidePopover = elements.some((element) => getIsInPopover(element));
 
         if (!isInsidePopover) {
@@ -3211,7 +3150,6 @@ const useDataGrid = <TData>({
     table.getState().sorting,
   ]);
 
-  // Calculate virtual values outside of child render to avoid flushSync issues
   const virtualTotalSize = rowVirtualizer.getTotalSize();
   const virtualItems = rowVirtualizer.getVirtualItems();
   const { measureElement } = rowVirtualizer;
@@ -3267,8 +3205,4 @@ const useDataGrid = <TData>({
   );
 };
 
-export {
-  useDataGrid,
-  //
-  type UseDataGridProps,
-};
+export { useDataGrid, type UseDataGridProps };

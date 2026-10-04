@@ -91,10 +91,6 @@ const useSortableContext = (consumerName: string) => {
 };
 
 interface GetItemValue<T> {
-  /**
-   * Callback that returns a unique identifier for each sortable item. Required for array of objects.
-   * @example getItemValue={(item) => item.id}
-   */
   getItemValue: (item: T) => UniqueIdentifier;
 }
 
@@ -107,7 +103,6 @@ type SortableRootProps<T> = DndContextProps & {
   flatCursor?: boolean;
 } & (T extends object ? GetItemValue<T> : Partial<GetItemValue<T>>);
 
-// Helper to safely get sortable index from drag data
 const getSortableIndex = (data: unknown): number => {
   if (typeof data === 'object' && data !== null && 'current' in data) {
     const { current } = data as { current?: unknown };
@@ -584,7 +579,6 @@ export {
   SortableItem,
   SortableItemHandle,
   SortableOverlay,
-  //
   SortableRoot as Root,
   SortableContent as Content,
   SortableItem as Item,

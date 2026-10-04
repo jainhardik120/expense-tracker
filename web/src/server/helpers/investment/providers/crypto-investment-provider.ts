@@ -159,7 +159,6 @@ export class CryptoInvestmentProvider extends BaseInvestmentInstrumentProvider {
     startDate: Date,
     endDate: Date,
   ): Promise<PriceHistoryPoint[]> {
-    // CoinGecko's range endpoint takes unix seconds.
     const periodStart = Math.floor(startOfDay(startDate).getTime() / MS_PER_SECOND);
     const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / MS_PER_SECOND);
     const payload = await fetchJson<{ prices?: Array<[number, number]> }>(

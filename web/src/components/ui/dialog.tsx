@@ -49,15 +49,6 @@ const DialogContent = ({
     <DialogOverlay />
     <DialogPrimitive.Content
       className={cn(
-        // A dialog is centred on the viewport, so content taller than the
-        // viewport used to bleed off both edges with no way to reach it --
-        // the title above and the buttons below. Capping the height and
-        // scrolling the body keeps every dialog reachable at any window size,
-        // however much its contents grow.
-        //
-        // The padding lives on the body rather than here, so that the close
-        // button below is positioned against a box that does not scroll and
-        // stays put once the body does.
         'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 flex max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] flex-col rounded-lg border shadow-lg duration-200 sm:max-w-lg',
         className,
       )}
@@ -69,7 +60,6 @@ const DialogContent = ({
       </div>
       {showCloseButton ? (
         <DialogPrimitive.Close
-          // Above the sticky header, which would otherwise paint over it.
           className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 z-20 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           data-slot="dialog-close"
         >
@@ -84,10 +74,6 @@ const DialogContent = ({
 const DialogHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   <div
     className={cn(
-      // Sticky so a dialog tall enough to scroll keeps its title, and the close
-      // button beside it, in view. The negative margins let the opaque
-      // background reach the content box's edges, so what scrolls past goes
-      // behind the header rather than through the padding beside it.
       'bg-background sticky -top-6 z-10 -mx-6 -mt-6 flex flex-col gap-2 px-6 pt-6 pr-12 pb-2 text-center sm:text-left',
       className,
     )}

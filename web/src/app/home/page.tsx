@@ -16,13 +16,6 @@ export const metadata: Metadata = {
     'A ledger for every account, card, loan and investment you have, checked against what the bank says.',
 };
 
-/**
- * What the app keeps track of, grouped by the question it answers.
- *
- * Four questions rather than ten features: the sidebar already lists the
- * screens, and someone who has not signed in yet is asking what this is for,
- * not which pages it has.
- */
 const TRACKS = [
   {
     question: 'Money in and out',
@@ -70,8 +63,6 @@ export default async function HomePage() {
       <main className="mx-auto max-w-5xl px-6">
         <section className="grid gap-10 py-14 sm:py-20 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-center lg:gap-16">
           <div className="flex flex-col justify-center">
-            {/* Measured rather than set to the container: prose past about 70
-                characters a line is harder to come back to on the next line. */}
             <h1 className="max-w-[18ch] text-4xl leading-[1.08] font-semibold tracking-tight text-balance sm:text-5xl">
               It balances, or it tells you where it doesn&apos;t.
             </h1>
@@ -102,9 +93,6 @@ export default async function HomePage() {
                 className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-4"
               >
                 <dt className="font-medium whitespace-nowrap">{track.question}</dt>
-                {/* A leader rule, as a statement uses between a line item and
-                    its amount -- it ties the two sides together on a wide row
-                    where the eye would otherwise lose the line. */}
                 <span
                   aria-hidden
                   className="border-border/70 hidden flex-1 border-b border-dashed sm:block"
@@ -119,16 +107,16 @@ export default async function HomePage() {
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Your bank already tells you</h2>
             <p className="text-muted-foreground mt-5 max-w-[60ch] leading-8">
-              The Android app reads the alert your bank sends after a payment, works out what it
-              was and who it was with, and holds it for you to confirm. Most of a month&apos;s
-              spending ends up entered without typing it.
+              The Android app reads the alert your bank sends after a payment, works out what it was
+              and who it was with, and holds it for you to confirm. Most of a month&apos;s spending
+              ends up entered without typing it.
             </p>
           </div>
           <div>
             <h2 className="text-2xl font-semibold tracking-tight">Loans are not guesswork</h2>
             <p className="text-muted-foreground mt-5 max-w-[60ch] leading-8">
-              An EMI knows its own schedule: interest, GST, processing fee, and the instalment
-              that falls due next. Split one with a friend and both sides of it stay on the books.
+              An EMI knows its own schedule: interest, GST, processing fee, and the instalment that
+              falls due next. Split one with a friend and both sides of it stay on the books.
             </p>
           </div>
         </section>

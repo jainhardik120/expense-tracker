@@ -1,15 +1,8 @@
 'use client';
 
 import { HelpTopic } from '@/components/help/help-topic';
-import {
-  HelpBar,
-  HelpCalc,
-  HelpCard,
-  HelpCompare,
-  HelpNote,
-} from '@/components/help/help-visuals';
+import { HelpBar, HelpCalc, HelpCard, HelpCompare, HelpNote } from '@/components/help/help-visuals';
 
-/** Where money coming in goes, and what each destination does to the lines. */
 export const BudgetIncomeHelp = () => (
   <HelpTopic label="How income lines work" title="Income">
     <HelpCard
@@ -65,10 +58,7 @@ export const BudgetIncomeHelp = () => (
       />
     </HelpCard>
 
-    <HelpCard
-      lede="A bonus put against the trip it paid for."
-      title="Pointed at one line"
-    >
+    <HelpCard lede="A bonus put against the trip it paid for." title="Pointed at one line">
       <HelpCompare
         items={[
           {
@@ -98,9 +88,7 @@ export const BudgetIncomeHelp = () => (
           },
         ]}
       />
-      <HelpNote>
-        The money is the same either way. Pointing it says what it was for.
-      </HelpNote>
+      <HelpNote>The money is the same either way. Pointing it says what it was for.</HelpNote>
     </HelpCard>
 
     <HelpCard lede="Money that arrived but is not yours to plan with." title="Excluded">
@@ -111,15 +99,10 @@ export const BudgetIncomeHelp = () => (
           { label: 'Excluded', value: -30000, note: 'a friend settling up' },
         ]}
       />
-      <HelpNote>
-        It never enters the budget, so it cannot inflate what there is to invest.
-      </HelpNote>
+      <HelpNote>It never enters the budget, so it cannot inflate what there is to invest.</HelpNote>
     </HelpCard>
 
-    <HelpCard
-      lede="Last year's leftover, treated as income on day one."
-      title="Opening balance"
-    >
+    <HelpCard lede="Last year's leftover, treated as income on day one." title="Opening balance">
       <HelpCalc
         result={{ label: 'Income the year has to work with', value: 140000 }}
         rows={[

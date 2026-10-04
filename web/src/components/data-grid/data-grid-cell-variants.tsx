@@ -72,7 +72,6 @@ export const ShortTextCell = <TData,>({
   }
 
   const onBlur = React.useCallback(() => {
-    // Read the current value directly from the DOM to avoid stale state
     const currentValue = cellRef.current?.textContent ?? '';
     if (!readOnly && currentValue !== initialValue) {
       tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: currentValue });
@@ -118,7 +117,6 @@ export const ShortTextCell = <TData,>({
           cellRef.current?.blur();
         }
       } else if (isFocused && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-        // Handle typing to pre-fill the value when editing starts
         setValue(event.key);
 
         queueMicrotask(() => {
@@ -226,7 +224,6 @@ export const LongTextCell = <TData,>({
   }, 300);
 
   const onSave = React.useCallback(() => {
-    // Immediately save any pending changes and close the popover
     if (!readOnly && value !== initialValue) {
       tableMeta?.onDataUpdate?.({ rowIndex, columnId, value });
     }
@@ -234,7 +231,6 @@ export const LongTextCell = <TData,>({
   }, [tableMeta, value, initialValue, rowIndex, columnId, readOnly]);
 
   const onCancel = React.useCallback(() => {
-    // Restore the original value
     setValue(initialValue ?? '');
     if (!readOnly) {
       tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: initialValue });
@@ -247,7 +243,6 @@ export const LongTextCell = <TData,>({
       if (open && !readOnly) {
         tableMeta?.onCellEditingStart?.(rowIndex, columnId);
       } else {
-        // Immediately save any pending changes when closing
         if (!readOnly && value !== initialValue) {
           tableMeta?.onDataUpdate?.({ rowIndex, columnId, value });
         }
@@ -266,8 +261,6 @@ export const LongTextCell = <TData,>({
       const { length } = textareaRef.current.value;
       textareaRef.current.setSelectionRange(length, length);
 
-      // Insert pending character using execCommand so it's part of undo history
-      // Use requestAnimationFrame to ensure focus has fully settled
       if (pendingCharRef.current) {
         const char = pendingCharRef.current;
         pendingCharRef.current = null;
@@ -293,8 +286,6 @@ export const LongTextCell = <TData,>({
         !event.ctrlKey &&
         !event.metaKey
       ) {
-        // Store the character to be inserted after textarea focuses
-        // This ensures it's part of the textarea's undo history
         pendingCharRef.current = event.key;
       }
     },
@@ -302,7 +293,6 @@ export const LongTextCell = <TData,>({
   );
 
   const onBlur = React.useCallback(() => {
-    // Immediately save any pending changes on blur
     if (!readOnly && value !== initialValue) {
       tableMeta?.onDataUpdate?.({ rowIndex, columnId, value });
     }
@@ -328,7 +318,6 @@ export const LongTextCell = <TData,>({
         onSave();
       } else if (event.key === 'Tab') {
         event.preventDefault();
-        // Save any pending changes
         if (value !== initialValue) {
           tableMeta?.onDataUpdate?.({ rowIndex, columnId, value });
         }
@@ -337,7 +326,6 @@ export const LongTextCell = <TData,>({
         });
         return;
       }
-      // Stop propagation to prevent grid navigation
       event.stopPropagation();
     },
     [onSave, onCancel, value, initialValue, tableMeta, rowIndex, columnId],
@@ -455,11 +443,9 @@ export const NumberCell = <TData,>({
           inputRef.current?.blur();
         }
       } else if (isFocused) {
-        // Handle Backspace to start editing with empty value
         if (event.key === 'Backspace') {
           setValue('');
         } else if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
-          // Handle typing to pre-fill the value when editing starts
           setValue(event.key);
         }
       }
@@ -471,7 +457,6 @@ export const NumberCell = <TData,>({
     const wasEditing = prevIsEditingRef.current;
     prevIsEditingRef.current = isEditing;
 
-    // Only focus when we start editing (transition from false to true)
     if (isEditing && !wasEditing && inputRef.current) {
       inputRef.current.focus();
     }
@@ -496,8 +481,6 @@ export const NumberCell = <TData,>({
       {isEditing ? (
         <input
           ref={inputRef}
-          // Right aligned while editing as well as at rest, so the figure does
-          // not jump sideways the moment the cell is opened.
           className="w-full [appearance:textfield] border-none bg-transparent p-0 text-right tabular-nums outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           max={max}
           min={min}
@@ -600,7 +583,6 @@ export const UrlCell = <TData,>({
         !event.ctrlKey &&
         !event.metaKey
       ) {
-        // Handle typing to pre-fill the value when editing starts
         setValue(event.key);
 
         queueMicrotask(() => {
@@ -626,7 +608,6 @@ export const UrlCell = <TData,>({
         return;
       }
 
-      // Check if URL was rejected due to dangerous protocol
       const href = getUrlHref(value);
       if (!href) {
         event.preventDefault();
@@ -637,7 +618,6 @@ export const UrlCell = <TData,>({
         return;
       }
 
-      // Stop propagation to prevent grid from interfering with link navigation
       event.stopPropagation();
     },
     [isEditing, value],
@@ -1006,8 +986,6 @@ export const MultiSelectCell = <TData,>({
     [selectedValues, tableMeta, rowIndex, columnId, readOnly],
   );
 
-  // What the user has typed, when it is not already on offer. Compared on the
-  // label so that "food" does not create a second tag next to "Food".
   const typedValue = searchValue.trim();
   const canCreate =
     creatable &&
@@ -1037,7 +1015,6 @@ export const MultiSelectCell = <TData,>({
       const newValues = selectedValues.filter((v) => v !== valueToRemove);
       setSelectedValues(newValues);
       tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: newValues });
-      // Focus back on input after removing
       setTimeout(() => inputRef.current?.focus(), 0);
     },
     [selectedValues, tableMeta, rowIndex, columnId, readOnly],
@@ -1091,7 +1068,6 @@ export const MultiSelectCell = <TData,>({
 
   const onInputKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {
-      // Handle backspace when input is empty - remove last selected item
       if (event.key === 'Backspace' && searchValue === '' && selectedValues.length > 0) {
         event.preventDefault();
         const lastValue = selectedValues[selectedValues.length - 1];
@@ -1099,8 +1075,6 @@ export const MultiSelectCell = <TData,>({
           removeValue(lastValue);
         }
       }
-      // Prevent escape from propagating to close the popover immediately
-      // Let the command handle it first
       if (event.key === 'Escape') {
         event.stopPropagation();
       }
@@ -1278,7 +1252,6 @@ export const DateCell = <TData,>({
     setValue(initialValue ?? '');
   }
 
-  // Parse date as local time to avoid timezone shifts
   const selectedDate = value ? (parseLocalDate(value) ?? undefined) : undefined;
 
   const onDateSelect = React.useCallback(
@@ -1287,7 +1260,6 @@ export const DateCell = <TData,>({
         return;
       }
 
-      // Format using local date components to avoid timezone issues
       const formattedDate = formatDateToString(date);
       setValue(formattedDate);
       tableMeta?.onDataUpdate?.({ rowIndex, columnId, value: formattedDate });
@@ -1782,8 +1754,6 @@ export const FileCell = <TData,>({
   const onEscapeKeyDown: NonNullable<
     React.ComponentProps<typeof PopoverContent>['onEscapeKeyDown']
   > = React.useCallback((event) => {
-    // Prevent the escape key from propagating to the data grid's keyboard handler
-    // which would call blurCell() and remove focus from the cell
     event.stopPropagation();
   }, []);
 

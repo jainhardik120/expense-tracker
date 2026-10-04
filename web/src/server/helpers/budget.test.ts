@@ -20,8 +20,6 @@ describe('cycleKeyFor', () => {
 });
 
 describe('spentOnDiscretionary', () => {
-  // The lines of a real budget year: only Living is both discretionary and
-  // budgeted per month, so only Living may be counted against a month.
   const lines = [
     line('Rent', 'monthly', false),
     line('Living', 'monthly', true),
@@ -42,8 +40,6 @@ describe('spentOnDiscretionary', () => {
   });
 
   it('leaves a month untouched when nothing monthly was spent in it', () => {
-    // The case that made the widget read as overspent: a flight and a gym
-    // instalment, and not a rupee of the month's own allowance.
     const noLiving = { ...cycle, perLine: { Flights: 9_540, Gym: 1_297 } };
     expect(spentOnDiscretionary(noLiving, lines)).toBe(0);
   });

@@ -19,15 +19,9 @@ import { getLinkedHistory } from '@/server/helpers/sms-hints';
 
 export type BulkImportQueue = {
   rows: BulkImportRow[];
-  /** The tag menu for the grid, drawn from the same history as the hints. */
   tagOptions: string[];
 };
 
-/**
- * The pending queue as grid rows, each pre-filled from how messages like it were
- * filed before. Two queries however long the queue is: the queue, and the
- * history that both the hints and the tag menu are drawn from.
- */
 export const getBulkImportRows = instrumentedFunction(
   'getBulkImportRows',
   async (db: Database, userId: string, timeZone: string): Promise<BulkImportQueue> => {
@@ -66,22 +60,13 @@ export const getBulkImportRows = instrumentedFunction(
   },
 );
 
-/** A row as it arrives from the grid, already narrowed by the router's schema. */
 export type SubmittedRow = BulkImportFields & { id: string };
 
 export type BulkInsertResult = {
   imported: number;
-  /** Rows dropped because the message stopped being pending while the grid sat open. */
   stale: number;
 };
 
-/**
- * Checks that every account and friend named by the rows is one of this user's.
- *
- * Two queries for the whole import rather than two per row, and it has to happen
- * before the insert: the foreign keys would accept another user's account id
- * quite happily.
- */
 const assertOwnership = async (
   db: Database,
   userId: string,
@@ -113,18 +98,6 @@ const assertOwnership = async (
   }
 };
 
-/**
- * Writes the reviewed rows as statements and marks the messages they came from
- * as entered.
- *
- * All of it or none of it. A half-written import would leave the user unable to
- * tell which messages still need attention, which is the problem this page
- * exists to solve.
- *
- * The notifications are re-read inside the transaction and anything no longer
- * pending is dropped, so a message entered by hand in another tab while the grid
- * sat open does not become a second statement for the same transaction.
- */
 export const bulkInsertFromNotifications = instrumentedFunction(
   'bulkInsertFromNotifications',
   async (
@@ -170,9 +143,6 @@ export const bulkInsertFromNotifications = instrumentedFunction(
         throw new Error('None of these are pending any more — reload to see where they ended up');
       }
 
-      // The statement ids are chosen here rather than read back, so each message
-      // can be pointed at its own statement without depending on the order rows
-      // come back from a multi-row insert.
       const linked = importable.map((row) => {
         const timestamp = timestampById.get(row.id);
         const day = parseGridDate(row.date);
@@ -183,9 +153,6 @@ export const bulkInsertFromNotifications = instrumentedFunction(
           statementId: randomUUID(),
           notificationId: row.id,
           row,
-          // The grid only edits the calendar day; the time of day stays as the
-          // moment the message arrived. The day is the one the user was shown,
-          // which is the day in their timezone, not the server's.
           createdAt: withZonedDatePart(timestamp, day, timeZone),
         };
       });
@@ -204,9 +171,6 @@ export const bulkInsertFromNotifications = instrumentedFunction(
         })),
       );
 
-      // Each message remembers the statement it became. That link is the only
-      // thing the hints for the next import are learned from, so it matters as
-      // much as the statement itself.
       const pairs = sql.join(
         linked.map(
           ({ notificationId, statementId }) => sql`(${notificationId}::uuid, ${statementId}::text)`,

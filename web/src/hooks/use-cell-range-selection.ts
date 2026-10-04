@@ -2,13 +2,11 @@
 
 import * as React from 'react';
 
-/** A cell's place in the table, counted from the top left of the body. */
 interface CellRef {
   row: number;
   col: number;
 }
 
-/** The rectangle between two cells, inclusive of both. */
 export interface CellRange {
   top: number;
   bottom: number;
@@ -17,9 +15,7 @@ export interface CellRange {
 }
 
 export interface CellSelectionStats {
-  /** How many cells are in the rectangle. */
   count: number;
-  /** How many of them read as a number. */
   numeric: number;
   sum: number;
   average: number;
@@ -27,8 +23,6 @@ export interface CellSelectionStats {
 
 const CELL_SELECTOR = 'td[data-cell-row]';
 
-// A row carries buttons, links and tick boxes; a press on one of those is meant
-// for the control, not for the cell it happens to sit in.
 const INTERACTIVE_SELECTOR =
   'a, button, input, select, textarea, [role="checkbox"], [role="menuitem"]';
 
@@ -49,22 +43,11 @@ const toRange = (anchor: CellRef, focus: CellRef): CellRange => ({
   right: Math.max(anchor.col, focus.col),
 });
 
-/**
- * What a cell's text is worth, or nothing if it is not a number.
- *
- * Read from what is on the screen rather than from the row behind it, because
- * what is on the screen is what was selected: a column showing a rounded figure
- * should total the figures it is showing. Separators and a currency symbol are
- * stripped first; a stray dash, which this table uses for "nothing here", is
- * not a number and is left out of the sum rather than counted as zero.
- */
 const asNumber = (text: string): number | null => {
   const cleaned = text.replaceAll(/[,\s₹]/gu, '');
   if (cleaned === '') {
     return null;
   }
-  // `Number` rather than a pattern: it already knows what a number looks like,
-  // and anything else -- a dash, a name, a date -- comes back as NaN.
   const value = Number(cleaned);
   return Number.isFinite(value) ? value : null;
 };
@@ -89,24 +72,11 @@ const cellsIn = (container: HTMLElement | null, range: CellRange): HTMLElement[]
   return rows;
 };
 
-/** Tab separated, which is what a spreadsheet reads back in as columns. */
 const asTabSeparated = (lines: HTMLElement[][]) =>
   lines
     .map((line) => line.map((cell) => cell.innerText.replaceAll('\n', ' ').trim()).join('\t'))
     .join('\n');
 
-/**
- * Select a rectangle of cells with the pointer, and copy it.
- *
- * The table is read far more often than it is corrected, and reading it means
- * asking questions of a few rows at a time -- what do these eight come to,
- * what is the average of a month's groceries. A spreadsheet answers that by
- * letting you sweep over the cells and reading the total off the bottom, which
- * is what this is.
- *
- * Driven by one listener on the table rather than handlers on every cell: there
- * are five hundred of them on a full page, and they already say where they are.
- */
 export const useCellRangeSelection = ({
   enabled,
   containerRef,
@@ -130,16 +100,12 @@ export const useCellRangeSelection = ({
     setIsDragging(false);
   }, []);
 
-  // Everything below is switched off wholesale when the table is being edited,
-  // where a press on a cell means "open this" and a sweep would fight it.
   React.useEffect(() => {
     if (!enabled) {
       clear();
     }
   }, [enabled, clear]);
 
-  // What the selection comes to, worked out from the cells themselves once the
-  // rectangle settles rather than while it is being swept out.
   React.useEffect(() => {
     if (range === null) {
       setStats(null);
@@ -177,8 +143,6 @@ export const useCellRangeSelection = ({
       if (cell === null) {
         return;
       }
-      // Sweeping the pointer over text would otherwise select the text as well
-      // as the cells, and the two highlights on top of each other are illegible.
       event.preventDefault();
       if (event.shiftKey && anchor !== null) {
         setFocus(cell);
@@ -197,9 +161,6 @@ export const useCellRangeSelection = ({
         return;
       }
       const cell = cellAt(event.target);
-      // Only when it has actually crossed into another cell: a sweep reports a
-      // position every few pixels, and re-rendering the table for each of them
-      // is work that changes nothing.
       if (cell !== null && (cell.row !== focus?.row || cell.col !== focus.col)) {
         setFocus(cell);
       }
@@ -221,26 +182,16 @@ export const useCellRangeSelection = ({
     [range],
   );
 
-  // Copying and clearing are watched for on the document: the selection is not
-  // a focused control, so there is nothing for a key to arrive at otherwise.
   React.useEffect(() => {
     if (!enabled || range === null) {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
-      // Not every event target is an element -- the document itself receives
-      // one when nothing is focused -- and asking a non-element what it is
-      // inside of throws rather than answering.
       const target = event.target instanceof Element ? event.target : null;
       if (target !== null && target.closest('input, textarea, [contenteditable="true"]') !== null) {
         return;
       }
       if (event.key === 'Escape') {
-        // Escape already means "drop the selected rows", from the action bar
-        // that watches the window for it. Stopping it here lets the two layer
-        // the way they should: the first Escape dismisses the cells, and with
-        // them gone the second reaches the rows. Without it one press did both,
-        // so checking a total cost you the rows you had ticked.
         event.stopPropagation();
         clear();
         return;

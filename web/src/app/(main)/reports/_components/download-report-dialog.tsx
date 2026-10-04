@@ -29,9 +29,6 @@ import { useStoredSpan } from './report-span';
 type Boundary = { id: string; boundaryDate: Date };
 
 export const DownloadReportDialog = ({ boundaries }: { boundaries: Boundary[] }) => {
-  // Whatever span was last chosen anywhere in the app, falling back to the
-  // whole completed range: the last boundary closes the most recent finished
-  // period, so the ongoing month is never half-reported.
   const [span, setSpan] = useStoredSpan(
     boundaries.map((boundary) => boundary.id),
     { from: boundaries[0]?.id ?? '', to: boundaries[boundaries.length - 1]?.id ?? '' },

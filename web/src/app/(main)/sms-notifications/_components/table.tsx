@@ -26,22 +26,11 @@ type SmsNotificationsTableProps = Readonly<{
   friendsData: Friend[];
   categories: string[];
   estimate: Estimate;
-  /** The pending queue, read on the server so entering is instant. */
   initialQueue: Queue;
 }>;
 
-/** How tall the rows area is allowed to grow before it scrolls internally. */
 const GRID_HEIGHT = 560;
 
-/**
- * The messages, and the same messages being entered.
- *
- * Entering the queue used to mean a second page with a second table on it.
- * The two are the same work seen twice, so they are one table here: reading is
- * the table with its editors switched off, and entering is the table with them
- * switched on. Nothing navigates, and the frame around the rows -- toolbar,
- * border, action bar -- is the same object in both.
- */
 export default function SmsNotificationsTable({
   data,
   accountsData,
@@ -61,8 +50,6 @@ export default function SmsNotificationsTable({
     categories,
   });
 
-  // The list keeps its sorting, filters and page in the URL, and goes on owning
-  // them while the grid draws the rows.
   const { table } = useDataTable({
     data: data.notifications,
     columns,
@@ -86,9 +73,6 @@ export default function SmsNotificationsTable({
     pageCount: data.pageCount,
   });
 
-  // Seeded from the server, so switching to entering shows the rows straight
-  // away. A background refetch may still run, but there is never a moment with
-  // nothing to show -- which is what a spinner in place of the whole table was.
   const utils = api.useUtils();
   const queue = api.smsNotifications.getBulkImportRows.useQuery(undefined, {
     initialData: initialQueue,
@@ -128,9 +112,6 @@ export default function SmsNotificationsTable({
   if (mode === 'edit') {
     return (
       <div className="flex w-full flex-col gap-2.5">
-        {/* Laid out like the toolbar it replaces -- one row, same height, the
-            mode button in the same place -- so the grid below it does not move
-            when the mode changes. */}
         <div className="flex h-8 items-center justify-between gap-2">
           <p className="text-muted-foreground truncate text-sm">
             Filled in from how messages like these were filed before. Correct anything wrong, untick
@@ -139,9 +120,6 @@ export default function SmsNotificationsTable({
           {modeButton}
         </div>
         <BulkImportGrid
-          // Keyed on the queue itself: once an import changes what is pending
-          // the editor starts again from the new rows, rather than holding
-          // edits to rows that no longer exist.
           key={queue.data.rows.map((row) => row.id).join(',')}
           accounts={accountsData}
           categories={categories}

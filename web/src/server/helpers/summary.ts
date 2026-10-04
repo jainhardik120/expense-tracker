@@ -34,7 +34,6 @@ type AggregationArguments = {
     table: PgTable | Subquery | PgViewBase | SQL;
     on: SQL | undefined;
   };
-  /** Narrows the rows before they are grouped, for a chart scoped to one line. */
   extraConditions?: SQL[];
 };
 
@@ -43,7 +42,6 @@ type AggregatedStatementResult = {
   totalAmount: number;
 };
 
-/** The summaries of no rows at all, which most account-period pairs are. */
 const EMPTY_ACCOUNT_SUMMARY: AccountTransferSummary = {
   expenses: 0,
   selfTransfers: 0,
@@ -59,15 +57,6 @@ const EMPTY_FRIEND_SUMMARY: FriendTransferSummary = {
   totalTransfers: 0,
 };
 
-/**
- * Sums by kind, in exact decimal arithmetic.
- *
- * One pass with an accumulator per kind: each kind still adds the same values
- * in the same order as filtering per kind did, so the results are identical,
- * without building an array per kind on every call. With no rows the answer is
- * all zeros, returned without the arithmetic -- most account-period pairs in a
- * report are empty, and each one was a dozen Decimal operations for nothing.
- */
 export const getFinalBalanceFromStatements = (
   ...statements: AggregatedStatementResult[]
 ): AccountTransferSummary => {
@@ -93,7 +82,6 @@ export const getFinalBalanceFromStatements = (
         selfTransfers = selfTransfers.plus(statement.totalAmount);
         break;
       case 'self_transfer':
-        // Not summed here: transfers arrive as rows without a kind.
         break;
     }
   }
@@ -132,7 +120,6 @@ export const getFinalBalancesFromFriendStatements = (
         break;
       case 'outside_transaction':
       case 'self_transfer':
-        // Not part of a friend balance.
         break;
     }
   }
@@ -241,13 +228,6 @@ const aggregatedSplitsData = (aggregationArguments: AggregationArguments) => {
     extraJoin,
     extraConditions = [],
   } = aggregationArguments;
-  // Narrowed alongside the statements they belong to: a split is a deduction
-  // from one statement, and subtracting every split from one line's spending
-  // would drag other people's shares of other lines into it.
-  //
-  // The split's own owner is checked as well as the statement's. It is the same
-  // user either way, but only this lets Postgres start from the user's splits
-  // instead of reading every split there is to find the ones joined to them.
   const conditions = [
     eq(splits.userId, userId),
     ...buildQueryConditions(statements, userId, start, end),
@@ -551,7 +531,6 @@ type SplitsAggregatedData = Awaited<ReturnType<typeof aggregatedSplitsData>>[num
   periodStart: Date;
   category: string;
 };
-/** An account with nothing summed against it: present, so its rows can be attributed. */
 const withoutAccountBalance = (account: Account): AccountSummary => ({
   account,
   startingBalance: 0,
@@ -582,20 +561,8 @@ export const getRawDataForAggregation = instrumentedFunction(
     timezone: string,
     start?: Date,
     end?: Date,
-    /**
-     * When given, only these statements count.
-     *
-     * An empty list is not the same as no list: it means a budget line claimed
-     * nothing in this range, and the chart should be empty rather than show
-     * everything.
-     */
     onlyStatementIds?: string[],
   ) => {
-    // Narrowed to one budget line, this feeds a chart of that line's spending.
-    // Balances mean nothing for a slice of the statements, and computing them
-    // was most of the second aggregation the dashboard runs: the accounts and
-    // friends are still needed to attribute expenses, but not their balances,
-    // and self transfers are never expenses at all.
     const withBalances = onlyStatementIds === undefined;
     const params = {
       db: db,
@@ -661,15 +628,6 @@ export const getRawDataForAggregation = instrumentedFunction(
   },
 );
 
-/**
- * Rows grouped under one key, each group in the order the rows arrived.
- *
- * The period loop below asks, for every period, for every account, friend and
- * category, which rows belong there. Filtering the whole list for each of
- * those made the work periods x (accounts + friends + categories) x rows, the
- * biggest single cost of rendering the dashboard. Grouped once, each question
- * is a lookup.
- */
 const groupRows = <T>(rows: T[], key: (row: T) => string): Map<string, T[]> => {
   const groups = new Map<string, T[]>();
   for (const row of rows) {
@@ -684,7 +642,6 @@ const groupRows = <T>(rows: T[], key: (row: T) => string): Map<string, T[]> => {
   return groups;
 };
 
-/** A period and an account, friend or category, as one key. */
 const periodKey = (periodStart: Date | number, id: string | null): string =>
   `${typeof periodStart === 'number' ? periodStart : periodStart.getTime()}|${id ?? '\u0000'}`;
 
@@ -838,8 +795,7 @@ export const processAggregatedData = ({
 export const getRawDataForCustomAggregation = instrumentedFunction(
   'getRawDataForCustomAggregation',
   async (db: Database, userId: string) => {
-    // @ts-ignore This is not working in drizzle
-    const one = db.$with('one').as(sql`select 1 as x`);
+    const one = sql`(select 1 as x) as one`;
     const mapFn = (value: string | Date): Date => {
       if (value instanceof Date) {
         return value;
@@ -896,7 +852,7 @@ export const getRawDataForCustomAggregation = instrumentedFunction(
         })
         .from(dedupCte),
     );
-    const dbWithExtras = db.with(one, boundariesCte, dedupCte, bucketsCte);
+    const dbWithExtras = db.with(boundariesCte, dedupCte, bucketsCte);
     const statementParams = {
       db: dbWithExtras,
       userId,

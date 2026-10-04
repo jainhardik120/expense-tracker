@@ -14,20 +14,9 @@ import { cn } from '@/lib/utils';
 
 import type { Column, Table } from '@tanstack/react-table';
 
-// `title` is omitted from the div's own props: there it is the browser's
-// tooltip attribute and only takes a string, which would stop this one being a
-// node.
 interface DataTableToolbarProps<TData> extends Omit<React.ComponentProps<'div'>, 'title'> {
   table: Table<TData>;
   viewOptions?: boolean;
-  /**
-   * What the table is, shown on the left of the toolbar.
-   *
-   * A table with no filters leaves that side empty, so a heading written above
-   * the table sat on its own line with the actions on the next one -- two rows
-   * of chrome for one row of content. Put here it shares the line with them.
-   * When there are filters too, it sits above them on the same side.
-   */
   title?: React.ReactNode;
 }
 
@@ -41,11 +30,6 @@ export const DataTableToolbar = <TData,>({
 }: DataTableToolbarProps<TData>) => {
   const isFiltered = table.getState().columnFilters.length > 0;
 
-  // Keyed on the columns themselves, not on `table`. The table instance is
-  // stable for the life of the component, so memoising on it pinned the filter
-  // options to whatever the first render produced -- new options arriving from
-  // the server were built but never read. getAllColumns is itself memoised on
-  // the column definitions, so this recomputes exactly when they change.
   const allColumns = table.getAllColumns();
   const columns = React.useMemo(
     () => allColumns.filter((column) => column.getCanFilter()),
@@ -61,9 +45,6 @@ export const DataTableToolbar = <TData,>({
       aria-orientation="horizontal"
       className={cn(
         'flex w-full justify-between gap-2',
-        // A heading is one line, the same height as the buttons opposite it, so
-        // they read as one row. Filters on their own still hang from the top,
-        // where a second wrapped line of them grows downwards.
         title === undefined ? 'items-start' : 'items-center',
         className,
       )}

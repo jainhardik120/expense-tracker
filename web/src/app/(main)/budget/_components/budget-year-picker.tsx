@@ -27,13 +27,6 @@ const yearFields = [
   { name: 'endDate' as const, label: 'Ends', type: 'date' as const },
 ];
 
-/**
- * Rename the year or move its dates.
- *
- * Sends the whole year back, not just what the form shows: the update replaces
- * every column, and leaving out where last year's leftover goes would quietly
- * put it back in the general pot.
- */
 const EditYear = ({ year }: { year: Years[number] }) => {
   const router = useRouter();
   const mutation = api.budget.updateYear.useMutation();

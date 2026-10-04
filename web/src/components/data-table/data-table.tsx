@@ -26,30 +26,9 @@ import { useCellRangeSelection } from '@/hooks/use-cell-range-selection';
 import { getCommonPinningStyles } from '@/lib/data-table';
 import { cn } from '@/lib/utils';
 
-/**
- * Right aligned columns get tabular figures with it: digits of the same width
- * are what makes a column of amounts comparable at a glance.
- */
 const alignmentClass = <TData, TValue>(column: Column<TData, TValue>) =>
   column.columnDef.meta?.align === 'right' ? 'text-right tabular-nums' : undefined;
 
-/**
- * The width a column gets under `layout="fixed"`, and nothing at all otherwise.
- *
- * Applied over the pinning styles, which set a width on every column from
- * `getSize()`. Laying out automatically that width is only ever a minimum, so
- * the 150 an undeclared column reports does no harm -- but a fixed layout takes
- * it literally, leaves no column free to absorb the slack, and stretches all of
- * them in proportion instead. A six column table then drew the same declared 64
- * at 159 while a ten column one drew it at 71.
- *
- * So under a fixed layout a column that asked for a width gets exactly it, and
- * one that did not is cleared back to auto and shares out what is left.
- *
- * Compared against TanStack's own default rather than checked for presence:
- * every column definition is given `size: 150` when the table is built, so by
- * the time a header is rendered "has a size" is true of all of them.
- */
 const widthStyle = <TData, TValue>(
   column: Column<TData, TValue>,
   layout: 'auto' | 'fixed',
@@ -72,30 +51,8 @@ type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
   background?: boolean;
   onRowClick?: (item: TData) => void;
   enableSelection?: boolean;
-  /**
-   * `auto` lets the browser size the columns from their contents, which is what
-   * a table of free text wants. `fixed` honours the widths the columns declare
-   * and splits what is left between the ones that declared none -- which is how
-   * two tables stacked on a page keep their row numbers and row handles in the
-   * same place as each other.
-   */
   layout?: 'auto' | 'fixed';
-  /**
-   * Fill the space the table is given instead of growing with its rows.
-   *
-   * For a screen that is the table: the rows take whatever is left once the
-   * toolbar and pagination have had theirs and scroll inside their own box, so
-   * the page around them never scrolls and the pagination stays put. The
-   * heading sticks to the top of that box, the way it would to the top of the
-   * page otherwise.
-   */
   fill?: boolean;
-  /**
-   * Let a rectangle of cells be swept out with the pointer, copied, and totalled.
-   *
-   * Off by default: a table whose rows are a list of links wants a click to
-   * follow one, not to start a selection.
-   */
   enableCellSelection?: boolean;
 };
 
@@ -124,8 +81,6 @@ const SortableItemIf = ({
     children
   );
 
-// A row can hold its own buttons, links and dialog triggers; a click on one of
-// those is meant for the control, not for the row.
 const INTERACTIVE_SELECTOR = 'a, button, input, select, textarea, [role="checkbox"]';
 
 export const DataTable = <TData extends object>({
@@ -146,10 +101,6 @@ export const DataTable = <TData extends object>({
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
-  // Only a table that can be reordered pays for drag and drop. Every row of a
-  // sortable table registers with dnd-kit through hooks and context, and on a
-  // table nobody can drag that was pure cost -- the two tables on the
-  // dashboard were about a quarter of the CPU it takes to render.
   const sortable = onValueChange !== undefined;
   const hasRows = rows.length > 0;
   const hasSelectedRows = table.getFilteredSelectedRowModel().rows.length > 0;
@@ -212,9 +163,6 @@ export const DataTable = <TData extends object>({
                       <TableCell
                         key={cell.id}
                         className={cn(
-                          // `relative` so a cell can be drawn right to its
-                          // own edges -- a spreadsheet's box sits on the
-                          // cell border, not inside its padding.
                           'relative h-10 py-1',
                           background && 'bg-background',
                           alignmentClass(cell.column),
@@ -266,19 +214,11 @@ export const DataTable = <TData extends object>({
     <div
       className={cn(
         'flex w-full flex-col gap-2.5',
-        // A height, not a share of one. Growing to fill works only while the
-        // rows are short: the panel this sits in takes its height from its
-        // contents, so a long enough table pushes it past the screen and the
-        // page scrolls after all. Told exactly how tall to be, it cannot.
-        // The subtraction is the app's chrome above and below -- the 4rem
-        // header and the 2rem of padding around the page.
         fill ? 'h-[calc(100svh-var(--page-chrome,6rem))] min-h-0' : 'overflow-auto',
         className,
       )}
       {...props}
     >
-      {/* The toolbar keeps its size; only the rows between it and the
-          pagination give way. */}
       {fill ? <div className="shrink-0">{children}</div> : children}
       <div
         ref={bodyRef}

@@ -89,7 +89,6 @@ const DataGridSearchImpl = ({
   );
 
   const onTriggerPointerDown = React.useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
-    // prevent implicit pointer capture
     const { target } = event;
     if (!(target instanceof HTMLElement)) {
       return;
@@ -98,8 +97,6 @@ const DataGridSearchImpl = ({
       target.releasePointerCapture(event.pointerId);
     }
 
-    // Only prevent default if we're not clicking on the input
-    // This allows text selection in the input while still preventing focus stealing elsewhere
     if (
       event.button === 0 &&
       event.ctrlKey === false &&

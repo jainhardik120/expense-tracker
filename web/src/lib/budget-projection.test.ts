@@ -57,14 +57,12 @@ test('an earmarked line is funded only by the income pointed at it', () => {
 });
 
 test('income still to come is supplied by the payroll, not guessed from the past', () => {
-  // 1,000 received, and the schedule says 200 more is due before the year ends
   const p = project([line({ allocationAmount: 0 })], 1000, 10, 12, 0, -1, 0, 200);
   expect(p.expectedTotalIncome).toBe(1200);
   expect(p.remainingMonths).toBe(2);
 });
 
 test('nothing is assumed about income the payroll has not promised', () => {
-  // Left to itself the old run rate invented two more months of pay here.
   const p = project([line({ allocationAmount: 0 })], 1000, 10, 12);
   expect(p.expectedTotalIncome).toBe(1000);
 });
@@ -88,9 +86,7 @@ test('the residual is whatever the lines above it leave, and shrinks when they o
     10,
     12,
   );
-  // same income, 6000 more spent, so 6000 less survives
   expect(thrifty.projectedAtPace - spendy.projectedAtPace).toBe(6000);
-  // and the plan itself is unchanged: allocation did not move, behaviour did
   expect(thrifty.lines[1].yearBudget).toBe(spendy.lines[1].yearBudget);
 });
 
@@ -100,7 +96,6 @@ test('months between dates counts part months', () => {
 });
 
 test('a fixed monthly line is projected to keep costing its rate', () => {
-  // 1,000 a month, ten paid, two to run: 12,000 by December, exactly its budget
   const { lines } = project(
     [line({ allocationAmount: 1000, actual: 10000, discretionary: false })],
     0,
@@ -113,7 +108,6 @@ test('a fixed monthly line is projected to keep costing its rate', () => {
 });
 
 test('a discretionary line is forecast at the rate it is actually running at', () => {
-  // budget 9,300 a month; running at 11,400 with two months to go
   const { lines } = project(
     [line({ allocationAmount: 9300, actual: 113968, pacePerMonth: 11400 })],
     0,
@@ -126,7 +120,6 @@ test('a discretionary line is forecast at the rate it is actually running at', (
 });
 
 test('income earmarked at a line funds it rather than showing as overspend', () => {
-  // a trip paid for out of a bonus: 28,948 pointed at it, 32,460 spent
   const { lines } = project(
     [
       line({
@@ -145,7 +138,6 @@ test('income earmarked at a line funds it rather than showing as overspend', () 
 });
 
 test('an envelope topped up by earmarked income is bigger than the figure typed in', () => {
-  // 60,000 shopping plus 9,580 of cashbacks, 68,740 spent: under, not over
   const { lines } = project(
     [
       line({
@@ -159,12 +151,10 @@ test('an envelope topped up by earmarked income is bigger than the figure typed 
     10,
     12,
   );
-  // spent a touch under and nothing more planned, so it closes just under
   expect(Math.round(lines[0].variance)).toBe(0);
 });
 
 test('spending an envelope early is not overspending it', () => {
-  // the whole year's flight budget used by March
   const { lines } = project(
     [line({ allocationKind: 'annual', allocationAmount: 60000, actual: 60000 })],
     0,
@@ -175,7 +165,6 @@ test('spending an envelope early is not overspending it', () => {
 });
 
 test('a schedule line is budgeted from the instalments that fall inside the year', () => {
-  // a plan started in March runs nine of its months before the year closes
   const { lines } = project(
     [
       line({
@@ -190,7 +179,6 @@ test('a schedule line is budgeted from the instalments that fall inside the year
     12,
   );
   expect(lines[0].yearBudget).toBe(36900);
-  // the instalments still to fall are added, so it lands exactly on its schedule
   expect(lines[0].projectedSpend).toBe(36900);
   expect(lines[0].variance).toBe(0);
 });
@@ -210,8 +198,6 @@ test('unspent rent is saved, unspent envelope is reserved', () => {
 });
 
 test('money invested counts as spent, not as spending undone', () => {
-  // investments are recorded as money leaving, so the raw sum is negative;
-  // a line reading that directly would report a budget larger than it has
   const { lines } = project(
     [line({ lineId: 'inv', allocationKind: 'residual', allocationAmount: 0, actual: 209268.35 })],
     1505499.6,
@@ -223,8 +209,6 @@ test('money invested counts as spent, not as spending undone', () => {
 });
 
 test('income earmarked at a line still counts towards what the year has to spend', () => {
-  // a bonus of 28,948 pays for a trip: the line's budget is subtracted from the
-  // residual, so the bonus funding it has to be added or the residual is short
   const withBonus = project(
     [
       line({
@@ -244,7 +228,6 @@ test('income earmarked at a line still counts towards what the year has to spend
     240000,
   );
   const residual = withBonus.lines.filter((l) => l.lineId === 'inv')[0];
-  // the trip's 28,948 comes off, and the bonus that paid for it goes on
   expect(Math.round(residual.yearBudget)).toBe(Math.round(1200000 * 1.2));
 });
 
@@ -261,7 +244,6 @@ test('what the year opened with is money it has to spend', () => {
 });
 
 test('discretionary spending follows the calendar, commitments follow the salary', () => {
-  // two salaries left but nearly three months to live through
   const { lines } = project(
     [
       line({ lineId: 'rent', allocationAmount: 22000, discretionary: false }),
@@ -273,9 +255,7 @@ test('discretionary spending follows the calendar, commitments follow the salary
     0,
     2.8667,
   );
-  // rent goes out with each salary: two more
   expect(lines[0].forecastRemaining).toBe(44000);
-  // food goes out with the calendar: you still eat in the month with no salary
   expect(Math.round(lines[1].forecastRemaining)).toBe(Math.round(11396.85 * 2.8667));
 });
 
@@ -298,7 +278,6 @@ test('spending exactly the safe amount lands exactly on the goal', () => {
   ];
   const p = project(lines, 1254583, 10, 12, 9910.87, 2.8667);
 
-  // re-run with the food line forced to the safe rate, and it should hit the goal
   const atSafe = project(
     lines.map((l) => (l.lineId === 'food' ? { ...l, pacePerMonth: p.safeToSpendPerMonth } : l)),
     1254583,
@@ -349,7 +328,6 @@ test('spending not yet written down still comes off what will be saved', () => {
     2994,
   );
   expect(Math.round(withoutQueue.projectedAtPace - withQueue.projectedAtPace)).toBe(2994);
-  // and it tightens what can be spent from here, rather than being ignored
   expect(withQueue.safeToSpendPerMonth).toBeLessThan(withoutQueue.safeToSpendPerMonth);
 });
 
@@ -376,10 +354,6 @@ test('the three rates describe the same year from three choices', () => {
     9910.87,
     2.8667,
   );
-  // the three rates are the same year read three ways, and spending less
-  // invests more. Whether the required rate sits below the budgeted one depends
-  // on how ambitious the goal is, so only the ordering that always holds is
-  // asserted here; another test pins the required rate landing on the goal.
   expect(p.pacePerMonth).toBe(11396.85);
   expect(p.budgetPerMonth).toBe(9300);
   expect(p.projectedAtPace).toBeLessThan(p.projectedAtBudget);
@@ -389,8 +363,6 @@ test('the three rates describe the same year from three choices', () => {
 });
 
 test('an envelope stops advertising money a booked instalment has already claimed', () => {
-  // 60k of flights for the year, 47,180 flown, and 11,717 of it sitting in an
-  // instalment plan signed this morning. Only the difference is still free.
   const { lines } = project(
     [
       line({
@@ -429,9 +401,6 @@ test('a line whose budget is its own schedule has nothing left over', () => {
 });
 
 test('an envelope cannot forecast away instalments it has already signed for', () => {
-  // 60k of flights, 55k flown, and 11,717 of instalments still to pay. Floored
-  // at zero the forecast would be the 5k of envelope left and the line would
-  // report closing exactly on budget, which is 6,717 short of the truth.
   const { lines } = project(
     [
       line({
@@ -451,9 +420,6 @@ test('an envelope cannot forecast away instalments it has already signed for', (
 });
 
 test('closing an envelope turns its leftover from reserved into saved', () => {
-  // 60k of flights, 47,180 flown, 11,717 of instalments still to pay, and the
-  // booking done. Open, the envelope forecasts its way to exactly 60k and
-  // reports nothing either way; closed, the 1,102.86 is a real underspend.
   const booked = {
     allocationKind: 'annual' as const,
     allocationAmount: 60000,
@@ -468,7 +434,6 @@ test('closing an envelope turns its leftover from reserved into saved', () => {
   expect(closed.forecastRemaining).toBeCloseTo(11717.14, 2);
   expect(closed.variance).toBeCloseTo(-1102.86, 2);
   expect(closed.unspentIsSaved).toBe(true);
-  // The saving is exactly what the waterfall row says is left.
   expect(closed.remaining).toBeCloseTo(-closed.variance, 2);
 });
 
@@ -479,15 +444,16 @@ test('a closed line is not forecast to carry on at the pace it was running at', 
     actual: 9000,
     pacePerMonth: 1000,
   };
-  expect(project([line({ ...spending })], 0, 9, 12).lines[0].forecastRemaining).toBeCloseTo(3000, 2);
+  expect(project([line({ ...spending })], 0, 9, 12).lines[0].forecastRemaining).toBeCloseTo(
+    3000,
+    2,
+  );
   expect(project([line({ ...spending, closed: true })], 0, 9, 12).lines[0].forecastRemaining).toBe(
     0,
   );
 });
 
 test('a pending bonus kept out of the budget does not raise the goal', () => {
-  // The residual gets whatever the lines above leave, so income the user has
-  // pushed outside the budget must not reach it.
   const lines = [
     line({ lineId: 'living', allocationAmount: 1000, actual: 0 }),
     line({ lineId: 'inv', allocationKind: 'residual', allocationAmount: 0 }),
@@ -499,7 +465,6 @@ test('a pending bonus kept out of the budget does not raise the goal', () => {
   expect(residual(withBonus) - residual(salaryOnly)).toBeCloseTo(7000, 2);
 });
 
-// 30,000 affordable on the day a cycle opened, three months from the year's end.
 const opening = { monthsFromCycleStart: 3, cycleMonths: 1, daysLeftInCycle: 20, daysInCycle: 30 };
 
 test('the month figure is what it was when the cycle opened, whatever has been spent since', () => {
@@ -522,7 +487,6 @@ test('overspending a cycle shows below zero rather than shrinking the month', ()
 });
 
 test('the last cycle of the year gets everything that is left, not more', () => {
-  // A month left on the day it opened; 3,000 spent, 5,000 still there.
   const last = cycleAllowance({
     affordable: 5000,
     spent: 3000,
@@ -536,8 +500,6 @@ test('the last cycle of the year gets everything that is left, not more', () => 
 });
 
 test('a year ending inside a cycle hands that cycle the lot, not a month of it', () => {
-  // Ten days of year when the cycle opened: dividing by a third of a month
-  // would quote three times the money there is.
   const short = cycleAllowance({
     affordable: 2000,
     spent: 1000,
@@ -551,7 +513,6 @@ test('a year ending inside a cycle hands that cycle the lot, not a month of it',
 });
 
 test('the pace to compare against counts today as already spent in', () => {
-  // Ten days in, today the eleventh: eleven thirtieths of the month.
   const { onPace } = cycleAllowance({ ...opening, affordable: 26000, spent: 4000 });
   expect(onPace).toBeCloseTo(3666.67, 2);
 });

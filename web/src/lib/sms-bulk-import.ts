@@ -1,46 +1,18 @@
 import { toZonedTime } from 'date-fns-tz';
 
-/**
- * Turning a queue of bank messages into statements, a screenful at a time.
- *
- * Entering messages one by one means a dialog per message; a few weeks away and
- * the queue is long enough that nobody ever catches up. The bulk grid instead
- * shows every pending message as a row, pre-filled with what the history
- * suggests, and leaves the corrections to the user before writing all of them
- * at once.
- *
- * The rules a row has to satisfy are the same ones the `statements` table
- * enforces with check constraints. They live here, dependency-free, so the grid
- * can show a problem next to the row that causes it and the router can refuse
- * the same row for the same reason instead of surfacing a Postgres error.
- */
-
-/** The statement kinds a message can become. A self transfer is two accounts
- * rather than one and lives in its own table, so it is not offered here. */
 export const BULK_IMPORT_KINDS = ['expense', 'outside_transaction', 'friend_transaction'] as const;
 
 export type BulkImportKind = (typeof BULK_IMPORT_KINDS)[number];
 
-/** The kind column's dropdown, in the order the kinds are worth reaching for. */
 export const statementKindOptions: { label: string; value: BulkImportKind }[] = [
   { label: 'Expense', value: 'expense' },
   { label: 'Outside Transaction', value: 'outside_transaction' },
   { label: 'Friend Transaction', value: 'friend_transaction' },
 ];
 
-/** The message types the SMS parser produces. */
 export type SmsType = 'income' | 'expense' | 'credit' | 'transfer' | 'investment';
 
-/**
- * A row of the grid.
- *
- * `date` is what the user edits — a calendar day with no time. `timestamp` is
- * the moment the message arrived and is kept out of the grid, because the time
- * of day is worth preserving and is not worth a column. The two are recombined
- * on import.
- */
 export type BulkImportRow = {
-  /** The pending notification this row came from. */
   id: string;
   include: boolean;
   date: string;
@@ -50,7 +22,6 @@ export type BulkImportRow = {
   friendId: string;
   category: string;
   tags: string[];
-  /** Read-only context, carried so the user can tell the rows apart. */
   merchant: string;
   bankName: string;
   accountLast4: string;
@@ -59,16 +30,6 @@ export type BulkImportRow = {
   timestamp: Date;
 };
 
-/**
- * Which kind of statement a message becomes, and with which sign.
- *
- * An `expense` statement is stored positive and subtracted from the balance, so
- * card spend and debits keep the amount the message reported. Money arriving
- * from outside is a positive `outside_transaction`; money leaving for an
- * investment is a negative one. A `transfer` between the user's own accounts
- * has no single-statement form, so it is left as an expense for the user to
- * redirect — it is flagged rather than guessed at.
- */
 const KIND_BY_SMS_TYPE: Record<SmsType, { statementKind: BulkImportKind; sign: 1 | -1 }> = {
   expense: { statementKind: 'expense', sign: 1 },
   credit: { statementKind: 'expense', sign: 1 },
@@ -79,12 +40,6 @@ const KIND_BY_SMS_TYPE: Record<SmsType, { statementKind: BulkImportKind; sign: 1
 
 export const getDefaultsForSmsType = (smsType: SmsType) => KIND_BY_SMS_TYPE[smsType];
 
-/**
- * Formats a moment as the `yyyy-MM-dd` the grid's date cell expects.
- *
- * Reads the day off the fields of the Date it is given, so a stored instant has
- * to be brought into the user's timezone first -- see `formatGridDateInZone`.
- */
 export const formatGridDate = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -92,22 +47,9 @@ export const formatGridDate = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-/**
- * The calendar day an instant fell on, in the timezone the user is reading in.
- *
- * Timestamps are stored as UTC instants. Taking the day straight off one puts
- * every transaction between midnight and 05:29 IST on the day before, which the
- * grid then offers as the date to file it under -- and if the user corrects it,
- * the correction is applied in UTC terms and pushes the transaction a day the
- * other way instead.
- */
 export const formatGridDateInZone = (date: Date, timeZone: string): string =>
   formatGridDate(toZonedTime(date, timeZone));
 
-/**
- * Reads a `yyyy-MM-dd` grid value back as a local date, rejecting days that do
- * not exist rather than letting the Date constructor roll them forward.
- */
 export const parseGridDate = (value: string): Date | null => {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (match === null) {
@@ -140,11 +82,6 @@ type RowHints = {
   tags: string[];
 };
 
-/**
- * The row a message starts as: the amount and moment it reported, plus the
- * account, category and tags that messages like it were filed under before.
- * Every one of them is editable — the history is a starting point, not a claim.
- */
 export const buildInitialRow = (
   notification: NotificationForRow,
   hints: RowHints,
@@ -171,20 +108,11 @@ export const buildInitialRow = (
   };
 };
 
-/** The part of a row that is actually written, and so the part worth checking. */
 export type BulkImportFields = Pick<
   BulkImportRow,
   'date' | 'amount' | 'statementKind' | 'accountId' | 'friendId' | 'category' | 'tags'
 >;
 
-/**
- * Why a row cannot be imported, or null when it can.
- *
- * The account/friend rules restate the table's own check constraints:
- *   - an expense is paid from an account or owed to a friend, never both;
- *   - an outside transaction has an account and no friend;
- *   - a friend transaction has a friend.
- */
 export const getFieldsProblem = (row: BulkImportFields): string | null => {
   if (parseGridDate(row.date) === null) {
     return 'Date must be a real day in yyyy-mm-dd form';
@@ -225,24 +153,15 @@ export const getFieldsProblem = (row: BulkImportFields): string | null => {
   }
 };
 
-/** As above, but a row the user has unticked is never a problem. */
 export const getRowProblem = (row: BulkImportRow): string | null =>
   row.include ? getFieldsProblem(row) : null;
 
-/** Applies the same change to every selected row, leaving the rest alone. */
 export const updateRows = (
   rows: BulkImportRow[],
   ids: ReadonlySet<string>,
   patch: Partial<BulkImportRow>,
 ): BulkImportRow[] => rows.map((row) => (ids.has(row.id) ? { ...row, ...patch } : row));
 
-/**
- * Adds a tag to every selected row without disturbing the tags already there.
- *
- * Adding rather than replacing, to match the bulk tag action on the statements
- * table: a row can carry several tags, and the common job is giving a handful of
- * rows one more in common, not wiping what each already has.
- */
 export const addTagToRows = (
   rows: BulkImportRow[],
   ids: ReadonlySet<string>,
@@ -252,11 +171,6 @@ export const addTagToRows = (
     ids.has(row.id) && !row.tags.includes(tag) ? { ...row, tags: [...row.tags, tag] } : row,
   );
 
-/**
- * Every tag the grid should offer: the ones drawn from history, plus any the user
- * has typed into a row since. Without the second part a freshly created tag
- * would vanish from the menu for every other row.
- */
 export const collectTagOptions = (rows: BulkImportRow[], fromHistory: string[]): string[] => {
   const seen = new Set(fromHistory);
   const extra: string[] = [];
@@ -278,7 +192,6 @@ export type BulkImportReadiness = {
   canImport: boolean;
 };
 
-/** What the footer needs to know: how many rows will go in, and what is blocking. */
 export const getBulkImportReadiness = (rows: BulkImportRow[]): BulkImportReadiness => {
   const included = rows.filter((row) => row.include);
   const problems: { id: string; problem: string }[] = [];

@@ -75,20 +75,9 @@ const DynamicForm = <T extends FieldValues, U extends FieldValues>({
     }
   }, [defaultValues, form]);
   const onFormSubmit = onSubmit === undefined ? undefined : form.handleSubmit(onSubmit);
-  // useWatch rather than form.watch(): watch() returns a fresh function the React
-  // Compiler cannot memoize, so it bails out of optimising this whole component.
   const values = useWatch({ control: form.control }) as T;
 
-  // Put a hidden field back to what it is worth while hidden. Compared before
-  // writing because writing is what produces the next render: an unconditional
-  // set would re-trigger this on every pass. Serialised rather than compared by
-  // identity so that a field cleared to [] settles instead of writing a fresh
-  // empty array forever.
   useEffect(() => {
-    // One value can be presented by more than one field -- the same amount is
-    // "Amount" on a monthly line and "Investment goal" on the residual one --
-    // and only one of them shows at a time. Clearing on the hidden one would
-    // wipe the value out from under the visible one.
     const onScreen = new Set(
       fields.filter((field) => isFieldVisible(field, values)).map((field) => field.name),
     );
@@ -111,17 +100,6 @@ const DynamicForm = <T extends FieldValues, U extends FieldValues>({
   return (
     <Form {...form}>
       <form className={cn('grid gap-4')} onSubmit={onFormSubmit}>
-        {/*
-          Deliberately not capped or scrollable. Whatever this form is inside
-          owns the scrolling: a dialog and a drawer both bound themselves to the
-          viewport and scroll their own contents, and a page scrolls anyway.
-          Capping here as well produced two nested scrollbars -- the fields
-          scrolled to their end first, and only then did the modal scroll and
-          take the heading with it -- and, because the cap was measured against
-          the viewport rather than against the space actually left inside the
-          modal, the sum of header plus 70vh plus footer overflowed the modal and
-          pushed the submit button out of reach.
-        */}
         <div className={cn('grid gap-4 p-1', className)}>
           {fields.map((field) => {
             if (!isFieldVisible(field, values)) {

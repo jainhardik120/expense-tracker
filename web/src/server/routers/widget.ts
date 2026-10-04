@@ -8,14 +8,10 @@ import { createCallerFactory, createTRPCRouter, protectedProcedure } from '@/ser
 import { budgetRouter } from './budget';
 import { summaryRouter } from './summary';
 
-// Callers for the two routers this one reads from, rather than a caller for
-// the whole app: importing the root router from one of its own children is a
-// cycle, and TypeScript answers a cycle by inferring `any` everywhere.
 const callBudget = createCallerFactory(budgetRouter);
 const callSummary = createCallerFactory(summaryRouter);
 
 const widgetSchema = z.object({
-  /** Accounts less friends: the money that is actually mine. */
   balance: z.number(),
   spentToday: z.number(),
   pending: z.object({ count: z.number(), amount: z.number() }),
@@ -31,14 +27,6 @@ const widgetSchema = z.object({
 });
 
 export const widgetRouter = createTRPCRouter({
-  /**
-   * Everything a home-screen widget shows, in one request.
-   *
-   * A widget refreshes on a timer in the background, so it gets one call and
-   * one round trip rather than four. `dayStart` and `dayEnd` are the phone's
-   * idea of today — a day that begins at 6am, say, so a late supper is counted
-   * against the evening it was eaten in.
-   */
   get: protectedProcedure
     .meta({
       openapi: {
@@ -54,8 +42,6 @@ export const widgetRouter = createTRPCRouter({
 
       const now = new Date();
       const [summary, pending, years] = await Promise.all([
-        // The window bounds the spending; the balances it returns are as at
-        // its end, which is now.
         summaryCaller.getSummary({ start: input.dayStart, end: input.dayEnd ?? now }),
         getPendingSmsEstimate(ctx.db, ctx.user.id),
         ctx.db
@@ -78,10 +64,6 @@ export const widgetRouter = createTRPCRouter({
           ? null
           : await (async () => {
               const detail = await budgetCaller.getYearDetail({ budgetYearId: year.id });
-              // Taken whole from the detail rather than worked out again here,
-              // so the tile and the budget page always agree. The day figure is
-              // what is left of this cycle over its days, not the month's
-              // average: it is the one that says how to spend today.
               return {
                 perDay: detail.thisCycle.perDay,
                 perMonth: detail.thisCycle.perMonth,

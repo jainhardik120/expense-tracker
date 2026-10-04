@@ -12,7 +12,6 @@ export default async function BudgetPage({
 }: Readonly<{ searchParams: Promise<{ year?: string }> }>) {
   const { year } = await searchParams;
   const years = await api.budget.getYears();
-  // Whatever was asked for, else the most recent year that exists.
   const selectedId = year ?? years.at(-1)?.id;
 
   if (selectedId === undefined) {

@@ -29,32 +29,19 @@ import { BudgetIncomeHelp } from '../_help/budget-income-help';
 type Detail = RouterOutput['budget']['getYearDetail'];
 type IncomeLine = Detail['incomeLines'][number];
 
-/** The id of the carried-in row, which is not an income line of its own. */
 const OPENING_ROW_ID = '__opening_balance__';
 
-/** What the destination select holds when the money goes nowhere in particular. */
 const NO_LINE = 'none';
 
-/**
- * A row of the income table.
- *
- * Last year's leftover is money arriving this year and going somewhere, which
- * is what every other row in this table describes -- so it is a row rather than
- * a panel above the table. It is not matched by a rule, though: it is a fixed
- * amount that is always claimed, so it carries no position and cannot be
- * dragged, and sits first because it is there before any salary arrives.
- */
 type IncomeRow =
   | { kind: 'opening'; id: typeof OPENING_ROW_ID; amount: number; destinationLineId: string | null }
   | ({ kind: 'line' } & IncomeLine);
 
-/** What a payroll-reading line covers, said the way a rule would say it. */
 const PAYROLL_CLAIM: Record<string, string> = {
   pending_salary: 'pay still to come, from the salary schedule',
   pending_bonus: 'bonuses still to come, from the salary schedule',
 };
 
-/** What a row says it covers: its rule, or the schedule it reads. */
 const describeClaims = (row: IncomeRow): string => {
   if (row.kind === 'opening') {
     return 'whatever last year closed with';
@@ -77,7 +64,6 @@ const SOURCE_LABEL: Record<string, string> = {
   pending_bonus: 'Bonuses still to be paid',
 };
 
-/** A line reading the payroll has no rule: there are no statements to match. */
 type IncomeFormValues = z.input<typeof budgetIncomeLineSchema>;
 
 const readsPayroll = (values: IncomeFormValues) =>
@@ -185,12 +171,6 @@ const EditIncome = ({
   );
 };
 
-/**
- * Where last year's leftover goes.
- *
- * It lives on the year rather than on a line of its own, so this edits the year
- * -- but from the same menu, in the same place, as every other row's edit.
- */
 const EditOpeningBalance = ({ detail }: { detail: Detail }) => {
   const router = useRouter();
   const mutation = api.budget.updateYear.useMutation();
@@ -210,9 +190,6 @@ const EditOpeningBalance = ({ detail }: { detail: Detail }) => {
           name: 'openingBalanceLineId' as const,
           label: 'Where last year’s leftover goes',
           type: 'select' as const,
-          // `NO_LINE` rather than an empty string: a Radix select item cannot
-          // carry one, because an empty value is how the select says it holds
-          // nothing at all.
           options: [
             { label: 'The general pot — like salary', value: NO_LINE },
             ...lines.map((line) => ({ label: `Set aside for ${line.name}`, value: line.id })),
@@ -270,9 +247,6 @@ const incomeColumns = ({
     {
       id: 'position',
       header: () => <span className={POSITION_INDENT}>#</span>,
-      // The number is the matching order. The carried-in row is not matched at
-      // all, so it is left blank rather than given a place in a queue it is not
-      // standing in.
       cell: ({ row }) => (
         <span className={POSITION_INDENT}>{row.original.kind === 'opening' ? '' : row.index}</span>
       ),
@@ -307,9 +281,7 @@ const incomeColumns = ({
       id: 'claims',
       header: 'Claims',
       cell: ({ row }) => (
-        <span className="text-muted-foreground text-xs">
-          {describeClaims(row.original)}
-        </span>
+        <span className="text-muted-foreground text-xs">{describeClaims(row.original)}</span>
       ),
       enableSorting: false,
     },
@@ -406,8 +378,6 @@ export const BudgetIncome = ({ detail }: { detail: Detail }) => {
       layout="fixed"
       table={table}
       onValueChange={(items) => {
-        // The carried-in row is not part of the order, so whatever the drag did
-        // to it is discarded and the rest keep the sequence they were left in.
         const next = items
           .map((item) => item.original)
           .filter((item): item is { kind: 'line' } & IncomeLine => item.kind === 'line')

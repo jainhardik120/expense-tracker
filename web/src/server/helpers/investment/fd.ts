@@ -4,7 +4,6 @@ import { parseOptionalNumber } from './utils';
 
 import type { InvestmentRow } from './types';
 
-/** Julian year: averages the leap day in, so long holdings do not drift. */
 const DAYS_PER_YEAR = 365.25;
 const YEAR_IN_MS = DAYS_PER_YEAR * MS_PER_DAY;
 

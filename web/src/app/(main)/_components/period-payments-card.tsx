@@ -61,8 +61,6 @@ const PaymentCell = ({ payment }: { payment: PeriodPayment }) => (
   </div>
 );
 
-// Four columns, not seven: this card sits in a third of the grid, so the full
-// amount and the split are folded into the row rather than given their own columns.
 const createPeriodPaymentColumns = (zoned: ZonedFormat) => [
   {
     id: 'payment',
@@ -150,9 +148,6 @@ export const PeriodPaymentsCard = ({
     const recurringTotal = sumMine('Recurring');
     const cardBillTotal = sumMine('Credit Card Bill');
 
-    // An EMI billed to a card in this period is already inside that bill, so counting
-    // it again would ask for the same money twice. Past next month there are no bill
-    // projections, and then the installment itself is what is owed.
     const outstanding = payments
       .filter((payment) => payment.status !== 'paid' && !payment.absorbedByBill)
       .reduce((sum, payment) => sum + payment.myShare, 0);
@@ -246,11 +241,6 @@ export const PeriodPaymentsCard = ({
           <DataTable
             background={false}
             enablePagination={false}
-            // The row's own key, not its name: a loan's processing fee and its
-            // first instalment are two payments under one name, and React
-            // given the same key twice duplicates or drops a row rather than
-            // replacing it -- which left last month's payment stranded in the
-            // table after switching months.
             getItemValue={(r) => r.key}
             showBorder={false}
             table={table}

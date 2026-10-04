@@ -7,16 +7,6 @@ import { reportBranding } from '@/server/reports/branding';
 import { defaultExpenseReportTemplate } from '@/server/reports/default-template';
 import { buildReportInput } from '@/server/reports/report-input';
 
-/**
- * Everything a report needs, short of drawing it.
- *
- * The template's code step runs here — server side, in the package's sandbox —
- * and produces the display values its spec binds to. What consumes the result
- * is left open: the download route hands it to react-pdf, and the reports page
- * hands the same spec and the same values to a DOM registry built from the same
- * catalog. Neither target re-derives anything, so the page and the PDF cannot
- * disagree about what a number is.
- */
 export const prepareUserReport = async ({
   db,
   userId,

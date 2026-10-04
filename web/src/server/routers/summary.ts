@@ -69,13 +69,6 @@ export const summaryRouter = createTRPCRouter({
     .input(
       z.object({
         aggregateBy: DateTruncEnum,
-        /**
-         * Narrows every figure to the expenses one budget line claims.
-         *
-         * Resolved here rather than by rule in SQL because a line only owns
-         * what no line above it took first, and that order is not something a
-         * where clause can express.
-         */
         budgetLineId: z.string().optional(),
         ...dateSchema,
       }),
@@ -85,7 +78,13 @@ export const summaryRouter = createTRPCRouter({
       const onlyStatementIds =
         input.budgetLineId === undefined
           ? undefined
-          : await claimedStatementIds(ctx.db, ctx.user.id, input.budgetLineId, input.start, input.end);
+          : await claimedStatementIds(
+              ctx.db,
+              ctx.user.id,
+              input.budgetLineId,
+              input.start,
+              input.end,
+            );
       const rawData = await getRawDataForAggregation(
         ctx.db,
         ctx.user.id,

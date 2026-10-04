@@ -37,9 +37,6 @@ const MonthSelector = () => {
 
   const { start: defaultStart } = getDefaultDateRange(tz);
 
-  // Anchored to the year already in the filter, not to today's: the range can be
-  // set to another year from elsewhere on the page, and the selector has to agree
-  // with it rather than silently claim the month belongs to this year.
   const selectedStart = toZonedTime(params.start ?? defaultStart, tz);
   const selectedYear = selectedStart.getFullYear();
   const selectedMonthIndex = selectedStart.getMonth();

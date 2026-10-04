@@ -10,8 +10,6 @@ export default async function ReportsPage() {
   ]);
   return (
     <div className="flex flex-col gap-6">
-      {/* Only what a row draws: each period's per-account and per-friend
-          balances are most of the aggregation, and the table reads none of it. */}
       <ReportsTable
         initialBoundaries={boundaries}
         initialReport={reportData.periodAggregations.map(

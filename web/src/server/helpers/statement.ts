@@ -71,15 +71,6 @@ export const getStatementAmountAndSplits = async (
   };
 };
 
-/**
- * Statements and self transfers as one list of rows, for one user.
- *
- * The user is filtered inside each branch -- and on the split totals -- as well
- * as by the callers outside. Only outside, Postgres summed every split in the
- * table and joined every statement before the filter applied: five queries a
- * statements page, ~950,000 pages read and 2.5 s each at a thousand users.
- * The rows are the same either way.
- */
 const generateStatementUnionDetailedQuery = (
   db: Database,
   userId: string,
@@ -164,7 +155,6 @@ const generateStatementUnionDetailedQuery = (
   ).as('union_query');
 };
 
-/** As above, the overview columns only; filtered by user inside each branch too. */
 const generateStatementUnionOverviewQuery = (db: Database, userId: string) => {
   return unionAll(
     db
@@ -192,12 +182,6 @@ const generateStatementUnionOverviewQuery = (db: Database, userId: string) => {
   ).as('union_query');
 };
 
-/**
- * Sortable columns, mapped to what the union query can order on.
- *
- * Ordering happens in SQL because the table is paginated -- sorting the page in
- * the browser would only reorder the rows that happened to land on it.
- */
 const sortableColumns = (union: ReturnType<typeof generateStatementUnionDetailedQuery>) => ({
   date: union.createdAt,
   amount: union.amount,
@@ -215,10 +199,6 @@ const getMergedStatementsDetailedRaw = (
   start?: Date,
   end?: Date,
 ) => {
-  // Not unnested, even when filtering by tag. Unnesting gives a row per tag,
-  // so a statement carrying two of the tags being filtered for came back twice
-  // -- the list showed it twice and the page count was wrong. Asking whether
-  // the arrays overlap needs no unnesting and cannot duplicate a row.
   const union = generateStatementUnionDetailedQuery(db, userId, false);
   const conditions = [];
   conditions.push(eq(union.userId, userId));
@@ -257,15 +237,11 @@ const getMergedStatementsDetailedRaw = (
     sort.length > 0
       ? sort.map((entry) => (entry.desc ? desc(columns[entry.id]) : asc(columns[entry.id])))
       : [desc(union.createdAt)];
-  return (
-    db
-      .select()
-      .from(union)
-      .where(and(...conditions))
-      // Id last as a tiebreaker: without it rows that compare equal can swap
-      // between pages and the same row shows up twice, or not at all.
-      .orderBy(...ordering, asc(union.id))
-  );
+  return db
+    .select()
+    .from(union)
+    .where(and(...conditions))
+    .orderBy(...ordering, asc(union.id));
 };
 
 export const getMergedStatements = instrumentedFunction(
@@ -488,8 +464,6 @@ const getFriendSplitsLimited = instrumentedFunction(
         or(inArray(union.friendId, [account]), inArray(union.id, statementIdsWithSplits)),
       );
     }
-    // Same "everything before this page" slice as the balance query, picked from
-    // whichever end the current direction puts the earlier rows at.
     const ordered = db
       .select()
       .from(union)
@@ -529,10 +503,6 @@ const getStartingBalancesPaginated = instrumentedFunction(
     const friendsStartingBalanceBeforeStart = (
       await getFriendsAndStartingBalances(db, userId, input.start)
     ).find((friend) => friend.friend.id === input.account);
-    // Everything that happened before the page, summed, gives the balance the
-    // page opens on. Which rows those are depends on the direction: reading
-    // newest first they are the ones past the page, reading oldest first they
-    // are the ones before it.
     const rawQuery = getMergedStatementsDetailedRaw(
       db,
       userId,
@@ -667,7 +637,6 @@ export const mergeRawStatementsWithSummary = instrumentedFunction(
         .groupBy(splits.statementId);
     }
     let startingBalance = summary.finalBalance;
-    // Accumulate oldest to newest, then put the rows back the way they came.
     const chronological = ascending ? rawStatements : rawStatements.toReversed();
     const withBalances = chronological.map((statement) => {
       if ('account' in summary && mergeWithAccountFriendId === summary.account.id) {
@@ -693,17 +662,6 @@ type FacetInput = Omit<z.infer<typeof statementParserSchema>, 'page' | 'perPage'
 type FacetName = 'account' | 'category' | 'tags' | 'statementKind';
 export type FacetCount = { value: string; count: number };
 
-/**
- * Filters are a hierarchy, and narrowing only ever runs downhill.
- *
- * Statement kind and account sit at the top: their value sets are small, fixed
- * and worth seeing in full, so nothing below them removes an option. Category
- * sits under those, and tags under everything -- tags run to the hundreds, and
- * once you are looking at one category the rest are noise.
- *
- * The reverse would be the confusing direction: picking a tag should not quietly
- * delete categories from the list you picked it under.
- */
 const FACET_LEVEL: Record<FacetName, number> = {
   statementKind: 0,
   account: 0,
@@ -711,12 +669,6 @@ const FACET_LEVEL: Record<FacetName, number> = {
   tags: 2,
 };
 
-/**
- * Conditions for the union query, applying only the filters above this facet.
- *
- * Its own selection is left out too, or picking "Food" would remove every other
- * category from the list and a second one could never be added.
- */
 const buildFacetConditions = (
   db: Database,
   union: ReturnType<typeof generateStatementUnionDetailedQuery>,
@@ -760,13 +712,6 @@ const buildFacetConditions = (
   return conditions;
 };
 
-/**
- * How many rows each filter value would match under the filters above it.
- *
- * Only values that still match are returned. The caller decides what to do with
- * that: the top-level filters keep their full option list and use the counts to
- * mark the empty ones, while the ones below them drop what is missing.
- */
 export const getStatementFacetCounts = instrumentedFunction(
   'getStatementFacetCounts',
   async (
@@ -802,9 +747,6 @@ export const getStatementFacetCounts = instrumentedFunction(
       countRows('category', (union) => ({ value: sql<string | null>`${union.category}` }), false),
       countRows('tags', (union) => ({ value: sql<string | null>`${union.tag}` }), true),
       (async () => {
-        // A row can name an account in several places at once -- the account it
-        // sits on, either side of a transfer, the friend it involves -- so the
-        // account dimension is unnested before grouping.
         const union = generateStatementUnionDetailedQuery(db, userId, false);
         const rows = await db
           .select({

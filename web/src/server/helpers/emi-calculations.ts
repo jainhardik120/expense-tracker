@@ -120,13 +120,6 @@ export const calculateSchedule = (
 
     totalInterest += interest;
     totalGST += gst;
-    // Shifted whole months from the first instalment, keeping its time of day.
-    // Rebuilding the date from its year/month/day parts read the parts in the
-    // server's zone and handed back midnight there, so an instalment stored as
-    // the 30th in IST came back as the 29th -- and one EMI showed up twice, on
-    // two different dates, because its fee kept the time and its instalment did
-    // not. `addMonths` also pins a month-end: the 31st plus a month is the last
-    // day of the next month, where a raw date rolls over into the one after.
     const date =
       inputValues.firstInstallmentDate === undefined
         ? undefined
@@ -285,8 +278,8 @@ export type PaymentWithLocation = {
   cardName: string;
   amount: number;
   date: Date;
-  myShare: number; // Amount user has to pay after splits
-  splitPercentage: number; // Percentage user has to pay (100 - sum of friend splits)
+  myShare: number;
+  splitPercentage: number;
 };
 
 type FuturePayment = PaymentWithLocation & {
@@ -310,7 +303,6 @@ export const categorizePaymentsByTimeframe = (
 
   const zonedMonthEnd = toZonedTime(monthEnd, timezone);
 
-  // Calculate split percentage (what percentage the user pays)
   const attributes = emi.additionalAttributes as Record<string, unknown>;
   const splits =
     attributes.splits !== undefined
@@ -417,13 +409,6 @@ export type PaymentStatus = 'paid' | 'missed' | 'upcoming';
 
 export type ScheduledEmiPayment = {
   emiId: string;
-  /**
-   * Which row of the schedule this is; 0 is the processing fee.
-   *
-   * A fee charged on the same day as the first instalment makes the two
-   * indistinguishable by loan and date alone, which is all it takes for one to
-   * stand in for the other wherever payments are keyed.
-   */
   installment: number;
   emiName: string;
   cardName: string;
@@ -447,12 +432,6 @@ const getMySplitPercentage = (emi: Emi): number => {
   return PERCENTAGE_DIVISOR - friendSplitPercentage;
 };
 
-/**
- * Every scheduled installment of an EMI that falls inside a date range, paid ones
- * included, so a past period shows what was due then rather than an empty table.
- *
- * Dates stay as true instants here; callers render them in the reader's timezone.
- */
 export const getEmiPaymentsInRange = (
   emi: Emi & { maxInstallmentNo: string | null },
   cardName: string,

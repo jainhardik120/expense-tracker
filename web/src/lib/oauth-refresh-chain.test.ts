@@ -6,7 +6,6 @@ const at = (minute: number) => new Date(Date.UTC(2026, 0, 1, 12, minute));
 const now = at(30);
 const later = new Date(Date.UTC(2026, 1, 1));
 
-/** A token rotated away at `revokedAt`, or the live one when that is null. */
 const row = (id: string, createdAt: Date, revokedAt: Date | null): RotationRow => ({
   id,
   createdAt,
@@ -28,7 +27,6 @@ test('it follows a chain of rotations the client kept missing', () => {
 });
 
 test('a token revoked on purpose has no successor and stays dead', () => {
-  // Nothing was created at the moment it was revoked: a revocation, not a rotation.
   const revoked = row('1', at(0), at(10));
   const unrelated = row('2', at(25), null);
   expect(chainIsAlive(revoked, [revoked, unrelated], now)).toBe(false);

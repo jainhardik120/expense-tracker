@@ -49,7 +49,6 @@ test('suggests the account most often used for the same last four digits', () =>
 test('falls back to the bank name when the message has no usable last four', () => {
   const hints = buildInsertHints(
     [
-      // Same bank, different card. Keyed on the bank this still counts.
       entry({ accountLast4: '9999', accountId: 'account-c' }),
       entry({ accountLast4: '8888', accountId: 'account-c' }),
     ],
@@ -67,7 +66,6 @@ test('treats placeholder last four values as unusable', () => {
 });
 
 test('does not let a placeholder last four borrow another card history', () => {
-  // '0000' is not a key, so this has to resolve through the bank instead.
   const hints = buildInsertHints(
     [entry({ accountLast4: '0000', accountId: 'account-zero' })],
     [subject({ accountLast4: '0000' })],
@@ -92,13 +90,10 @@ test('gives no category or tag hint when the message names no merchant', () => {
   const hints = buildInsertHints([entry()], [subject({ merchant: null })]);
   expect(hints.get('n1')?.categories).toStrictEqual([]);
   expect(hints.get('n1')?.tags).toStrictEqual([]);
-  // The account still resolves — that is keyed on the card, not the merchant.
   expect(hints.get('n1')?.accountIds).toStrictEqual(['account-a']);
 });
 
 test('a merchant recategorised recently outranks a long history', () => {
-  // Newest first. Eleven older entries say Food, but only the ten most recent
-  // count, so the six recent Groceries entries win.
   const history = [
     ...Array.from({ length: 6 }, () => entry({ category: 'Groceries' })),
     ...Array.from({ length: 11 }, () => entry({ category: 'Food' })),
@@ -130,7 +125,6 @@ test('resolves every subject from one pass over the history', () => {
   expect(hints.get('first')?.categories).toStrictEqual(['Cat A']);
   expect(hints.get('second')?.accountIds).toStrictEqual(['account-2']);
   expect(hints.get('second')?.categories).toStrictEqual(['Cat B']);
-  // Nothing to go on, but still present so the caller need not special-case it.
   expect(hints.get('unknown')).toStrictEqual({ accountIds: [], categories: [], tags: [] });
 });
 

@@ -44,7 +44,6 @@ export const optionalAmount = z
     message: 'Expected number, received a string',
   });
 
-/** No calendar month has more days, so a billing date can never exceed this. */
 const MAX_DAYS_IN_MONTH = 31;
 const BILLING_DATE_MESSAGE = { message: `Billing date must be between 1 and ${MAX_DAYS_IN_MONTH}` };
 
@@ -63,9 +62,6 @@ export const createStatementSchema = z.object({
   amount: amount,
   category: z.string().min(1),
   tags: z.string().array(),
-  // Nullable as well as optional: a REST client saying "no account" says it
-  // with null, and a form that has been cleared holds ''. All three mean the
-  // same absence, which the handlers store as null.
   accountId: z.string().nullish(),
   friendId: z.string().nullish(),
   statementKind: z.enum(statementKinds),
@@ -339,13 +335,6 @@ export const statementsResponseSchema = z.object({
   rowsCount: rowsCountSchema,
 });
 
-/**
- * A period's totals without its per-account and per-friend breakdown.
- *
- * The breakdown is a row per account per period -- most of the dashboard's
- * payload -- and nothing that draws a period reads it, so it is left on the
- * server.
- */
 export type PeriodTotals = Omit<ProcessedAggregationData, 'accountsSummary' | 'friendsSummary'>;
 
 export type ProcessedAggregationData = {
@@ -388,7 +377,6 @@ export const MS_PER_MINUTE = MS_PER_SECOND * SECONDS_PER_MINUTE;
 export const MS_PER_HOUR = MS_PER_MINUTE * MINUTES_PER_HOUR;
 export const MS_PER_DAY = MS_PER_HOUR * HOURS_PER_DAY;
 
-// Older aliases for the same durations, kept for existing callers.
 export const SECONDS = MS_PER_SECOND;
 export const MINUTES = MS_PER_MINUTE;
 export const HOURS = MS_PER_HOUR;
@@ -426,10 +414,6 @@ export const aggregationParser = {
   ...dateParser,
 };
 
-/**
- * Columns the statements table can be ordered by. Sorting is done in SQL, so a
- * column is only sortable if it maps to something the query can order on.
- */
 export const STATEMENT_SORTABLE_COLUMNS = ['date', 'amount', 'category'] as const;
 
 export const statementSortSchema = z
@@ -439,17 +423,8 @@ export const statementSortSchema = z
 
 export type StatementSort = z.infer<typeof statementSortSchema>;
 
-/**
- * Sort as it travels, which is as the JSON string the URL already carries.
- *
- * `getStatements` is served over REST as well as tRPC, and a query parameter
- * can only be a scalar -- an array of objects cannot be described in OpenAPI at
- * all, and declaring one took down every external route, not just this one.
- * The URL parser already stringifies this same array, so this is that string.
- */
 export const statementSortParamSchema = z.string().optional().default('');
 
-/** Lenient on purpose: an unreadable sort is no sort, not a failed request. */
 export const parseStatementSort = (raw: string): StatementSort => {
   if (raw === '') {
     return [];
@@ -470,9 +445,7 @@ export const statementParser = {
   account: parseAsArrayOf(parseAsString, ',').withDefault([]),
   category: parseAsArrayOf(parseAsString, ',').withDefault([]),
   tags: parseAsArrayOf(parseAsString, ',').withDefault([]),
-  statementKind: parseAsArrayOf(parseAsStringEnum([...statementKinds]), ',').withDefault(
-    [],
-  ),
+  statementKind: parseAsArrayOf(parseAsStringEnum([...statementKinds]), ',').withDefault([]),
 };
 
 export const investmentParser = {
@@ -592,7 +565,6 @@ export interface EMIScheduleRow {
 export interface EMICalculationResult {
   schedule: EMIScheduleRow[];
   summary: {
-    /** One installment, which no schedule row reliably holds: row zero is the fee. */
     monthlyEMI: number;
     totalEMI: number;
     totalInterest: number;
@@ -606,7 +578,6 @@ export interface EMICalculationResult {
   };
 }
 
-// Recurring Payments
 export type RecurringPayment = typeof recurringPayments.$inferSelect;
 export type RecurringPaymentFrequency = (typeof recurringPaymentFrequencies)[number];
 
@@ -623,10 +594,9 @@ export const createRecurringPaymentSchema = z.object({
 export const recurringPaymentParser = {
   ...pageParser,
   category: parseAsArrayOf(parseAsString, ',').withDefault([]),
-  frequency: parseAsArrayOf(
-    parseAsStringEnum([...recurringPaymentFrequencies]),
-    ',',
-  ).withDefault([]),
+  frequency: parseAsArrayOf(parseAsStringEnum([...recurringPaymentFrequencies]), ',').withDefault(
+    [],
+  ),
 };
 
 export const recurringPaymentParserSchema = z.object({

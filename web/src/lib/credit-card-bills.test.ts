@@ -4,7 +4,6 @@ import { getCardBillsInRange } from './credit-card-bills';
 
 const NOW = new Date('2026-09-22T07:30:00.000Z');
 const TIMEZONE = 'Asia/Kolkata';
-// September 2026 in IST.
 const RANGE_START = new Date('2026-08-31T18:30:00.000Z');
 const RANGE_END = new Date('2026-09-30T18:29:59.999Z');
 
@@ -85,8 +84,6 @@ test('does not create a due amount from spending that starts after the billing d
 });
 
 test('treats a bill paid off to a float residue as fully settled', () => {
-  // These four spends sum to 24_836.800000000003, while the single repayment of the
-  // billed 24_836.80 is exact -- the difference is a float residue, not money owed.
   const spends = [7_858.54, 13_941.05, 2_921.4, 115.81];
   const [bill] = billsFor(
     [card],
@@ -118,7 +115,6 @@ test('a bill whose billing day has not arrived is an estimate from current utili
         createdAt: new Date('2026-09-20T10:00:00.000Z'),
         balanceDelta: -3_200,
       },
-      // After NOW, so not yet reflected in what the card is carrying today.
       {
         accountId: card.accountId,
         createdAt: new Date('2026-09-25T10:00:00.000Z'),
@@ -132,8 +128,6 @@ test('a bill whose billing day has not arrived is an estimate from current utili
 });
 
 test('projects bills no further than next month', () => {
-  // NOW is September, so an October bill is still grounded in what the card is
-  // carrying today, but a November one would be invented.
   const activity = [
     {
       accountId: card.accountId,

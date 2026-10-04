@@ -31,11 +31,6 @@ export type CellOpts =
   | {
       variant: 'multi-select';
       options: CellSelectOption[];
-      /**
-       * Whether a value not already in `options` can be added by typing it.
-       * Off by default, because for most multi-selects the options are the whole
-       * vocabulary and a typo should not silently become a new one.
-       */
       creatable?: boolean;
     }
   | {
@@ -62,36 +57,14 @@ export interface CellUpdate {
 }
 
 declare module '@tanstack/react-table' {
-  // biome-ignore lint/correctness/noUnusedVariables: TData and TValue are used in the ColumnMeta interface
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends RowData, TValue> {
     label?: string;
-    /**
-     * How the column is edited. A column without this is never editable, however
-     * the grid is configured.
-     */
     cell?: CellOpts;
-    /**
-     * Whether the column definition carried a `cell` renderer of its own.
-     *
-     * Set by `prepareGridColumns`, never by hand. It cannot be read off the
-     * column once the table exists, because TanStack fills in a default `cell`
-     * for every column that does not declare one — so by the time a cell is
-     * rendered, "has a renderer" is true of everything. Recording it before the
-     * table is built is the only honest way to ask.
-     */
     hasDisplayCell?: boolean;
-    /**
-     * Keep the column at the width it declared when the grid stretches.
-     *
-     * For the columns that hold a control rather than a value -- a tick box, a
-     * grip -- where the control is the same size whatever room it is given, so
-     * a share of the spare width is just padding around it.
-     */
     fixedWidth?: boolean;
   }
 
-  // biome-ignore lint/correctness/noUnusedVariables: TData is used in the TableMeta interface
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface TableMeta<TData extends RowData> {
     dataGridRef?: React.RefObject<HTMLElement | null>;

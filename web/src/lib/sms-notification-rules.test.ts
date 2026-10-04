@@ -54,8 +54,6 @@ describe('resolveSmsType', () => {
   });
 
   it('leaves an investment as an investment', () => {
-    // Money into one's own broker is still an investment, not a transfer, and
-    // the broker's name is what identifies it.
     expect(resolveSmsType('investment', UPPERCASED, HOLDER)).toBe('investment');
   });
 });

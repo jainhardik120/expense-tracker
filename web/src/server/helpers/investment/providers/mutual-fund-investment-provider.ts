@@ -20,16 +20,6 @@ import {
 
 const MAX_SEARCH_RESULTS = 25;
 
-/**
- * A fund's whole NAV history, parsed once and kept as long as the response.
- *
- * mfapi.in answers with every NAV since the fund launched -- thousands of days
- * -- and each investments page wants only the last month. Parsing the full
- * history on every load, for every fund, was most of the page's CPU. The
- * parsed series is kept for as long as the raw response would be, oldest day
- * first; callers get a fresh filtered array, and nothing writes to its points.
- * Failures and empty answers are not kept.
- */
 const NAV_HISTORY_TTL_MINUTES = 15;
 const NAV_HISTORY_TTL_MS = NAV_HISTORY_TTL_MINUTES * MS_PER_MINUTE;
 const navHistories = new Map<string, { points: PriceHistoryPoint[]; at: number }>();
@@ -134,7 +124,6 @@ export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvid
           return;
         }
         quotesByCode.set(code, {
-          // Store values under the instrument identity key so the caller can merge generically.
           unitPriceInr: price,
           unitPriceNative: price,
           nativeCurrency: 'INR',
@@ -159,7 +148,6 @@ export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvid
     endDate: Date,
   ): Promise<PriceHistoryPoint[]> {
     const history = await navHistory(instrument.code);
-    // Bounds worked out once, not once per day of the fund's history.
     const from = startOfDay(startDate).getTime();
     const to = startOfDay(endDate).getTime();
     return history.filter((value) => value.date.getTime() >= from && value.date.getTime() <= to);

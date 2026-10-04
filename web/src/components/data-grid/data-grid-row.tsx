@@ -84,9 +84,6 @@ const DataGridRowImpl = <TData,>({
 
   const isRowSelected = row.getIsSelected();
 
-  // Memoize visible cells to avoid recreating cell array on every render
-  // Though TanStack returns new Cell wrappers, memoizing the array helps React's reconciliation
-  // biome-ignore lint/correctness/useExhaustiveDependencies: columnVisibility and columnPinning are used for calculating the visible cells
   const visibleCells = React.useMemo(
     () => row.getVisibleCells(),
     [row, columnVisibility, columnPinning],
@@ -144,9 +141,6 @@ const DataGridRowImpl = <TData,>({
             className={cn({
               'border-e': showEndBorder && columnId !== 'select',
               'border-s': showStartBorder && columnId !== 'select',
-              // Set here rather than on the renderer inside, so a column reads
-              // from the same edge whether it is showing a value, a display
-              // renderer or an open editor. Both properties inherit.
               'text-right tabular-nums': cell.column.columnDef.meta?.align === 'right',
             })}
             data-highlighted={isCellFocused ? '' : undefined}
@@ -165,17 +159,6 @@ const DataGridRowImpl = <TData,>({
           >
             {getCellRenderMode({ column: cell.column, readOnly }) === 'display' ? (
               <div
-                // `truncate` to match DataTable's cells, which never wrap: a
-                // column here has a fixed width, so a value one character too
-                // long would otherwise fold onto a second line and be cut off
-                // by the row's height rather than by its own edge.
-                //
-                // A flex box, for `items-center`: that is what a table cell's
-                // `align-middle` does, and as a plain block the content sat at
-                // the top of the row. Flex items do not answer to the inherited
-                // `text-align`, though, so the column's own alignment has to be
-                // restated as a justification or a right-aligned amount lands
-                // back on the left.
                 className={cn(
                   'flex size-full items-center truncate px-2 py-1',
                   cell.column.columnDef.meta?.align === 'right' ? 'justify-end' : 'justify-start',
@@ -210,22 +193,18 @@ export const DataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
   const prevRowIndex = prev.virtualItem.index;
   const nextRowIndex = next.virtualItem.index;
 
-  // Re-render if row identity changed
   if (prev.row.id !== next.row.id) {
     return false;
   }
 
-  // Re-render if row data (original) reference changed
   if (prev.row.original !== next.row.original) {
     return false;
   }
 
-  // Re-render if virtual position changed (handles transform updates)
   if (prev.virtualItem.start !== next.virtualItem.start) {
     return false;
   }
 
-  // Re-render if focus state changed for this row
   const prevHasFocus = prev.focusedCell?.rowIndex === prevRowIndex;
   const nextHasFocus = next.focusedCell?.rowIndex === nextRowIndex;
 
@@ -233,14 +212,12 @@ export const DataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
     return false;
   }
 
-  // Re-render if focused column changed within this row
   if (nextHasFocus && prevHasFocus) {
     if (prev.focusedCell?.columnId !== next.focusedCell?.columnId) {
       return false;
     }
   }
 
-  // Re-render if editing state changed for this row
   const prevHasEditing = prev.editingCell?.rowIndex === prevRowIndex;
   const nextHasEditing = next.editingCell?.rowIndex === nextRowIndex;
 
@@ -248,64 +225,51 @@ export const DataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
     return false;
   }
 
-  // Re-render if editing column changed within this row
   if (nextHasEditing && prevHasEditing) {
     if (prev.editingCell?.columnId !== next.editingCell?.columnId) {
       return false;
     }
   }
 
-  // Re-render if this row's selected cells changed
-  // Using stable Set reference that only includes this row's cells
   if (prev.cellSelectionKeys !== next.cellSelectionKeys) {
     return false;
   }
 
-  // Re-render if column visibility changed
   if (prev.columnVisibility !== next.columnVisibility) {
     return false;
   }
 
-  // Re-render if row height changed
   if (prev.rowHeight !== next.rowHeight) {
     return false;
   }
 
-  // Re-render if column pinning state changed
   if (prev.columnPinning !== next.columnPinning) {
     return false;
   }
 
-  // Re-render if readOnly changed
   if (prev.readOnly !== next.readOnly) {
     return false;
   }
 
-  // Re-render if search match columns changed for this row
   if (prev.searchMatchColumns !== next.searchMatchColumns) {
     return false;
   }
 
-  // Re-render if active search match changed for this row
   if (prev.activeSearchMatch?.columnId !== next.activeSearchMatch?.columnId) {
     return false;
   }
 
-  // Re-render if direction changed
   if (prev.dir !== next.dir) {
     return false;
   }
 
-  // Re-render if adjustLayout state changed
   if (prev.adjustLayout !== next.adjustLayout) {
     return false;
   }
 
-  // Re-render if stretchColumns changed
   if (prev.stretchColumns !== next.stretchColumns) {
     return false;
   }
 
-  // Skip re-render - props are equal
   return true;
 }) as typeof DataGridRowImpl;

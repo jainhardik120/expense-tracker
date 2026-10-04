@@ -99,8 +99,6 @@ const StatementsLink = ({
 }) => {
   const isFriend = isFriendSummary(item);
   return (
-    // Not prefetched: one per account and friend in the summary table, and each
-    // prefetch is a full render of the statements page on the server.
     <Link
       className="hover:underline"
       href={`/statements?account=${isFriend ? item.friend.id : item.account.id}`}
@@ -119,8 +117,6 @@ export const createAccountColumns = (
       id: 'name',
       header: 'Account Name',
       accessorFn: (row) => (isFriendSummary(row) ? row.friend.name : row.account.accountName),
-      // A real link, so the row is reachable by keyboard and opens in a new tab on
-      // middle click -- the row-level handler only covers pointer clicks.
       cell: ({ row }) => <StatementsLink item={row.original} />,
     },
     {

@@ -264,7 +264,6 @@ export const emisRouter = createTRPCRouter({
       if (statement.accountId === null) {
         return [];
       }
-      // Only EMIs with installments still due can accept another payment.
       const pendingEMIs = await getEMIs(ctx.db, ctx.user.id, {
         page: 1,
         perPage: 100,
@@ -340,13 +339,7 @@ export const emisRouter = createTRPCRouter({
         accountId: [],
         creditId: [],
       };
-      // A period in the past can contain installments of an EMI that has since
-      // finished, so the period view needs the completed ones too. The pending
-      // set is a subset of this one, so it is narrowed here rather than fetched
-      // again -- the second query cost a round trip to re-read the same rows.
       const allEMIs = await getEMIs(ctx.db, ctx.user.id, { ...emiQuery, completed: undefined });
-      // The same test getEMIs applies for `completed: false`: an EMI is still
-      // running while it has installments left, or no payment recorded at all.
       const pendingEMIs = allEMIs.filter(
         (emi) =>
           emi.maxInstallmentNo === null ||
@@ -399,9 +392,6 @@ export const emisRouter = createTRPCRouter({
         futurePayments.push(...cardFuturePayments);
       }
       const paymentsByMonth = groupPaymentsByMonth(futurePayments);
-      // EMIs project until they finish, so recurring payments have to project at least
-      // that far too, otherwise the future-months table shows a bare EMI column with
-      // zero recurring for every month past the requested horizon.
       const requestedHorizon = input?.uptoDate ?? monthEnd;
       const lastEmiMonth = Object.keys(paymentsByMonth)
         .sort((a, b) => a.localeCompare(b))
@@ -415,21 +405,10 @@ export const emisRouter = createTRPCRouter({
                 endOfMonth(parse(lastEmiMonth, 'yyyy-MM', new Date())).getTime(),
               ),
             );
-      // Everything falling due inside the period selected at the top of the dashboard.
-      // Defaults to the current month when the caller does not narrow it down.
-      // Snapped to whole months: the dashboard's range ends "today" by default, which
-      // is right for expenses but would hide the rest of this month's payments, and
-      // the period is picked a month at a time anyway.
       const now = new Date();
       const periodStart = startOfMonthLocal(input?.rangeStart ?? now, timezone);
       const periodEnd = endOfMonthLocal(input?.rangeEnd ?? now, timezone);
       const cardAccountIds = cards.map((card) => card.accountId);
-      // A bill only looks at a card's balance on a due date inside the period, the
-      // credits after that, and the balance today -- never at a moment before the
-      // period starts (or before now, for a period still ahead). So everything
-      // older than that is one number per card, summed in Postgres and folded into
-      // the card's starting balance, and only the rows since come back as rows.
-      // Fetching the whole history brought ~1,000 rows a load into Node to add up.
       const cutoff = periodStart < now ? periodStart : now;
       const openingByAccount = new Map<string, number>();
       if (cardAccountIds.length > 0) {
@@ -581,9 +560,6 @@ export const emisRouter = createTRPCRouter({
           periodEnd,
         ),
       );
-      // EMI installments are billed to the card, so a bill that will include one
-      // stands in for it. Beyond next month there are no bills, and then the
-      // installment is the only concrete figure we have.
       const emiKey = (payment: (typeof periodEmiPayments)[number]) =>
         `${payment.emiId}-${payment.installment}-${payment.date.toISOString()}`;
       const absorbedEmiKeys = new Set<string>();
@@ -605,8 +581,6 @@ export const emisRouter = createTRPCRouter({
           if (bill.status !== 'upcoming') {
             return bill;
           }
-          // A bill still ahead of us has not absorbed this period's EMI installments
-          // yet, so fold them in -- they will land on the same card before it is due.
           const yetToBill = periodEmiPayments.filter(
             (payment) =>
               payment.creditId === bill.cardId &&

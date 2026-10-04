@@ -23,8 +23,6 @@ export default async function ReportTemplatePage() {
     );
   }
 
-  // The last few periods are enough to exercise every branch of the code without
-  // shipping a year of statements into the browser; the picker widens it.
   const recent = boundaries.slice(-PREVIEW_PERIOD_COUNT);
   const initialFrom = recent[0].id;
   const initialTo = recent[recent.length - 1].id;
@@ -35,9 +33,6 @@ export default async function ReportTemplatePage() {
 
   const { isDefault, ...template } = stored;
 
-  // zod's generated JSON Schema carries non-plain objects, which React refuses to
-  // hand across the server/client boundary. A template is pure data by
-  // definition, so serialising it loses nothing.
   const plain = JSON.parse(JSON.stringify(template)) as ReportTemplate;
 
   return (

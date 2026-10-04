@@ -36,23 +36,8 @@ export const parseMfDate = (value: string): Date | null => {
 export const startOfDay = (date: Date): Date =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
-/**
- * Public market data -- price histories, NAVs, gold rates -- shared between
- * requests rather than fetched again for each.
- *
- * Every investment page asks the same public sources for the same instruments,
- * about eighteen calls a load, and the page waited on the slowest of them. The
- * series are daily (NAVs, closing candles, gold rates); only today's live
- * price moves within a day, and fifteen minutes of lag on that was judged fine.
- *
- * Requests already on their way are shared too, so a burst of users makes one
- * call. Bodies are kept as text and parsed per caller, so no caller can alter
- * another's copy. Failures are not kept: the next request tries again rather
- * than serving an error for fifteen minutes.
- */
 const MARKET_DATA_TTL_MINUTES = 15;
 const MARKET_DATA_TTL_MS = MARKET_DATA_TTL_MINUTES * MS_PER_MINUTE;
-/** Bounded, oldest dropped first: a few hundred instruments fit with room to spare. */
 const MARKET_DATA_MAX_ENTRIES = 1_000;
 const fetched = new Map<string, { text: string; at: number }>();
 const inFlight = new Map<string, Promise<string | null>>();
@@ -74,7 +59,6 @@ const fetchText = (url: string, init?: RequestInit): Promise<string | null> => {
         return null;
       }
       const text = await response.text();
-      // Re-inserted so iteration order is age order, oldest first.
       fetched.delete(key);
       fetched.set(key, { text, at: Date.now() });
       if (fetched.size > MARKET_DATA_MAX_ENTRIES) {

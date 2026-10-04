@@ -44,7 +44,6 @@ const CommandDialog = ({
       <DialogDescription>{description}</DialogDescription>
     </DialogHeader>
     <DialogContent
-      // The dialog's padding is on its body, so it is cleared there.
       className={cn('overflow-hidden [&>[data-slot=dialog-body]]:p-0', className)}
       showCloseButton={showCloseButton}
     >

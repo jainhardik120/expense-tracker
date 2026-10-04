@@ -21,11 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ALL_EXPENSES, writeChartScopeCookie } from '@/lib/chart-scope';
-import {
-  formatTruncatedDate,
-  formatTruncatedPeriodSpan,
-  periodStartsBetween,
-} from '@/lib/date';
+import { formatTruncatedDate, formatTruncatedPeriodSpan, periodStartsBetween } from '@/lib/date';
 import type {
   AggregatedAccountTransferSummary,
   AggregatedFriendTransferSummary,
@@ -33,9 +29,6 @@ import type {
   DateTruncUnit,
 } from '@/types';
 
-// Carried on each row so the tooltip can name the days a point covers: a
-// bucket label like `2026 W39` does not say where the week fell, and the first
-// and last buckets of a range are usually partial ones.
 const PERIOD_SPAN_KEY = 'periodSpan';
 
 const periodSpanFromPayload = (payload: unknown): string | null => {
@@ -79,11 +72,6 @@ export const ExpensesLineChart = ({
   data: {
     date: Date;
     expenses: number;
-    /**
-     * Only the categories this period actually saw. Indexing it with anything
-     * else is a miss, not a zero-valued hit, which is why the lookup below is
-     * guarded -- scoping the chart to a budget line changes the whole set.
-     */
     categoryWiseSummary: Record<
       string,
       { expenses: number; outsideTransactions: number } | undefined
@@ -92,15 +80,11 @@ export const ExpensesLineChart = ({
   unit: DateTruncUnit;
   range: DateRange;
   allCategories: string[];
-  /** The budget line the chart is showing, or ALL_EXPENSES. */
   scope: string;
   scopeOptions: { id: string; name: string }[];
 }) => {
   const timezone = useTimezone();
   const router = useRouter();
-  // Keyed on the categories themselves. Narrowing the chart to a budget line
-  // changes which categories exist at all, and a selection carried over from
-  // the old list would ask this data for a category it has never heard of.
   const categoriesKey = allCategories.join('\u0000');
   const [selection, setSelection] = useState<{ key: string; categories: Set<string> }>(() => ({
     key: categoriesKey,
@@ -141,10 +125,6 @@ export const ExpensesLineChart = ({
     return labels;
   }, [selectedCategories]);
 
-  // Charted against the calendar rather than against whichever periods happened
-  // to contain something. A budget line paid once a month otherwise draws three
-  // points at even spacing, and a curve through them invents a slow decline
-  // between payments that never happened.
   const series = useMemo(() => {
     const byPeriod = new Map(data.map((row) => [row.date.getTime(), row]));
     return periodStartsBetween(range.start, range.end, unit, timezone).map(
@@ -162,8 +142,6 @@ export const ExpensesLineChart = ({
       const filteredData: Record<string, string | number> = {
         date: formatTruncatedDate(d.date, unit, timezone),
       };
-      // A day bucket spans exactly the day its own label names, so the span
-      // would just repeat it.
       if (unit !== 'day') {
         filteredData[PERIOD_SPAN_KEY] = formatTruncatedPeriodSpan(d.date, unit, timezone, range);
       }
@@ -217,8 +195,6 @@ export const ExpensesLineChart = ({
           <Select
             value={scope}
             onValueChange={(next) => {
-              // Remembered in a cookie and re-read on the server, so the next
-              // visit opens on the same line instead of on everything.
               writeChartScopeCookie(next);
               router.refresh();
             }}

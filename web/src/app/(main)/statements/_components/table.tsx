@@ -45,15 +45,6 @@ type OptimisticUpdateAction =
       action: 'unknown';
     };
 
-/**
- * The statements, and the same statements being corrected.
- *
- * A real `<table>`, which is what decides how this file looks. The browser
- * sizes the columns from their contents and reflows them with the window;
- * nothing here states a width, a row height or a padding. Correcting a cell is
- * a renderer the column swaps in, not a different component drawing the list,
- * so throwing the switch cannot move anything.
- */
 const Table = ({
   data,
   accountsData,
@@ -70,10 +61,6 @@ const Table = ({
   facetCounts: FacetCounts;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
-  // The row a shift-click extends the selection from. State rather than a ref
-  // because ticking a box re-renders the table anyway -- the selection itself
-  // lives in the table's state -- so there is nothing to be saved by hiding it
-  // from React, and a ref read inside a render is a rule it is right to have.
   const [anchorRow, setAnchorRow] = useState<number | null>(null);
   const [optimisticData, updateOptimisticData] = useOptimistic<
     (Statement | SelfTransferStatement)[],
@@ -97,13 +84,6 @@ const Table = ({
   const updateStatement = api.statements.updateStatement.useMutation();
   const updateSelfTransferStatement = api.statements.updateSelfTransferStatement.useMutation();
 
-  /**
-   * Save one corrected field, leaving the rest of the statement as it was.
-   *
-   * The endpoint takes the whole record, so the fields nobody touched are sent
-   * back unchanged rather than defaulted -- a patch that omitted them would
-   * clear them.
-   */
   const onCellSave = (statement: Statement, patch: Partial<Statement>) => {
     startTransition(async () => {
       await updateStatement.mutateAsync({
@@ -153,13 +133,7 @@ const Table = ({
     pageCount: data.pageCount,
     persistPageSizeKey: STATEMENTS_PAGE_SIZE_KEY,
     shallow: false,
-    // The query orders by date descending when asked for nothing in
-    // particular, so the table says so rather than calling itself unsorted.
-    // Left implicit, the first click on Date applied the descending order that
-    // was already showing, and it took a second click to reach ascending.
     initialState: { sorting: [{ id: 'date', desc: true }] },
-    // Without this the cycle runs descending, ascending, then back to a state
-    // the header calls unsorted but which is descending all the same.
     enableSortingRemoval: false,
   });
   const { rows } = table.getRowModel();
@@ -181,11 +155,6 @@ const Table = ({
   return (
     <DataTable
       actionBar={<StatementTableActionBar table={table} />}
-      // The screen is the table: the rows take what the toolbar and pagination
-      // leave and scroll inside that, so the page itself never scrolls and the
-      // pagination stays where it was put.
-      // Reading, not correcting: a sweep over the cells answers "what do these
-      // come to" where a press on one would otherwise open it.
       enableCellSelection={mode === 'view'}
       fill
       getItemValue={(item) => item.id}

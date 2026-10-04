@@ -32,7 +32,6 @@ const remainingNote = (line: ProjectedLine): string => {
     : 'What the line can still spend without eating into the residual.';
 };
 
-/** Under half a paisa either way is on budget, not a rounding error dressed as one. */
 const HALF_PAISA = 0.005;
 const onBudget = (line: ProjectedLine): boolean => Math.abs(line.variance) < HALF_PAISA;
 
@@ -57,13 +56,11 @@ const varianceNote = (line: ProjectedLine): string => {
 
 const months = (count: number): string => `${count.toFixed(1)} months`;
 
-/** Only when there is some, so the rows still add up to the figure under them. */
 const earmarkedRow = (line: ProjectedLine): CalcRow[] =>
   line.earmarkedIncome === 0
     ? []
     : [{ label: 'Income earmarked for this line', value: line.earmarkedIncome }];
 
-/** How the year budget column was arrived at, which depends on the line's kind. */
 const yearBudgetWorking = (
   line: ProjectedLine,
   projection: Projection,
@@ -119,23 +116,18 @@ const yearBudgetWorking = (
   }
 };
 
-/**
- * How "still to come" was forecast, which is a different guess per kind.
- *
- * Most kinds take the larger of an expectation and what is already owed, so
- * the owed figure is shown as the floor rather than added in: the rows of a
- * working always add up to the figure under them.
- */
 const forecastWorking = (
   line: ProjectedLine,
   projection: Projection,
 ): { rows: CalcRow[]; note: string } => {
   const owed = line.scheduled.remaining;
   const owedRow: CalcRow = { label: 'Instalments still to fall due', value: owed };
-  /** The expectation, unless what is owed is more, in which case that. */
   const atLeastOwed = (expected: CalcRow): CalcRow[] =>
     owed > Number(expected.value)
-      ? [{ ...expected, value: formatCurrency(Number(expected.value)), note: 'less than owed' }, owedRow]
+      ? [
+          { ...expected, value: formatCurrency(Number(expected.value)), note: 'less than owed' },
+          owedRow,
+        ]
       : [expected];
   if (line.closed) {
     return {
@@ -178,13 +170,6 @@ const forecastWorking = (
   };
 };
 
-/**
- * Every figure on one budget line, with the arithmetic that produced it.
- *
- * The table gives a line's budget, what it has spent and what is left, but each
- * of those is worked out differently depending on the kind of line it is. This
- * says which way, with the line's own numbers in it.
- */
 export const LineBreakdown = ({
   line,
   projection,
@@ -219,8 +204,8 @@ export const LineBreakdown = ({
             ]}
           />
           <HelpNote>
-            Every statement in the year that matches this line’s rule and was not already claimed
-            by a line above it -- a statement goes to the first line that wants it.
+            Every statement in the year that matches this line’s rule and was not already claimed by
+            a line above it -- a statement goes to the first line that wants it.
           </HelpNote>
         </Step>
 
@@ -232,8 +217,6 @@ export const LineBreakdown = ({
         <Step title="Committed">
           <HelpCalc
             result={{ label: 'Committed', value: line.committed }}
-            // Most lines have no loan or recurring payment behind them, and two
-            // rows of noughts would read as though something were missing.
             rows={
               line.scheduled.year === 0
                 ? []
@@ -290,9 +273,7 @@ export const LineBreakdown = ({
               ]}
               tone={line.variance > 0 ? 'bad' : 'neutral'}
             />
-            <HelpNote>
-              {varianceNote(line)}
-            </HelpNote>
+            <HelpNote>{varianceNote(line)}</HelpNote>
           </Step>
         )}
       </div>

@@ -20,8 +20,6 @@ const LAST_SECOND_OF_MINUTE = 59;
 const LAST_MILLISECOND_OF_SECOND = 999;
 const PAISE_PER_RUPEE = 100;
 
-// Balances are summed from decimal strings, so a fully paid bill lands on a float
-// residue like 1.4e-11 instead of 0. Round to paise so "paid off" reads as zero.
 export const roundToPaise = (amount: number) =>
   Math.round(amount * PAISE_PER_RUPEE) / PAISE_PER_RUPEE;
 
@@ -63,14 +61,6 @@ const getBillingDayEndForMonth = (
   );
 };
 
-/**
- * Credit card bills falling due inside a date range.
- *
- * A bill whose billing day has passed is a real generated bill, so its amount and
- * settled/outstanding status come from the activity either side of that day. A bill
- * still ahead of us has no statement yet, so the card's utilisation right now stands
- * in as the estimate of what it will ask for.
- */
 export const getCardBillsInRange = (
   cards: PeriodCardBillingInput[],
   activities: CreditCardActivity[],
@@ -82,9 +72,6 @@ export const getCardBillsInRange = (
   const bills: PeriodCardBill[] = [];
   const localStart = toZonedTime(rangeStart, timezone);
   const localEnd = toZonedTime(rangeEnd, timezone);
-  // Projecting a bill past next month is guesswork: what a card will be carrying
-  // then depends on spending that has not happened. This month's balance does roll
-  // into next month's bill, so that one is grounded -- nothing beyond it is.
   const localNow = toZonedTime(now, timezone);
   const billHorizon = endOfMonth(new Date(localNow.getFullYear(), localNow.getMonth() + 1, 1));
 
@@ -114,8 +101,6 @@ export const getCardBillsInRange = (
         const utilisation = cardActivities
           .filter((activity) => activity.createdAt <= now)
           .reduce((balance, activity) => balance + activity.balanceDelta, card.startingBalance);
-        // Kept even at zero: the caller folds in EMI installments that will land on
-        // this card before the bill is cut, which can make an idle card due after all.
         const estimate = roundToPaise(Math.max(-utilisation, 0));
         bills.push({
           cardId: card.id,

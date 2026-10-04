@@ -20,13 +20,6 @@ const loader = createLoader(aggregationParser);
 
 type Aggregation = Awaited<ReturnType<typeof api.summary.getAggregatedData>>;
 
-/**
- * What the client components are handed, and nothing more.
- *
- * Everything passed to a client component is serialised into the page, and the
- * aggregation carries a balance row per account and per friend for every
- * period -- 350 KB of a 630 KB September dashboard, read by none of them.
- */
 const periodTotals = (aggregation: Aggregation) =>
   aggregation.periodAggregations.map(
     ({
@@ -70,16 +63,11 @@ export default async function Page({
     ...dateParams,
   });
 
-  // Which budget line the expenses chart opens on, remembered from last time.
-  // Checked against the lines that still exist, so deleting the line you were
-  // watching drops you back to everything rather than to an empty chart.
   const expenseLines = await api.budget.getExpenseLines();
   const storedScope = parseChartScope((await cookies()).get(CHART_SCOPE_COOKIE)?.value);
   const chartScope = expenseLines.some((line) => line.id === storedScope)
     ? storedScope
     : ALL_EXPENSES;
-  // Only the expenses chart narrows. The cards and tables beside it are still
-  // answering "where did everything go", which a single line cannot answer.
   const chartPromise =
     chartScope === ALL_EXPENSES
       ? aggregationPromise

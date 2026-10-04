@@ -27,7 +27,6 @@ const statusVariants: Record<string, 'default' | 'secondary' | 'destructive'> = 
   junked: 'destructive',
 };
 
-/** Printed from the reader's zone on both sides, so the column never resizes. */
 const DateCell = ({ date }: { date: Date }) => {
   const timezone = useTimezone();
   return zonedFormat(date, "MMM dd, yyyy 'at' hh:mm a", timezone);
@@ -173,8 +172,6 @@ export const createSmsNotificationColumns = ({
   categories: string[];
 }): ColumnDef<SmsNotification>[] => [
   {
-    // Empty, and exactly as wide as the tick box the editor puts here. Without
-    // it every column after it would jump sideways the moment editing starts.
     id: 'select',
     size: SMS_COLUMN_SIZE.gutter,
     enableSorting: false,

@@ -1,12 +1,5 @@
 import { parseFloatSafe } from '@/server/helpers/emi-calculations';
 
-/**
- * One formatter per distinct set of options, made once and reused.
- *
- * Building an Intl formatter means resolving locale data, which costs far more
- * than formatting with it, and a dashboard formats hundreds of amounts per
- * render. A formatter is immutable, so sharing one is safe.
- */
 const numberFormats = new Map<string, Intl.NumberFormat>();
 const dateFormats = new Map<string, Intl.DateTimeFormat>();
 
@@ -70,9 +63,7 @@ const ORDINAL_THIRD = 3;
 const HUNDRED = 100;
 const TEN = 10;
 
-/** Renders a day of the month as an ordinal: 1 -> "1st", 12 -> "12th", 23 -> "23rd". */
 export const formatOrdinalDay = (day: number) => {
-  // 11th, 12th and 13th break the pattern the last digit otherwise follows.
   const lastTwoDigits = day % HUNDRED;
   if (lastTwoDigits >= ORDINAL_TEENS_START && lastTwoDigits <= ORDINAL_TEENS_END) {
     return `${day}th`;

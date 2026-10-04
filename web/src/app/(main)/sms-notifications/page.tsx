@@ -17,13 +17,6 @@ export default async function SmsNotificationsPage({
     start: pageParams.date[0],
     end: pageParams.date[1],
   };
-  // Together rather than one after another: none of them depends on another's
-  // answer, and read sequentially they cost the sum of six round trips.
-  //
-  // The queue is read here even though nothing shows it yet. It is what the
-  // table switches to when the user starts entering, and fetching it at that
-  // moment meant a wait with nothing to look at -- while fetching it alongside
-  // the rest costs no wall clock at all, since it lands with everything else.
   const [data, accounts, friends, categories, estimate, queue] = await Promise.all([
     api.smsNotifications.list(queryParams),
     api.accounts.getAccounts(),

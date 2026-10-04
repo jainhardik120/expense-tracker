@@ -85,7 +85,6 @@ const DataGridCellImpl = <TData,>({
 };
 
 export const DataGridCell = React.memo(DataGridCellImpl, (prev, next) => {
-  // Fast path: check stable primitive props first
   if (prev.isFocused !== next.isFocused) {
     return false;
   }
@@ -114,15 +113,12 @@ export const DataGridCell = React.memo(DataGridCellImpl, (prev, next) => {
     return false;
   }
 
-  // Check cell value using row.original instead of getValue() for stability
-  // getValue() is unstable and recreates on every render, breaking memoization
   const prevValue = (prev.cell.row.original as Record<string, unknown>)[prev.columnId];
   const nextValue = (next.cell.row.original as Record<string, unknown>)[next.columnId];
   if (prevValue !== nextValue) {
     return false;
   }
 
-  // Check cell/row identity
   if (prev.cell.row.id !== next.cell.row.id) {
     return false;
   }

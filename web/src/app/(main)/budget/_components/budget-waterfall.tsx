@@ -34,7 +34,6 @@ import { BudgetLinesHelp } from '../_help/budget-lines-help';
 
 type Detail = RouterOutput['budget']['getYearDetail'];
 
-/** One line, with everything the table shows about it gathered in one place. */
 type WaterfallRow = {
   lineId: string;
   name: string;
@@ -52,15 +51,6 @@ type WaterfallRow = {
   matchedCount: number;
 };
 
-/**
- * Every kind the enum allows, labelled.
- *
- * Typed as a total record rather than written out as an option list: a kind
- * missing from the list leaves the select with nothing to show for a line that
- * already uses it -- Gym, on its loan schedule, opened blank -- and submitting
- * the form then quietly traded that kind for whichever one got picked instead.
- * Adding a kind to the enum now fails to compile until it is named here.
- */
 const ALLOCATION_LABELS: Record<(typeof budgetAllocationKinds)[number], string> = {
   monthly: 'Fixed amount per month',
   annual: 'Fixed amount per year',
@@ -69,21 +59,12 @@ const ALLOCATION_LABELS: Record<(typeof budgetAllocationKinds)[number], string> 
   residual: 'Residual — whatever is left',
 };
 
-// Listed in the order they make sense in, which is not the order they are
-// stored in.
 const allocationKinds = Object.keys(ALLOCATION_LABELS) as (typeof budgetAllocationKinds)[number][];
 
 type LineFormValues = z.input<typeof budgetLineFormSchema>;
 
-/** The kinds whose budget is a number somebody types in. */
 const TYPED_ALLOCATIONS = new Set(['monthly', 'annual']);
 
-/**
- * Whether this line's budget is a loan schedule.
- *
- * Such a line finds its loans by tag alone, so a category, a kind or an account
- * on its rule would sit there reading as though it did something.
- */
 const readsSchedule = (values: LineFormValues) => values.allocationKind === 'schedule';
 
 const lineFields = [
@@ -98,17 +79,10 @@ const lineFields = [
     name: 'allocationAmount' as const,
     label: 'Amount',
     type: 'input' as const,
-    // Only the two fixed allocations are a figure you type. The rest are read
-    // off income or off a loan schedule, and a box asking for a number that is
-    // then ignored is worse than no box.
     displayCondition: (values: LineFormValues) => TYPED_ALLOCATIONS.has(values.allocationKind),
     valueWhenHidden: '0',
   },
   {
-    // The same column, asked for differently. On the residual line the amount
-    // is not a budget at all -- nothing is allocated to it, it gets whatever
-    // survives -- it is the figure you are trying to finish the year with, and
-    // calling it "Amount" there explains nothing.
     name: 'allocationAmount' as const,
     label: 'Goal for the year',
     type: 'input' as const,
@@ -120,7 +94,6 @@ const lineFields = [
     name: 'discretionary' as const,
     label: 'I can choose to spend less on this',
     type: 'checkbox' as const,
-    // You cannot decide to pay less of an instalment.
     displayCondition: (values: LineFormValues) => !readsSchedule(values),
     valueWhenHidden: false,
   },
@@ -128,9 +101,6 @@ const lineFields = [
     name: 'closed' as const,
     label: 'Done for the year — nothing more to spend here',
     type: 'checkbox' as const,
-    // Closing a line says to stop assuming more spending. A schedule owes what
-    // it owes and a residual is whatever survives, so neither has an assumption
-    // to switch off.
     displayCondition: (values: LineFormValues) =>
       !readsSchedule(values) && values.allocationKind !== 'residual',
     valueWhenHidden: false,
@@ -164,7 +134,6 @@ const lineFields = [
   },
 ];
 
-/** A one-line read of what a rule claims, so the table explains itself. */
 const describeRule = (rule: BudgetRule): string => {
   const parts: string[] = [];
   if (rule.categories.length > 0) {
@@ -182,8 +151,6 @@ const describeRule = (rule: BudgetRule): string => {
   return parts.length === 0 ? 'everything not claimed above' : parts.join(' · ');
 };
 
-// Only the fixed allocations carry a figure; residual and earmarked lines get
-// whatever the waterfall leaves them, so there is no number to show.
 const ALLOCATION_SUFFIX: Partial<Record<string, string>> = { monthly: '/mo', annual: '/yr' };
 
 const describeAllocation = (kind: string, amount: number): string => {
@@ -245,13 +212,7 @@ const waterfallColumns = (
 ): ColumnDef<WaterfallRow>[] => [
   {
     id: 'position',
-    // Both the heading and the number carry the same indent, so the column
-    // reads as inset from the table's edge rather than pressed against it.
     header: () => <span className={POSITION_INDENT}>#</span>,
-    // The number is the precedence, not a field: it counts rows down the
-    // table. `row.index` is the position in the data, which is the position on
-    // screen here because these rows are never sorted or paged -- their order
-    // is the meaning, and the user sets it by dragging.
     cell: ({ row }) => <span className={POSITION_INDENT}>{row.index + 1}</span>,
     enableSorting: false,
     enableHiding: false,
@@ -308,8 +269,6 @@ const waterfallColumns = (
   {
     id: 'committed',
     header: 'Committed',
-    // Blank rather than a zero: most lines have nothing scheduled, and a column
-    // of noughts would bury the handful that do.
     cell: ({ row }) =>
       row.original.committed === 0 ? (
         <span className="text-muted-foreground">--</span>
@@ -394,9 +353,6 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
     matchedCount: line.matchedCount,
   }));
 
-  // The dropped row stays where it was dropped while the reorder is in flight.
-  // Without this the table would snap back to the server's order and only
-  // settle once the refresh arrived, which reads as the drag having failed.
   const [rows, setRows] = useOptimistic(serverRows, (_, next: WaterfallRow[]) => next);
 
   const { table } = useDataTable({

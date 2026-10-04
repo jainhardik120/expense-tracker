@@ -18,11 +18,6 @@ const bodySchema = z.object({
   toBoundaryId: z.string(),
 });
 
-/**
- * The real download. The raw input is assembled server-side rather than round
- * tripping through the browser — a year of statements is a lot to ship out only
- * to post it straight back.
- */
 export const POST = async (request: Request) => {
   const session = await auth.api.getSession({ headers: request.headers });
   if (session === null) {

@@ -21,7 +21,6 @@ import {
 
 const RECURRING_PAYMENT_NOT_FOUND = 'Recurring payment not found';
 
-/** Mirrors isRecurringPaymentActive: a payment is done once its end date has passed. */
 const isEnded = sql`(${recurringPayments.endDate} IS NOT NULL AND ${recurringPayments.endDate} <= now())`;
 
 export const recurringPaymentsRouter = createTRPCRouter({
@@ -48,7 +47,6 @@ export const recurringPaymentsRouter = createTRPCRouter({
         .select()
         .from(recurringPayments)
         .where(and(...conditions))
-        // Ended payments sink to the bottom; everything else reads alphabetically.
         .orderBy(sql`${isEnded} ASC`, asc(recurringPayments.name))
         .limit(input.perPage)
         .offset(offset);
@@ -193,13 +191,10 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Verify recurring payment exists
       await getRecurringPayment(ctx.db, ctx.user.id, input.recurringPaymentId);
-      // Verify statement exists
       const attributes = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
         .attributes as Partial<Record<string, unknown>>;
 
-      // Link statement to recurring payment (no strict validation on amount/date)
       await ctx.db
         .update(statements)
         .set({
@@ -256,21 +251,18 @@ export const recurringPaymentsRouter = createTRPCRouter({
       const timezone = await getTimezone();
       const { endOfYear } = getDefaultDateRange(timezone);
 
-      // Get recurring payment
       const recurringPayment = await getRecurringPayment(
         ctx.db,
         ctx.user.id,
         input.recurringPaymentId,
       );
 
-      // Get linked statements
       const linkedStatements = await getLinkedStatementsRecurringPayment(
         ctx.db,
         ctx.user.id,
         input.recurringPaymentId,
       );
 
-      // Generate payment schedule with status
       const { schedule, nextPaymentDate } = generatePaymentSchedule(
         recurringPayment,
         linkedStatements,
@@ -278,7 +270,6 @@ export const recurringPaymentsRouter = createTRPCRouter({
         endOfYear,
       );
 
-      // Calculate period in days
       const multiplier = parseFloat(recurringPayment.frequencyMultiplier);
       const periodDays = getPeriodInDays(recurringPayment.frequency, multiplier);
 

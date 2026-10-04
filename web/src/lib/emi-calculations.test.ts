@@ -37,8 +37,6 @@ test('a processing fee does not hide the monthly EMI', () => {
     processingFeesGst: '18',
   });
 
-  // The fee is its own row at the head of the schedule and pays no EMI, which
-  // is why reading the first row's emi used to report nothing.
   expect(withFee.schedule[0].installment).toBe(0);
   expect(withFee.schedule[0].emi).toBe(0);
   expect(withFee.summary.monthlyEMI).toBe(withoutFee.summary.monthlyEMI);
@@ -58,10 +56,6 @@ test('total EMI mode splits the total across the tenure', () => {
 });
 
 test('an instalment keeps the time of day it was taken out at', () => {
-  // Stored as the instant behind "30 Sep, IST". Read back through local date
-  // parts on a UTC server this came out as midnight on the 29th -- a day early
-  // -- while the processing fee, which is used as given, stayed on the 30th.
-  // One loan then appeared twice in a month, on two different dates.
   const first = new Date('2026-09-29T18:30:00Z');
   const { schedule } = calculateSchedule({
     calculationMode: 'principal',
@@ -86,8 +80,6 @@ test('an instalment keeps the time of day it was taken out at', () => {
 });
 
 test('a month-end instalment stays at a month end', () => {
-  // The 31st plus a month is the 28th of a short month, not the 3rd of the one
-  // after it, which is where a date built from raw parts rolls over to.
   const { schedule } = calculateSchedule({
     calculationMode: 'principal',
     principal: '12000',

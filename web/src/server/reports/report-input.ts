@@ -14,37 +14,12 @@ import { localWallClock } from '@/lib/date';
 import type { Database } from '@/lib/db';
 import { parseFloatSafe } from '@/server/helpers/emi-calculations';
 
-/**
- * What a report is handed: raw rows, not metrics.
- *
- * Every `date` is the reader's wall clock (`YYYY-MM-DDTHH:mm`, no zone), not an
- * instant. The sandbox the code step runs in has no `Intl`, so a template
- * cannot convert an instant to the reader's timezone even if it wanted to —
- * meaning any date it is handed as UTC is a date it will report wrongly for
- * everyone outside UTC. Converting once here fixes the page and the PDF
- * together, since both render from this same input.
- *
- * The exception is `periods[].start` and `end`, which stay instants because
- * links back into the app need epoch millis; those are documented in place.
- *
- * Every judgement about what a row *means* — which category is rent, which tag
- * marks a one-off, how expenditure is derived — belongs in the template's code
- * step, where it is per-user and editable. So this stays deliberately dumb: it
- * resolves foreign keys to names (the sandbox cannot join) and buckets rows into
- * periods (it cannot see the boundaries either), and computes nothing else.
- */
 export const reportInputSchema = z.object({
-  /** The reader's wall clock, like every other `date` here. */
   generatedAt: z.string(),
   currency: z.string(),
   periods: z.array(
     z.object({
       index: z.number(),
-      /**
-       * Instants, unlike every other date here, because a template needs them
-       * to build links back into the app and that means real epoch millis.
-       * `label` is what a period should be shown as.
-       */
       start: z.string(),
       end: z.string(),
       label: z.string(),
@@ -83,10 +58,6 @@ export const reportInputSchema = z.object({
   ),
   accounts: z.array(z.object({ name: z.string(), startingBalance: z.number() })),
   friends: z.array(z.object({ name: z.string() })),
-  // Where things stood the instant the reported span opens, split the way the
-  // app's own balance figure is: what the accounts hold, and what friends owe.
-  // "My balance" is the difference of the two, so a report cannot reproduce the
-  // number shown on the reports page without both legs kept apart.
   openingAccountsBalance: z.number(),
   openingFriendsBalance: z.number(),
 });
@@ -143,8 +114,6 @@ export const buildReportInput = async ({
     year: 'numeric',
   });
 
-  // A period runs from one boundary to the next, so N boundaries give N-1 periods
-  // and the closing boundary contributes only its end date.
   const periods = selected.slice(0, -1).map((boundary, index) => {
     const end = selected[index + 1].boundaryDate;
     return {
@@ -156,8 +125,6 @@ export const buildReportInput = async ({
   });
   const periodStarts = periods.map((period) => new Date(period.start).getTime());
 
-  // Each statement's split total, summed from the user's splits in one pass and
-  // joined on, rather than every split the user has ever made fetched to add up.
   const owedByStatement = db
     .select({
       statementId: splits.statementId,
@@ -186,9 +153,6 @@ export const buildReportInput = async ({
             lt(statements.createdAt, spanEnd),
           ),
         )
-        // Ties broken by id, newest first: what the (user_id, created_at desc,
-        // id) index gave when this was a plain scan of it, made explicit now
-        // that a join decides the plan.
         .orderBy(asc(statements.createdAt), desc(statements.id)),
       db
         .select()
@@ -212,13 +176,6 @@ export const buildReportInput = async ({
           ),
         )
         .orderBy(asc(investments.investmentDate)),
-      // Everything before the span, to seed the balances the periods then move --
-      // summed here rather than fetched whole: a long history was thousands of
-      // rows read only to be added up. Mirrors the app's own aggregation: an
-      // account moves on rows carrying an account, a friend balance on rows
-      // carrying a friend (every one adds -- they paid for you, or a friend
-      // transaction was recorded), and a row can be both. The splits friends
-      // owe on those same statements come off the friend side.
       db
         .select({
           accountSide: sql<string>`coalesce(sum(case when ${statements.accountId} is null then 0 when ${statements.statementKind} = 'expense' then -${statements.amount} else ${statements.amount} end), 0)`,

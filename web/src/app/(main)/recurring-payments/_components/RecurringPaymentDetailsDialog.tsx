@@ -173,11 +173,8 @@ export const RecurringPaymentDetailsDialog = ({
       return null;
     }
 
-    // No scroll container of its own: the modal it opens in bounds itself to
-    // the viewport and scrolls its own contents.
     return (
       <div className="space-y-6">
-        {/* Summary Card */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Payment Summary</CardTitle>
@@ -214,7 +211,6 @@ export const RecurringPaymentDetailsDialog = ({
           </CardContent>
         </Card>
 
-        {/* Payment Schedule Table */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Payment Schedule (Current Year)</CardTitle>
@@ -234,7 +230,6 @@ export const RecurringPaymentDetailsDialog = ({
           </CardContent>
         </Card>
 
-        {/* Linked Statements */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Linked Statements</CardTitle>

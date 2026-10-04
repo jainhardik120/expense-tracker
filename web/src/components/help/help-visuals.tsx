@@ -5,7 +5,6 @@ import { Check, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-/** One step of a topic: a heading, an optional line of prose, then the visual. */
 export const HelpCard = ({
   title,
   lede,
@@ -24,7 +23,6 @@ export const HelpCard = ({
   </div>
 );
 
-/** A line of prose under a visual. Deliberately the only prose on a card. */
 export const HelpNote = ({ children }: { children: React.ReactNode }) => (
   <p className="text-muted-foreground text-xs">{children}</p>
 );
@@ -40,18 +38,8 @@ const FILL: Record<Tone, string> = {
 
 export type Segment = { label: string; value: number; tone: Tone };
 
-/**
- * A budget as a bar, broken into what it went on.
- *
- * Segments are separated by a gap in the surface colour rather than a border,
- * and every one of them is named and valued in the rows underneath, so the
- * colours never have to be matched from memory and the figures are readable
- * with the bar ignored entirely.
- */
 export const HelpBar = ({ segments }: { segments: Segment[] }) => {
   const total = segments.reduce((sum, segment) => sum + Math.abs(segment.value), 0);
-  // A zero segment has no width to draw but is still worth naming: half of
-  // what these bars show is that a line got nothing.
   const drawn = segments.filter((segment) => segment.value !== 0);
   return (
     <div className="flex flex-col gap-2">
@@ -77,7 +65,6 @@ export const HelpBar = ({ segments }: { segments: Segment[] }) => {
   );
 };
 
-/** A string value is printed as given: not every row of a sum is money. */
 export type CalcRow = { label: string; value: number | string; note?: string };
 
 const formatValue = (value: number | string): string => {
@@ -88,12 +75,6 @@ const formatValue = (value: number | string): string => {
   return `${sign}${formatCurrency(Math.abs(value))}`;
 };
 
-/**
- * The sum itself, written out.
- *
- * Every figure the app shows is arithmetic on figures it also shows, and the
- * quickest way to make one believable is to do it in front of the reader.
- */
 export const HelpCalc = ({
   rows,
   result,
@@ -119,13 +100,7 @@ export const HelpCalc = ({
         <span className="text-muted-foreground/70">{result.note}</span>
       )}
       <span
-        className={cn(
-          'ml-auto font-semibold tabular-nums',
-          // Only the overspend gets a colour, and it is the one the app already
-          // uses for it. Underspending is called out by the word beside it
-          // instead: the chart hues are for marks, and unreadable as text.
-          tone === 'bad' && 'text-destructive',
-        )}
+        className={cn('ml-auto font-semibold tabular-nums', tone === 'bad' && 'text-destructive')}
       >
         {formatValue(result.value)}
       </span>
@@ -133,13 +108,6 @@ export const HelpCalc = ({
   </div>
 );
 
-/**
- * Rules tried in order until one matches.
- *
- * The single hardest thing to see in the budget is that a statement stops at
- * the first line that wants it, so the lines it would also have matched are
- * drawn, struck through, rather than left out.
- */
 export const HelpMatchList = ({
   subject,
   rows,
@@ -189,7 +157,6 @@ export const HelpMatchList = ({
   );
 };
 
-/** Two outcomes of the same setup, side by side. */
 export const HelpCompare = ({
   items,
 }: {
@@ -205,7 +172,6 @@ export const HelpCompare = ({
   </div>
 );
 
-/** A single figure with its name, for the one number a card is actually about. */
 export const HelpFigure = ({
   label,
   value,
@@ -218,10 +184,7 @@ export const HelpFigure = ({
   <div className="flex flex-col gap-0.5">
     <span className="text-muted-foreground text-xs">{label}</span>
     <span
-      className={cn(
-        'text-lg font-semibold tabular-nums',
-        tone === 'bad' && 'text-destructive',
-      )}
+      className={cn('text-lg font-semibold tabular-nums', tone === 'bad' && 'text-destructive')}
     >
       {value}
     </span>

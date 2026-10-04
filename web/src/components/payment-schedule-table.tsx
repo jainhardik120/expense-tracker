@@ -88,7 +88,6 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
         return { ...row, paymentStatus: 'upcoming' as const };
       }
 
-      // Find a matching statement for this installment date
       const matchingStatement = linkedStatements.find((stmt) => {
         if (usedStatements.has(stmt.id)) {
           return false;
@@ -109,7 +108,6 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
         };
       }
 
-      // Check if the payment date has passed
       if (row.date < now) {
         return { ...row, paymentStatus: 'missed' as const };
       }

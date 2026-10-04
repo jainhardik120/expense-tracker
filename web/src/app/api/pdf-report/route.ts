@@ -3,14 +3,8 @@ import { getTimezone } from '@/lib/date';
 import { reportBranding } from '@/server/reports/branding';
 import { renderOneAtATime } from '@/server/reports/render-queue';
 
-// react-pdf and the json-render registry are Node-only.
 export const runtime = 'nodejs';
 
-/**
- * The editor's preview route. It is handed a template and an input and renders
- * them; it deliberately does not read the database, so a preview goes through
- * exactly the same path as a delivered report.
- */
 export const POST = async (request: Request) => {
   const session = await auth.api.getSession({ headers: request.headers });
   if (session === null) {

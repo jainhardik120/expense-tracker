@@ -95,7 +95,6 @@ export const getUsdInrHistory = instrumentedFunction(
     startDate: Date;
     endDate: Date;
   }): Promise<Array<{ date: Date; price: number }>> => {
-    // Yahoo's chart API takes and returns unix seconds, not milliseconds.
     const periodStart = Math.floor(startOfDay(startDate).getTime() / MS_PER_SECOND);
     const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / MS_PER_SECOND);
     const payload = await fetchJson<{

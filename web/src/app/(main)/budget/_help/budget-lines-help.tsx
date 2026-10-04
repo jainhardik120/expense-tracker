@@ -11,21 +11,11 @@ import {
   HelpNote,
 } from '@/components/help/help-visuals';
 
-/**
- * How the expense side of the budget works.
- *
- * Worked on one round number throughout -- ten thousand rupees -- so the same
- * figure can be followed from allocation to variance without re-reading a new
- * set of numbers on every card.
- */
 const YEAR_BUDGET = 'Year budget';
 
 export const BudgetLinesHelp = () => (
   <HelpTopic label="How budget lines work" title="Budget lines">
-    <HelpCard
-      lede="Every expense falls into the first line that claims it."
-      title="What a line is"
-    >
+    <HelpCard lede="Every expense falls into the first line that claims it." title="What a line is">
       <HelpMatchList
         rows={[
           { label: 'Rent · category House', matches: false },

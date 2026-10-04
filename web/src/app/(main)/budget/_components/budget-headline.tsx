@@ -20,10 +20,8 @@ type Detail = RouterOutput['budget']['getYearDetail'];
 
 const DAYS_PER_MONTH = 30.4;
 
-/** Figures below zero are the ones worth noticing, wherever they appear. */
 const OVERDRAWN = 'text-red-600';
 const MUTED = 'text-muted-foreground';
-/** Spending behind the month's even pace, so there is more to come. */
 const UNDER_PACE = 'text-green-600';
 
 const Row = ({
@@ -50,13 +48,10 @@ const Row = ({
         <span className="text-muted-foreground/70 ml-2 text-xs">{note}</span>
       )}
     </span>
-    <span className={`tabular-nums ${value < 0 ? OVERDRAWN : ''}`}>
-      {formatCurrency(value)}
-    </span>
+    <span className={`tabular-nums ${value < 0 ? OVERDRAWN : ''}`}>{formatCurrency(value)}</span>
   </div>
 );
 
-/** One way of spending the rest of the year, and where it leaves you. */
 const Scenario = ({
   label,
   perMonth,
@@ -111,14 +106,8 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
   } = projection;
 
   const months = projection.spendMonths;
-  // Read off the payroll schedule, not averaged out of past payslips: a raise
-  // in November is invisible to an average until November.
   const incomeRemaining = pendingCounted;
-  // The balance is behind by whatever is still sitting in the message queue.
   const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
-  // The cycle runs from the day of the month the year opened on, so saying
-  // which day it started is the difference between this figure reading as the
-  // calendar month and reading as what it is.
   const cycleOpened = format(
     setDate(parse(thisCycle.key, 'yyyy-MM', new Date()), detail.year.startDate.getDate()),
     'd MMM',
@@ -189,13 +178,9 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
               {formatCurrency(thisCycle.perMonth)}
               <span className="text-muted-foreground ml-1 text-sm font-normal">/month</span>
             </p>
-            {/* Worked out as of the day the cycle opened, so spending moves what
-                is left of it below and not this figure. */}
             <p className="text-muted-foreground/70 text-xs">
               Set on {cycleOpened}, holds until {cycleCloses}
             </p>
-            {/* The same number the phone widget shows, read from the same
-                field, so the two can never be seen to disagree. */}
             <div className="mt-3 flex flex-wrap items-baseline justify-between gap-x-3 border-t pt-3">
               <p className="text-muted-foreground text-xs">Left this month</p>
               <p
@@ -222,11 +207,7 @@ export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
                   ? `, ${formatCurrency(thisCycle.spent - thisCycle.recorded)} more waiting in messages`
                   : ''}
               </p>
-              <p
-                className={`text-sm tabular-nums ${
-                  thisCycle.perDay < 0 ? OVERDRAWN : MUTED
-                }`}
-              >
+              <p className={`text-sm tabular-nums ${thisCycle.perDay < 0 ? OVERDRAWN : MUTED}`}>
                 {formatCurrency(thisCycle.perDay)}
                 <span className="ml-1 text-xs">
                   /day for {thisCycle.daysLeft} {thisCycle.daysLeft === 1 ? 'day' : 'days'}

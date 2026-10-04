@@ -19,10 +19,6 @@ export default async function SecurityPage() {
     .catch(() => {
       redirect('/auth/login');
     });
-  // Not `auth.api.listSessions`: that runs an unbounded findMany, which the
-  // adapter caps at 100 rows in insertion order, and only then drops the
-  // expired ones. Once a user has 100 expired sessions behind them the cap is
-  // filled entirely with dead rows and the list comes back empty.
   const activeSessions =
     session === null
       ? []

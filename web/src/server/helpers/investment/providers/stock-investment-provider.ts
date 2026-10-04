@@ -24,7 +24,6 @@ import {
 } from '../shared';
 
 const MAX_SEARCH_RESULTS = 20;
-/** Yahoo rejects very long symbol lists, so quotes are fetched in batches. */
 const QUOTE_BATCH_SIZE = 40;
 
 const US_STOCK_EXCHANGES = new Set(['NMS', 'NAS', 'NGM', 'NYQ', 'ASE', 'PCX', 'PNK']);
@@ -239,7 +238,6 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
     context: ProviderMarketDataContext,
   ): Promise<PriceHistoryPoint[]> {
     const symbol = getYahooStockSymbol(instrument.code, this.stockMarket);
-    // Yahoo's chart API takes unix seconds.
     const periodStart = Math.floor(startOfDay(startDate).getTime() / MS_PER_SECOND);
     const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / MS_PER_SECOND);
     const payload = await fetchJson<{

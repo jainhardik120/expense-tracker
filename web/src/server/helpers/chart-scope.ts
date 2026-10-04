@@ -5,16 +5,6 @@ import { type Database } from '@/lib/db';
 
 import { getStatementsInWindow, statementIdsForLine } from './budget';
 
-/**
- * Which statements a budget line claims inside a date range.
- *
- * The whole year's lines are loaded, not just the one asked for, because a line
- * owns only what the lines above it left: reading its rule alone would hand the
- * catch-all line the rent and the flights as well.
- *
- * An empty array means the line claimed nothing here, which is a real answer
- * and not a reason to fall back to showing everything.
- */
 export const claimedStatementIds = async (
   db: Database,
   userId: string,

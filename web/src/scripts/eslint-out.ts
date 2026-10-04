@@ -21,29 +21,22 @@ interface RuleCount extends FileCount {
   files: Partial<Record<string, FileCount>>;
 }
 
-/**
- * Updates the file count for a specific rule and file
- */
 const updateFileCount = (
   counts: Partial<Record<string, RuleCount>>,
   rule: string,
   filePath: string,
   severity: number,
 ): void => {
-  // Initialize rule counter if not exists
   counts[rule] ??= { errors: 0, warnings: 0, files: {} };
 
-  // Update rule counters
   if (severity === 2) {
     counts[rule].errors++;
   } else if (severity === 1) {
     counts[rule].warnings++;
   }
 
-  // Initialize or get existing file counter
   const existingCount = counts[rule].files[filePath] ?? { errors: 0, warnings: 0 };
 
-  // Update file counters
   if (severity === 2) {
     existingCount.errors++;
   } else if (severity === 1) {
@@ -53,9 +46,6 @@ const updateFileCount = (
   counts[rule].files[filePath] = existingCount;
 };
 
-/**
- * Processes ESLint results to count errors and warnings by rule and file
- */
 const processLintResults = (data: ESLintFileReport[]): Partial<Record<string, RuleCount>> => {
   const counts: Partial<Record<string, RuleCount>> = {};
 
@@ -69,9 +59,6 @@ const processLintResults = (data: ESLintFileReport[]): Partial<Record<string, Ru
   return counts;
 };
 
-/**
- * Prints the lint results summary to the console
- */
 const printResults = (counts: Partial<Record<string, RuleCount>>): void => {
   const sorted = Object.entries(counts)
     .map(([rule, info]) => ({
@@ -99,15 +86,12 @@ const printResults = (counts: Partial<Record<string, RuleCount>>): void => {
 };
 
 const main = async () => {
-  // Run ESLint on src files only, matching the lint command from package.json
   const eslint = new ESLint({});
   const results = await eslint.lintFiles(['src/**/*.{ts,tsx}']);
 
-  // Process and analyze results
   const data: ESLintFileReport[] = results as unknown as ESLintFileReport[];
   const counts = processLintResults(data);
 
-  // Print summary
   printResults(counts);
 };
 

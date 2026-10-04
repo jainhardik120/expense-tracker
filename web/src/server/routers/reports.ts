@@ -90,12 +90,6 @@ export const reportsRouter = createTRPCRouter({
         .returning();
     }),
 
-  /**
-   * The report as data: the spec to draw and the values it binds to.
-   *
-   * The same pair the PDF is rendered from, so the page shows exactly what the
-   * download contains rather than a second implementation of the same sums.
-   */
   renderReport: protectedProcedure
     .input(z.object({ fromBoundaryId: z.string(), toBoundaryId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -116,7 +110,6 @@ export const reportsRouter = createTRPCRouter({
       .where(eq(reportTemplates.userId, ctx.user.id))
       .limit(1);
     if (stored.length === 0) {
-      // Never persisted on read; the seed only becomes theirs once they save.
       return { ...defaultExpenseReportTemplate, isDefault: true };
     }
     const row = stored[0];

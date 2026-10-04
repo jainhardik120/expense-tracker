@@ -1,4 +1,3 @@
-/** FX rates are shown to four places; anything coarser hides real INR movement. */
 export const FX_RATE_DECIMALS = 4;
 
 export const investmentKindValues = [

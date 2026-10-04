@@ -16,13 +16,6 @@ interface DataTablePaginationProps<TData> extends React.ComponentProps<'div'> {
   table: Table<TData>;
   pageSizeOptions?: number[];
   enableSelection?: boolean;
-  /**
-   * Shown instead of the number of selected rows.
-   *
-   * The two never have anything to say at once, and this is the only line at
-   * the foot of the table that is always there -- putting anything below it
-   * would move the table every time it appeared.
-   */
   status?: React.ReactNode;
 }
 

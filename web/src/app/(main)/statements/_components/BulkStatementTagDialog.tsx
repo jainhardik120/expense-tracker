@@ -24,8 +24,6 @@ export const BulkStatementTagDialog = ({
 }) => {
   const router = useRouter();
   const mutation = api.statements.addBulkStatementTag.useMutation();
-  // Suggest what is already in use so a second "Electronics" does not become
-  // "electronics" — the report totals these by name.
   const { data: tags = [] } = api.statements.getTags.useQuery({});
 
   const taggable = selectedRows.filter((row) => !isSelfTransfer(row));

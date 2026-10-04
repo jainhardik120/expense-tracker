@@ -76,10 +76,6 @@ export const parseCellKey = (cellKey: string): Required<CellPosition> => {
 
 export const getRowHeightValue = (rowHeight: RowHeightValue): number => {
   const rowHeightMap: Record<RowHeightValue, number> = {
-    // Matches a DataTable row exactly. The two draw the same lists on
-    // neighbouring screens, and a grid that sat five pixels tighter read as a
-    // different component rather than the same one with its editors switched
-    // on.
     short: 41,
     medium: 56,
     tall: 76,
@@ -285,20 +281,6 @@ export const getColumnVariant = (
   }
 };
 
-/**
- * How a cell should render: as its editor, as the renderer the column brought
- * with it, or as the read-only form of its editor.
- *
- * This used to be decided by asking whether the column's header happened to be
- * a function, which meant a column opted out of editing by writing its header a
- * particular way -- and a sortable header component would have silently made
- * the column read-only. The two are unrelated, so they are separated here.
- *
- *   editor   the column says how it is edited, and editing is allowed
- *   display  the column brought its own renderer: formatted money, a badge, a
- *            row's actions. What the table would have shown.
- *   value    neither, so the editor's read-only form renders the raw value
- */
 export type CellRenderMode = 'editor' | 'display' | 'value';
 
 export const getCellRenderMode = <TData, TValue>(params: {
@@ -317,11 +299,6 @@ export const getCellRenderMode = <TData, TValue>(params: {
   return meta?.cell === undefined ? 'display' : 'value';
 };
 
-/**
- * Records, for each column, whether it arrived with a renderer of its own, so
- * that a cell can later tell a caller's renderer apart from TanStack's default.
- * Run this on the column definitions before handing them to the table.
- */
 export const prepareGridColumns = <TData, TValue>(
   columns: ColumnDef<TData, TValue>[],
 ): ColumnDef<TData, TValue>[] =>
@@ -337,7 +314,6 @@ export const getUrlHref = (urlString: string): string => {
 
   const trimmed = urlString.trim();
 
-  // Reject dangerous protocols (extra safety, though our http:// prefix would neutralize them)
   if (/^(javascript|data|vbscript|file):/i.test(trimmed)) {
     return '';
   }
@@ -371,7 +347,6 @@ export const parseLocalDate = (dateStr: unknown): Date | null => {
     return null;
   }
   const date = new Date(year, month - 1, day);
-  // Verify date wasn't auto-corrected (e.g. Feb 30 -> Mar 1)
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
     return null;
   }
@@ -434,29 +409,6 @@ export const getFileIcon = (type: string): React.ComponentType<React.SVGProps<SV
   return File;
 };
 
-/**
- * How wide a column should be drawn.
- *
- * Two different rules, because a grid has to answer a question a table never
- * asks. A `<table>` is laid out by the browser: it is given `width: 100%` and
- * works the columns out from their contents, which is why it reflows when the
- * window does. A virtualised grid cannot do that -- the browser would need
- * every row present to measure the contents, and only a screenful exists -- so
- * the widths have to be stated.
- *
- * Stating them in pixels is what makes a grid feel wrong next to a table: it
- * is correct at one window size and overflows or leaves a gap at every other.
- * So when the grid is asked to fill its container, the declared size is read as
- * a *share* rather than a measurement -- `flex-grow` in proportion to it, from
- * a zero basis -- and the columns divide up whatever width there is, at any
- * window size, the way a table's do. `minWidth` is where it stops giving way
- * and starts scrolling sideways, which is also what a table does.
- *
- * Columns holding a control opt out with `meta.fixedWidth`: a tick box is the
- * same size on a phone as on a desktop, and a share of the page is not what it
- * wants. A pinned column opts out too -- it is held in place by offsets
- * measured in pixels from the sizes, so its real width has to match them.
- */
 export const getColumnWidthStyle = <TData>(params: {
   column: Column<TData>;
   stretchColumns: boolean | 'last';

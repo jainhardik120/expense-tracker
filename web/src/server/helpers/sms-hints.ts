@@ -11,15 +11,6 @@ import {
   type LinkedHistoryEntry,
 } from '@/lib/sms-insert-hints';
 
-/**
- * Every message that has already been entered, newest first, paired with the
- * statement it became.
- *
- * This is the whole training set for the hints, and it is small — one row per
- * message ever filed — so it is cheaper to read once and key it in memory than
- * to ask the database per key. The pool runs at a single connection, which makes
- * a round trip per key expensive in a way a bigger pool would hide.
- */
 export const getLinkedHistory = async (
   db: Database,
   userId: string,
@@ -44,7 +35,6 @@ export const getLinkedHistory = async (
     .where(eq(smsNotifications.userId, userId))
     .orderBy(desc(smsNotifications.createdAt));
 
-/** Hints for a whole queue of messages, resolved from one read of the history. */
 export const getInsertHintsForMany = instrumentedFunction(
   'getInsertHintsForMany',
   async (
@@ -55,14 +45,6 @@ export const getInsertHintsForMany = instrumentedFunction(
     buildInsertHints(await getLinkedHistory(db, userId), subjects),
 );
 
-/**
- * Hints for one message.
- *
- * Deliberately the same code path as the bulk grid rather than its own set of
- * queries. When the two were separate they disagreed on ties — the SQL left the
- * winner to Postgres, which picked the older of two equally-used tags — and any
- * later change to how a hint is chosen would have had to be made twice.
- */
 export const getInsertHintsForOne = instrumentedFunction(
   'getInsertHintsForOne',
   async (db: Database, userId: string, subject: HintSubject): Promise<InsertHints> => {
@@ -71,7 +53,6 @@ export const getInsertHintsForOne = instrumentedFunction(
   },
 );
 
-/** The fields a pending message contributes to its own hint. */
 export const getHintSubject = async (
   db: Database,
   userId: string,

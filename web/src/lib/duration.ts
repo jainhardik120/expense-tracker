@@ -1,11 +1,3 @@
-/**
- * Durations in whole seconds.
- *
- * Cookie `max-age` and a few other browser APIs are denominated in seconds, not
- * milliseconds, so they cannot reuse the MS_PER_* constants in `@/types`. This
- * module deliberately has no imports: `sidebar.ts` is read by the root layout on
- * the server and should not pull the schema barrel in behind it.
- */
 const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
 const HOURS_PER_DAY = 24;

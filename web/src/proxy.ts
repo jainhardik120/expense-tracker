@@ -17,15 +17,11 @@ const publicPaths: Array<RegExp> = [
   /^\/_next(\/|$)/,
   /^\/api\/auth(\/|$)/,
   /^\/api\/external(\/|$)/,
-  // These check the session themselves and answer 401, which is what a fetch
-  // client wants — a redirect to the login page would arrive as an HTML body.
   /^\/api\/pdf-report(\/|$)/,
   /^\/api\/reports(\/|$)/,
   /^\/.well-known(\/|$)/,
   /^\/public\//,
   /^\/favicon.ico$/,
-  // Static metadata assets are served to unauthenticated clients anyway, and
-  // routing them through a session lookup costs a database connection each.
   /^\/icon\.svg$/,
   /^\/apple-icon[\w-]*\.(?:png|jpg|jpeg)$/,
   /^\/opengraph-image[\w-]*\.(?:png|jpg|jpeg)$/,
@@ -39,11 +35,6 @@ const adminPaths: Array<RegExp> = [/^\/account\/admin(\/|$)/];
 
 const matchesAny = (path: string, patterns: Array<RegExp>) => patterns.some((rx) => rx.test(path));
 
-// better-auth refreshes its signed session-cache cookie during getSession. If we
-// drop that Set-Cookie, the cache never lands in the browser and every single
-// request falls through to a database session lookup. Forward it onto the
-// response, and also onto the request we hand downstream so the RSC render in
-// this same request reads the fresh cookie instead of querying again.
 const forwardSessionCookies = (
   setCookie: string | null,
   request: NextRequest,
@@ -104,10 +95,6 @@ export const proxy = async (request: NextRequest) => {
     request,
   );
   if (session === null) {
-    // The root is the dashboard, which is no use to someone who has not signed
-    // in; send them to the page that explains what this is instead of a login
-    // form with no context. Every other path still asks them to sign in and
-    // returns them to where they were headed.
     if (path === '/') {
       return apply(NextResponse.redirect(new URL('/home', request.url)));
     }

@@ -71,8 +71,6 @@ const createPayrollColumns = (data: SalaryData, refresh: () => void): ColumnDef<
     id: 'net',
     accessorFn: (row) => row.totals.net,
     header: 'Net',
-    // Red when the payslip's net and the bank credit disagree; the breakdown
-    // dialog carries the two figures.
     cell: ({ row }) => (
       <span
         className={cn(

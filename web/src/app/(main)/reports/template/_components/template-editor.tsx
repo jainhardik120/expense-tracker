@@ -23,10 +23,8 @@ import type { ReportTemplate } from '@helix-hq/pdf-report';
 
 import { useSpanQueryState } from '../../_components/report-span';
 
-/** Long enough that a pause in typing, not every keystroke, triggers a save. */
 const SAVE_DEBOUNCE_MS = 1200;
 
-// Monaco touches `window` on import, so none of this can be server rendered.
 const loading = () => <p className="text-muted-foreground p-6 text-sm">Loading editor…</p>;
 const Provider = dynamic(
   async () => (await import('@helix-hq/pdf-report/editor')).ReportTemplateProvider,
@@ -49,9 +47,6 @@ const Preview = dynamic(async () => (await import('@helix-hq/pdf-report/editor')
   loading,
 });
 
-// The input schema is fixed by the app, so it is not one of these — it still
-// types `input` in the code field, it just is not editable. Preview data is not
-// here either: the preview runs on real statements chosen below.
 const TABS = [
   { id: 'code', label: 'Code', hint: 'Turns your statements into the values below.' },
   { id: 'output', label: 'Output', hint: 'What the code returns. The layout binds to this.' },
@@ -80,23 +75,17 @@ export const TemplateEditor = ({
   const [error, setError] = useState<string | null>(null);
   const mutation = api.reports.saveTemplate.useMutation();
 
-  // In the URL so reloading the page — or sharing the link — keeps the span you
-  // were looking at, and in storage so it carries over from the report page
-  // rather than snapping back to the last few periods.
   const [span, setSpan] = useSpanQueryState(
     boundaries.map((boundary) => boundary.id),
     { from: initialFrom, to: initialTo },
   );
   const { from, to } = span;
 
-  // Refetched when the span changes, and seeded from the server render so the
-  // first preview does not wait on a round trip.
   const previewInput = api.reports.getReportInput.useQuery(
     { fromBoundaryId: from, toBoundaryId: to },
     { initialData: from === initialFrom && to === initialTo ? initialInput : undefined },
   );
 
-  // What the server currently holds, so autosave only writes real changes.
   const savedRef = useRef(JSON.stringify(template));
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
@@ -121,7 +110,6 @@ export const TemplateEditor = ({
     }
   }, SAVE_DEBOUNCE_MS);
 
-  // Only ever writes a template that parses; a half-typed brace is not a save.
   useEffect(() => {
     if (error !== null) {
       return;

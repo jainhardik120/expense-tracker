@@ -64,27 +64,24 @@ export const getEMIs = async (
       );
     }
   }
-  return (
-    db
-      .select({
-        creditCardName: bankAccount.accountName,
-        ...getTableColumns(emis),
-        maxInstallmentNo: maxInstallmentSubquery.maxInstallmentNo,
-        totalPaid: maxInstallmentSubquery.totalPaid,
-      })
-      .from(emis)
-      .innerJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
-      .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-      .leftJoin(maxInstallmentSubquery, eq(sql`${emis.id}::text`, maxInstallmentSubquery.emiId))
-      .where(and(...conditions))
-      // Finished EMIs sink to the bottom; the ones still running read alphabetically.
-      .orderBy(
-        sql`(${maxInstallmentSubquery.maxInstallmentNo} IS NOT NULL AND ${maxInstallmentSubquery.maxInstallmentNo} = ${emis.tenure}) ASC`,
-        asc(emis.name),
-      )
-      .limit(input.perPage)
-      .offset((input.page - 1) * input.perPage)
-  );
+  return db
+    .select({
+      creditCardName: bankAccount.accountName,
+      ...getTableColumns(emis),
+      maxInstallmentNo: maxInstallmentSubquery.maxInstallmentNo,
+      totalPaid: maxInstallmentSubquery.totalPaid,
+    })
+    .from(emis)
+    .innerJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
+    .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
+    .leftJoin(maxInstallmentSubquery, eq(sql`${emis.id}::text`, maxInstallmentSubquery.emiId))
+    .where(and(...conditions))
+    .orderBy(
+      sql`(${maxInstallmentSubquery.maxInstallmentNo} IS NOT NULL AND ${maxInstallmentSubquery.maxInstallmentNo} = ${emis.tenure}) ASC`,
+      asc(emis.name),
+    )
+    .limit(input.perPage)
+    .offset((input.page - 1) * input.perPage);
 };
 
 export const getRecurringPayment = async (

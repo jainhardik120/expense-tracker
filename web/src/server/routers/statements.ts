@@ -34,7 +34,6 @@ import {
 const ACCOUNT_NOT_FOUND_ERROR = 'Account not found';
 const FRIEND_NOT_FOUND_ERROR = 'Friend not found';
 
-/** Absence arrives as undefined, null or '' depending on the caller; store null. */
 const asOptionalId = (value: string | null | undefined) =>
   value === undefined || value === null || value === '' ? null : value;
 
@@ -83,10 +82,6 @@ export const statementsRouter = createTRPCRouter({
         .orderBy(sql<string>`tag`);
       return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
     }),
-  /**
-   * How many rows each filter value would match under the other active filters.
-   * Drives the counts in the filter dropdowns.
-   */
   getFacetCounts: protectedProcedure
     .input(statementParserSchema.omit({ page: true, perPage: true }))
     .query(async ({ ctx, input }) => getStatementFacetCounts(ctx.db, ctx.user.id, input)),
@@ -103,10 +98,6 @@ export const statementsRouter = createTRPCRouter({
       let statements = await getMergedStatements(ctx.db, ctx.user.id, input);
       let summary = null;
       const sort = parseStatementSort(input.sort);
-      // The running balance is an accumulation down the page, so it only reads
-      // correctly while the page is in date order. Under any other sort the
-      // number beside a row would be the balance of whatever happened to sort
-      // above it, which is meaningless -- so it is not computed at all.
       const isChronological = sort.length === 0 || sort[0].id === 'date';
       if (
         isChronological &&
@@ -357,10 +348,6 @@ export const statementsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Appended in SQL rather than read-modify-write so the "already has it"
-      // case is the condition itself: a row that carries the tag does not match
-      // and is left exactly as it was. Self transfers carry no tags, so any
-      // selected alongside these simply do not match either.
       const updated = await ctx.db
         .update(statements)
         .set({ tags: sql`array_append(${statements.tags}, ${input.tag})` })

@@ -35,7 +35,6 @@ const Detail = ({ label, value }: { label: string; value: React.ReactNode }) => 
   </div>
 );
 
-/** Everything the payroll row leaves out: which revision, which lines, which adjustments. */
 export const PayrollBreakdownDialog = ({ row }: { row: SalaryRow }) => {
   const [open, setOpen] = useState(false);
   const bonusTds = tdsAdjustment(row, 'bonus_tds');

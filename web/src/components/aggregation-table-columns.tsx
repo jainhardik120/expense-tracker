@@ -9,9 +9,6 @@ import type { PeriodTotals } from '@/types';
 
 import type { ColumnDef } from '@tanstack/react-table';
 
-// The statements page reads these straight off the URL via statementParser, and
-// its date-range filter stores epoch milliseconds joined by a comma. Reusing the
-// row's own start/end keeps the linked view lined up with the numbers shown here.
 const statementsHref = (start: Date, end: Date, kinds: string[]) => {
   const params = new URLSearchParams({
     date: `${start.getTime()},${end.getTime()}`,
@@ -20,8 +17,6 @@ const statementsHref = (start: Date, end: Date, kinds: string[]) => {
   return `/statements?${params.toString()}`;
 };
 
-// Rendered under HoverCardTrigger asChild, so every prop Radix hands down (the
-// hover/focus handlers that open the card, plus its ref) has to reach the anchor.
 const DrilldownLink = ({
   row,
   kinds,
@@ -35,10 +30,6 @@ const DrilldownLink = ({
   const start = typeof row.date === 'string' ? new Date(row.date) : row.date;
   const end = typeof row.endDate === 'string' ? new Date(row.endDate) : row.endDate;
   return (
-    // Not prefetched: a table of periods carries two of these per row, and
-    // prefetching every one in view rendered the statements page on the server
-    // dozens of times per visit -- sixty renders for one reports page. They
-    // still navigate the same; the page is fetched when one is clicked.
     <Link
       {...props}
       className={cn('underline-offset-4 hover:underline', className)}
@@ -88,8 +79,6 @@ export const aggregationTableColumns = (
       return (
         <HoverCard closeDelay={200} openDelay={100}>
           <HoverCardTrigger asChild>
-            {/* The figure combines outside and friend transactions, so the
-                drill-down has to include both kinds to reconcile. */}
             <DrilldownLink kinds={['outside_transaction', 'friend_transaction']} row={row.original}>
               {(
                 row.original.totalAccountsSummary.outsideTransactions +

@@ -14,8 +14,6 @@ import { createSmsNotificationSchema, smsNotificationListSchema } from '@/types'
 
 import { buildQueryConditions } from '../helpers';
 
-/** One reviewed grid row. The rules it has to satisfy are checked in the helper,
- * against the same code the grid uses, so the two cannot drift apart. */
 const bulkImportRowSchema = z.object({
   id: z.string(),
   date: z.string(),
@@ -28,10 +26,6 @@ const bulkImportRowSchema = z.object({
 });
 
 export const smsNotificationsRouter = createTRPCRouter({
-  /**
-   * What the queue of unentered messages adds up to, with each account's balance
-   * adjusted for what is waiting on it.
-   */
   getPendingEstimate: protectedProcedure.query(async ({ ctx }) => {
     const [estimate, accounts] = await Promise.all([
       getPendingSmsEstimate(ctx.db, ctx.user.id),
@@ -66,11 +60,6 @@ export const smsNotificationsRouter = createTRPCRouter({
     .input(createSmsNotificationSchema)
     .output(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      // The phone retries an upload it never got an answer to, so the same
-      // message can arrive twice: once from the attempt that did land, once
-      // from the retry. A message is identified by who sent it, what it said
-      // and for how much -- the timestamp is not part of that, because the
-      // broadcast and the inbox disagree about it by a second or two.
       const existing = await ctx.db
         .select({ id: smsNotifications.id })
         .from(smsNotifications)
@@ -159,15 +148,6 @@ export const smsNotificationsRouter = createTRPCRouter({
       }
       return result[0];
     }),
-  /**
-   * What to pre-fill the single-message dialog with.
-   *
-   * Shares its reasoning with the bulk grid rather than running its own queries.
-   * When the two were separate they disagreed on ties: the SQL ordered only by
-   * how often a value had been used and left an equal count to Postgres, which
-   * picked the older of two tags. The field names are kept as they were so the
-   * dialog does not have to change.
-   */
   getInsertHints: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -179,10 +159,6 @@ export const smsNotificationsRouter = createTRPCRouter({
         tagsHint: hints.tags,
       };
     }),
-  /**
-   * The whole pending queue as editable rows, each pre-filled the way
-   * `getInsertHints` fills one — but resolved for every message in one go.
-   */
   getBulkImportRows: protectedProcedure.query(async ({ ctx }) =>
     getBulkImportRows(ctx.db, ctx.user.id, await getTimezone()),
   ),

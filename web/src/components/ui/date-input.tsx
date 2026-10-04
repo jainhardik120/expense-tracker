@@ -60,11 +60,6 @@ const DateInput = (props: { date: Date; onChange: (date: Date) => void }) => {
       <PopoverContent
         align="start"
         className="w-auto overflow-hidden p-0"
-        // A date field is often opened from inside something that keeps hold of
-        // the focus -- a row's action menu stays mounted behind the dialog it
-        // opened, and pulls focus back the moment the calendar is clicked. That
-        // is not the reader leaving the calendar, so it should not close it.
-        // Clicking away, Escape and picking a date all still do.
         onFocusOutside={(event) => {
           event.preventDefault();
         }}

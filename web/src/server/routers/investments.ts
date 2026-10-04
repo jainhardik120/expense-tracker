@@ -28,7 +28,6 @@ import { amount, createInvestmentSchema, investmentParserSchema } from '@/types'
 
 const SEARCH_QUERY_MAX_LENGTH = 120;
 
-/** Days of price history the phone's overview asks for. */
 const HISTORY_DAYS = 10;
 
 const optionalToNull = (value: string | undefined): string | null => {
@@ -102,14 +101,6 @@ const getFilteredInvestments = async ({
     .orderBy(desc(investments.investmentDate));
 };
 
-/**
- * The portfolio as one screenful, for a phone.
- *
- * The web page fetches a dashboard, several timelines and a paged table, and
- * redraws parts of it as the user changes range. A phone screen and a
- * home-screen widget want none of that: they want today's figure, what it cost,
- * and what moved. So this is a single read with no history in it.
- */
 const overviewFigures = {
   invested: z.number(),
   valuation: z.number(),
@@ -130,7 +121,6 @@ const investmentsOverviewSchema = z.object({
   categories: z.array(
     z.object({
       category: z.enum(investmentCategoryValues),
-      /** Resolved here so the phone does not keep its own copy of the labels. */
       label: z.string(),
       ...overviewFigures,
       openPositions: z.number(),
@@ -140,14 +130,12 @@ const investmentsOverviewSchema = z.object({
   holdings: z.array(
     z.object({
       kind: z.enum(investmentKindValues),
-      /** The bucket it belongs to above -- RSUs split out of plain stocks. */
       category: z.enum(investmentCategoryValues),
       label: z.string(),
       code: z.string(),
       name: z.string(),
       currency: z.string(),
       isRsu: z.boolean(),
-      /** RSUs and the like are shown, but are not part of the totals above. */
       isExcludedFromPortfolio: z.boolean(),
       units: z.number(),
       ...overviewFigures,
@@ -174,12 +162,6 @@ export const investmentsRouter = createTRPCRouter({
         .where(eq(investments.userId, ctx.user.id))
         .orderBy(desc(investments.investmentDate));
       const today = new Date();
-      // Enough history to hold a previous close. The day's movement is this
-      // price against the one before it, so with no history there is no
-      // "before" and every holding looks flat -- which is exactly what the
-      // phone showed while the web page showed real movement. Ten days rather
-      // than one: the previous close can be several days back over a weekend
-      // or a run of holidays.
       const context = await buildInvestmentMarketDataContext({
         investmentsList: rows,
         historyStartDate: subDays(today, HISTORY_DAYS),
@@ -189,9 +171,6 @@ export const investmentsRouter = createTRPCRouter({
         investmentsList: rows,
         marketDataContext: context,
       });
-      // Today for both ends of the range: the dashboard builds a daily series
-      // between them, and a series nothing here reads should not cost a point
-      // per day the portfolio has existed.
       const dashboard = await getInvestmentsDashboard({
         investmentsList: enriched,
         start: today,

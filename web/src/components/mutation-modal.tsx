@@ -20,7 +20,6 @@ type Props<Input extends FieldValues, Output extends FieldValues, MutationResult
   refresh?: (values: MutationResult) => Promise<void> | void;
   successToast: (mutationResult: MutationResult) => string;
   customDescription?: React.ReactNode;
-  /** Header description, and a width for forms that need more than the default. */
   modalDescription?: React.ReactNode;
   modalClassName?: string;
 };
