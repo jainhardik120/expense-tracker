@@ -56,6 +56,7 @@ export const CreditCardsCard = ({
                   <Link
                     className="hover:bg-muted/50 focus-visible:ring-ring block rounded-lg border p-3 transition-colors focus-visible:ring-2 focus-visible:outline-none"
                     href={`/statements?account=${card.accountId}`}
+                    prefetch={false}
                   >
                     <div className="mb-2 flex items-center justify-between">
                       <span className="font-medium">{card.accountName}</span>

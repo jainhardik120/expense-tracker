@@ -79,7 +79,7 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
       <DataTableToolbar table={table}>
         <DownloadReportDialog boundaries={initialBoundaries} />
         <Button asChild size="sm" variant="outline">
-          <Link href="/reports/template">
+          <Link href="/reports/template" prefetch={false}>
             <SlidersHorizontal className="mr-2 size-4" />
             Edit Report Template
           </Link>

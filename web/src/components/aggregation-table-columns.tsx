@@ -35,10 +35,15 @@ const DrilldownLink = ({
   const start = typeof row.date === 'string' ? new Date(row.date) : row.date;
   const end = typeof row.endDate === 'string' ? new Date(row.endDate) : row.endDate;
   return (
+    // Not prefetched: a table of periods carries two of these per row, and
+    // prefetching every one in view rendered the statements page on the server
+    // dozens of times per visit -- sixty renders for one reports page. They
+    // still navigate the same; the page is fetched when one is clicked.
     <Link
       {...props}
       className={cn('underline-offset-4 hover:underline', className)}
       href={statementsHref(start, end, kinds)}
+      prefetch={false}
     >
       {children}
     </Link>

@@ -99,9 +99,12 @@ const StatementsLink = ({
 }) => {
   const isFriend = isFriendSummary(item);
   return (
+    // Not prefetched: one per account and friend in the summary table, and each
+    // prefetch is a full render of the statements page on the server.
     <Link
       className="hover:underline"
       href={`/statements?account=${isFriend ? item.friend.id : item.account.id}`}
+      prefetch={false}
     >
       {isFriend ? item.friend.name : item.account.accountName}
     </Link>
