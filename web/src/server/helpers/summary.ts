@@ -5,6 +5,7 @@ import { type PgTable, unionAll } from 'drizzle-orm/pg-core';
 import { type PgViewBase } from 'drizzle-orm/pg-core/view-base';
 
 import { reportBoundaries, selfTransferStatements, splits, statements } from '@/db/schema';
+import { isValidTimeZone } from '@/lib/date';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
@@ -570,6 +571,9 @@ export const getRawDataForAggregation = instrumentedFunction(
       start: start,
       end: end,
     };
+    if (!isValidTimeZone(timezone)) {
+      throw new Error('Invalid time zone');
+    }
     const dateTruncWithTz = (column: string) =>
       sql<Date>`
     date_trunc(

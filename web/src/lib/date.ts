@@ -133,9 +133,24 @@ export const getDefaultDateRange = (timezone: string) => {
   return { start: startUtc, end: now, timezone, endOfYear };
 };
 
+const TIME_ZONE_NAME = /^[A-Za-z][A-Za-z0-9_+/-]*$/;
+
+export const isValidTimeZone = (value: string): boolean => {
+  if (!TIME_ZONE_NAME.test(value)) {
+    return false;
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const getTimezone = async () => {
   const cookieStore = await getCookies();
-  return cookieStore.get(TIMEZONE_COOKIE) ?? 'UTC';
+  const value = cookieStore.get(TIMEZONE_COOKIE);
+  return value !== undefined && isValidTimeZone(value) ? value : 'UTC';
 };
 
 export const startOfDayLocal = (date: Date, timeZone: string = 'UTC') => {
