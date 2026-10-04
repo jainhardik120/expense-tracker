@@ -1,3 +1,5 @@
+import { MS_PER_MINUTE } from '@/types';
+
 import type {
   InstrumentIdentity,
   InvestmentInstrumentSearchResult,
@@ -17,6 +19,50 @@ import {
 } from '../shared';
 
 const MAX_SEARCH_RESULTS = 25;
+
+/**
+ * A fund's whole NAV history, parsed once and kept as long as the response.
+ *
+ * mfapi.in answers with every NAV since the fund launched -- thousands of days
+ * -- and each investments page wants only the last month. Parsing the full
+ * history on every load, for every fund, was most of the page's CPU. The
+ * parsed series is kept for as long as the raw response would be, oldest day
+ * first; callers get a fresh filtered array, and nothing writes to its points.
+ * Failures and empty answers are not kept.
+ */
+const NAV_HISTORY_TTL_MINUTES = 15;
+const NAV_HISTORY_TTL_MS = NAV_HISTORY_TTL_MINUTES * MS_PER_MINUTE;
+const navHistories = new Map<string, { points: PriceHistoryPoint[]; at: number }>();
+
+const navHistory = async (code: string): Promise<PriceHistoryPoint[]> => {
+  const kept = navHistories.get(code);
+  if (kept !== undefined && Date.now() - kept.at < NAV_HISTORY_TTL_MS) {
+    return kept.points;
+  }
+  const payload = await fetchJson<{
+    data?: Array<{ date: string; nav: string }>;
+  }>(`https://api.mfapi.in/mf/${encodeURIComponent(code)}`, {
+    cache: 'no-store',
+  });
+  const points = (payload?.data ?? [])
+    .map((value) => {
+      const parsedDate = parseMfDate(value.date);
+      const nav = parseNumericString(value.nav);
+      if (parsedDate === null || !Number.isFinite(nav) || nav <= 0) {
+        return null;
+      }
+      return {
+        date: parsedDate,
+        price: nav,
+      };
+    })
+    .filter((value): value is PriceHistoryPoint => value !== null)
+    .reverse();
+  if (points.length > 0) {
+    navHistories.set(code, { points, at: Date.now() });
+  }
+  return points;
+};
 
 export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvider {
   readonly id = 'mutual-funds';
@@ -112,32 +158,10 @@ export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvid
     startDate: Date,
     endDate: Date,
   ): Promise<PriceHistoryPoint[]> {
-    const payload = await fetchJson<{
-      data?: Array<{ date: string; nav: string }>;
-    }>(`https://api.mfapi.in/mf/${encodeURIComponent(instrument.code)}`, {
-      cache: 'no-store',
-    });
-
-    const values = payload?.data ?? [];
-    return values
-      .map((value) => {
-        const parsedDate = parseMfDate(value.date);
-        const nav = parseNumericString(value.nav);
-        if (parsedDate === null || !Number.isFinite(nav) || nav <= 0) {
-          return null;
-        }
-        return {
-          date: parsedDate,
-          price: nav,
-        };
-      })
-      .filter((value): value is PriceHistoryPoint => value !== null)
-      .reverse()
-      .filter((value) => {
-        return (
-          value.date.getTime() >= startOfDay(startDate).getTime() &&
-          value.date.getTime() <= startOfDay(endDate).getTime()
-        );
-      });
+    const history = await navHistory(instrument.code);
+    // Bounds worked out once, not once per day of the fund's history.
+    const from = startOfDay(startDate).getTime();
+    const to = startOfDay(endDate).getTime();
+    return history.filter((value) => value.date.getTime() >= from && value.date.getTime() <= to);
   }
 }
