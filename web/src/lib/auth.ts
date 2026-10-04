@@ -48,7 +48,8 @@ export const auth = betterAuth({
     oauthProvider({
       loginPage: '/auth/login',
       consentPage: '/auth/consent',
-      validAudiences: [
+      enforcePerClientResources: false,
+      resources: [
         `${getBaseUrl()}/api/external`,
         `${getBaseUrl()}`,
         ...[
