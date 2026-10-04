@@ -56,11 +56,13 @@ android {
         val keyAlias = lp("KEY_ALIAS")
         val keyPassword = lp("KEY_PASSWORD")
 
-        getByName("debug") {
-            this.storeFile = storeFile
-            this.storePassword = storePassword
-            this.keyAlias = keyAlias
-            this.keyPassword = keyPassword
+        if (storeFile != null) {
+            getByName("debug") {
+                this.storeFile = storeFile
+                this.storePassword = storePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
         }
         create("release") {
             this.storeFile = storeFile

@@ -177,6 +177,7 @@ jobs:
           releaseFiles: ${{ env.release_aab }}
           track: ${{ env.google_play_track }}
           status: completed
+          changesNotSentForReview: true
 
   publish_google_play_internal:
     if: github.event_name == 'release' && github.event.action == 'published'
@@ -217,3 +218,4 @@ jobs:
           releaseFiles: ${{ env.release_aab }}
           track: ${{ env.google_play_track }}
           status: completed
+          changesNotSentForReview: true

@@ -71,6 +71,7 @@ class MainActivity : ComponentActivity() {
                     is AuthState.SignedOut -> Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         Box(modifier = Modifier.padding(innerPadding)) {
                             LoginScreen(
+                                notice = s.notice,
                                 onLogin = { loginLauncher.launch(vm.loginIntent()) }
                             )
                         }

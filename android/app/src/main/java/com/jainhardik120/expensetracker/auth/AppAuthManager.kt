@@ -39,10 +39,9 @@ class AppAuthManager @Inject constructor(
     }
 
     suspend fun handleCallbackAndExchange(intent: Intent): TokenSet {
+        AuthorizationException.fromIntent(intent)?.let { throw it }
         val resp = AuthorizationResponse.fromIntent(intent)
-            ?: throw IllegalStateException("No AuthorizationResponse found")
-        val ex = AuthorizationException.fromIntent(intent)
-        if (ex != null) throw ex
+            ?: throw IllegalStateException("The sign-in page did not return a result")
         val original = resp.createTokenExchangeRequest()
         val exchange = TokenRequest.Builder(original.configuration, original.clientId)
             .setGrantType(original.grantType)

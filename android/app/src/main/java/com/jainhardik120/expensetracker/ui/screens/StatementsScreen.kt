@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -95,6 +96,7 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             FloatingActionButton(onClick = { viewModel.openCreateDialog() }) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
@@ -199,7 +201,7 @@ fun StatementActionsSheet(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "₹${formatAmount(statement.amount)} · ${formatDate(statement.createdAt)}",
+                text = "${formatAmount(statement.amount)} · ${formatDate(statement.createdAt)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -307,18 +309,17 @@ fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.End) {
-                    val amountColor = when (statement.statementKind) {
-                        "expense" -> MaterialTheme.colorScheme.error
-                        "outside_transaction", "friend_transaction" -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.onSurface
-                    }
-                    val prefix = when (statement.statementKind) {
-                        "expense" -> "-"
-                        "outside_transaction", "friend_transaction" -> "+"
-                        else -> ""
+                    val value = statement.amount.toDoubleOrNull() ?: 0.0
+                    val (amountText, amountColor) = when {
+                        statement.statementKind == "expense" ->
+                            formatAmount(-kotlin.math.abs(value)) to MaterialTheme.colorScheme.error
+                        statement.type == "self_transfer" ->
+                            formatAmount(value) to MaterialTheme.colorScheme.onSurface
+                        value < 0 -> formatAmount(value) to MaterialTheme.colorScheme.error
+                        else -> formatSignedAmount(value) to MaterialTheme.colorScheme.primary
                     }
                     Text(
-                        text = "${prefix}₹${formatAmount(statement.amount)}",
+                        text = amountText,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = amountColor
@@ -348,19 +349,6 @@ fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
                 }
             }
         }
-    }
-}
-
-private fun formatAmount(amount: String): String {
-    return try {
-        val value = amount.toDouble()
-        if (value == value.toLong().toDouble()) {
-            value.toLong().toString()
-        } else {
-            String.format(Locale.getDefault(), "%.2f", value)
-        }
-    } catch (_: NumberFormatException) {
-        amount
     }
 }
 

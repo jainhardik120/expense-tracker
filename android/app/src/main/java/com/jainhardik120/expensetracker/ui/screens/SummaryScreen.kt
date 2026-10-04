@@ -130,11 +130,21 @@ private fun SummaryContent(
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                AmountRow("Spent", summary.myExpensesTotal)
+                val friendsShare = summary.myExpensesTotal - accounts.expenses
+                AmountRow("Your spending", -summary.myExpensesTotal)
+                if (friendsShare != 0.0) {
+                    AmountRow(
+                        if (friendsShare < 0) "Paid for friends" else "Paid by friends",
+                        friendsShare
+                    )
+                }
                 AmountRow("Money in", accounts.outsideTransactions)
-                AmountRow("With friends", accounts.friendTransactions)
+                AmountRow("Settled with friends", accounts.friendTransactions)
+                if (accounts.selfTransfers != 0.0) {
+                    AmountRow("Between accounts", accounts.selfTransfers)
+                }
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                AmountRow("Net change", accounts.totalTransfers, bold = true)
+                AmountRow("Net change", accounts.totalTransfers, bold = true, coloured = true)
             }
         }
 
