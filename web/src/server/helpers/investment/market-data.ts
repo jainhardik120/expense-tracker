@@ -287,9 +287,10 @@ export type UnitInstrumentOneDayMetrics = {
   previousUnitPriceNative: number | null;
 };
 
-const getLatestPricePointOnOrBeforeDate = (
+const getLatestPricePoint = (
   history: Array<{ date: Date; price: number }>,
   targetDate: Date,
+  includeTargetDay: boolean,
 ): { date: Date; price: number } | null => {
   const targetTime = startOfDay(targetDate).getTime();
   let latestPoint: { date: Date; price: number } | null = null;
@@ -297,29 +298,8 @@ const getLatestPricePointOnOrBeforeDate = (
 
   for (const point of history) {
     const pointDayTime = startOfDay(point.date).getTime();
-    if (pointDayTime > targetTime || point.price <= 0 || !Number.isFinite(point.price)) {
-      continue;
-    }
-    if (pointDayTime >= latestTime) {
-      latestTime = pointDayTime;
-      latestPoint = point;
-    }
-  }
-
-  return latestPoint;
-};
-
-const getLatestPricePointBeforeDate = (
-  history: Array<{ date: Date; price: number }>,
-  targetDate: Date,
-): { date: Date; price: number } | null => {
-  const targetTime = startOfDay(targetDate).getTime();
-  let latestPoint: { date: Date; price: number } | null = null;
-  let latestTime = Number.MIN_SAFE_INTEGER;
-
-  for (const point of history) {
-    const pointDayTime = startOfDay(point.date).getTime();
-    if (pointDayTime >= targetTime || point.price <= 0 || !Number.isFinite(point.price)) {
+    const afterCutoff = includeTargetDay ? pointDayTime > targetTime : pointDayTime >= targetTime;
+    if (afterCutoff || point.price <= 0 || !Number.isFinite(point.price)) {
       continue;
     }
     if (pointDayTime >= latestTime) {
@@ -351,13 +331,10 @@ export const getUnitInstrumentOneDayMetricsByKey = ({
     const quote = marketDataContext.quoteByInstrumentKey.get(key);
     const quoteAsOfDate =
       quote?.asOf === null || quote?.asOf === undefined ? null : startOfDay(quote.asOf);
-    const currentPointFromHistory = getLatestPricePointOnOrBeforeDate(
-      history,
-      quoteAsOfDate ?? asOfDate,
-    );
+    const currentPointFromHistory = getLatestPricePoint(history, quoteAsOfDate ?? asOfDate, true);
     const currentReferenceDate =
       quoteAsOfDate ?? startOfDay(currentPointFromHistory?.date ?? asOfDate);
-    const previousPointFromHistory = getLatestPricePointBeforeDate(history, currentReferenceDate);
+    const previousPointFromHistory = getLatestPricePoint(history, currentReferenceDate, false);
     const isUsStock =
       instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US';
     const currentUnitPriceInr = quote?.unitPriceInr ?? currentPointFromHistory?.price ?? null;

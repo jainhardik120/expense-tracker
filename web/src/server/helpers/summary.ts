@@ -904,3 +904,16 @@ export const getRawDataForCustomAggregation = instrumentedFunction(
     };
   },
 );
+
+export const getNetBalance = instrumentedFunction(
+  'getNetBalance',
+  async (db: Database, userId: string, end?: Date) => {
+    const [accounts, friends] = await Promise.all([
+      getAccountsSummaryBetweenDates(db, userId, undefined, end),
+      getFriendsSummaryBetweenDates(db, userId, undefined, end),
+    ]);
+    const inAccounts = accounts.reduce((sum, account) => sum + account.finalBalance, 0);
+    const owedToFriends = friends.reduce((sum, friend) => sum + friend.finalBalance, 0);
+    return { inAccounts, owedToFriends, net: inAccounts - owedToFriends };
+  },
+);

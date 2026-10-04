@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { investments } from '@/db/schema';
 import type { Database } from '@/lib/db';
+import { instrumentedFunction } from '@/lib/instrumentation';
 import {
   getInvestmentCategory,
   investmentCategoryLabels,
@@ -57,49 +58,28 @@ const normalizeInvestmentInput = (input: z.infer<typeof createInvestmentSchema>)
   };
 };
 
-const buildFilteredConditions = ({
-  userId,
-  start,
-  end,
-  investmentKind,
-}: {
-  userId: string;
-  start?: Date;
-  end?: Date;
-  investmentKind: string[];
-}) => {
-  const conditions = [eq(investments.userId, userId)];
-  if (start !== undefined) {
-    conditions.push(gte(investments.investmentDate, start));
-  }
-  if (end !== undefined) {
-    conditions.push(lte(investments.investmentDate, end));
-  }
-  if (investmentKind.length > 0) {
-    conditions.push(inArray(investments.investmentKind, investmentKind));
-  }
-  return conditions;
-};
-
-const getFilteredInvestments = async ({
-  ctx,
-  input,
-}: {
-  ctx: { db: Database; user: { id: string } };
-  input: z.infer<typeof investmentParserSchema>;
-}) => {
-  const conditions = buildFilteredConditions({
-    userId: ctx.user.id,
-    start: input.start,
-    end: input.end,
-    investmentKind: input.investmentKind,
-  });
-  return ctx.db
-    .select()
-    .from(investments)
-    .where(and(...conditions))
-    .orderBy(desc(investments.investmentDate));
-};
+const getFilteredInvestments = instrumentedFunction(
+  'getFilteredInvestments',
+  async (
+    db: Database,
+    userId: string,
+    { start, end, investmentKind }: { start?: Date; end?: Date; investmentKind: string[] },
+  ) =>
+    db
+      .select()
+      .from(investments)
+      .where(
+        and(
+          eq(investments.userId, userId),
+          start === undefined ? undefined : gte(investments.investmentDate, start),
+          end === undefined ? undefined : lte(investments.investmentDate, end),
+          investmentKind.length === 0
+            ? undefined
+            : inArray(investments.investmentKind, investmentKind),
+        ),
+      )
+      .orderBy(desc(investments.investmentDate)),
+);
 
 const overviewFigures = {
   invested: z.number(),
@@ -226,22 +206,10 @@ export const investmentsRouter = createTRPCRouter({
       };
     }),
 
-  getInvestmentsPageData: protectedProcedure
-    .input(investmentParserSchema)
-    .query(async ({ ctx, input }) => {
-      const investmentsListRaw = await getFilteredInvestments({ ctx, input });
-      return buildInvestmentsPageData({
-        investmentsListRaw,
-        page: input.page,
-        perPage: input.perPage,
-        endDate: input.end,
-      });
-    }),
-
   getInvestmentsInitialData: protectedProcedure
     .input(investmentParserSchema)
     .query(async ({ ctx, input }) => {
-      const investmentsListRaw = await getFilteredInvestments({ ctx, input });
+      const investmentsListRaw = await getFilteredInvestments(ctx.db, ctx.user.id, input);
       return buildInvestmentsPageData({
         investmentsListRaw,
         page: input.page,
@@ -258,7 +226,7 @@ export const investmentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const investmentsListRaw = await getFilteredInvestments({ ctx, input });
+      const investmentsListRaw = await getFilteredInvestments(ctx.db, ctx.user.id, input);
       const typeInvestments = investmentsListRaw.filter(
         (investment) => normalizeInvestmentKind(investment.investmentKind) === input.investmentType,
       );
@@ -268,34 +236,6 @@ export const investmentsRouter = createTRPCRouter({
         perPage: Math.max(1, typeInvestments.length),
         endDate: input.end,
         marketDataKinds: [input.investmentType],
-      });
-    }),
-
-  getInvestmentsTimelines: protectedProcedure
-    .input(
-      z.object({
-        start: z.date().optional(),
-        end: z.date().optional(),
-        investmentKind: z.string().array().optional().default([]),
-        range: z.enum(investmentTimelineRangeValues),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const conditions = buildFilteredConditions({
-        userId: ctx.user.id,
-        start: input.start,
-        end: input.end,
-        investmentKind: input.investmentKind,
-      });
-      const investmentsListRaw = await ctx.db
-        .select()
-        .from(investments)
-        .where(and(...conditions))
-        .orderBy(desc(investments.investmentDate));
-      return buildInvestmentsRangeTimelines({
-        investmentsListRaw,
-        range: input.range,
-        endDate: input.end,
       });
     }),
 
@@ -310,17 +250,7 @@ export const investmentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const conditions = buildFilteredConditions({
-        userId: ctx.user.id,
-        start: input.start,
-        end: input.end,
-        investmentKind: input.investmentKind,
-      });
-      const investmentsListRaw = await ctx.db
-        .select()
-        .from(investments)
-        .where(and(...conditions))
-        .orderBy(desc(investments.investmentDate));
+      const investmentsListRaw = await getFilteredInvestments(ctx.db, ctx.user.id, input);
       const typeInvestments = investmentsListRaw.filter(
         (investment) => normalizeInvestmentKind(investment.investmentKind) === input.investmentType,
       );

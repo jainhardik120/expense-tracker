@@ -65,6 +65,24 @@ type BreakdownAggregate = {
   totalPositions: number;
 };
 
+const summarizeBreakdown = (summary: BreakdownAggregate) => ({
+  investedAmount: summary.investedAmount,
+  valuationAmount: summary.valuationAmount,
+  pnl: summary.valuationAmount - summary.investedAmount,
+  pnlPercentage: getPercentageChange(
+    summary.valuationAmount - summary.investedAmount,
+    summary.investedAmount,
+  ),
+  dayChange: summary.dayChange,
+  dayChangePercentage: getDayChangePercentageFromValuation(
+    summary.valuationAmount,
+    summary.dayChange,
+  ),
+  openPositions: summary.openPositions,
+  closedPositions: summary.closedPositions,
+  totalPositions: summary.totalPositions,
+});
+
 const addInvestmentToBreakdown = <TKey extends string>(
   map: Map<TKey, BreakdownAggregate>,
   key: TKey,
@@ -295,45 +313,11 @@ export const getInvestmentsDashboard = instrumentedFunction(
     }
 
     const kindBreakdown = [...kindMap.entries()]
-      .map(([kind, summary]) => ({
-        kind,
-        investedAmount: summary.investedAmount,
-        valuationAmount: summary.valuationAmount,
-        pnl: summary.valuationAmount - summary.investedAmount,
-        pnlPercentage: getPercentageChange(
-          summary.valuationAmount - summary.investedAmount,
-          summary.investedAmount,
-        ),
-        dayChange: summary.dayChange,
-        dayChangePercentage: getDayChangePercentageFromValuation(
-          summary.valuationAmount,
-          summary.dayChange,
-        ),
-        openPositions: summary.openPositions,
-        closedPositions: summary.closedPositions,
-        totalPositions: summary.totalPositions,
-      }))
+      .map(([kind, summary]) => ({ kind, ...summarizeBreakdown(summary) }))
       .sort((left, right) => right.valuationAmount - left.valuationAmount);
 
     const categoryBreakdown = [...categoryMap.entries()]
-      .map(([category, summary]) => ({
-        category,
-        investedAmount: summary.investedAmount,
-        valuationAmount: summary.valuationAmount,
-        pnl: summary.valuationAmount - summary.investedAmount,
-        pnlPercentage: getPercentageChange(
-          summary.valuationAmount - summary.investedAmount,
-          summary.investedAmount,
-        ),
-        dayChange: summary.dayChange,
-        dayChangePercentage: getDayChangePercentageFromValuation(
-          summary.valuationAmount,
-          summary.dayChange,
-        ),
-        openPositions: summary.openPositions,
-        closedPositions: summary.closedPositions,
-        totalPositions: summary.totalPositions,
-      }))
+      .map(([category, summary]) => ({ category, ...summarizeBreakdown(summary) }))
       .sort((left, right) => compareInvestmentCategories(left.category, right.category));
 
     const { startDate, endDate, days } = getDailyRangeFromInvestments({

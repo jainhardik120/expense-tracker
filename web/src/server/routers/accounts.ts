@@ -2,8 +2,12 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { bankAccount, creditCardAccounts } from '@/db/schema';
-import { type Database } from '@/lib/db';
-import { getAccounts, getCreditCards } from '@/server/helpers/account';
+import {
+  assertOwnsAccountsAndFriends,
+  getAccounts,
+  getCreditCards,
+} from '@/server/helpers/account';
+import { verifyCreditCardAccount } from '@/server/helpers/emi';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   amount,
@@ -11,23 +15,6 @@ import {
   createCreditCardAccountSchema,
   creditCardBillingDateSchema,
 } from '@/types';
-
-const CREDIT_CARD_NOT_FOUND = 'Credit card not found or access denied';
-
-const validateAccountOwnership = async (
-  db: Database,
-  accountId: string,
-  userId: string,
-): Promise<void> => {
-  const account = await db
-    .select({ id: bankAccount.id })
-    .from(bankAccount)
-    .where(and(eq(bankAccount.id, accountId), eq(bankAccount.userId, userId)))
-    .limit(1);
-  if (account.length === 0) {
-    throw new Error('Account not found or access denied');
-  }
-};
 
 export const accountsRouter = createTRPCRouter({
   getAccounts: protectedProcedure
@@ -85,7 +72,7 @@ export const accountsRouter = createTRPCRouter({
   createCreditCard: protectedProcedure
     .input(createCreditCardAccountSchema)
     .mutation(async ({ ctx, input }) => {
-      await validateAccountOwnership(ctx.db, input.accountId, ctx.user.id);
+      await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, { accountIds: [input.accountId] });
       return ctx.db
         .insert(creditCardAccounts)
         .values({
@@ -105,16 +92,8 @@ export const accountsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await validateAccountOwnership(ctx.db, input.accountId, ctx.user.id);
-      const owned = await ctx.db
-        .select({ id: creditCardAccounts.id })
-        .from(creditCardAccounts)
-        .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-        .where(and(eq(creditCardAccounts.id, input.id), eq(bankAccount.userId, ctx.user.id)))
-        .limit(1);
-      if (owned.length === 0) {
-        throw new Error(CREDIT_CARD_NOT_FOUND);
-      }
+      await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, { accountIds: [input.accountId] });
+      await verifyCreditCardAccount(ctx.db, ctx.user.id, input.id);
       const result = await ctx.db
         .update(creditCardAccounts)
         .set({
@@ -132,15 +111,7 @@ export const accountsRouter = createTRPCRouter({
   deleteCreditCard: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const creditCard = await ctx.db
-        .select({ accountId: creditCardAccounts.accountId })
-        .from(creditCardAccounts)
-        .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
-        .where(and(eq(creditCardAccounts.id, input.id), eq(bankAccount.userId, ctx.user.id)))
-        .limit(1);
-      if (creditCard.length === 0) {
-        throw new Error(CREDIT_CARD_NOT_FOUND);
-      }
+      await verifyCreditCardAccount(ctx.db, ctx.user.id, input.id);
       return ctx.db.delete(creditCardAccounts).where(eq(creditCardAccounts.id, input.id));
     }),
 });

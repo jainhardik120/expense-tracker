@@ -19,10 +19,7 @@ import {
 } from '@/server/helpers/budget';
 import { getPendingIncome } from '@/server/helpers/pending-income';
 import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
-import {
-  getAccountsSummaryBetweenDates,
-  getFriendsSummaryBetweenDates,
-} from '@/server/helpers/summary';
+import { getNetBalance } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   budgetIncomeLineSchema,
@@ -54,6 +51,34 @@ const assertOwnedYear = async (db: Database, userId: string, budgetYearId: strin
 
 const lockOwnedYear = async (db: Database, userId: string, budgetYearId: string) =>
   requireYear(await selectOwnedYear(db, userId, budgetYearId).for('update'));
+
+type YearLineTable = typeof budgetLines | typeof budgetIncomeLines;
+
+const nextLinePosition = async (tx: Database, table: YearLineTable, budgetYearId: string) => {
+  const [{ last }] = await tx
+    .select({ last: max(table.position) })
+    .from(table)
+    .where(eq(table.budgetYearId, budgetYearId));
+  return (last ?? -1) + 1;
+};
+
+const reorderYearLines = (
+  db: Database,
+  table: YearLineTable,
+  budgetYearId: string,
+  orderedIds: string[],
+) =>
+  db.transaction(async (tx) => {
+    for (const [position, id] of orderedIds.entries()) {
+      await tx
+        .update(table)
+        .set({ position })
+        .where(and(eq(table.id, id), eq(table.budgetYearId, budgetYearId)));
+    }
+  });
+
+const deleteYearLine = (db: Database, table: YearLineTable, budgetYearId: string, id: string) =>
+  db.delete(table).where(and(eq(table.id, id), eq(table.budgetYearId, budgetYearId)));
 
 const latestYear = async (db: Database, userId: string) => {
   const years = await db
@@ -134,27 +159,12 @@ export const budgetRouter = createTRPCRouter({
       const income = summariseIncome(incomeLines, scoped, pending);
       const totalMonths = monthsBetween(year.startDate, year.endDate);
 
-      const accountsSummary = await getAccountsSummaryBetweenDates(ctx.db, ctx.user.id);
-      const friendsSummary = await getFriendsSummaryBetweenDates(ctx.db, ctx.user.id);
-      const inAccounts = accountsSummary.reduce((sum, a) => sum + a.finalBalance, 0);
-      const owedToFriends = friendsSummary.reduce((sum, f) => sum + f.finalBalance, 0);
-      const balanceToday = inAccounts - owedToFriends;
-
-      const openingAccounts = await getAccountsSummaryBetweenDates(
-        ctx.db,
-        ctx.user.id,
-        undefined,
-        year.startDate,
-      );
-      const openingFriends = await getFriendsSummaryBetweenDates(
-        ctx.db,
-        ctx.user.id,
-        undefined,
-        year.startDate,
-      );
-      const openingBalance =
-        openingAccounts.reduce((sum, a) => sum + a.finalBalance, 0) -
-        openingFriends.reduce((sum, f) => sum + f.finalBalance, 0);
+      const [today, opening] = await Promise.all([
+        getNetBalance(ctx.db, ctx.user.id),
+        getNetBalance(ctx.db, ctx.user.id, year.startDate),
+      ]);
+      const { inAccounts, owedToFriends, net: balanceToday } = today;
+      const openingBalance = opening.net;
 
       const cyclesTotal = Math.round(totalMonths);
       const incomeCyclesRemaining = pending.payments;
@@ -260,13 +270,12 @@ export const budgetRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       ctx.db.transaction(async (tx) => {
         await lockOwnedYear(tx, ctx.user.id, input.budgetYearId);
-        const [{ last }] = await tx
-          .select({ last: max(budgetLines.position) })
-          .from(budgetLines)
-          .where(eq(budgetLines.budgetYearId, input.budgetYearId));
         const [created] = await tx
           .insert(budgetLines)
-          .values({ ...input, position: (last ?? -1) + 1 })
+          .values({
+            ...input,
+            position: await nextLinePosition(tx, budgetLines, input.budgetYearId),
+          })
           .returning();
         return created;
       }),
@@ -287,23 +296,14 @@ export const budgetRouter = createTRPCRouter({
     .input(z.object({ id: z.string(), budgetYearId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      await ctx.db
-        .delete(budgetLines)
-        .where(and(eq(budgetLines.id, input.id), eq(budgetLines.budgetYearId, input.budgetYearId)));
+      await deleteYearLine(ctx.db, budgetLines, input.budgetYearId, input.id);
     }),
 
   reorderLines: protectedProcedure
     .input(z.object({ budgetYearId: z.string(), orderedIds: z.array(z.string()) }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      await ctx.db.transaction(async (tx) => {
-        for (const [position, id] of input.orderedIds.entries()) {
-          await tx
-            .update(budgetLines)
-            .set({ position })
-            .where(and(eq(budgetLines.id, id), eq(budgetLines.budgetYearId, input.budgetYearId)));
-        }
-      });
+      await reorderYearLines(ctx.db, budgetLines, input.budgetYearId, input.orderedIds);
     }),
 
   addIncomeLine: protectedProcedure
@@ -311,13 +311,12 @@ export const budgetRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       ctx.db.transaction(async (tx) => {
         await lockOwnedYear(tx, ctx.user.id, input.budgetYearId);
-        const [{ last }] = await tx
-          .select({ last: max(budgetIncomeLines.position) })
-          .from(budgetIncomeLines)
-          .where(eq(budgetIncomeLines.budgetYearId, input.budgetYearId));
         const [created] = await tx
           .insert(budgetIncomeLines)
-          .values({ ...input, position: (last ?? -1) + 1 })
+          .values({
+            ...input,
+            position: await nextLinePosition(tx, budgetIncomeLines, input.budgetYearId),
+          })
           .returning();
         return created;
       }),
@@ -338,33 +337,14 @@ export const budgetRouter = createTRPCRouter({
     .input(z.object({ budgetYearId: z.string(), orderedIds: z.array(z.string()) }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      await ctx.db.transaction(async (tx) => {
-        for (const [position, id] of input.orderedIds.entries()) {
-          await tx
-            .update(budgetIncomeLines)
-            .set({ position })
-            .where(
-              and(
-                eq(budgetIncomeLines.id, id),
-                eq(budgetIncomeLines.budgetYearId, input.budgetYearId),
-              ),
-            );
-        }
-      });
+      await reorderYearLines(ctx.db, budgetIncomeLines, input.budgetYearId, input.orderedIds);
     }),
 
   deleteIncomeLine: protectedProcedure
     .input(z.object({ id: z.string(), budgetYearId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      await ctx.db
-        .delete(budgetIncomeLines)
-        .where(
-          and(
-            eq(budgetIncomeLines.id, input.id),
-            eq(budgetIncomeLines.budgetYearId, input.budgetYearId),
-          ),
-        );
+      await deleteYearLine(ctx.db, budgetIncomeLines, input.budgetYearId, input.id);
     }),
 
   previewRule: protectedProcedure

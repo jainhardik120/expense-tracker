@@ -35,11 +35,11 @@ import { type RouterOutput } from '@/server/routers';
 
 import { getExcludedPortfolioDescription, getExcludedPortfolioTag } from './display';
 
-type DashboardData = RouterOutput['investments']['getInvestmentsPageData']['dashboard'];
+type DashboardData = RouterOutput['investments']['getInvestmentsInitialData']['dashboard'];
 type CategoryTimelineEntry =
-  RouterOutput['investments']['getInvestmentsPageData']['categoryTimelines'][number];
+  RouterOutput['investments']['getInvestmentsInitialData']['categoryTimelines'][number];
 type InstrumentTimelineEntry =
-  RouterOutput['investments']['getInvestmentsPageData']['instrumentTimelines'][number];
+  RouterOutput['investments']['getInvestmentsInitialData']['instrumentTimelines'][number];
 type TimelineFilters = {
   start?: Date;
   end?: Date;

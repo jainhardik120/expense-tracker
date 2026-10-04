@@ -17,7 +17,7 @@ import { type RouterOutput } from '@/server/routers';
 import { CloseInvestmentForm, UpdateInvestmentForm } from './InvestmentForms';
 
 type InvestmentRow =
-  RouterOutput['investments']['getInvestmentsPageData']['table']['investments'][number];
+  RouterOutput['investments']['getInvestmentsInitialData']['table']['investments'][number];
 
 const USD_CURRENCY = 'USD';
 const INR_CURRENCY = 'INR';
