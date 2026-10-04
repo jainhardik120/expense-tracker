@@ -162,8 +162,8 @@ export const verifyCreditCardAccount = async (db: Database, userId: string, cred
   }
 };
 
-export const getStatementAttributes = async (db: Database, userId: string, statementId: string) => {
-  const statement = await db
+const selectStatementAttributes = (db: Database, userId: string, statementId: string) =>
+  db
     .select({
       id: statements.id,
       accountId: statements.accountId,
@@ -174,15 +174,24 @@ export const getStatementAttributes = async (db: Database, userId: string, state
     })
     .from(statements)
     .where(and(eq(statements.id, statementId), eq(statements.userId, userId)))
-    .limit(1);
-  if (statement.length === 0) {
+    .limit(1)
+    .$dynamic();
+
+const requireStatement = <T>(rows: T[]): T => {
+  if (rows.length === 0) {
     throw new Error('Statement not found or access denied');
   }
-  return statement[0];
+  return rows[0];
 };
 
-export const getEMIData = async (db: Database, userId: string, emiId: string) => {
-  const emiData = await db
+export const getStatementAttributes = async (db: Database, userId: string, statementId: string) =>
+  requireStatement(await selectStatementAttributes(db, userId, statementId));
+
+export const lockStatementAttributes = async (db: Database, userId: string, statementId: string) =>
+  requireStatement(await selectStatementAttributes(db, userId, statementId).for('update'));
+
+const selectEMIData = (db: Database, userId: string, emiId: string) =>
+  db
     .select({
       accountId: creditCardAccounts.accountId,
       ...getTableColumns(emis),
@@ -190,9 +199,18 @@ export const getEMIData = async (db: Database, userId: string, emiId: string) =>
     .from(emis)
     .leftJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
     .where(and(eq(emis.id, emiId), eq(emis.userId, userId)))
-    .limit(1);
-  if (emiData.length === 0) {
+    .limit(1)
+    .$dynamic();
+
+const requireEMI = <T>(rows: T[]): T => {
+  if (rows.length === 0) {
     throw new Error('EMI not found or access denied');
   }
-  return emiData[0];
+  return rows[0];
 };
+
+export const getEMIData = async (db: Database, userId: string, emiId: string) =>
+  requireEMI(await selectEMIData(db, userId, emiId));
+
+export const lockEMIData = async (db: Database, userId: string, emiId: string) =>
+  requireEMI(await selectEMIData(db, userId, emiId).for('update', { of: emis }));

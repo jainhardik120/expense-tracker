@@ -17,6 +17,8 @@ import {
   getEMIs,
   getMaxInstallmentNoSubquery,
   getStatementAttributes,
+  lockEMIData,
+  lockStatementAttributes,
   verifyCreditCardAccount,
 } from '@/server/helpers/emi';
 import {
@@ -78,6 +80,38 @@ const getMaxInstallment = async (
     .where(eq(maxInstallmentQuery.emiId, emiId));
   return maxInstallment.length === 0 ? null : maxInstallment[0].maxInstallmentNo;
 };
+
+type EmiSplit = { friendId: string; percentage: string };
+
+const readEmiSplits = (attributes: unknown): EmiSplit[] =>
+  (attributes as { splits?: EmiSplit[] }).splits ?? [];
+
+const sumPercentages = (splits: EmiSplit[]) =>
+  splits.reduce((sum, split) => sum + parseFloat(split.percentage), 0);
+
+const assertSplitIndex = (splits: EmiSplit[], index: number) => {
+  if (index < 0 || index >= splits.length) {
+    throw new Error('Invalid split index');
+  }
+};
+
+const changeEmiSplits = (
+  db: Database,
+  userId: string,
+  emiId: string,
+  change: (currentSplits: EmiSplit[]) => EmiSplit[],
+) =>
+  db.transaction(async (tx) => {
+    const attributes = (await lockEMIData(tx, userId, emiId)).additionalAttributes as Record<
+      string,
+      unknown
+    >;
+    await tx
+      .update(emis)
+      .set({ additionalAttributes: { ...attributes, splits: change(readEmiSplits(attributes)) } })
+      .where(and(eq(emis.id, emiId), eq(emis.userId, userId)));
+    return { success: true };
+  });
 
 export const emisRouter = createTRPCRouter({
   getEmis: protectedProcedure.input(emiParserSchema).query(async ({ ctx, input }) => {
@@ -152,37 +186,45 @@ export const emisRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const attributes = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
+      const peeked = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
         .attributes as Partial<Record<string, unknown>>;
-      if (attributes.emiId === undefined) {
+      if (typeof peeked.emiId !== 'string') {
         throw new Error(STATEMENT_NOT_LINKED);
       }
-      const currentInstallmentNo =
-        typeof attributes.installmentNo === 'number' ? attributes.installmentNo : null;
-      if (currentInstallmentNo === null) {
-        throw new Error('Statement does not have a valid installment number');
-      }
-      const emiId = attributes.emiId as string;
-      const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.user.id, emiId);
-      if (maxInstallmentNo === null) {
-        throw new Error(STATEMENT_NOT_LINKED);
-      }
-      if (currentInstallmentNo !== parseFloatSafe(maxInstallmentNo)) {
-        throw new Error(
-          `Cannot unlink installment ${currentInstallmentNo}. Only the last payment (installment ${maxInstallmentNo}) can be unlinked.`,
-        );
-      }
-      await ctx.db
-        .update(statements)
-        .set({
-          additionalAttributes: {
-            ...attributes,
-            emiId: undefined,
-            installmentNo: undefined,
-          },
-        })
-        .where(eq(statements.id, input.statementId));
-      return { success: true };
+      const { emiId } = peeked;
+      return ctx.db.transaction(async (tx) => {
+        await lockEMIData(tx, ctx.user.id, emiId);
+        const attributes = (await lockStatementAttributes(tx, ctx.user.id, input.statementId))
+          .attributes as Partial<Record<string, unknown>>;
+        if (attributes.emiId !== emiId) {
+          throw new Error(STATEMENT_NOT_LINKED);
+        }
+        const currentInstallmentNo =
+          typeof attributes.installmentNo === 'number' ? attributes.installmentNo : null;
+        if (currentInstallmentNo === null) {
+          throw new Error('Statement does not have a valid installment number');
+        }
+        const maxInstallmentNo = await getMaxInstallment(tx, ctx.user.id, emiId);
+        if (maxInstallmentNo === null) {
+          throw new Error(STATEMENT_NOT_LINKED);
+        }
+        if (currentInstallmentNo !== parseFloatSafe(maxInstallmentNo)) {
+          throw new Error(
+            `Cannot unlink installment ${currentInstallmentNo}. Only the last payment (installment ${maxInstallmentNo}) can be unlinked.`,
+          );
+        }
+        await tx
+          .update(statements)
+          .set({
+            additionalAttributes: {
+              ...attributes,
+              emiId: undefined,
+              installmentNo: undefined,
+            },
+          })
+          .where(eq(statements.id, input.statementId));
+        return { success: true };
+      });
     }),
   linkStatement: protectedProcedure
     .input(
@@ -191,59 +233,46 @@ export const emisRouter = createTRPCRouter({
         statementId: z.string(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const emi = await getEMIData(ctx.db, ctx.user.id, input.emiId);
-      const statementData = await ctx.db
-        .select({
-          id: statements.id,
-          accountId: statements.accountId,
-          attributes: statements.additionalAttributes,
-          amount: statements.amount,
-          createdAt: statements.createdAt,
-          statementKind: statements.statementKind,
-        })
-        .from(statements)
-        .where(and(eq(statements.id, input.statementId), eq(statements.userId, ctx.user.id)))
-        .limit(1);
-      if (statementData.length === 0) {
-        throw new Error('Statement not found or access denied');
-      }
-      const statement = statementData[0];
-      const attributes = statement.attributes as Partial<Record<string, unknown>>;
-      if (attributes.emiId !== undefined) {
-        throw new Error('Statement is already linked to an EMI');
-      }
-      const { schedule: payments } = calculateSchedule(emi);
-      const firstPayment = payments[0].installment;
-      let lastInstallmentNo = firstPayment - 1;
-      const maxInstallmentNo = await getMaxInstallment(ctx.db, ctx.user.id, input.emiId);
-      if (maxInstallmentNo !== null) {
-        lastInstallmentNo = parseFloatSafe(maxInstallmentNo);
-      }
-      const matchConfirmed = confirmMatch(
-        payments,
-        Math.abs(parseFloatSafe(statement.amount)),
-        statement.createdAt,
-        lastInstallmentNo + 1,
-      );
-      if (!matchConfirmed) {
-        throw new Error('Statement does not match with the payments');
-      }
-      await ctx.db
-        .update(statements)
-        .set({
-          additionalAttributes: {
-            ...attributes,
-            emiId: input.emiId,
-            installmentNo: lastInstallmentNo + 1,
-          },
-        })
-        .where(eq(statements.id, input.statementId));
-      return {
-        success: true,
-        installmentNo: lastInstallmentNo + 1,
-      };
-    }),
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (tx) => {
+        const emi = await lockEMIData(tx, ctx.user.id, input.emiId);
+        const statement = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
+        const attributes = statement.attributes as Partial<Record<string, unknown>>;
+        if (attributes.emiId !== undefined) {
+          throw new Error('Statement is already linked to an EMI');
+        }
+        const { schedule: payments } = calculateSchedule(emi);
+        const firstPayment = payments[0].installment;
+        let lastInstallmentNo = firstPayment - 1;
+        const maxInstallmentNo = await getMaxInstallment(tx, ctx.user.id, input.emiId);
+        if (maxInstallmentNo !== null) {
+          lastInstallmentNo = parseFloatSafe(maxInstallmentNo);
+        }
+        const matchConfirmed = confirmMatch(
+          payments,
+          Math.abs(parseFloatSafe(statement.amount)),
+          statement.createdAt,
+          lastInstallmentNo + 1,
+        );
+        if (!matchConfirmed) {
+          throw new Error('Statement does not match with the payments');
+        }
+        await tx
+          .update(statements)
+          .set({
+            additionalAttributes: {
+              ...attributes,
+              emiId: input.emiId,
+              installmentNo: lastInstallmentNo + 1,
+            },
+          })
+          .where(eq(statements.id, input.statementId));
+        return {
+          success: true,
+          installmentNo: lastInstallmentNo + 1,
+        };
+      }),
+    ),
   getLinkCandidates: protectedProcedure
     .input(z.object({ statementId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -617,13 +646,9 @@ export const emisRouter = createTRPCRouter({
     }),
   getEmiSplits: protectedProcedure
     .input(z.object({ emiId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const attributes = (await getEMIData(ctx.db, ctx.user.id, input.emiId))
-        .additionalAttributes as Record<string, unknown>;
-      return attributes.splits === undefined
-        ? []
-        : (attributes.splits as Array<{ friendId: string; percentage: string }>);
-    }),
+    .query(async ({ ctx, input }) =>
+      readEmiSplits((await getEMIData(ctx.db, ctx.user.id, input.emiId)).additionalAttributes),
+    ),
   addEmiSplit: protectedProcedure
     .input(
       z.object({
@@ -632,43 +657,18 @@ export const emisRouter = createTRPCRouter({
         percentage: z.string(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const attributes = (await getEMIData(ctx.db, ctx.user.id, input.emiId))
-        .additionalAttributes as Record<string, unknown>;
-      const currentSplits =
-        attributes.splits === undefined
-          ? []
-          : (attributes.splits as Array<{ friendId: string; percentage: string }>);
-
-      const totalPercentage = currentSplits.reduce((sum, split) => {
-        return sum + parseFloat(split.percentage);
-      }, 0);
-
-      const newPercentage = parseFloat(input.percentage);
-
-      if (totalPercentage + newPercentage > PERCENTAGE_DIVISOR) {
-        throw new Error(
-          `Cannot add split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
-        );
-      }
-
-      const updatedSplits = [
-        ...currentSplits,
-        { friendId: input.friendId, percentage: input.percentage },
-      ];
-
-      await ctx.db
-        .update(emis)
-        .set({
-          additionalAttributes: {
-            ...attributes,
-            splits: updatedSplits,
-          },
-        })
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.user.id)));
-
-      return { success: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      changeEmiSplits(ctx.db, ctx.user.id, input.emiId, (currentSplits) => {
+        const totalPercentage = sumPercentages(currentSplits);
+        const newPercentage = parseFloat(input.percentage);
+        if (totalPercentage + newPercentage > PERCENTAGE_DIVISOR) {
+          throw new Error(
+            `Cannot add split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
+          );
+        }
+        return [...currentSplits, { friendId: input.friendId, percentage: input.percentage }];
+      }),
+    ),
   updateEmiSplit: protectedProcedure
     .input(
       z.object({
@@ -678,48 +678,25 @@ export const emisRouter = createTRPCRouter({
         percentage: z.string(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const attributes = (await getEMIData(ctx.db, ctx.user.id, input.emiId))
-        .additionalAttributes as Record<string, unknown>;
-      const currentSplits =
-        attributes.splits === undefined
-          ? []
-          : (attributes.splits as Array<{ friendId: string; percentage: string }>);
-
-      if (input.splitIndex < 0 || input.splitIndex >= currentSplits.length) {
-        throw new Error('Invalid split index');
-      }
-
-      const totalPercentage = currentSplits.reduce((sum, split, index) => {
-        if (index === input.splitIndex) {
-          return sum;
-        }
-        return sum + parseFloat(split.percentage);
-      }, 0);
-
-      const newPercentage = parseFloat(input.percentage);
-
-      if (totalPercentage + newPercentage > PERCENTAGE_DIVISOR) {
-        throw new Error(
-          `Cannot update split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
+    .mutation(({ ctx, input }) =>
+      changeEmiSplits(ctx.db, ctx.user.id, input.emiId, (currentSplits) => {
+        assertSplitIndex(currentSplits, input.splitIndex);
+        const totalPercentage = sumPercentages(
+          currentSplits.filter((_, index) => index !== input.splitIndex),
         );
-      }
-
-      const updatedSplits = [...currentSplits];
-      updatedSplits[input.splitIndex] = { friendId: input.friendId, percentage: input.percentage };
-
-      await ctx.db
-        .update(emis)
-        .set({
-          additionalAttributes: {
-            ...attributes,
-            splits: updatedSplits,
-          },
-        })
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.user.id)));
-
-      return { success: true };
-    }),
+        const newPercentage = parseFloat(input.percentage);
+        if (totalPercentage + newPercentage > PERCENTAGE_DIVISOR) {
+          throw new Error(
+            `Cannot update split. Total percentage (${totalPercentage + newPercentage}%) would exceed 100%.`,
+          );
+        }
+        return currentSplits.map((split, index) =>
+          index === input.splitIndex
+            ? { friendId: input.friendId, percentage: input.percentage }
+            : split,
+        );
+      }),
+    ),
   deleteEmiSplit: protectedProcedure
     .input(
       z.object({
@@ -727,30 +704,10 @@ export const emisRouter = createTRPCRouter({
         splitIndex: z.number(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const attributes = (await getEMIData(ctx.db, ctx.user.id, input.emiId))
-        .additionalAttributes as Record<string, unknown>;
-      const currentSplits =
-        attributes.splits === undefined
-          ? []
-          : (attributes.splits as Array<{ friendId: string; percentage: string }>);
-
-      if (input.splitIndex < 0 || input.splitIndex >= currentSplits.length) {
-        throw new Error('Invalid split index');
-      }
-
-      const updatedSplits = currentSplits.filter((_, index) => index !== input.splitIndex);
-
-      await ctx.db
-        .update(emis)
-        .set({
-          additionalAttributes: {
-            ...attributes,
-            splits: updatedSplits,
-          },
-        })
-        .where(and(eq(emis.id, input.emiId), eq(emis.userId, ctx.user.id)));
-
-      return { success: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      changeEmiSplits(ctx.db, ctx.user.id, input.emiId, (currentSplits) => {
+        assertSplitIndex(currentSplits, input.splitIndex);
+        return currentSplits.filter((_, index) => index !== input.splitIndex);
+      }),
+    ),
 });

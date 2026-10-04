@@ -34,7 +34,7 @@ import {
   reconcileSalaryTdsForecast,
   type SalaryScheduleComponent,
 } from '@/lib/salary';
-import { getStatementAttributes } from '@/server/helpers/emi';
+import { lockStatementAttributes } from '@/server/helpers/emi';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import {
   createSalaryBonusSchema,
@@ -698,15 +698,6 @@ export const salaryRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const statement = await getStatementAttributes(ctx.db, ctx.user.id, input.statementId);
-      const attributes = statement.attributes as Record<string, unknown>;
-      if (
-        attributes['recurringPaymentId'] !== undefined ||
-        attributes['emiId'] !== undefined ||
-        attributes['salaryPaymentId'] !== undefined
-      ) {
-        throw new Error('This statement is already linked');
-      }
       const data = await getSalaryPageData(
         ctx.db,
         ctx.user.id,
@@ -723,6 +714,15 @@ export const salaryRouter = createTRPCRouter({
       }
 
       return ctx.db.transaction(async (tx) => {
+        const statement = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
+        const attributes = statement.attributes as Record<string, unknown>;
+        if (
+          attributes['recurringPaymentId'] !== undefined ||
+          attributes['emiId'] !== undefined ||
+          attributes['salaryPaymentId'] !== undefined
+        ) {
+          throw new Error('This statement is already linked');
+        }
         const [payment] = await tx
           .insert(salaryPayments)
           .values({
@@ -770,15 +770,15 @@ export const salaryRouter = createTRPCRouter({
 
   unlinkStatement: protectedProcedure
     .input(z.object({ statementId: z.uuidv4() }))
-    .mutation(async ({ ctx, input }) => {
-      const statement = await getStatementAttributes(ctx.db, ctx.user.id, input.statementId);
-      const attributes = statement.attributes as Record<string, unknown>;
-      const paymentId = attributes['salaryPaymentId'];
-      if (typeof paymentId !== 'string') {
-        throw new Error('Statement is not linked to a salary payment');
-      }
-      const { salaryPaymentId: _removed, ...remainingAttributes } = attributes;
-      return ctx.db.transaction(async (tx) => {
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (tx) => {
+        const statement = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
+        const attributes = statement.attributes as Record<string, unknown>;
+        const paymentId = attributes['salaryPaymentId'];
+        if (typeof paymentId !== 'string') {
+          throw new Error('Statement is not linked to a salary payment');
+        }
+        const { salaryPaymentId: _removed, ...remainingAttributes } = attributes;
         const linkedBonusLines = await tx
           .select({ bonusId: salaryPaymentComponents.bonusId })
           .from(salaryPaymentComponents)
@@ -801,8 +801,8 @@ export const salaryRouter = createTRPCRouter({
           .set({ additionalAttributes: remainingAttributes })
           .where(and(eq(statements.id, input.statementId), eq(statements.userId, ctx.user.id)));
         return { success: true };
-      });
-    }),
+      }),
+    ),
 
   updatePayment: protectedProcedure
     .input(updateSalaryPaymentSchema)

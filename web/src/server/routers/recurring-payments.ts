@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { recurringPayments, statements } from '@/db/schema';
 import { getDefaultDateRange, getTimezone, startOfDayLocal } from '@/lib/date';
+import { type Database } from '@/lib/db';
 import {
   isRecurringPaymentActive,
   getPeriodInDays,
@@ -16,12 +17,27 @@ import { createRecurringPaymentSchema, recurringPaymentParserSchema } from '@/ty
 import {
   getLinkedStatementsRecurringPayment,
   getRecurringPayment,
-  getStatementAttributes,
+  lockStatementAttributes,
 } from '../helpers/emi';
 
 const RECURRING_PAYMENT_NOT_FOUND = 'Recurring payment not found';
 
 const isEnded = sql`(${recurringPayments.endDate} IS NOT NULL AND ${recurringPayments.endDate} <= now())`;
+
+const setStatementAttributes = (
+  db: Database,
+  userId: string,
+  statementId: string,
+  changes: Record<string, unknown>,
+) =>
+  db.transaction(async (tx) => {
+    const { attributes } = await lockStatementAttributes(tx, userId, statementId);
+    await tx
+      .update(statements)
+      .set({ additionalAttributes: { ...(attributes as Record<string, unknown>), ...changes } })
+      .where(eq(statements.id, statementId));
+    return { success: true };
+  });
 
 export const recurringPaymentsRouter = createTRPCRouter({
   getRecurringPayments: protectedProcedure
@@ -192,20 +208,9 @@ export const recurringPaymentsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await getRecurringPayment(ctx.db, ctx.user.id, input.recurringPaymentId);
-      const attributes = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
-        .attributes as Partial<Record<string, unknown>>;
-
-      await ctx.db
-        .update(statements)
-        .set({
-          additionalAttributes: {
-            ...attributes,
-            recurringPaymentId: input.recurringPaymentId,
-          },
-        })
-        .where(eq(statements.id, input.statementId));
-
-      return { success: true };
+      return setStatementAttributes(ctx.db, ctx.user.id, input.statementId, {
+        recurringPaymentId: input.recurringPaymentId,
+      });
     }),
 
   unlinkStatement: protectedProcedure
@@ -214,22 +219,11 @@ export const recurringPaymentsRouter = createTRPCRouter({
         statementId: z.string(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const attributes = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
-        .attributes as Partial<Record<string, unknown>>;
-
-      await ctx.db
-        .update(statements)
-        .set({
-          additionalAttributes: {
-            ...attributes,
-            recurringPaymentId: undefined,
-          },
-        })
-        .where(eq(statements.id, input.statementId));
-
-      return { success: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      setStatementAttributes(ctx.db, ctx.user.id, input.statementId, {
+        recurringPaymentId: undefined,
+      }),
+    ),
 
   getLinkedStatements: protectedProcedure
     .input(
