@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { smsNotifications } from '@/db/schema';
 import { getTimezone } from '@/lib/date';
+import { lockUser } from '@/lib/db';
 import { BULK_IMPORT_KINDS } from '@/lib/sms-bulk-import';
 import { resolveSmsType } from '@/lib/sms-notification-rules';
 import { bulkInsertFromNotifications, getBulkImportRows } from '@/server/helpers/sms-bulk-insert';
@@ -59,42 +60,42 @@ export const smsNotificationsRouter = createTRPCRouter({
     })
     .input(createSmsNotificationSchema)
     .output(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const existing = await ctx.db
-        .select({ id: smsNotifications.id })
-        .from(smsNotifications)
-        .where(
-          and(
-            eq(smsNotifications.userId, ctx.user.id),
-            eq(smsNotifications.sender, input.sender),
-            eq(smsNotifications.smsBody, input.smsBody),
-            eq(smsNotifications.amount, input.amount),
-          ),
-        )
-        .limit(1);
-      const alreadyStored = existing.at(0);
-      if (alreadyStored !== undefined) {
-        return alreadyStored;
-      }
-      const ids = await ctx.db
-        .insert(smsNotifications)
-        .values({
-          userId: ctx.user.id,
-          ...{ ...input, timestamp: undefined },
-          createdAt: input.timestamp,
-          type: resolveSmsType(input.type, input.merchant, ctx.user.name),
-          merchant: input.merchant ?? null,
-          reference: input.reference ?? null,
-          accountLast4: input.accountLast4 ?? null,
-          fromAccount: input.fromAccount ?? null,
-          toAccount: input.toAccount ?? null,
-        })
-        .returning({ id: smsNotifications.id });
-      if (ids.length === 0) {
-        throw new Error('Failed to create sms notification');
-      }
-      return ids[0];
-    }),
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (tx) => {
+        await lockUser(tx, 'sms-notifications', ctx.user.id);
+        const existing = await tx
+          .select({ id: smsNotifications.id })
+          .from(smsNotifications)
+          .where(
+            and(
+              eq(smsNotifications.userId, ctx.user.id),
+              eq(smsNotifications.sender, input.sender),
+              eq(smsNotifications.smsBody, input.smsBody),
+              eq(smsNotifications.amount, input.amount),
+            ),
+          )
+          .limit(1);
+        const alreadyStored = existing.at(0);
+        if (alreadyStored !== undefined) {
+          return alreadyStored;
+        }
+        const [created] = await tx
+          .insert(smsNotifications)
+          .values({
+            userId: ctx.user.id,
+            ...{ ...input, timestamp: undefined },
+            createdAt: input.timestamp,
+            type: resolveSmsType(input.type, input.merchant, ctx.user.name),
+            merchant: input.merchant ?? null,
+            reference: input.reference ?? null,
+            accountLast4: input.accountLast4 ?? null,
+            fromAccount: input.fromAccount ?? null,
+            toAccount: input.toAccount ?? null,
+          })
+          .returning({ id: smsNotifications.id });
+        return created;
+      }),
+    ),
   list: protectedProcedure.input(smsNotificationListSchema).query(async ({ ctx, input }) => {
     const conditions = buildQueryConditions(smsNotifications, ctx.user.id, input.start, input.end);
     if (input.status.length > 0) {

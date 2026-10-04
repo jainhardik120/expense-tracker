@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
 import { attachDatabasePool } from '@vercel/functions';
+import { sql } from 'drizzle-orm';
 import { drizzle, type NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
 import { type PgDatabase } from 'drizzle-orm/pg-core';
 import { Pool, type QueryConfig } from 'pg';
@@ -72,3 +73,7 @@ export const db = drizzle({
 instrumentDrizzleClient(db);
 
 export type Database = PgDatabase<NodePgQueryResultHKT>;
+
+export const lockUser = async (tx: Database, scope: string, userId: string) => {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${scope}), hashtext(${userId}))`);
+};

@@ -1,8 +1,9 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { reportBoundaries, reportTemplates } from '@/db/schema';
 import { startOfDayLocal, getTimezone } from '@/lib/date';
+import { type Database, lockUser } from '@/lib/db';
 import { getRawDataForCustomAggregation, processAggregatedData } from '@/server/helpers/summary';
 import { defaultExpenseReportTemplate } from '@/server/reports/default-template';
 import { buildReportInput } from '@/server/reports/report-input';
@@ -14,6 +15,29 @@ import { parseFloatSafe } from '../helpers/emi-calculations';
 const createBoundarySchema = z.object({
   boundaryDate: z.date(),
 });
+
+const assertBoundaryDateFree = async (
+  tx: Database,
+  userId: string,
+  boundaryDate: Date,
+  exceptId?: string,
+) => {
+  await lockUser(tx, 'report-boundaries', userId);
+  const taken = await tx
+    .select({ id: reportBoundaries.id })
+    .from(reportBoundaries)
+    .where(
+      and(
+        eq(reportBoundaries.userId, userId),
+        eq(reportBoundaries.boundaryDate, boundaryDate),
+        exceptId === undefined ? undefined : ne(reportBoundaries.id, exceptId),
+      ),
+    )
+    .limit(1);
+  if (taken.length > 0) {
+    throw new Error('A boundary with this date already exists');
+  }
+};
 
 export const reportsRouter = createTRPCRouter({
   getBoundaries: protectedProcedure.query(async ({ ctx }) => {
@@ -27,28 +51,14 @@ export const reportsRouter = createTRPCRouter({
   createBoundary: protectedProcedure
     .input(createBoundarySchema)
     .mutation(async ({ ctx, input }) => {
-      const tz = await getTimezone();
-      const normalizedDate = startOfDayLocal(input.boundaryDate, tz);
-      const existing = await ctx.db
-        .select()
-        .from(reportBoundaries)
-        .where(
-          and(
-            eq(reportBoundaries.userId, ctx.user.id),
-            eq(reportBoundaries.boundaryDate, normalizedDate),
-          ),
-        )
-        .limit(1);
-      if (existing.length > 0) {
-        throw new Error('A boundary with this date already exists');
-      }
-      return ctx.db
-        .insert(reportBoundaries)
-        .values({
-          userId: ctx.user.id,
-          boundaryDate: normalizedDate,
-        })
-        .returning();
+      const boundaryDate = startOfDayLocal(input.boundaryDate, await getTimezone());
+      return ctx.db.transaction(async (tx) => {
+        await assertBoundaryDateFree(tx, ctx.user.id, boundaryDate);
+        return tx
+          .insert(reportBoundaries)
+          .values({ userId: ctx.user.id, boundaryDate })
+          .returning();
+      });
     }),
 
   deleteBoundary: protectedProcedure
@@ -68,26 +78,15 @@ export const reportsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const tz = await getTimezone();
-      const normalizedDate = startOfDayLocal(input.boundaryDate, tz);
-      const existing = await ctx.db
-        .select()
-        .from(reportBoundaries)
-        .where(
-          and(
-            eq(reportBoundaries.userId, ctx.user.id),
-            eq(reportBoundaries.boundaryDate, normalizedDate),
-          ),
-        )
-        .limit(1);
-      if (existing.length > 0 && existing[0].id !== input.id) {
-        throw new Error('A boundary with this date already exists');
-      }
-      return ctx.db
-        .update(reportBoundaries)
-        .set({ boundaryDate: normalizedDate })
-        .where(and(eq(reportBoundaries.id, input.id), eq(reportBoundaries.userId, ctx.user.id)))
-        .returning();
+      const boundaryDate = startOfDayLocal(input.boundaryDate, await getTimezone());
+      return ctx.db.transaction(async (tx) => {
+        await assertBoundaryDateFree(tx, ctx.user.id, boundaryDate, input.id);
+        return tx
+          .update(reportBoundaries)
+          .set({ boundaryDate })
+          .where(and(eq(reportBoundaries.id, input.id), eq(reportBoundaries.userId, ctx.user.id)))
+          .returning();
+      });
     }),
 
   renderReport: protectedProcedure

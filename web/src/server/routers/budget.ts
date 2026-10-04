@@ -1,10 +1,11 @@
 import { addMonths, differenceInCalendarDays } from 'date-fns';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, max } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
 import { cycleAllowance, monthsBetween, project } from '@/lib/budget-projection';
 import { matchesRule } from '@/lib/budget-rules';
+import { type Database } from '@/lib/db';
 import {
   expenseLineOptions,
   getScheduledTotals,
@@ -34,22 +35,27 @@ const SAMPLE_STATEMENT_LIMIT = 10;
 
 const YEAR_NOT_FOUND = 'Budget year not found';
 
-const assertOwnedYear = async (
-  db: Parameters<typeof getStatementsInWindow>[0],
-  userId: string,
-  budgetYearId: string,
-) => {
-  const found = await db
+const selectOwnedYear = (db: Database, userId: string, budgetYearId: string) =>
+  db
     .select()
     .from(budgetYears)
-    .where(and(eq(budgetYears.id, budgetYearId), eq(budgetYears.userId, userId)));
-  if (found.length === 0) {
+    .where(and(eq(budgetYears.id, budgetYearId), eq(budgetYears.userId, userId)))
+    .$dynamic();
+
+const requireYear = <T>(rows: T[]): T => {
+  if (rows.length === 0) {
     throw new Error(YEAR_NOT_FOUND);
   }
-  return found[0];
+  return rows[0];
 };
 
-const latestYear = async (db: Parameters<typeof getStatementsInWindow>[0], userId: string) => {
+const assertOwnedYear = async (db: Database, userId: string, budgetYearId: string) =>
+  requireYear(await selectOwnedYear(db, userId, budgetYearId));
+
+const lockOwnedYear = async (db: Database, userId: string, budgetYearId: string) =>
+  requireYear(await selectOwnedYear(db, userId, budgetYearId).for('update'));
+
+const latestYear = async (db: Database, userId: string) => {
   const years = await db
     .select()
     .from(budgetYears)
@@ -251,19 +257,20 @@ export const budgetRouter = createTRPCRouter({
 
   addLine: protectedProcedure
     .input(budgetLineSchema.extend({ budgetYearId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      const existing = await ctx.db
-        .select({ position: budgetLines.position })
-        .from(budgetLines)
-        .where(eq(budgetLines.budgetYearId, input.budgetYearId));
-      const position = existing.reduce((max, row) => Math.max(max, row.position), -1) + 1;
-      const [created] = await ctx.db
-        .insert(budgetLines)
-        .values({ ...input, position })
-        .returning();
-      return created;
-    }),
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (tx) => {
+        await lockOwnedYear(tx, ctx.user.id, input.budgetYearId);
+        const [{ last }] = await tx
+          .select({ last: max(budgetLines.position) })
+          .from(budgetLines)
+          .where(eq(budgetLines.budgetYearId, input.budgetYearId));
+        const [created] = await tx
+          .insert(budgetLines)
+          .values({ ...input, position: (last ?? -1) + 1 })
+          .returning();
+        return created;
+      }),
+    ),
 
   updateLine: protectedProcedure
     .input(budgetLineSchema.extend({ id: z.string(), budgetYearId: z.string() }))
@@ -301,19 +308,20 @@ export const budgetRouter = createTRPCRouter({
 
   addIncomeLine: protectedProcedure
     .input(budgetIncomeLineSchema.extend({ budgetYearId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      const existing = await ctx.db
-        .select({ position: budgetIncomeLines.position })
-        .from(budgetIncomeLines)
-        .where(eq(budgetIncomeLines.budgetYearId, input.budgetYearId));
-      const position = existing.reduce((max, row) => Math.max(max, row.position), -1) + 1;
-      const [created] = await ctx.db
-        .insert(budgetIncomeLines)
-        .values({ ...input, position })
-        .returning();
-      return created;
-    }),
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (tx) => {
+        await lockOwnedYear(tx, ctx.user.id, input.budgetYearId);
+        const [{ last }] = await tx
+          .select({ last: max(budgetIncomeLines.position) })
+          .from(budgetIncomeLines)
+          .where(eq(budgetIncomeLines.budgetYearId, input.budgetYearId));
+        const [created] = await tx
+          .insert(budgetIncomeLines)
+          .values({ ...input, position: (last ?? -1) + 1 })
+          .returning();
+        return created;
+      }),
+    ),
 
   updateIncomeLine: protectedProcedure
     .input(budgetIncomeLineSchema.extend({ id: z.string(), budgetYearId: z.string() }))
