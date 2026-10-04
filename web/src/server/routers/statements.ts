@@ -37,16 +37,24 @@ const asOptionalId = (value: string | null | undefined) =>
 
 export const statementsRouter = createTRPCRouter({
   getCategories: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/statements/categories',
+      },
+    })
     .input(
       z.object({
         ...dateSchema,
-        statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional().default([]),
+        statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional(),
       }),
     )
+    .output(z.array(z.string()))
     .query(async ({ ctx, input }) => {
       const conditions = buildQueryConditions(statements, ctx.user.id, input.start, input.end);
-      if (input.statementKind.length > 0) {
-        conditions.push(inArray(statements.statementKind, input.statementKind));
+      const statementKind = input.statementKind ?? [];
+      if (statementKind.length > 0) {
+        conditions.push(inArray(statements.statementKind, statementKind));
       }
       return (
         await ctx.db
@@ -58,20 +66,29 @@ export const statementsRouter = createTRPCRouter({
         .sort((a, b) => a.localeCompare(b));
     }),
   getTags: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/statements/tags',
+      },
+    })
     .input(
       z.object({
         ...dateSchema,
-        statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional().default([]),
-        category: z.string().array().optional().default([]),
+        statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional(),
+        category: z.string().array().optional(),
       }),
     )
+    .output(z.array(z.string()))
     .query(async ({ ctx, input }) => {
       const conditions = buildQueryConditions(statements, ctx.user.id, input.start, input.end);
-      if (input.statementKind.length > 0) {
-        conditions.push(inArray(statements.statementKind, input.statementKind));
+      const statementKind = input.statementKind ?? [];
+      const category = input.category ?? [];
+      if (statementKind.length > 0) {
+        conditions.push(inArray(statements.statementKind, statementKind));
       }
-      if (input.category.length > 0) {
-        conditions.push(inArray(statements.category, input.category));
+      if (category.length > 0) {
+        conditions.push(inArray(statements.category, category));
       }
       const result = await ctx.db
         .selectDistinct({ tag: sql<string>`unnest(${statements.tags})`.as('tag') })
@@ -463,6 +480,17 @@ export const statementsRouter = createTRPCRouter({
           })
           .returning({ id: splits.id });
       });
+    }),
+  deleteStatementSplit: protectedProcedure
+    .input(
+      z.object({
+        splitId: z.string(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      return ctx.db
+        .delete(splits)
+        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
     }),
   updateStatementSplit: protectedProcedure
     .input(

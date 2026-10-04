@@ -613,7 +613,33 @@ export const createSmsNotificationSchema = z.object({
 export const smsNotificationListSchema = z.object({
   ...pageSchema,
   ...dateSchema,
-  status: z.array(z.enum(['pending', 'inserted', 'junked'])).default([]),
+  status: z.array(z.enum(smsTransactionStatuses)).optional(),
+});
+
+const smsNotificationSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  amount: z.string(),
+  type: z.enum(['income', 'expense', 'credit', 'transfer', 'investment']),
+  merchant: z.string().nullable(),
+  reference: z.string().nullable(),
+  accountLast4: z.string().nullable(),
+  smsBody: z.string(),
+  sender: z.string(),
+  createdAt: z.date(),
+  bankName: z.string(),
+  isFromCard: z.boolean(),
+  currency: z.string(),
+  fromAccount: z.string().nullable(),
+  toAccount: z.string().nullable(),
+  status: z.enum(smsTransactionStatuses),
+  additionalAttributes: z.object({ statementId: z.string().optional() }),
+});
+
+export const smsNotificationListResponseSchema = z.object({
+  notifications: z.array(smsNotificationSchema),
+  pageCount: z.number(),
+  rowsCount: z.number(),
 });
 
 export * from './salary';

@@ -11,7 +11,11 @@ import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
 import { getHintSubject, getInsertHintsForOne } from '@/server/helpers/sms-hints';
 import { getAccountsSummaryBetweenDates } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createSmsNotificationSchema, smsNotificationListSchema } from '@/types';
+import {
+  createSmsNotificationSchema,
+  smsNotificationListResponseSchema,
+  smsNotificationListSchema,
+} from '@/types';
 
 import { buildQueryConditions } from '../helpers';
 
@@ -96,39 +100,61 @@ export const smsNotificationsRouter = createTRPCRouter({
         return created;
       }),
     ),
-  list: protectedProcedure.input(smsNotificationListSchema).query(async ({ ctx, input }) => {
-    const conditions = buildQueryConditions(smsNotifications, ctx.user.id, input.start, input.end);
-    if (input.status.length > 0) {
-      conditions.push(inArray(smsNotifications.status, input.status));
-    }
-    const [{ count }] = await ctx.db
-      .select({ count: countRows() })
-      .from(smsNotifications)
-      .where(and(...conditions));
+  list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/sms-notifications',
+      },
+    })
+    .input(smsNotificationListSchema)
+    .output(smsNotificationListResponseSchema)
+    .query(async ({ ctx, input }) => {
+      const conditions = buildQueryConditions(
+        smsNotifications,
+        ctx.user.id,
+        input.start,
+        input.end,
+      );
+      const status = input.status ?? [];
+      if (status.length > 0) {
+        conditions.push(inArray(smsNotifications.status, status));
+      }
+      const [{ count }] = await ctx.db
+        .select({ count: countRows() })
+        .from(smsNotifications)
+        .where(and(...conditions));
 
-    const offset = (input.page - 1) * input.perPage;
-    const notifications = await ctx.db
-      .select()
-      .from(smsNotifications)
-      .where(and(...conditions))
-      .orderBy(desc(smsNotifications.createdAt))
-      .limit(input.perPage)
-      .offset(offset);
+      const offset = (input.page - 1) * input.perPage;
+      const notifications = await ctx.db
+        .select()
+        .from(smsNotifications)
+        .where(and(...conditions))
+        .orderBy(desc(smsNotifications.createdAt))
+        .limit(input.perPage)
+        .offset(offset);
 
-    const pageCount = Math.ceil(count / input.perPage);
+      const pageCount = Math.ceil(count / input.perPage);
 
-    return {
-      notifications,
-      pageCount,
-      rowsCount: count,
-    };
-  }),
+      return {
+        notifications,
+        pageCount,
+        rowsCount: count,
+      };
+    }),
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PATCH',
+        path: '/sms-notifications/{id}',
+      },
+    })
+    .output(z.object({ id: z.string() }))
     .input(
       z.object({
         id: z.string(),
         status: z.enum(['pending', 'inserted', 'junked']),
-        statementId: z.string().optional(),
+        statementId: z.string().nullish(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -138,7 +164,7 @@ export const smsNotificationsRouter = createTRPCRouter({
           ...{
             status: input.status,
             additionalAttributes: {
-              statementId: input.statementId,
+              statementId: input.statementId ?? undefined,
             },
           },
         })
@@ -150,7 +176,20 @@ export const smsNotificationsRouter = createTRPCRouter({
       return result[0];
     }),
   getInsertHints: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/sms-notifications/{id}/hints',
+      },
+    })
     .input(z.object({ id: z.string() }))
+    .output(
+      z.object({
+        bankIdHint: z.array(z.string()),
+        categoryHint: z.array(z.string()),
+        tagsHint: z.array(z.string()),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const subject = await getHintSubject(ctx.db, ctx.user.id, input.id);
       const hints = await getInsertHintsForOne(ctx.db, ctx.user.id, subject);

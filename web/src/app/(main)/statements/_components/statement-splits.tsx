@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 
-import { SquareSlash } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+import { SquareSlash, Trash } from 'lucide-react';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
@@ -8,6 +10,7 @@ import { DataTableActionBarAction } from '@/components/data-table/data-table-act
 import DynamicForm from '@/components/dynamic-form/dynamic-form';
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -78,7 +81,9 @@ export const StatementSplitsDialog = ({
   statementData: Statement;
   trigger: React.ReactNode;
 }) => {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [newSplitKey, setNewSplitKey] = useState(0);
   const { data: friends = [] } = api.friends.getFriends.useQuery(undefined, { enabled: open });
   const { data: splits = [], refetch } = api.statements.getStatementSplits.useQuery(
     {
@@ -90,24 +95,36 @@ export const StatementSplitsDialog = ({
   );
   const updateSplitMutation = api.statements.updateStatementSplit.useMutation();
   const createSplitMutation = api.statements.createStatementSplit.useMutation();
-  const handleSubmit = async (splitId: string, values: z.infer<typeof createSplitSchema>) => {
+  const deleteSplitMutation = api.statements.deleteStatementSplit.useMutation();
+  const runSplitChange = async (change: () => Promise<unknown>, successMessage: string) => {
     try {
-      if (splitId === 'new-split') {
-        await createSplitMutation.mutateAsync({
-          statementId: statementId,
-          createSplitSchema: values,
-        });
-      } else {
-        await updateSplitMutation.mutateAsync({
-          splitId: splitId,
-          createSplitSchema: values,
-        });
-      }
-      return refetch();
+      await change();
+      await refetch();
+      router.refresh();
+      toast.success(successMessage);
+      return true;
     } catch (error) {
       toast.error(errorMessage(error));
+      return false;
     }
   };
+  const handleAddSplit = async (values: z.infer<typeof createSplitSchema>) => {
+    const added = await runSplitChange(
+      () => createSplitMutation.mutateAsync({ statementId, createSplitSchema: values }),
+      'Split added',
+    );
+    if (added) {
+      setNewSplitKey((key) => key + 1);
+    }
+  };
+  const handleUpdateSplit = (splitId: string, values: z.infer<typeof createSplitSchema>) =>
+    runSplitChange(
+      () => updateSplitMutation.mutateAsync({ splitId, createSplitSchema: values }),
+      'Split updated',
+    );
+  const handleDeleteSplit = (splitId: string) =>
+    runSplitChange(() => deleteSplitMutation.mutateAsync({ splitId }), 'Split deleted');
+  const totalSplit = splits.reduce((sum, split) => sum + Number.parseFloat(split.amount), 0);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -115,30 +132,87 @@ export const StatementSplitsDialog = ({
         <DialogHeader>
           <DialogTitle>Statement Splits</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-2">
-          <p>Total Amount: {formatCurrency(statementData.amount)}</p>
-          {statementData.accountName !== null && <p>Paid From: {statementData.accountName}</p>}
-          {statementData.friendName !== null && <p>Paid By: {statementData.friendName}</p>}
-          {[...splits, { id: 'new-split', amount: '0', friendId: '' }].map((split) => {
-            return (
-              <DynamicForm
-                key={split.id}
-                className="w-full grid-cols-2 items-end"
-                defaultValues={{
-                  amount: split.amount,
-                  friendId: split.friendId,
-                }}
-                fields={createAmountSplitFields(friends)}
-                schema={createSplitSchema}
-                showSubmitButton
-                submitButtonDisabled={updateSplitMutation.isPending}
-                submitButtonText={split.id === 'new-split' ? 'Add Split' : 'Update Split'}
-                onSubmit={(values) => {
-                  void handleSubmit(split.id, values);
-                }}
-              />
-            );
-          })}
+        <div className="flex flex-col gap-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">
+              Total Amount: {formatCurrency(statementData.amount)}
+            </p>
+            {statementData.accountName !== null && (
+              <p className="text-muted-foreground text-sm">
+                Paid From: {statementData.accountName}
+              </p>
+            )}
+            {statementData.friendName !== null && (
+              <p className="text-muted-foreground text-sm">Paid By: {statementData.friendName}</p>
+            )}
+            <p className="text-muted-foreground text-sm">
+              Split: {formatCurrency(totalSplit)} · Your share:{' '}
+              {formatCurrency(Number.parseFloat(statementData.amount) - totalSplit)}
+            </p>
+          </div>
+          {splits.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Existing Splits</h4>
+              {splits.map((split) => {
+                const friend = friends.find((f) => f.id === split.friendId);
+                return (
+                  <div key={split.id} className="rounded-lg border p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {friend?.name ?? 'Unknown Friend'}
+                      </span>
+                      <Button
+                        aria-label="Delete split"
+                        className="size-6"
+                        disabled={deleteSplitMutation.isPending}
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
+                          void handleDeleteSplit(split.id);
+                        }}
+                      >
+                        <Trash className="size-4" />
+                      </Button>
+                    </div>
+                    <DynamicForm
+                      className="w-full grid-cols-2 items-end"
+                      defaultValues={{
+                        amount: split.amount,
+                        friendId: split.friendId,
+                      }}
+                      fields={createAmountSplitFields(friends)}
+                      schema={createSplitSchema}
+                      showSubmitButton
+                      submitButtonDisabled={updateSplitMutation.isPending}
+                      submitButtonText="Update"
+                      onSubmit={(values) => {
+                        void handleUpdateSplit(split.id, values);
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Add New Split</h4>
+            <DynamicForm
+              key={newSplitKey}
+              className="w-full grid-cols-2 items-end"
+              defaultValues={{
+                amount: '0',
+                friendId: '',
+              }}
+              fields={createAmountSplitFields(friends)}
+              schema={createSplitSchema}
+              showSubmitButton
+              submitButtonDisabled={createSplitMutation.isPending}
+              submitButtonText="Add Split"
+              onSubmit={(values) => {
+                void handleAddSplit(values);
+              }}
+            />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -150,6 +224,7 @@ export const BulkStatementSplitsDialog = ({
 }: {
   selectedRows: (Statement | SelfTransferStatement)[];
 }) => {
+  const router = useRouter();
   const { data: friends = [] } = api.friends.getFriends.useQuery();
   const bulkSplitConditions = useMemo(():
     { allowed: false } | { allowed: true; maxPercentage: number } => {
@@ -200,6 +275,7 @@ export const BulkStatementSplitsDialog = ({
         bulkSplitSchema: values,
       })}
       mutation={mutation}
+      refresh={router.refresh}
       schema={bulkSplitSchema}
       successToast={() => 'Bulk splits applied successfully.'}
       titleText="Bulk Statement Splits"
