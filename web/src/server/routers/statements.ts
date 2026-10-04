@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -369,77 +369,86 @@ export const statementsRouter = createTRPCRouter({
         bulkSplitSchema: bulkSplitSchema,
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const { db } = ctx;
-      const splitTotals = db.$with('split_totals').as(
-        db
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (db) => {
+        await db
+          .select({ id: statements.id })
+          .from(statements)
+          .where(
+            and(eq(statements.userId, ctx.user.id), inArray(statements.id, input.statementIds)),
+          )
+          .orderBy(asc(statements.id))
+          .for('update');
+        const splitTotals = db.$with('split_totals').as(
+          db
+            .select({
+              statementId: splits.statementId,
+              total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
+            })
+            .from(splits)
+            .where(eq(splits.userId, ctx.user.id))
+            .groupBy(splits.statementId),
+        );
+        const rawStatements = await db
+          .with(splitTotals)
           .select({
-            statementId: splits.statementId,
-            total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
+            id: statements.id,
+            splitAmount: splitTotals.total,
+            amount: statements.amount,
           })
+          .from(statements)
+          .where(
+            and(
+              eq(statements.userId, ctx.user.id),
+              inArray(statements.id, input.statementIds),
+              eq(statements.statementKind, 'expense'),
+            ),
+          )
+          .leftJoin(splitTotals, eq(statements.id, splitTotals.statementId));
+        if (rawStatements.length !== input.statementIds.length) {
+          throw new Error('One or more statements not found or are not expenses.');
+        }
+        const maxPercentages = rawStatements.map((stmt) => {
+          const amount = Number.parseFloat(stmt.amount);
+          return ONE_HUNDRED_PERCENTAGE - (stmt.splitAmount / amount) * ONE_HUNDRED_PERCENTAGE;
+        });
+        const maxAllowedPercentage = Math.min(...maxPercentages);
+        if (parseFloat(input.bulkSplitSchema.percentage) > maxAllowedPercentage) {
+          throw new Error(
+            `Cannot add bulk splits. The maximum allowed percentage is ${maxAllowedPercentage.toFixed(
+              2,
+            )}%.`,
+          );
+        }
+        const existingSplits = await db
+          .select({ id: splits.id })
           .from(splits)
-          .where(eq(splits.userId, ctx.user.id))
-          .groupBy(splits.statementId),
-      );
-      const rawStatements = await db
-        .with(splitTotals)
-        .select({
-          id: statements.id,
-          splitAmount: splitTotals.total,
-          amount: statements.amount,
-        })
-        .from(statements)
-        .where(
-          and(
-            eq(statements.userId, ctx.user.id),
-            inArray(statements.id, input.statementIds),
-            eq(statements.statementKind, 'expense'),
-          ),
-        )
-        .leftJoin(splitTotals, eq(statements.id, splitTotals.statementId));
-      if (rawStatements.length !== input.statementIds.length) {
-        throw new Error('One or more statements not found or are not expenses.');
-      }
-      const maxPercentages = rawStatements.map((stmt) => {
-        const amount = Number.parseFloat(stmt.amount);
-        return ONE_HUNDRED_PERCENTAGE - (stmt.splitAmount / amount) * ONE_HUNDRED_PERCENTAGE;
-      });
-      const maxAllowedPercentage = Math.min(...maxPercentages);
-      if (parseFloat(input.bulkSplitSchema.percentage) > maxAllowedPercentage) {
-        throw new Error(
-          `Cannot add bulk splits. The maximum allowed percentage is ${maxAllowedPercentage.toFixed(
-            2,
-          )}%.`,
-        );
-      }
-      const existingSplits = await db
-        .select({ id: splits.id })
-        .from(splits)
-        .where(
-          and(
-            inArray(splits.statementId, input.statementIds),
-            eq(splits.userId, ctx.user.id),
-            eq(splits.friendId, input.bulkSplitSchema.friendId),
-          ),
-        );
-      if (existingSplits.length > 0) {
-        throw new Error('One or more splits already exist for the selected friend.');
-      }
-      const inserts = rawStatements.map((stmt) => {
-        const amount = Number.parseFloat(stmt.amount);
-        const splitAmount = (
-          (parseFloat(input.bulkSplitSchema.percentage) / ONE_HUNDRED_PERCENTAGE) *
-          amount
-        ).toFixed(2);
-        return {
-          userId: ctx.user.id,
-          statementId: stmt.id,
-          friendId: input.bulkSplitSchema.friendId,
-          amount: splitAmount,
-        };
-      });
-      await ctx.db.insert(splits).values(inserts);
-    }),
+          .where(
+            and(
+              inArray(splits.statementId, input.statementIds),
+              eq(splits.userId, ctx.user.id),
+              eq(splits.friendId, input.bulkSplitSchema.friendId),
+            ),
+          );
+        if (existingSplits.length > 0) {
+          throw new Error('One or more splits already exist for the selected friend.');
+        }
+        const inserts = rawStatements.map((stmt) => {
+          const amount = Number.parseFloat(stmt.amount);
+          const splitAmount = (
+            (parseFloat(input.bulkSplitSchema.percentage) / ONE_HUNDRED_PERCENTAGE) *
+            amount
+          ).toFixed(2);
+          return {
+            userId: ctx.user.id,
+            statementId: stmt.id,
+            friendId: input.bulkSplitSchema.friendId,
+            amount: splitAmount,
+          };
+        });
+        await db.insert(splits).values(inserts);
+      }),
+    ),
   addStatementSplit: protectedProcedure
     .input(
       z.object({
@@ -451,28 +460,30 @@ export const statementsRouter = createTRPCRouter({
       if (!(await friendBelongToUser(input.createSplitSchema.friendId, ctx.user.id, ctx.db))) {
         throw new Error(FRIEND_NOT_FOUND_ERROR);
       }
-      const { statementAmount, totalAllocated, kind } = await getStatementAmountAndSplits(
-        ctx.db,
-        ctx.user.id,
-        input.statementId,
-      );
-      if (kind !== 'expense') {
-        throw new Error('Cannot add split. Statement is not an expense.');
-      }
-      const newSplitAmount = Number.parseFloat(input.createSplitSchema.amount);
-      if (totalAllocated + newSplitAmount > statementAmount) {
-        throw new Error(
-          `Cannot add split. Total allocated amount (${totalAllocated + newSplitAmount}) would exceed statement amount (${statementAmount}).`,
+      return ctx.db.transaction(async (tx) => {
+        const { statementAmount, totalAllocated, kind } = await getStatementAmountAndSplits(
+          tx,
+          ctx.user.id,
+          input.statementId,
         );
-      }
-      return ctx.db
-        .insert(splits)
-        .values({
-          userId: ctx.user.id,
-          statementId: input.statementId,
-          ...input.createSplitSchema,
-        })
-        .returning({ id: splits.id });
+        if (kind !== 'expense') {
+          throw new Error('Cannot add split. Statement is not an expense.');
+        }
+        const newSplitAmount = Number.parseFloat(input.createSplitSchema.amount);
+        if (totalAllocated + newSplitAmount > statementAmount) {
+          throw new Error(
+            `Cannot add split. Total allocated amount (${totalAllocated + newSplitAmount}) would exceed statement amount (${statementAmount}).`,
+          );
+        }
+        return tx
+          .insert(splits)
+          .values({
+            userId: ctx.user.id,
+            statementId: input.statementId,
+            ...input.createSplitSchema,
+          })
+          .returning({ id: splits.id });
+      });
     }),
   deleteStatementSplit: protectedProcedure
     .input(
@@ -493,34 +504,36 @@ export const statementsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const currentSplit = await ctx.db
-        .select()
-        .from(splits)
-        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
-      if (currentSplit.length === 0) {
-        throw new Error('Split not found');
-      }
-      if (!(await friendBelongToUser(input.createSplitSchema.friendId, ctx.user.id, ctx.db))) {
-        throw new Error(FRIEND_NOT_FOUND_ERROR);
-      }
-      const currentSplitAmount = Number.parseFloat(currentSplit[0].amount);
-      const { statementId } = currentSplit[0];
-      const { statementAmount, totalAllocated } = await getStatementAmountAndSplits(
-        ctx.db,
-        ctx.user.id,
-        statementId,
-        input.splitId,
-      );
-      if (totalAllocated + Number.parseFloat(input.createSplitSchema.amount) > statementAmount) {
-        throw new Error(
-          `Cannot update split. Total allocated amount (${totalAllocated + currentSplitAmount}) would exceed statement amount (${statementAmount}).`,
+      return ctx.db.transaction(async (tx) => {
+        const currentSplit = await tx
+          .select()
+          .from(splits)
+          .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
+        if (currentSplit.length === 0) {
+          throw new Error('Split not found');
+        }
+        if (!(await friendBelongToUser(input.createSplitSchema.friendId, ctx.user.id, tx))) {
+          throw new Error(FRIEND_NOT_FOUND_ERROR);
+        }
+        const { statementId } = currentSplit[0];
+        const { statementAmount, totalAllocated } = await getStatementAmountAndSplits(
+          tx,
+          ctx.user.id,
+          statementId,
+          input.splitId,
         );
-      }
-      return ctx.db
-        .update(splits)
-        .set({
-          ...input.createSplitSchema,
-        })
-        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
+        const newTotal = totalAllocated + Number.parseFloat(input.createSplitSchema.amount);
+        if (newTotal > statementAmount) {
+          throw new Error(
+            `Cannot update split. Total allocated amount (${newTotal}) would exceed statement amount (${statementAmount}).`,
+          );
+        }
+        return tx
+          .update(splits)
+          .set({
+            ...input.createSplitSchema,
+          })
+          .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
+      });
     }),
 });

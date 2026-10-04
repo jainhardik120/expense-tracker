@@ -52,7 +52,8 @@ export const getStatementAmountAndSplits = async (
   const statementResult = await db
     .select({ amount: statements.amount, kind: statements.statementKind })
     .from(statements)
-    .where(and(eq(statements.id, statementId), eq(statements.userId, userId)));
+    .where(and(eq(statements.id, statementId), eq(statements.userId, userId)))
+    .for('update');
   if (statementResult.length === 0) {
     throw new Error('Statement not found');
   }

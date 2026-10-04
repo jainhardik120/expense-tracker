@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 
 import { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
 import { attachDatabasePool } from '@vercel/functions';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle, type NodePgQueryResultHKT } from 'drizzle-orm/node-postgres';
+import { type PgDatabase } from 'drizzle-orm/pg-core';
 import { Pool, type QueryConfig } from 'pg';
 
 import { env } from '@/lib/env';
@@ -70,4 +71,4 @@ export const db = drizzle({
 
 instrumentDrizzleClient(db);
 
-export type Database = typeof db;
+export type Database = PgDatabase<NodePgQueryResultHKT>;
