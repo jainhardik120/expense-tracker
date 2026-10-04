@@ -38,13 +38,6 @@ import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.StatementItem
 import java.time.Instant
 
-/**
- * The one form for a transaction, whether it is being written or rewritten.
- *
- * Editing keeps the kind it was saved as: an expense and a self transfer live
- * in different tables, so turning one into the other is a delete and an add,
- * not an edit.
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CreateStatementDialog(
@@ -180,8 +173,6 @@ fun CreateStatementDialog(
             TextButton(
                 onClick = {
                     if (amount.isBlank()) { amountError = true; return@TextButton }
-                    // An edit keeps the moment it was recorded at; only a new
-                    // row is stamped now.
                     val at = existing?.createdAt ?: Instant.now().toString()
                     if (selectedKind == "self_transfer") {
                         val fromId = selectedFromAccountId ?: return@TextButton

@@ -18,9 +18,6 @@ fun createHttpClient(
     return HttpClient(OkHttp) {
         expectSuccess = true
         install(ContentNegotiation) {
-            // encodeDefaults, because a field left at its default — no tags,
-            // no friend — would otherwise be dropped from the body entirely,
-            // and the server reads a missing field as a missing field.
             json(Json { ignoreUnknownKeys = true; encodeDefaults = true })
         }
 
@@ -30,10 +27,6 @@ fun createHttpClient(
 
         install(Auth) {
             bearer {
-                // A refresh that the server has already committed must not be
-                // thrown away because the request that triggered it was
-                // cancelled: the new token would be lost and the old one is
-                // already retired.
                 nonCancellableRefresh = true
                 loadTokens {
                     authRepo.currentTokens()?.let {

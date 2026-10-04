@@ -16,7 +16,6 @@ import com.jainhardik120.expensetracker.data.entity.WidgetSummary
 interface ExpenseTrackerAPI {
     suspend fun sendNotification(body: SMSNotificationBody): Result<IDResult, MessageError>
     suspend fun getStatements(page: Int, perPage: Int): Result<StatementsResponse, MessageError>
-    /** Balances as at [end], and the movement between [start] and [end]. */
     suspend fun getSummary(start: String? = null, end: String? = null): Result<SummaryResponse, MessageError>
     suspend fun createStatement(body: CreateStatementBody): Result<List<IDResult>, MessageError>
     suspend fun updateStatement(
@@ -32,13 +31,11 @@ interface ExpenseTrackerAPI {
     ): Result<List<IDResult>, MessageError>
 
     suspend fun deleteSelfTransfer(id: String): Result<Unit, MessageError>
-    /** The widget's four numbers, for the day that runs [dayStart] to [dayEnd]. */
     suspend fun getWidgetSummary(
         dayStart: String,
         dayEnd: String
     ): Result<WidgetSummary, MessageError>
 
-    /** The whole portfolio, valued as of now. Read only. */
     suspend fun getInvestments(): Result<InvestmentsOverview, MessageError>
 
     suspend fun getAccounts(): Result<List<AccountItem>, MessageError>

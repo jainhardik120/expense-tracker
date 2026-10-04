@@ -3,17 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Alinma Bank (Saudi Arabia) SMS messages
- *
- * Handles Arabic text formats:
- * - "شراء محلي من نقاط البيع" = Local purchase from POS
- * - "شراء عبر" = Purchase via
- * - "بمبلغ" / "مبلغ" = Amount
- * - "الرصيد" = Balance
- * - "من" = From (merchant)
- * - Currency: SAR (Saudi Riyal) / ريال سعودى
- */
 class AlinmaBankParser : BankParser() {
 
     override fun getBankName() = "Alinma Bank"
@@ -24,11 +13,10 @@ class AlinmaBankParser : BankParser() {
         val normalizedSender = sender.uppercase()
         return normalizedSender.contains("ALINMA") ||
                 normalizedSender == "ALINMA" ||
-                normalizedSender.contains("الإنماء") // Arabic name
+                normalizedSender.contains("الإنماء")
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Pattern 1: "بمبلغ: XX SAR" or "بمبلغ: 3 SAR"
         val amountSARPattern = Regex(
             """بمبلغ:\s*([0-9]+(?:\.[0-9]{2})?)\s*SAR""",
             RegexOption.IGNORE_CASE
@@ -42,7 +30,6 @@ class AlinmaBankParser : BankParser() {
             }
         }
 
-        // Pattern 2: "مبلغ: SAR XXX.XX"
         val amountPattern2 = Regex(
             """مبلغ:\s*SAR\s*([0-9]+(?:\.[0-9]{2})?)""",
             RegexOption.IGNORE_CASE
@@ -56,7 +43,6 @@ class AlinmaBankParser : BankParser() {
             }
         }
 
-        // Pattern 3: "مبلغ: ريال سعودى XXX.XX"
         val amountArabicPattern = Regex(
             """مبلغ:\s*ريال سعودى\s*([0-9]+(?:\.[0-9]{2})?)"""
         )
@@ -73,13 +59,10 @@ class AlinmaBankParser : BankParser() {
     }
 
     override fun extractTransactionType(message: String): TransactionType? {
-        // "شراء" means "purchase" in Arabic - always an expense
         if (message.contains("شراء") || message.contains("Purchase", ignoreCase = true)) {
             return TransactionType.EXPENSE
         }
 
-        // For future: could add support for income/refunds
-        // "إيداع" typically means deposit/credit
         if (message.contains("إيداع") || message.contains("Deposit", ignoreCase = true)) {
             return TransactionType.INCOME
         }
@@ -88,7 +71,6 @@ class AlinmaBankParser : BankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // Pattern 1: "من: Establishment Name" (من = from)
         val fromPattern = Regex(
             """من:\s*([^\n]+?)(?:\n|في:)""",
             RegexOption.IGNORE_CASE
@@ -102,7 +84,6 @@ class AlinmaBankParser : BankParser() {
             }
         }
 
-        // Pattern 2: "لدى: Commercial Self-Technolog" (لدى = at/with)
         val atPattern = Regex(
             """لدى:\s*([^\n]+?)(?:\n|في:)""",
             RegexOption.IGNORE_CASE
@@ -116,7 +97,6 @@ class AlinmaBankParser : BankParser() {
             }
         }
 
-        // Default for POS transactions
         if (message.contains("POS") || message.contains("نقاط البيع")) {
             return "POS Transaction"
         }
@@ -125,7 +105,6 @@ class AlinmaBankParser : BankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // Pattern 1: "حساب: **XXXX" or "حساب: **0000" (حساب = account)
         val accountPattern = Regex(
             """حساب:\s*\*+(\d{4})"""
         )
@@ -133,7 +112,6 @@ class AlinmaBankParser : BankParser() {
             return match.groupValues[1]
         }
 
-        // Pattern 2: "حساب: *XXXX"
         val accountPattern2 = Regex(
             """حساب:\s*\*(\d{4})"""
         )
@@ -141,7 +119,6 @@ class AlinmaBankParser : BankParser() {
             return match.groupValues[1]
         }
 
-        // Pattern 3: "البطاقة: **XXXX" (البطاقة = card)
         val cardPattern = Regex(
             """البطاقة:\s*\*+(\d{4})"""
         )
@@ -149,7 +126,6 @@ class AlinmaBankParser : BankParser() {
             return match.groupValues[1]
         }
 
-        // Pattern 4: "البطاقة الائتمانية: **XXXX" (credit card)
         val creditCardPattern = Regex(
             """البطاقة الائتمانية:\s*\*+(\d{4})"""
         )
@@ -157,7 +133,6 @@ class AlinmaBankParser : BankParser() {
             return match.groupValues[1]
         }
 
-        // Pattern 5: "بطاقة مدى: XXXX*" (Mada card - reversed format)
         val madaPattern = Regex(
             """بطاقة مدى:\s*(\d{4})\*"""
         )
@@ -169,7 +144,6 @@ class AlinmaBankParser : BankParser() {
     }
 
     override fun extractBalance(message: String): BigDecimal? {
-        // Pattern 1: "الرصيد: XXX.XX SAR" (الرصيد = balance)
         val balanceSARPattern = Regex(
             """الرصيد:\s*([0-9]+(?:\.[0-9]{2})?)\s*SAR""",
             RegexOption.IGNORE_CASE
@@ -183,7 +157,6 @@ class AlinmaBankParser : BankParser() {
             }
         }
 
-        // Pattern 2: "الرصيد: XXX.XX ريال" (ريال = riyal)
         val balanceRiyalPattern = Regex(
             """الرصيد:\s*([0-9]+(?:\.[0-9]{2})?)\s*ريال"""
         )
@@ -200,21 +173,19 @@ class AlinmaBankParser : BankParser() {
     }
 
     override fun isTransactionMessage(message: String): Boolean {
-        // Skip OTP messages
         if (message.contains("OTP", ignoreCase = true) ||
-            message.contains("رمز", ignoreCase = true) || // "رمز" = code
+            message.contains("رمز", ignoreCase = true) ||
             message.contains("كلمة المرور")
-        ) { // "كلمة المرور" = password
+        ) {
             return false
         }
 
-        // Must contain transaction keywords
         val transactionKeywords = listOf(
-            "شراء",        // purchase
-            "بمبلغ",       // amount
-            "مبلغ",        // amount
-            "الرصيد",      // balance
-            "Purchase",    // English variant
+            "شراء",
+            "بمبلغ",
+            "مبلغ",
+            "الرصيد",
+            "Purchase",
             "POS"
         )
 
@@ -222,12 +193,11 @@ class AlinmaBankParser : BankParser() {
     }
 
     override fun detectIsCard(message: String): Boolean {
-        // Check for card-related keywords in Arabic
-        return message.contains("البطاقة") ||          // card
-                message.contains("بطاقة") ||            // card
-                message.contains("البطاقة الائتمانية") || // credit card
-                message.contains("بطاقة مدى") ||        // Mada card
+        return message.contains("البطاقة") ||
+                message.contains("بطاقة") ||
+                message.contains("البطاقة الائتمانية") ||
+                message.contains("بطاقة مدى") ||
                 message.contains("POS") ||
-                message.contains("نقاط البيع")          // POS in Arabic
+                message.contains("نقاط البيع")
     }
 }

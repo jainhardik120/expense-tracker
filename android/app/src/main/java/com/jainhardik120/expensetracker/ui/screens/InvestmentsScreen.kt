@@ -40,13 +40,6 @@ import com.jainhardik120.expensetracker.ui.theme.Green400
 import com.jainhardik120.expensetracker.ui.theme.Green600
 import java.util.Locale
 
-/**
- * The portfolio, read only.
- *
- * Positions are opened, edited and closed on the web, where the forms and the
- * instrument search live. What is worth carrying in a pocket is the answer:
- * what it is worth, what it cost, and which way it moved today.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
@@ -359,10 +352,6 @@ private fun gainLabel(amount: Double, percentage: Double?): String {
     }
 }
 
-/**
- * A gain is green and a loss is red, in whichever shade the background can
- * carry: the deep green reads on white and disappears on black.
- */
 @Composable
 private fun movementColour(amount: Double): Color {
     if (amount < 0) {
@@ -381,8 +370,6 @@ private fun signedPercentage(value: Double): String {
 }
 
 private fun formatUnits(value: Double): String {
-    // Whole units where they are whole -- 12 shares, not 12.0000 of them -- and
-    // four places otherwise, which is what a fractional crypto holding needs.
     return if (value == kotlin.math.floor(value)) {
         String.format(Locale.getDefault(), "%.0f", value)
     } else {

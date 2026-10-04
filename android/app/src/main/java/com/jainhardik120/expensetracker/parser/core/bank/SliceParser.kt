@@ -2,10 +2,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 
-/**
- * Parser for Slice payments bank transactions.
- * Handles messages from JK-SLICEIT and similar senders.
- */
 class SliceParser : BankParser() {
 
     override fun getBankName() = "Slice"
@@ -14,13 +10,12 @@ class SliceParser : BankParser() {
         val normalizedSender = sender.uppercase()
         return normalizedSender.contains("SLICE") ||
                 normalizedSender.contains("SLICEIT") ||
-                normalizedSender.contains("SLCEIT")  // Matches JD-SLCEIT-S and similar
+                normalizedSender.contains("SLCEIT")
     }
 
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Slice uses "sent" for UPI transfers
         if (lowerMessage.contains("sent")) {
             return true
         }
@@ -31,7 +26,6 @@ class SliceParser : BankParser() {
     override fun extractMerchant(message: String, sender: String): String? {
         val lowerMessage = message.lowercase()
 
-        // Look for "sent to NAME" pattern for UPI transfers
         val sentToPattern = Regex("""sent.*to\s+([A-Z][A-Z0-9\s./&-]+?)\s*\(""", RegexOption.IGNORE_CASE)
         sentToPattern.find(message)?.let { match ->
             val merchant = match.groupValues[1].trim()
@@ -40,7 +34,6 @@ class SliceParser : BankParser() {
             }
         }
 
-        // Look for "from MERCHANT" pattern
         val fromPattern =
             Regex("""from\s+([A-Z][A-Z0-9\s]+?)(?:\s+on|\s+\(|$)""", RegexOption.IGNORE_CASE)
         fromPattern.find(message)?.let { match ->
@@ -50,7 +43,6 @@ class SliceParser : BankParser() {
             }
         }
 
-        // Check for specific patterns
         return when {
             lowerMessage.contains("paypal") -> "PayPal"
             lowerMessage.contains("slice") && lowerMessage.contains("credited") -> "Slice Credit"
@@ -62,17 +54,15 @@ class SliceParser : BankParser() {
         val lowerMessage = message.lowercase()
 
         return when {
-            // Slice credits/cashbacks
             lowerMessage.contains("credited") -> TransactionType.INCOME
             lowerMessage.contains("received") -> TransactionType.INCOME
             lowerMessage.contains("cashback") -> TransactionType.INCOME
             lowerMessage.contains("refund") -> TransactionType.INCOME
 
-            // Slice payments/debits
             lowerMessage.contains("debited") -> TransactionType.CREDIT
             lowerMessage.contains("spent") -> TransactionType.CREDIT
             lowerMessage.contains("paid") -> TransactionType.CREDIT
-            lowerMessage.contains("sent") -> TransactionType.CREDIT  // UPI transfers
+            lowerMessage.contains("sent") -> TransactionType.CREDIT
             lowerMessage.contains("payment") && !lowerMessage.contains("received") -> TransactionType.CREDIT
 
             else -> super.extractTransactionType(message)

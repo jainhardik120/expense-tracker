@@ -12,10 +12,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.android.EntryPointAccessors
 
-/**
- * BroadcastReceiver that intercepts incoming SMS messages in real-time
- * and hands any transaction it finds to the upload worker.
- */
 class SmsBroadcastReceiver : BroadcastReceiver() {
 
     @EntryPoint
@@ -38,7 +34,6 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
             return
         }
 
-        // Combine multi-part SMS messages with their timestamps
         data class SmsData(val body: StringBuilder, var timestamp: Long)
         val smsMap = mutableMapOf<String, SmsData>()
         for (message in messages) {
@@ -48,24 +43,17 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
 
             val existing = smsMap.getOrPut(sender) { SmsData(StringBuilder(), timestamp) }
             existing.body.append(body)
-            // Use the earliest timestamp for multi-part messages
             if (timestamp < existing.timestamp) {
                 existing.timestamp = timestamp
             }
         }
 
-        // Get the processor via Hilt EntryPoint
         val entryPoint = EntryPointAccessors.fromApplication(
             context.applicationContext,
             SmsBroadcastReceiverEntryPoint::class.java
         )
         val processor = entryPoint.smsTransactionProcessor()
 
-        // Parse here, where the message is, and upload from a worker. Holding
-        // the broadcast open until the work is on disk is the whole job: once
-        // onReceive returns, this process has no running component and is the
-        // first thing Android kills — and anything still in flight dies with
-        // it, uploads and token refreshes alike.
         val pendingResult = goAsync()
         try {
             for ((sender, smsData) in smsMap) {

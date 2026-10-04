@@ -9,7 +9,6 @@ import javax.inject.Inject
 @HiltAndroidApp
 class Application : Application(), Configuration.Provider {
 
-    /** So WorkManager can build workers that have their dependencies injected. */
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 

@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Painted before the first frame, so it has to match the theme or the
-         app flashes the wrong colour on launch. -->
     <color name="window_background">#FFFFFF</color>
 </resources>

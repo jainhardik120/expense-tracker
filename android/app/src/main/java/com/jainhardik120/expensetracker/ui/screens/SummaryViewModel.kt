@@ -26,7 +26,6 @@ class SummaryViewModel @Inject constructor(
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
-    /** The month whose movement is on screen. Balances are as at its last day. */
     var month by mutableStateOf(YearMonth.now())
         private set
 
@@ -51,7 +50,6 @@ class SummaryViewModel @Inject constructor(
         errorMessage = null
         val zone = ZoneId.systemDefault()
         val start = month.atDay(1).atStartOfDay(zone)
-        // The whole of the last day, so a purchase made this evening counts.
         val end = month.atEndOfMonth().atTime(END_OF_DAY_HOUR, LAST_MINUTE, LAST_SECOND).atZone(zone)
         makeApiCall(
             call = {

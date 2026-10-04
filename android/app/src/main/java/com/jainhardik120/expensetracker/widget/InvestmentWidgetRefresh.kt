@@ -25,13 +25,6 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 
-/**
- * Fetches the portfolio and hands it to Glance.
- *
- * Every call to the server prices the whole portfolio against live market data,
- * so this runs on its own, slower timer than the balance widget rather than
- * sharing that one's quarter-hour.
- */
 @HiltWorker
 class InvestmentWidgetRefreshWorker @AssistedInject constructor(
     @Assisted appContext: Context,
@@ -62,7 +55,6 @@ class InvestmentWidgetRefreshWorker @AssistedInject constructor(
                 Result.success()
             }
 
-            // Keep whatever is on screen; say when it was last true and move on.
             is ApiResult.ClientException -> {
                 Log.e(TAG, "Investment widget refused: ${result.statusCode}")
                 updateEveryInvestmentWidget(applicationContext) {
@@ -99,7 +91,6 @@ private suspend fun updateEveryInvestmentWidget(
     widget.updateAll(context)
 }
 
-/** Tapping the widget asks for fresh numbers. */
 class RefreshInvestmentWidgetAction : ActionCallback {
     override suspend fun onAction(
         context: Context,
@@ -113,11 +104,6 @@ class RefreshInvestmentWidgetAction : ActionCallback {
 object InvestmentWidgetRefreshScheduler {
     private const val UNIQUE_PERIODIC = "investment-widget-refresh-periodic"
     private const val UNIQUE_ONCE = "investment-widget-refresh-now"
-    /**
-     * Half an hour. Pricing the portfolio is a round of calls to the market
-     * data providers, and none of these numbers move fast enough to be worth
-     * four of those an hour.
-     */
     private const val REFRESH_MINUTES = 30L
     private const val BACKOFF_SECONDS = 30L
 
@@ -129,8 +115,6 @@ object InvestmentWidgetRefreshScheduler {
         val periodic = PeriodicWorkRequestBuilder<InvestmentWidgetRefreshWorker>(
             REFRESH_MINUTES, TimeUnit.MINUTES
         ).setConstraints(onlyWhenOnline).build()
-        // UPDATE rather than KEEP, so a phone that already has the widget picks
-        // up a change of interval instead of keeping the one it was given.
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             UNIQUE_PERIODIC,
             ExistingPeriodicWorkPolicy.UPDATE,

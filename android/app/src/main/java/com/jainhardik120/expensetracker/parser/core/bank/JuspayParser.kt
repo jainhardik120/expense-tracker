@@ -3,10 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Juspay/Amazon Pay wallet transactions.
- * Handles messages from XX-JUSPAY-X, APAY, and similar senders.
- */
 class JuspayParser : BaseIndianBankParser() {
 
     override fun getBankName() = "Amazon Pay"
@@ -21,7 +17,6 @@ class JuspayParser : BaseIndianBankParser() {
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Pattern 1: "Your Apay Wallet balance is debited for INR Xxx"
         val debitPattern =
             Regex("""debited\s+for\s+INR\s+([0-9,]+(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
         debitPattern.find(message)?.let { match ->
@@ -32,7 +27,6 @@ class JuspayParser : BaseIndianBankParser() {
             }
         }
 
-        // Pattern 2: "Payment of Rs xxx using Apay Balance"
         val paymentPattern =
             Regex("""Payment\s+of\s+Rs\s+([0-9,]+(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
         paymentPattern.find(message)?.let { match ->
@@ -43,7 +37,6 @@ class JuspayParser : BaseIndianBankParser() {
             }
         }
 
-        // Pattern 3: "Rs xxx" generic pattern
         val genericPattern = Regex("""Rs\s+([0-9,]+(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
         genericPattern.find(message)?.let { match ->
             return try {
@@ -53,7 +46,6 @@ class JuspayParser : BaseIndianBankParser() {
             }
         }
 
-        // Pattern 4: "INR xxx" generic pattern
         val inrPattern = Regex("""INR\s+([0-9,]+(?:\.[0-9]{1,2})?)""", RegexOption.IGNORE_CASE)
         inrPattern.find(message)?.let { match ->
             return try {
@@ -69,8 +61,6 @@ class JuspayParser : BaseIndianBankParser() {
     override fun extractMerchant(message: String, sender: String): String? {
         val lowerMessage = message.lowercase()
 
-        // Pattern 1: "successful at merchant" - improved to capture multi-word merchants
-        // Captures everything between "successful at" and the period or "Updated Balance"
         val merchantPattern = Regex(
             """successful\s+at\s+(.+?)(?:\.\s*Updated|\s*\.\s*Updated|\.(?:\s|$))""",
             RegexOption.IGNORE_CASE
@@ -79,7 +69,6 @@ class JuspayParser : BaseIndianBankParser() {
             return match.groupValues[1].trim()
         }
 
-        // Pattern 2: Common merchant indicators
         return when {
             lowerMessage.contains("amazon") -> "Amazon"
             lowerMessage.contains("flipkart") -> "Flipkart"
@@ -110,7 +99,6 @@ class JuspayParser : BaseIndianBankParser() {
     }
 
     override fun extractReference(message: String): String? {
-        // Pattern 1: "Transaction Reference Number is 123456789012"
         val refPattern = Regex(
             """Transaction\s+Reference\s+Number\s+is\s+(\d{12})""",
             RegexOption.IGNORE_CASE
@@ -119,7 +107,6 @@ class JuspayParser : BaseIndianBankParser() {
             return match.groupValues[1]
         }
 
-        // Pattern 2: "Reference Number: 123456789012"
         val altRefPattern = Regex(
             """Reference\s+(?:Number|No)[:\s]+(\d{12})""",
             RegexOption.IGNORE_CASE
@@ -134,7 +121,6 @@ class JuspayParser : BaseIndianBankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Check for transaction keywords
         val transactionKeywords = listOf(
             "debited for",
             "payment of rs",

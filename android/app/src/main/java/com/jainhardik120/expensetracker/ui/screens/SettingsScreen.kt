@@ -114,10 +114,6 @@ fun SettingsScreen(onLogout: () -> Unit) {
             }
         }
 
-        // Android defers a 15 minute timer to hours, then to a day, once an
-        // app has sat unopened long enough to fall out of the active bucket.
-        // Exempting the app is the only way the widget stays current on its
-        // own — and the same restriction is what strands an unsent SMS.
         val powerManager = remember { context.getSystemService(PowerManager::class.java) }
         var backgroundAllowed by remember {
             mutableStateOf(powerManager.isIgnoringBatteryOptimizations(context.packageName))
@@ -182,7 +178,6 @@ fun SettingsScreen(onLogout: () -> Unit) {
             Text("Refresh widget now")
         }
 
-        // Saves hunting through the launcher's widget drawer.
         val widgetManager = remember { AppWidgetManager.getInstance(context) }
         if (widgetManager.isRequestPinAppWidgetSupported) {
             Button(

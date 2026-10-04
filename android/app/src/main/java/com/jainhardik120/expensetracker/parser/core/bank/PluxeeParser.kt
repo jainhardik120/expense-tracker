@@ -3,26 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Pluxee (formerly Sodexo) meal card messages.
- *
- * Pluxee is a prepaid wallet rather than a bank, and it sends only three
- * messages that move money:
- *
- *   "Rs. 668.00 spent from Pluxee  Meal Card wallet, card no.xx6497 on
- *    3-01-2026 15:54:52 at SWIGGY . Avl bal Rs.1532.00. Not you call ..."
- *   "Your Pluxee Card has been successfully credited with Rs.2200 towards
- *    Meal Wallet on Fri Oct 17 2025 11:13:45. Your current Meal Wallet ..."
- *   "Rs.20 deducted from your Pluxee Card xx6497 towards Inactivity Fee."
- *
- * Everything else it sends is an OTP, a settings change, a renewal notice, or a
- * nudge to use the card — including one that reads "has no debit or credit
- * transaction for the last 60 days". So this recognises the three shapes above
- * and nothing else, rather than looking for transaction words in a stream of
- * messages that are mostly about transactions without being one.
- *
- * Common senders: AD-Pluxee-S, VD-Pluxee-S, VM-Pluxee-S, TX-Pluxee-S
- */
 class PluxeeParser : BaseIndianBankParser() {
 
     override fun getBankName() = "Pluxee"
@@ -56,8 +36,6 @@ class PluxeeParser : BaseIndianBankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // "... at SWIGGY . Avl bal Rs.1532.00" - the trailing space before the
-        // full stop is Pluxee's, not a typo here.
         SPENT_MERCHANT.find(message)?.let { match ->
             val merchant = cleanMerchantName(match.groupValues[1].trim())
             if (isValidMerchantName(merchant)) {
@@ -65,7 +43,6 @@ class PluxeeParser : BaseIndianBankParser() {
             }
         }
 
-        // "towards Inactivity Fee." / "towards  Meal Wallet on Fri Oct 17 2025"
         TOWARDS.find(message)?.let { match ->
             val merchant = cleanMerchantName(match.groupValues[1].trim())
             if (isValidMerchantName(merchant)) {
@@ -82,7 +59,6 @@ class PluxeeParser : BaseIndianBankParser() {
                 return match.groupValues[1]
             }
         }
-        // The top-up message names no card, and Pluxee only ever issues one.
         return null
     }
 

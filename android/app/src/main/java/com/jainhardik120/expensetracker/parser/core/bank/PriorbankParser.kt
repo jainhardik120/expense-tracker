@@ -3,18 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Priorbank (Belarus) SMS messages
- *
- * Handles formats like:
- * - "Karta 6***6666 29-10-25 18:34:25. Oplata 12.90 BYN. BLR RBO N77 "KFC Zavod". Dostupno: 947.09 BYN."
- *
- * Common keywords:
- * - "Karta" = Card
- * - "Oplata" = Payment (expense)
- * - "Dostupno" = Available (balance)
- * - Currency: BYN (Belarusian Ruble)
- */
 class PriorbankParser : BankParser() {
 
     override fun getBankName() = "Priorbank"
@@ -28,7 +16,6 @@ class PriorbankParser : BankParser() {
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Pattern: "Oplata 12.90 BYN" or "Oplata 8.00 BYN"
         val oplataPattern = Regex(
             """Oplata\s+([0-9]+(?:\.\d{2})?)\s+BYN""",
             RegexOption.IGNORE_CASE
@@ -48,13 +35,10 @@ class PriorbankParser : BankParser() {
     override fun extractTransactionType(message: String): TransactionType? {
         val lowerMessage = message.lowercase()
 
-        // "Oplata" means payment/expense in Belarusian/Russian
         if (lowerMessage.contains("oplata")) {
             return TransactionType.EXPENSE
         }
 
-        // For future: could add support for income transactions
-        // "Popolnenie" or "Zachislenie" typically mean credit/income
         if (lowerMessage.contains("popolnenie") || lowerMessage.contains("zachislenie")) {
             return TransactionType.INCOME
         }
@@ -63,7 +47,6 @@ class PriorbankParser : BankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // Pattern 1: Merchant in quotes "KFC Zavod"
         val quotedPattern = Regex(
             """"([^"]+)"""",
             RegexOption.IGNORE_CASE
@@ -75,8 +58,6 @@ class PriorbankParser : BankParser() {
             }
         }
 
-        // Pattern 2: Location/merchant after "BYN. " and before ". Dostupno"
-        // Example: "BYN. BLR AZS N55. Dostupno"
         val locationPattern = Regex(
             """BYN\.\s+([^.]+?)\.\s+Dostupno""",
             RegexOption.IGNORE_CASE
@@ -84,8 +65,7 @@ class PriorbankParser : BankParser() {
         locationPattern.find(message)?.let { match ->
             var merchant = match.groupValues[1].trim()
 
-            // Clean up common prefixes
-            merchant = merchant.replace(Regex("""^BLR\s+"""), "") // Remove "BLR " prefix
+            merchant = merchant.replace(Regex("""^BLR\s+"""), "")
 
             merchant = cleanMerchantName(merchant)
             if (isValidMerchantName(merchant)) {
@@ -97,7 +77,6 @@ class PriorbankParser : BankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // Pattern: "Karta 6***6666" - extract digits only
         val kartaPattern = Regex(
             """Karta\s+[6-9][\*]+(\d{4})""",
             RegexOption.IGNORE_CASE
@@ -110,7 +89,6 @@ class PriorbankParser : BankParser() {
     }
 
     override fun extractBalance(message: String): BigDecimal? {
-        // Pattern: "Dostupno: 947.09 BYN" or "Dostupno: 250.70 BYN"
         val dostupnoPattern = Regex(
             """Dostupno:\s+([0-9]+(?:\.\d{2})?)\s+BYN""",
             RegexOption.IGNORE_CASE
@@ -130,19 +108,17 @@ class PriorbankParser : BankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Skip OTP messages
         if (lowerMessage.contains("otp") ||
-            lowerMessage.contains("kod") || // "kod" = code in Russian
+            lowerMessage.contains("kod") ||
             lowerMessage.contains("parol")
-        ) { // "parol" = password in Russian
+        ) {
             return false
         }
 
-        // Must contain transaction keywords
         val transactionKeywords = listOf(
-            "oplata",      // payment
-            "karta",       // card
-            "dostupno"     // available balance
+            "oplata",
+            "karta",
+            "dostupno"
         )
 
         return transactionKeywords.any { lowerMessage.contains(it) }

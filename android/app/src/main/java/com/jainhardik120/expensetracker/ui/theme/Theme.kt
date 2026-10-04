@@ -67,10 +67,6 @@ private val LightColors = lightColorScheme(
     onErrorContainer = Rose800
 )
 
-/**
- * No dynamic colour: the point is to look like the product, not like the
- * wallpaper.
- */
 @Composable
 fun ExpenseTrackerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

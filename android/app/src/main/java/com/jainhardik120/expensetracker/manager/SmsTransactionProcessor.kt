@@ -9,15 +9,6 @@ import io.ktor.http.HttpStatusCode
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Turns a transaction SMS into a request, and sends it.
- *
- * Parsing and sending are separate: the parse happens in the broadcast
- * receiver, where the message is, and the send happens in a worker that can
- * be retried. Anything that carried a transaction from one to the other would
- * have to survive the process dying, so what crosses that line is the request
- * itself.
- */
 @Singleton
 class SmsTransactionProcessor @Inject constructor(
     private val api: ExpenseTrackerAPI,
@@ -30,19 +21,11 @@ class SmsTransactionProcessor @Inject constructor(
     sealed interface UploadOutcome {
         data object Saved : UploadOutcome
 
-        /** The server understood the request and refused it. Sending it again will not help. */
         data class Rejected(val reason: String) : UploadOutcome
 
-        /** Offline, timed out, or the server could not answer. Worth another go. */
         data class Unavailable(val reason: String) : UploadOutcome
     }
 
-    /**
-     * Reads a transaction out of an SMS and tells the user it arrived.
-     *
-     * Returns null when the message is not one of ours: an unknown sender, or
-     * a message from a bank that carries no transaction.
-     */
     fun parse(sender: String, body: String, timestamp: Long): SMSNotificationBody? {
         val parser = BankParserFactory.getParser(sender)
         if (parser == null) {
@@ -79,10 +62,6 @@ class SmsTransactionProcessor @Inject constructor(
 
             is Result.ClientException -> {
                 val reason = "${result.statusCode}: ${result.errorBody}"
-                // 401 means the access token had not been refreshed yet, and
-                // the rest of these are the server asking to be left alone for
-                // a moment. Everything else in the 4xx range is about the
-                // request, and the request will not change.
                 if (result.statusCode in RETRYABLE_STATUSES) {
                     UploadOutcome.Unavailable(reason)
                 } else {

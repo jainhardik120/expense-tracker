@@ -43,7 +43,6 @@ class AppNotificationManager @Inject constructor(
         notifySmsSyncError(buildTransactionMessage(parsedTransaction), reason)
     }
 
-    /** For the upload worker, which has the request but not the parse it came from. */
     fun notifySmsSyncError(summary: String, reason: String?) {
         val errorSuffix = reason?.takeIf { it.isNotBlank() } ?: "Please open the app and try again."
         showNotification(

@@ -17,8 +17,6 @@ class InvestmentWidgetReceiver : GlanceAppWidgetReceiver() {
         appWidgetIds: IntArray
     ) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        // Placed, restored after a reboot, or resized: make sure the timer
-        // exists and put something current on screen.
         InvestmentWidgetRefreshScheduler.ensureScheduled(context)
         InvestmentWidgetRefreshScheduler.refreshNow(context)
     }

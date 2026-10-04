@@ -3,26 +3,21 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Laxmi Sunrise Bank (Nepal) - handles NPR currency transactions
- */
 class LaxmiBankParser : BankParser() {
 
     override fun getBankName() = "Laxmi Sunrise Bank"
 
-    override fun getCurrency() = "NPR"  // Nepalese Rupee
+    override fun getCurrency() = "NPR"
 
     override fun canHandle(sender: String): Boolean {
         val upperSender = sender.uppercase()
         return upperSender == "LAXMI_ALERT" ||
                 upperSender.contains("LAXMI") ||
                 upperSender.contains("LAXMISUNRISE") ||
-                // DLT patterns for Nepal might be different
                 upperSender.matches(Regex("""^[A-Z]{2}-LAXMI-[A-Z]$"""))
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Laxmi patterns: "NPR 720.00", "NPR 60,892.00"
         val patterns = listOf(
             Regex("""NPR\s+([0-9,]+(?:\.[0-9]{2})?)\s""", RegexOption.IGNORE_CASE),
             Regex("""NPR\s+([0-9,]+(?:\.[0-9]{2})?)(?:\s|$)""", RegexOption.IGNORE_CASE),
@@ -50,11 +45,9 @@ class LaxmiBankParser : BankParser() {
         val lowerMessage = message.lowercase()
 
         return when {
-            // Debit transactions are expenses
             lowerMessage.contains("has been debited") -> TransactionType.EXPENSE
             lowerMessage.contains("debited by") -> TransactionType.EXPENSE
 
-            // Credit transactions are income
             lowerMessage.contains("has been credited") -> TransactionType.INCOME
             lowerMessage.contains("credited by") -> TransactionType.INCOME
 
@@ -63,14 +56,10 @@ class LaxmiBankParser : BankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // Pattern: Extract from Remarks field
-        // "Remarks:ESEWA LOAD/9763698550,127847587"
-        // "Remarks:(STIPEND PMT DM/MCH-SHRAWAN82)"
         val remarksPattern = Regex("""Remarks:\s*\(?([^)]+)\)?""", RegexOption.IGNORE_CASE)
         remarksPattern.find(message)?.let { match ->
             val remarks = match.groupValues[1].trim()
             if (remarks.isNotEmpty()) {
-                // Clean up the remarks to extract merchant info
                 val cleanedRemarks = when {
                     remarks.contains("ESEWA LOAD") -> "ESEWA"
                     remarks.contains("STIPEND PMT") -> "Stipend Payment"
@@ -81,7 +70,6 @@ class LaxmiBankParser : BankParser() {
             }
         }
 
-        // Fallback: if no specific remarks pattern, try to extract meaningful info
         if (message.contains("ESEWA", ignoreCase = true)) {
             return "ESEWA"
         }
@@ -90,11 +78,9 @@ class LaxmiBankParser : BankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // Pattern: "Your #12344560 has been"
         val accountPattern = Regex("""Your\s+#(\d+)\s+has\s+been""", RegexOption.IGNORE_CASE)
         accountPattern.find(message)?.let { match ->
             val accountNumber = match.groupValues[1]
-            // Return last 4 digits if account number is longer than 4
             return if (accountNumber.length > 4) {
                 accountNumber.takeLast(4)
             } else {
@@ -106,13 +92,11 @@ class LaxmiBankParser : BankParser() {
     }
 
     override fun extractReference(message: String): String? {
-        // Look for date in DD/MM/YY format: "on 05/09/25"
         val datePattern = Regex("""on\s+(\d{2}/\d{2}/\d{2})""", RegexOption.IGNORE_CASE)
         datePattern.find(message)?.let { match ->
             return match.groupValues[1]
         }
 
-        // Look for transaction references in remarks
         val remarksRefPattern = Regex("""Remarks:.*?([0-9]{6,})""", RegexOption.IGNORE_CASE)
         remarksRefPattern.find(message)?.let { match ->
             return match.groupValues[1]
@@ -124,7 +108,6 @@ class LaxmiBankParser : BankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Laxmi specific transaction keywords
         val laxmiTransactionKeywords = listOf(
             "dear customer",
             "has been debited",

@@ -3,9 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Jio Payments Bank (JPB/JPBL) SMS messages
- */
 class JioPaymentsBankParser : BankParser() {
 
     override fun getBankName() = "Jio Payments Bank"
@@ -16,7 +13,6 @@ class JioPaymentsBankParser : BankParser() {
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Pattern 1: credited with Rs.1670.00
         val creditPattern = Regex(
             """credited\s+with\s+Rs\.?\s*([\d,]+(?:\.\d{2})?)""",
             RegexOption.IGNORE_CASE
@@ -30,7 +26,6 @@ class JioPaymentsBankParser : BankParser() {
             }
         }
 
-        // Pattern 2: Rs. 1170.00 Sent from
         val sentPattern = Regex(
             """Rs\.?\s*([\d,]+(?:\.\d{2})?)\s+Sent\s+from""",
             RegexOption.IGNORE_CASE
@@ -44,7 +39,6 @@ class JioPaymentsBankParser : BankParser() {
             }
         }
 
-        // Pattern 3: debited with Rs. 1750.00
         val debitPattern = Regex(
             """debited\s+with\s+Rs\.?\s*([\d,]+(?:\.\d{2})?)""",
             RegexOption.IGNORE_CASE
@@ -58,13 +52,10 @@ class JioPaymentsBankParser : BankParser() {
             }
         }
 
-        // Fall back to base class patterns
         return super.extractAmount(message)
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // Pattern 1: UPI/CR/700003371002/AMAN KU
-        // Pattern 2: UPI/DR/520300007125/AMAN KUM
         val upiPattern = Regex(
             """UPI/(?:CR|DR)/[\d]+/([^.\n]+?)(?:\s*\.|$)""",
             RegexOption.IGNORE_CASE
@@ -76,7 +67,6 @@ class JioPaymentsBankParser : BankParser() {
             }
         }
 
-        // If no specific merchant found, check transaction type
         return when {
             message.contains("UPI/CR", ignoreCase = true) -> "UPI Credit"
             message.contains("UPI/DR", ignoreCase = true) -> "UPI Payment"
@@ -86,7 +76,6 @@ class JioPaymentsBankParser : BankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // Pattern 1: JPB A/c x4288
         val jpbPattern = Regex(
             """JPB\s+A/c\s+x(\d{4})""",
             RegexOption.IGNORE_CASE
@@ -95,7 +84,6 @@ class JioPaymentsBankParser : BankParser() {
             return match.groupValues[1]
         }
 
-        // Pattern 2: from x4288
         val fromPattern = Regex(
             """from\s+x(\d{4})""",
             RegexOption.IGNORE_CASE
@@ -108,7 +96,6 @@ class JioPaymentsBankParser : BankParser() {
     }
 
     override fun extractBalance(message: String): BigDecimal? {
-        // Pattern: Avl. Bal: Rs. 9095.5
         val balancePattern = Regex(
             """Avl\.?\s*Bal:\s*Rs\.?\s*([\d,]+(?:\.\d{1,2})?)""",
             RegexOption.IGNORE_CASE
@@ -126,7 +113,6 @@ class JioPaymentsBankParser : BankParser() {
     }
 
     override fun extractReference(message: String): String? {
-        // Pattern: UPI/CR/700003371002 or UPI/DR/520300007125
         val upiRefPattern = Regex(
             """UPI/(?:CR|DR)/(\d+)""",
             RegexOption.IGNORE_CASE
@@ -154,7 +140,6 @@ class JioPaymentsBankParser : BankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Check for Jio Payments Bank specific transaction keywords
         if (lowerMessage.contains("jpb a/c") ||
             lowerMessage.contains("upi/cr") ||
             lowerMessage.contains("upi/dr") ||

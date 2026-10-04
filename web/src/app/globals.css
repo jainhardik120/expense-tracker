@@ -1,16 +1,7 @@
-/* Declared before Tailwind's own layers so it ranks below them: the editor
-   stylesheet is a second, complete Tailwind build, and left unlayered its copy
-   of e.g. `md:grid-cols-2` lands after this app's `xl:grid-cols-3` and wins at
-   equal specificity — which silently drops the dashboard from three columns to
-   two. A layer makes the app's utilities authoritative whatever the order. */
 @layer pdf-report-editor;
 
 @import "tailwindcss";
 @import "tw-animate-css";
-/* Prebuilt: Tailwind does not scan node_modules, so this cannot be generated
-   here. It reads the same shadcn variables defined below, which is why the
-   design system's own globals.css is deliberately not imported — it would
-   redefine this app's theme rather than borrow from it. */
 @import "@helix-hq/pdf-report/editor.css" layer(pdf-report-editor);
 
 @custom-variant dark (&:is(.dark *));
@@ -81,11 +72,6 @@
   --chart-3: oklch(0.586 0.253 17.585);
   --chart-4: oklch(0.514 0.222 16.935);
   --chart-5: oklch(0.455 0.188 13.697);
-  /* Two steps off the same ramp for the help diagrams: money gone is the dark
-     one, money owed the light one. Separation is by lightness rather than hue,
-     which is what keeps them apart for colourblind readers too. Checked
-     against the white surface -- contrast 3:1, normal-vision dE 19.5,
-     worst-case CVD dE 15.3 -- rather than picked by eye. */
   --help-spent: var(--chart-5);
   --help-committed: var(--chart-2);
   --sidebar: oklch(0.985 0 0);
@@ -122,9 +108,6 @@
   --chart-3: oklch(0.586 0.253 17.585);
   --chart-4: oklch(0.514 0.222 16.935);
   --chart-5: oklch(0.455 0.188 13.697);
-  /* Dark mode gets its own steps rather than an automatic flip: the light
-     surface's pair is too dark to read here, so both move up the ramp.
-     Normal-vision dE 24.6, worst-case CVD dE 20.9, contrast 3:1 on #09090b. */
   --help-spent: var(--chart-3);
   --help-committed: var(--chart-1);
   --sidebar: oklch(0.21 0.006 285.885);

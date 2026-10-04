@@ -76,8 +76,6 @@ fun MainApp(onLogout: () -> Unit) {
                         icon = { Icon(item.icon, contentDescription = item.label) },
                         label = { Text(item.label) },
                         selected = selected,
-                        // The accent is the one thing that says which app this
-                        // is, so the current tab wears it.
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                             selectedTextColor = MaterialTheme.colorScheme.primary,

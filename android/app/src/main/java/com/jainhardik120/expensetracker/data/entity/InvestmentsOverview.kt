@@ -2,13 +2,6 @@ package com.jainhardik120.expensetracker.data.entity
 
 import kotlinx.serialization.Serializable
 
-/**
- * The portfolio as one screenful.
- *
- * Everything here is already in rupees and already aggregated; the phone adds
- * nothing to it but layout. Labels come down with the data so there is not a
- * second copy of them here to drift out of step with the web's.
- */
 @Serializable
 data class InvestmentsOverview(
     val asOf: String,
@@ -47,14 +40,12 @@ data class InvestmentCategory(
 @Serializable
 data class InvestmentHolding(
     val kind: String,
-    /** The bucket it belongs to in [InvestmentsOverview.categories]. */
     val category: String,
     val label: String,
     val code: String,
     val name: String,
     val currency: String,
     val isRsu: Boolean,
-    /** Shown, but deliberately absent from the totals above. */
     val isExcludedFromPortfolio: Boolean,
     val units: Double,
     val invested: Double,

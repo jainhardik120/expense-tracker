@@ -24,10 +24,6 @@ object CompiledPatterns {
             RegexOption.IGNORE_CASE
         )
         val CARD_WITH_MASK = Regex("""Card\s+(?:XX+|\*+)?(\d{4})""", RegexOption.IGNORE_CASE)
-        // GENERIC_ACCOUNT removed - it was too loose and caused false positives
-        // by capturing dates, amounts, and reference numbers as account numbers.
-        // Bank-specific parsers should define their own patterns instead.
-        // Only use specific masked patterns that require XX or * prefix
         val ALL_PATTERNS = listOf(AC_WITH_MASK, CARD_WITH_MASK)
     }
 
@@ -124,26 +120,19 @@ object CompiledPatterns {
     }
 
     object Date {
-        // dd/MM/yy e.g. 20/10/25
         val DD_MM_YY = Regex("""\d{1,2}/\d{1,2}/\d{2}""")
 
-        // dd/MM/yyyy e.g. 20/10/2025
         val DD_MM_YYYY = Regex("""\d{1,2}/\d{1,2}/\d{4}""")
 
-        // dd-MMM-yy e.g. 20-OCT-25
         val DD_MMM_YY = Regex("""\d{1,2}-[A-Za-z]{3}-\d{2}""", RegexOption.IGNORE_CASE)
 
-        // dd-MM-yyyy e.g. 20-10-2025
         val DD_MM_YYYY_DASH = Regex("""\d{1,2}-\d{1,2}-\d{4}""")
     }
 
     object Time {
-        // HH:mm:ss
         val HH_MM_SS = Regex("""\d{1,2}:\d{2}:\d{2}""")
 
-        // HH:mm
         val HH_MM = Regex("""\d{1,2}:\d{2}""")
     }
 }
-
 

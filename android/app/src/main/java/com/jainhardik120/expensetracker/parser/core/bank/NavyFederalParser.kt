@@ -3,9 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Navy Federal Credit Union (NFCU) - handles USD debit card and credit card transactions
- */
 class NavyFederalParser : BankParser() {
 
     override fun getBankName() = "Navy Federal Credit Union"
@@ -22,7 +19,6 @@ class NavyFederalParser : BankParser() {
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // NFCU pattern: "Transaction for $3.26 was approved"
         val patterns = listOf(
             Regex(
                 """Transaction for \$([0-9,]+(?:\.[0-9]{2})?)\s+was approved""",
@@ -51,7 +47,6 @@ class NavyFederalParser : BankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // Pattern: "at Google One at 08:19 PM" - captures merchant between first "at" and second "at" (for time)
         val merchantPattern = Regex(
             """on (?:debit|credit) card \d{4} at (.+?)\s+at \d{2}:\d{2}""",
             RegexOption.IGNORE_CASE
@@ -60,12 +55,10 @@ class NavyFederalParser : BankParser() {
             return match.groupValues[1].trim()
         }
 
-        // Alternative pattern without time: "at merchant."
         val simpleMerchantPattern =
             Regex("""on (?:debit|credit) card \d{4} at (.+?)(?:\.|$)""", RegexOption.IGNORE_CASE)
         simpleMerchantPattern.find(message)?.let { match ->
             val merchant = match.groupValues[1].trim()
-            // Clean up common trailing text
             return merchant.replace(Regex("""Txt STOP.*"""), "").trim()
         }
 
@@ -77,7 +70,7 @@ class NavyFederalParser : BankParser() {
 
         return when {
             lowerMessage.contains("was approved") -> TransactionType.EXPENSE
-            lowerMessage.contains("was declined") -> null // Don't track declined transactions
+            lowerMessage.contains("was declined") -> null
             lowerMessage.contains("payment received") -> TransactionType.CREDIT
             lowerMessage.contains("deposit") -> TransactionType.CREDIT
             else -> null
@@ -85,7 +78,6 @@ class NavyFederalParser : BankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // Pattern: "on debit card xxxx" or "on credit card xxxx"
         val patterns = listOf(
             Regex("""on debit card (\d{4})""", RegexOption.IGNORE_CASE),
             Regex("""on credit card (\d{4})""", RegexOption.IGNORE_CASE),
@@ -104,7 +96,6 @@ class NavyFederalParser : BankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // NFCU specific transaction keywords
         val nfcuTransactionKeywords = listOf(
             "transaction for",
             "was approved on",
@@ -112,7 +103,6 @@ class NavyFederalParser : BankParser() {
         )
 
         if (nfcuTransactionKeywords.any { lowerMessage.contains(it) }) {
-            // Exclude declined transactions
             if (lowerMessage.contains("was declined")) {
                 return false
             }

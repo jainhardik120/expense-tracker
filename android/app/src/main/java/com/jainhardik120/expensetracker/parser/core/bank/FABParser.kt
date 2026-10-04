@@ -5,20 +5,11 @@ import com.jainhardik120.expensetracker.parser.core.ParsedTransaction
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for First Abu Dhabi Bank (FAB) - UAE's largest bank
- * Handles AED currency transactions and global currencies for international transactions
- * This class is designed to be inheritable by other UAE bank parsers like ADCB
- */
 open class FABParser : UAEBankParser() {
 
     override fun getBankName() = "First Abu Dhabi Bank"
 
-    // Currency extraction is now handled by UAEBankParser to default to AED
-    // Specific currency extraction from message body is also in base class
-
     override fun parse(smsBody: String, sender: String, timestamp: Long): ParsedTransaction? {
-        // Skip non-transaction messages
         if (!isTransactionMessage(smsBody)) {
             return null
         }
@@ -33,10 +24,8 @@ open class FABParser : UAEBankParser() {
             return null
         }
 
-        // Extract currency from message or use default AED
         val currency = extractCurrency(smsBody) ?: "AED"
 
-        // Extract available limit for credit card transactions
         val availableLimit = if (type == TransactionType.CREDIT) {
             val limit = extractAvailableLimit(smsBody)
             limit
@@ -57,7 +46,7 @@ open class FABParser : UAEBankParser() {
             reference = extractReference(smsBody),
             accountLast4 = extractAccountLast4(smsBody),
             balance = extractBalance(smsBody),
-            creditLimit = availableLimit,  // TODO: This is actually available limit, will be fixed in SmsReaderWorker
+            creditLimit = availableLimit,
             smsBody = smsBody,
             sender = sender,
             timestamp = timestamp,
@@ -74,12 +63,10 @@ open class FABParser : UAEBankParser() {
         return upperSender == "FAB" ||
                 upperSender.contains("FABBANK") ||
                 upperSender.contains("ADFAB") ||
-                // DLT patterns for UAE might be different
                 upperSender.matches(Regex("^[A-Z]{2}-FAB-[A-Z]$"))
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // FAB patterns: Support global currencies - "AED 8.00", "THB ###.##", "USD 10.00", etc.
         val patterns = listOf(
             Regex("""funds transfer request of\s+(${CompiledPatterns.Currency.ISO_CODE.pattern})\s+([0-9,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE),
             Regex("""for\s+(${CompiledPatterns.Currency.ISO_CODE.pattern})\s+([0-9,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE),
@@ -96,21 +83,16 @@ open class FABParser : UAEBankParser() {
                 val currencyCode = match.groupValues[1].uppercase()
                 var amountStr = match.groupValues[2].replace(",", "")
 
-                // Handle asterisks as placeholders - replace with 0s or treat as missing amount
                 if (amountStr.contains("*")) {
-                    // If it's a pattern like *0.00 or *50.00, extract the numeric part
                     if (amountStr.matches(Regex("""\*\d+(?:\.\d{2})?"""))) {
-                        amountStr = amountStr.substring(1) // Remove the asterisk
+                        amountStr = amountStr.substring(1)
                     } else if (amountStr.matches(Regex("""\*+\.\d{2}"""))) {
-                        // If it's all asterisks before decimal, treat as 0
                         amountStr = "0" + amountStr.substring(amountStr.indexOf('.'))
                     } else {
-                        // Try to extract any numeric pattern from the asterisk string
                         val numericMatch = Regex("""(\d+(?:\.\d{2})?)""").find(amountStr)
                         if (numericMatch != null) {
                             amountStr = numericMatch.value
                         } else {
-                            // If it's all asterisks or other patterns, return null to let base class handle it
                             return super.extractAmount(message)
                         }
                     }
@@ -128,14 +110,11 @@ open class FABParser : UAEBankParser() {
     }
 
     override fun extractTransactionType(message: String): TransactionType? {
-        // Use base class implementation which covers all FAB patterns
         return super.extractTransactionType(message)
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // Pattern 1: Credit/Debit card - merchant extraction for both single-line and multi-line formats
         if (containsCardPurchase(message)) {
-            // First try single-line format: Card Purchase with inline merchant after amount
             val singleLinePattern = Regex(
                 """(?:Credit|Debit)\s+Card\s+Purchase\s+Card\s+No\s+[X\d]+\s+[A-Z]{3}\s+[\d,.]+\s+([^0-9]+?)(?:\s+\d{2}/\d{2}/\d{2})""",
                 RegexOption.IGNORE_CASE
@@ -143,16 +122,13 @@ open class FABParser : UAEBankParser() {
             singleLinePattern.find(message)?.let { match ->
                 val merchant = match.groupValues[1].trim()
                 if (merchant.isNotEmpty()) {
-                    // Remove asterisks from merchant name
                     val cleanedMerchant = merchant.replace("*", "").trim()
                     return cleanMerchantName(cleanedMerchant)
                 }
             }
 
-            // Then try multi-line format
             val lines = message.split("\n")
 
-            // Find the line with currency amount (AED, THB, USD, etc.)
             val currencyLineIndex = lines.indexOfFirst {
                 it.matches(
                     Regex(
@@ -163,15 +139,12 @@ open class FABParser : UAEBankParser() {
             }
             if (currencyLineIndex != -1 && currencyLineIndex + 1 < lines.size) {
                 val merchantLine = lines[currencyLineIndex + 1].trim()
-                // Clean up asterisks but keep the text
                 val cleanedMerchant = merchantLine.replace("*", "").trim()
                 if (cleanedMerchant.isNotEmpty() && !cleanedMerchant.contains("/")) {
                     return cleanMerchantName(cleanedMerchant)
                 }
             }
 
-            // Fallback: Look for merchant after card line (for specific FAB format)
-            // Format: "Card XXXX2865" -> next line "THB 283.00" -> next line "WWW.GRAB.COM..."
             val cardPattern = Regex("""Card\s+[X\*]+(\d{4})""", RegexOption.IGNORE_CASE)
             val cardMatch = cardPattern.find(message)
             if (cardMatch != null) {
@@ -182,46 +155,38 @@ open class FABParser : UAEBankParser() {
                         !merchantLine.contains("Available Balance") &&
                         !merchantLine.matches(Regex("""\d{2}/\d{2}/\d{2}\s+\d{2}:\d{2}"""))
                     ) {
-                        // Remove asterisks from merchant name
                         val cleanedMerchant = merchantLine.replace("*", "").trim()
                         return cleanMerchantName(cleanedMerchant)
                     }
                 }
             }
 
-            // Fallback: Look for merchant pattern directly (website names, etc.)
             val merchantPattern =
                 Regex("""([A-Z]+\.(?:COM|NET|ORG|IN)[^\n]*)""", RegexOption.IGNORE_CASE)
             merchantPattern.find(message)?.let { match ->
                 val merchant = match.groupValues[1].trim()
                 if (merchant.isNotEmpty()) {
-                    // Remove asterisks from merchant name
                     val cleanedMerchant = merchant.replace("*", "").trim()
                     return cleanMerchantName(cleanedMerchant)
                 }
             }
         }
 
-// Pattern 2: Payment instructions and funds transfer - extract recipient account
         if (message.contains("payment instructions", ignoreCase = true) ||
             message.contains("funds transfer request", ignoreCase = true)
         ) {
-            // For funds transfer messages, use the same logic as extractTransferAccounts to ensure consistency
             if (message.contains("funds transfer request", ignoreCase = true)) {
                 return formatTransferMerchant(extractTransferAccounts(message))
             }
 
-            // Pattern: Extract anything after "to" for payment instructions
             val toPattern = Regex("""to\s+([^\s]+)""", RegexOption.IGNORE_CASE)
 
             toPattern.find(message)?.let { match ->
                 val recipient = match.groupValues[1]
 
-                // If it contains asterisks (masked format), extract last visible digits
                 if (recipient.contains("*")) {
                     val visibleDigits = recipient.filter { it.isDigit() }
                     if (visibleDigits.isNotEmpty()) {
-                        // Take last 4 digits if available, otherwise all
                         val displayDigits = if (visibleDigits.length >= 4) {
                             visibleDigits.takeLast(4)
                         } else {
@@ -231,7 +196,6 @@ open class FABParser : UAEBankParser() {
                     }
                 }
 
-                // For unmasked accounts, take last 4 digits
                 val digits = recipient.filter { it.isDigit() || it == 'X' }
                 if (digits.isNotEmpty()) {
                     return "Transfer to ${digits.takeLast(4)}"
@@ -245,7 +209,6 @@ open class FABParser : UAEBankParser() {
             return "Account Credited"
         }
 
-        // Patterns for specific transaction types that act as merchants
         val transactionTypeMerchants = mapOf(
             "ATM Cash withdrawal" to "ATM Withdrawal",
             "Inward Remittance" to "Inward Remittance",
@@ -254,7 +217,7 @@ open class FABParser : UAEBankParser() {
             "Cheque Credited" to "Cheque Credited",
             "Cheque Returned" to "Cheque Returned",
             "Cash withdrawal" to "Cash Withdrawal",
-            "unsuccessful transaction" to "Refund" // unsuccessful transaction of AED xx.xx has been credited to your account XXXX ,this only happens during a refund of a failed transaction
+            "unsuccessful transaction" to "Refund"
         )
 
         for ((keyword, merchantName) in transactionTypeMerchants) {
@@ -267,7 +230,6 @@ open class FABParser : UAEBankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // For funds transfer messages, extract the source account (from account)
         if (message.contains("funds transfer request", ignoreCase = true)) {
             val (fromAccount, _) = extractTransferAccounts(message)
             if (fromAccount != null) {
@@ -275,12 +237,10 @@ open class FABParser : UAEBankParser() {
             }
         }
 
-        // Use standard account extraction for non-transfer transactions
         return extractStandardAccountLast4(message)
     }
 
     override fun extractBalance(message: String): BigDecimal? {
-        // Pattern: "Available Balance [CURRENCY] **30.16" or "Available Balance AED ***0.00"
         val balancePattern = Regex(
                 """(?:Available|available)\s+[Bb]alance\s+(?:is\s+)?(${CompiledPatterns.Currency.ISO_CODE.pattern})\s*\*{0,}([0-9*,]+(?:\.\d{2})?)""",
                 RegexOption.IGNORE_CASE
@@ -288,17 +248,13 @@ open class FABParser : UAEBankParser() {
         balancePattern.find(message)?.let { match ->
             var balanceStr = match.groupValues[2].replace(",", "")
 
-            // Handle masked balances like ***0.00
             if (balanceStr.contains("*")) {
                 if (balanceStr.matches(Regex("""\*+\d+(?:\.\d{2})?"""))) {
-                    // Pattern like ***0.00 - extract the numeric part
                     val numericPart = balanceStr.replace("*", "")
                     balanceStr = numericPart
                 } else if (balanceStr.matches(Regex("""\*+\.\d{2}"""))) {
-                    // Pattern like ***.00 - treat as 0
                     balanceStr = "0" + balanceStr.substring(balanceStr.indexOf('.'))
                 } else {
-                    // Other masked patterns - return null
                     return null
                 }
             }
@@ -314,13 +270,11 @@ open class FABParser : UAEBankParser() {
     }
 
     override fun extractReference(message: String): String? {
-        // Look for date/time as reference (23/09/25 16:17)
         val dateTimePattern = Regex("""(\d{2}/\d{2}/\d{2}\s+\d{2}:\d{2})""")
         dateTimePattern.find(message)?.let { match ->
             return match.groupValues[1]
         }
 
-        // Value Date for remittances
         val valueDatePattern =
             Regex("""Value\s+Date\s+(\d{2}/\d{2}/\d{4})""", RegexOption.IGNORE_CASE)
         valueDatePattern.find(message)?.let { match ->
@@ -330,12 +284,10 @@ open class FABParser : UAEBankParser() {
         return super.extractReference(message)
     }
 
-    //Added public getter for test case
     fun shouldParseTransactionMessage(message: String): Boolean {
         return isTransactionMessage(message);
     }
 
-    // Format transfer merchant information based on extracted accounts
     private fun formatTransferMerchant(accounts: Pair<String?, String?>): String {
         val (fromAccount, toAccount) = accounts
 
@@ -354,7 +306,6 @@ open class FABParser : UAEBankParser() {
         return "Transfer"
     }
 
-    // Extract standard account patterns (for non-transfer transactions)
     private fun extractStandardAccountLast4(message: String): String? {
         val patterns = listOf(
             Regex("""Card\s+No\s+([X\d]{4})""", RegexOption.IGNORE_CASE),
@@ -374,7 +325,6 @@ open class FABParser : UAEBankParser() {
         return super.extractAccountLast4(message)
     }
 
-    // Extract from and to accounts for transfer transactions
     private fun extractTransferAccounts(message: String): Pair<String?, String?> {
         val fromPatterns = listOf(
             Regex("""from\s+account\s+([X\d]{4,})""", RegexOption.IGNORE_CASE),
@@ -410,7 +360,6 @@ open class FABParser : UAEBankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Skip administrative and non-transaction messages
         val nonTransactionKeywords = listOf(
             "declined due to insufficient balance",
             "transaction has been declined",
@@ -428,15 +377,15 @@ open class FABParser : UAEBankParser() {
             "card has been successfully activated",
             "temporarily blocked",
             "never share credit/debit card",
-            "debit card.*replacement request",  // Card replacement requests
-            "card will be ready for dispatch",  // Card delivery notifications
-            "replacement request has been registered",  // Card replacement confirmations
+            "debit card.*replacement request",
+            "card will be ready for dispatch",
+            "replacement request has been registered",
             "otp",
             "activation",
             "thank you for activating",
             "do not disclose your otp",
             "atyourservice@bankfab.com",
-            "has been blocked on"  // Email-only messages
+            "has been blocked on"
         )
 
         if (nonTransactionKeywords.any { keyword ->
@@ -445,12 +394,10 @@ open class FABParser : UAEBankParser() {
             return false
         }
 
-        // Skip promotional messages
         if (lowerMessage.contains("bit.ly") ||
             lowerMessage.contains("conditions apply") ||
             lowerMessage.contains("instalments at 0% interest")
         ) {
-            // But still process if it has transaction info
             if (!lowerMessage.contains("purchase") &&
                 !lowerMessage.contains("payment instructions") &&
                 !lowerMessage.contains("remittance")
@@ -459,7 +406,6 @@ open class FABParser : UAEBankParser() {
             }
         }
 
-        // FAB specific transaction keywords - only actual completed transactions
         val fabTransactionKeywords = listOf(
             "credit card purchase",
             "debit card purchase",
@@ -474,9 +420,7 @@ open class FABParser : UAEBankParser() {
             "cheque returned"
         )
 
-        // Special handling for funds transfer - only completed ones
         if (lowerMessage.contains("funds transfer request of")) {
-            // Only allow if it's been processed (not pending)
             if (lowerMessage.contains("has been processed")) {
                 return true
             }
@@ -486,14 +430,12 @@ open class FABParser : UAEBankParser() {
             return true
         }
 
-        // Only check for these if they contain actual transaction amounts
         if ((lowerMessage.contains("credit") && !lowerMessage.contains("credit card")) ||
             lowerMessage.contains("debit") ||
             lowerMessage.contains("remittance") ||
             lowerMessage.contains("available balance")
         ) {
 
-            // Only return true if there's a currency amount pattern
             val amountPattern = Regex("""${CompiledPatterns.Currency.ISO_CODE.pattern}\s+[0-9,]+(?:\.\d{2})?""", RegexOption.IGNORE_CASE)
             return amountPattern.containsMatchIn(message)
         }

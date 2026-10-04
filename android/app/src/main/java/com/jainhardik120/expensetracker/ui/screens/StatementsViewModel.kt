@@ -46,7 +46,6 @@ class StatementsViewModel @Inject constructor(
     var showCreateDialog by mutableStateOf(false)
         private set
 
-    /** The statement the dialog is rewriting, or null when it is writing a new one. */
     var editingStatement by mutableStateOf<StatementItem?>(null)
         private set
 

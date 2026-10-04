@@ -3,17 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Siddhartha Bank Limited (Nepal) SMS messages
- *
- * Handles formats like:
- * - "Dear [NAME], AC ###XXXX1234, NPR 97.00 withdrawn on 09/12/2025 12:31:20 for Fund Trf to A/C PAYABLE IBFT"
- * - "Dear [NAME], AC ###XXXX1234, NPR 810.00 withdrawn on 05/12/2025 18:06:50 for QR Payment to FALCHA KHAJA GHAR"
- * - "Dear [NAME], AC ###XXXX1234, NPR 120,000.00 deposited on 28/11/2025 20:13:59 for Fund Trf frm A/C PAYABLE IBF-FON"
- *
- * Common sender: SBL_Alert
- * Currency: NPR (Nepalese Rupee)
- */
 class SiddharthaBankParser : BankParser() {
 
     override fun getBankName() = "Siddhartha Bank"
@@ -28,7 +17,6 @@ class SiddharthaBankParser : BankParser() {
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Pattern: "NPR 97.00" or "NPR 120,000.00" (with commas)
         val nprPattern = Regex(
             """NPR\s+([0-9,]+(?:\.\d{2})?)""",
             RegexOption.IGNORE_CASE
@@ -48,12 +36,10 @@ class SiddharthaBankParser : BankParser() {
     override fun extractTransactionType(message: String): TransactionType? {
         val lowerMessage = message.lowercase()
 
-        // Withdrawn = expense (debit)
         if (lowerMessage.contains("withdrawn")) {
             return TransactionType.EXPENSE
         }
 
-        // Deposited = income (credit)
         if (lowerMessage.contains("deposited") || lowerMessage.contains("credited")) {
             return TransactionType.INCOME
         }
@@ -64,7 +50,6 @@ class SiddharthaBankParser : BankParser() {
     override fun extractMerchant(message: String, sender: String): String? {
         val lowerMessage = message.lowercase()
 
-        // Pattern 1: "QR Payment to FALCHA KHAJA GHAR - falcha"
         val qrPattern = Regex(
             """qr payment to\s+([^-\n]+?)(?:\s+-|$)""",
             RegexOption.IGNORE_CASE
@@ -76,21 +61,17 @@ class SiddharthaBankParser : BankParser() {
             }
         }
 
-        // Pattern 2: Utility bill - "Fund Trf to A/C PAYABLE IBFT (IN-670724040,NEA"
         if (lowerMessage.contains("nea")) {
             return "Nepal Electricity Authority"
         }
 
-        // Pattern 3: Fund transfer to account
         if (lowerMessage.contains("fund trf to") || lowerMessage.contains("fund transfer to")) {
-            // Check for IBFT (Inter-Bank Fund Transfer)
             if (lowerMessage.contains("ibft")) {
                 return "Fund Transfer (IBFT)"
             }
             return "Fund Transfer"
         }
 
-        // Pattern 4: Fund transfer from account (deposits)
         if (lowerMessage.contains("fund trf frm") || lowerMessage.contains("fund transfer from")) {
             if (lowerMessage.contains("ibft")) {
                 return "Fund Transfer (IBFT)"
@@ -98,7 +79,6 @@ class SiddharthaBankParser : BankParser() {
             return "Fund Transfer"
         }
 
-        // Pattern 5: Generic deposit
         if (lowerMessage.contains("deposited")) {
             return "Deposit"
         }
@@ -107,7 +87,6 @@ class SiddharthaBankParser : BankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // Pattern: "AC ###XXXX1234" - extract last 4 digits
         val accountPattern = Regex(
             """AC\s+###[X#]+(\d{4})""",
             RegexOption.IGNORE_CASE
@@ -116,7 +95,6 @@ class SiddharthaBankParser : BankParser() {
             return match.groupValues[1]
         }
 
-        // Alternative pattern: "AC XXXX1234" without ###
         val altAccountPattern = Regex(
             """AC\s+[X#]+(\d{4})""",
             RegexOption.IGNORE_CASE
@@ -129,7 +107,6 @@ class SiddharthaBankParser : BankParser() {
     }
 
     override fun extractReference(message: String): String? {
-        // Pattern 1: "(IN-670725619,222" - transaction reference with IN prefix
         val inPattern = Regex(
             """\(IN-(\d+)"""
         )
@@ -137,7 +114,6 @@ class SiddharthaBankParser : BankParser() {
             return "IN-${match.groupValues[1]}"
         }
 
-        // Pattern 2: "IBFT:1171853" - IBFT reference
         val ibftPattern = Regex(
             """IBFT:(\d+)"""
         )
@@ -145,7 +121,6 @@ class SiddharthaBankParser : BankParser() {
             return match.groupValues[1]
         }
 
-        // Pattern 3: "FON:IBFT:1171853" - FON reference
         val fonPattern = Regex(
             """FON:IBFT:(\d+)"""
         )
@@ -159,7 +134,6 @@ class SiddharthaBankParser : BankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Skip OTP and promotional messages
         if (lowerMessage.contains("otp") ||
             lowerMessage.contains("password") ||
             lowerMessage.contains("verification code")
@@ -167,7 +141,6 @@ class SiddharthaBankParser : BankParser() {
             return false
         }
 
-        // Must contain transaction keywords and NPR amount
         val hasAmount = lowerMessage.contains("npr")
         val hasTransactionKeyword = lowerMessage.contains("withdrawn") ||
                 lowerMessage.contains("deposited") ||

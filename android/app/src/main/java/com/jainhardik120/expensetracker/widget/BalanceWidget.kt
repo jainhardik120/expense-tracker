@@ -42,10 +42,6 @@ private val Paper = Color(0xFFFAFAFA)
 
 private val TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
-/**
- * Four numbers at a glance: what is mine, what today has cost, what is still
- * sitting unread in the inbox, and what the goal leaves to spend.
- */
 class BalanceWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -65,8 +61,6 @@ private fun WidgetBody() {
             .background(Ink)
             .cornerRadius(20.dp)
             .padding(12.dp)
-            // Tapping the numbers opens the app, which is what tapping a
-            // widget usually does; the footer is the refresh.
             .clickable(actionStartActivity<MainActivity>())
     ) {
         Row(
@@ -109,9 +103,6 @@ private fun WidgetBody() {
                 modifier = GlanceModifier.defaultWeight()
             )
         }
-        // A whole strip rather than the line of text: a tap that misses the
-        // glyphs falls through to the body and opens the app instead, which
-        // looks exactly like a refresh that did nothing.
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()

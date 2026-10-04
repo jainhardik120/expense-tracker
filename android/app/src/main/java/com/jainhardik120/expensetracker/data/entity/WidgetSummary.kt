@@ -2,7 +2,6 @@ package com.jainhardik120.expensetracker.data.entity
 
 import kotlinx.serialization.Serializable
 
-/** The four numbers the home-screen widget shows, in one response. */
 @Serializable
 data class WidgetSummary(
     val balance: Double,

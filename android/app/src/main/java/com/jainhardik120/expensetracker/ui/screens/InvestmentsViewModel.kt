@@ -9,11 +9,6 @@ import com.jainhardik120.expensetracker.ui.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
-/**
- * Reads the portfolio. There is nothing to write here on purpose -- positions
- * are opened and closed on the web, where the forms and the instrument search
- * live; the phone is for looking.
- */
 @HiltViewModel
 class InvestmentsViewModel @Inject constructor(
     private val api: ExpenseTrackerAPI
@@ -28,7 +23,6 @@ class InvestmentsViewModel @Inject constructor(
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
-    /** Which category's holdings are open. Null is the whole portfolio. */
     var expandedCategory by mutableStateOf<String?>(null)
         private set
 

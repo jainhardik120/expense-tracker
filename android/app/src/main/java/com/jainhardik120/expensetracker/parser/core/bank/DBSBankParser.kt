@@ -3,9 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for DBS Bank (Development Bank of Singapore) SMS messages
- */
 class DBSBankParser : BankParser() {
 
     override fun getBankName() = "DBS Bank"
@@ -15,14 +12,12 @@ class DBSBankParser : BankParser() {
         return normalizedSender.contains("DBSBNK") ||
                 normalizedSender.contains("DBS") ||
                 normalizedSender == "DBSBANK" ||
-                // DLT patterns
                 normalizedSender.matches(Regex("^[A-Z]{2}-DBSBNK-[ST]$")) ||
                 normalizedSender.matches(Regex("^[A-Z]{2}-DBS-[ST]$")) ||
                 normalizedSender.matches(Regex("^[A-Z]{2}-DBSBANK-[ST]$"))
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Pattern: "debited with INR 11" or "credited with INR 100"
         val patterns = listOf(
             Regex(
                 """(?:debited|credited)\s+with\s+INR\s*([0-9,]+(?:\.\d{2})?)""",
@@ -46,7 +41,6 @@ class DBSBankParser : BankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // Pattern: "account no ********1234" or "a/c ****1234"
         val patterns = listOf(
             Regex("""account\s+no\s+\*+(\d{4})""", RegexOption.IGNORE_CASE),
             Regex("""a/c\s+\*+(\d{4})""", RegexOption.IGNORE_CASE),
@@ -63,7 +57,6 @@ class DBSBankParser : BankParser() {
     }
 
     override fun extractBalance(message: String): BigDecimal? {
-        // Pattern: "Current Balance is INR37888.45" or "Balance: INR 1000"
         val patterns = listOf(
             Regex(
                 """Current\s+Balance\s+is\s+INR\s*([0-9,]+(?:\.\d{2})?)""",

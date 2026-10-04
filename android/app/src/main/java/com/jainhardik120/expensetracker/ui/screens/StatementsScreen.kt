@@ -173,12 +173,6 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
     }
 }
 
-/**
- * What you can do to a statement, on long press.
- *
- * Deleting used to be a left swipe, which is far too easy to do by accident
- * while scrolling — and it deleted immediately, with nothing to undo it.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatementActionsSheet(

@@ -5,13 +5,6 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
-/**
- * Money as a widget shows it: rounded to rupees.
- *
- * A widget is a few square centimetres read at arm's length. Paise there cost
- * two glyphs and tell you nothing, so they are dropped -- and dropped in one
- * place, so both widgets round the same way.
- */
 fun money(value: Double?): String {
     if (value == null) {
         return "--"
@@ -21,7 +14,6 @@ fun money(value: Double?): String {
     return if (rounded < 0) "-₹$formatted" else "₹$formatted"
 }
 
-/** As [money], but always carrying its sign: a gain is not just a number. */
 fun signedMoney(value: Double?): String {
     if (value == null) {
         return "--"

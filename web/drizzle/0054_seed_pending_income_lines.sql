@@ -1,17 +1,3 @@
--- Income still to come used to be guessed: the average of the payslips that had
--- already arrived, multiplied by the cycles left. That average cannot see a pay
--- revision coming, and cannot know the last pay date of a budget year falls
--- outside it. It is read off the salary schedule now, through two lines that
--- behave like every other income line -- they can be pointed down the waterfall,
--- at a single line, or out of the budget.
---
--- Every existing budget year gets both, appended below whatever is already
--- there. Salary goes down the waterfall, which is what the guess it replaces was
--- doing. Bonuses start outside the budget: a forecast bonus is the least certain
--- money in here, and quietly raising the investment goal on the strength of one
--- is the wrong default. Point it wherever it belongs.
--- created_at is set by the application rather than the database, so a plain
--- SQL insert has to supply it.
 INSERT INTO "budget_income_lines"
   ("budget_year_id", "name", "position", "rule", "source", "destination", "created_at")
 SELECT

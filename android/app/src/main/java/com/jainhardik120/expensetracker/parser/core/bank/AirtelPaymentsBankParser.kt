@@ -3,33 +3,19 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Airtel Payments Bank SMS messages
- *
- * Common senders: AD-AIRBNK-S, XX-AIRBNK-T, etc.
- *
- * SMS Formats:
- * - Airtel Payments Bank a/c is credited with Rs.20.00. Txn ID: 560992310006. Call 180023400 for help
- * - Rs. 5.00 debited from Airtel Payments Bank a/c Txn ID xxxxxxxx Bal:15.56 Call 180023400 for help
- */
 class AirtelPaymentsBankParser : BankParser() {
 
     override fun getBankName() = "Airtel Payments Bank"
 
     override fun canHandle(sender: String): Boolean {
         val normalizedSender = sender.uppercase()
-        // Only handle Airtel Payments Bank, not prepaid recharges (Airtel-S)
         return normalizedSender.contains("AIRBNK")
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // List of amount patterns for Airtel Payments Bank
         val amountPatterns = listOf(
-            // "credited with Rs.20.00"
             Regex("""credited\s+with\s+Rs\.?\s*([0-9,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE),
-            // "Rs. 5.00 debited from"
             Regex("""Rs\.?\s*([0-9,]+(?:\.\d{2})?)\s+debited\s+from""", RegexOption.IGNORE_CASE),
-            // "debited with Rs.5.00" (potential variant)
             Regex("""debited\s+with\s+Rs\.?\s*([0-9,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE)
         )
 
@@ -63,8 +49,6 @@ class AirtelPaymentsBankParser : BankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // For basic credit/debit transactions, use bank name
-        // In future, can enhance to extract merchant info from more detailed messages
 
         val lowerMessage = message.lowercase()
         return when {
@@ -74,20 +58,17 @@ class AirtelPaymentsBankParser : BankParser() {
     }
 
     override fun extractReference(message: String): String? {
-        // Pattern: "Txn ID: 560992310006" or "Txn ID xxxxxxxx"
         val txnIdPattern = Regex(
             """Txn\s+ID[:\s]+([A-Z0-9]+)""",
             RegexOption.IGNORE_CASE
         )
         txnIdPattern.find(message)?.let { match ->
             val txnId = match.groupValues[1]
-            // Filter out masked IDs like "xxxxxxxx"
             if (!txnId.contains("x", ignoreCase = true)) {
                 return txnId
             }
         }
 
-        // Alternative pattern for transaction ID
         val altTxnPattern = Regex(
             """Transaction\s+ID[:\s]+([A-Z0-9]+)""",
             RegexOption.IGNORE_CASE
@@ -100,7 +81,6 @@ class AirtelPaymentsBankParser : BankParser() {
     }
 
     override fun extractBalance(message: String): BigDecimal? {
-        // Pattern: "Bal:15.56"
         val balancePattern = Regex(
             """Bal[:\s]+([0-9,]+(?:\.\d{2})?)""",
             RegexOption.IGNORE_CASE
@@ -114,7 +94,6 @@ class AirtelPaymentsBankParser : BankParser() {
             }
         }
 
-        // Alternative pattern: "Balance: Rs. 15.56"
         val altBalancePattern = Regex(
             """Balance[:\s]+Rs\.?\s*([0-9,]+(?:\.\d{2})?)""",
             RegexOption.IGNORE_CASE
@@ -134,7 +113,6 @@ class AirtelPaymentsBankParser : BankParser() {
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Skip OTP and non-transaction messages
         if (lowerMessage.contains("otp") ||
             lowerMessage.contains("verification") ||
             lowerMessage.contains("request") ||
@@ -143,7 +121,6 @@ class AirtelPaymentsBankParser : BankParser() {
             return false
         }
 
-        // Check for Airtel Payments Bank specific transaction patterns
         if (lowerMessage.contains("credited with") ||
             lowerMessage.contains("debited from") ||
             lowerMessage.contains("airtel payments bank") &&

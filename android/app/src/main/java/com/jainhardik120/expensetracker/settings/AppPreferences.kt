@@ -9,13 +9,6 @@ import java.time.ZonedDateTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Where the day starts, and everything that follows from it.
- *
- * A meal ordered at one in the morning belongs to the evening it followed, not
- * to the calendar date the clock had already rolled over to, so "today" is a
- * window the owner of the phone gets to define.
- */
 @Singleton
 class AppPreferences @Inject constructor(
     @param:ApplicationContext private val context: Context
@@ -26,7 +19,6 @@ class AppPreferences @Inject constructor(
         get() = prefs.getInt(KEY_DAY_START_HOUR, DEFAULT_DAY_START_HOUR)
         set(value) = prefs.edit { putInt(KEY_DAY_START_HOUR, value.coerceIn(0, LAST_HOUR)) }
 
-    /** The window "today" means right now: [start, start + 24h). */
     fun currentDay(zone: ZoneId = ZoneId.systemDefault()): ClosedRange<ZonedDateTime> {
         val now = ZonedDateTime.now(zone)
         var start = now.with(LocalTime.of(dayStartHour, 0))

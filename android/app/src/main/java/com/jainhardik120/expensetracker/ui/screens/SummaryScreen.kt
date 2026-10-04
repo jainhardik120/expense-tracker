@@ -44,8 +44,6 @@ private val MONTH_LABEL = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDef
 @Composable
 fun SummaryScreen(viewModel: SummaryViewModel) {
     val summary = viewModel.summary
-    // Pull to refresh rather than a button in the app bar: the bar belongs to
-    // the whole app and says what the app is, not what this screen can do.
     PullToRefreshBox(
         isRefreshing = viewModel.isLoading && summary != null,
         onRefresh = { viewModel.loadSummary() },
@@ -179,8 +177,6 @@ private fun BalanceCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                // Balances are always as at the end of the month on screen, so
-                // they are only "current" while that month is this one.
                 text = if (isCurrentMonth) "Current balance" else "Balance at end of ${month.format(MONTH_LABEL)}",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer

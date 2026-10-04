@@ -3,19 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for Bancolombia (Colombian bank) SMS messages
- *
- * Sender IDs: 87400, 85540
- * Language: Spanish
- * Currency: COP (Colombian Peso)
- *
- * Transaction types:
- * - Transferiste: Transfer (EXPENSE)
- * - Compraste: Purchase (EXPENSE)
- * - Pagaste: Payment (EXPENSE)
- * - Recibiste: Received (INCOME)
- */
 class BancolombiaParser : BankParser() {
 
     override fun getBankName() = "Bancolombia"
@@ -27,7 +14,6 @@ class BancolombiaParser : BankParser() {
     override fun getCurrency() = "COP"
 
     override fun isTransactionMessage(message: String): Boolean {
-        // Override base class to handle Spanish transaction keywords
         val lowerMessage = message.lowercase()
         val spanishKeywords = listOf(
             "transferiste", "compraste", "pagaste", "recibiste"
@@ -36,18 +22,15 @@ class BancolombiaParser : BankParser() {
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Colombian format: dots for thousands (1.000), commas for decimals (,50)
-        // Example: $1.000.000,50 = 1 million pesos and 50 centavos
         val pattern = Regex(
             """(Transferiste|Compraste|Pagaste|Recibiste)\s+\$?([0-9.,]+)""",
             RegexOption.IGNORE_CASE
         )
         pattern.find(message)?.let { match ->
-            // Convert Colombian format to standard format for BigDecimal
             val amount = match.groupValues[2]
-                .replace(".", "")   // Remove thousand separators (dots)
-                .replace(",", ".")  // Convert decimal separator (comma to dot)
-                .replace("$", "")   // Remove currency symbol
+                .replace(".", "")
+                .replace(",", ".")
+                .replace("$", "")
                 .trim()
             return try {
                 BigDecimal(amount)
@@ -71,7 +54,6 @@ class BancolombiaParser : BankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // Simple: just return the transaction type in Spanish for now
         val lower = message.lowercase()
         return when {
             lower.contains("transferiste") -> "Transferencia"

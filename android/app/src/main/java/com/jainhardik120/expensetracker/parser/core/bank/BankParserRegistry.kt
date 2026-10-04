@@ -5,4 +5,3 @@ class BankParserRegistry(private val parsers: List<BankParser>) {
     fun all(): List<BankParser> = parsers
 }
 
-

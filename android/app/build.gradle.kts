@@ -37,7 +37,6 @@ android {
         buildConfigField("String", "AUTH_RESOURCE", "\"${lp("AUTH_RESOURCE")}\"")
         buildConfigField("String", "AUTH_REDIRECT_URI", "\"${lp("AUTH_REDIRECT_URI")}\"")
 
-        // if you want full endpoints derived
         buildConfigField(
             "String",
             "AUTH_AUTHORIZE_URL",

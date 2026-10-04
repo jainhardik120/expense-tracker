@@ -4,18 +4,15 @@ import com.jainhardik120.expensetracker.parser.core.ParsedTransaction
 import java.math.BigDecimal
 import java.text.Normalizer
 
-/**
- * Parser for Punjab National Bank (PNB) SMS messages
- */
 class PNBBankParser : BaseIndianBankParser() {
 
     override fun getBankName() = "Punjab National Bank"
 
     override fun canHandle(sender: String): Boolean {
         val normalizedSender = sender.uppercase()
-        return normalizedSender.contains("PUNJAB NATIONAL BANK") || // RCS sender (any case)
+        return normalizedSender.contains("PUNJAB NATIONAL BANK") ||
                 normalizedSender.contains("PNBBNK") ||
-                normalizedSender.contains("PNBSMS") ||  // AX-PNBSMS-S, BT-PNBSMS-S, AX-PNBSMS-T
+                normalizedSender.contains("PNBSMS") ||
                 normalizedSender.contains("PUNBN") ||
                 normalizedSender.matches(Regex("^[A-Z]{2}-PNBBNK-S$")) ||
                 normalizedSender.matches(Regex("^[A-Z]{2}-PNB-S$")) ||
@@ -26,23 +23,17 @@ class PNBBankParser : BaseIndianBankParser() {
     }
 
     override fun parse(smsBody: String, sender: String, timestamp: Long): ParsedTransaction? {
-        // Normalize Unicode text for RCS messages
         val normalizedBody = normalizeUnicodeText(smsBody)
 
-        // Use normalized body for parsing
         return super.parse(normalizedBody, sender, timestamp)
     }
 
     private fun normalizeUnicodeText(text: String): String {
-        // Use Java's built-in normalizer to decompose Unicode
-        // NFKD = Compatibility Decomposition
         return Normalizer.normalize(text, Normalizer.Form.NFKD)
-            .replace(Regex("[^\\p{ASCII}]"), "") // Keep only ASCII
+            .replace(Regex("[^\\p{ASCII}]"), "")
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Handle debit patterns - both "Rs." and "INR" formats
-        // "debited INR 270.00", "Debited with Rs.50000.00", "debited with Rs.1.18"
         val debitPattern = Regex(
             """debited\s+(?:with\s+|for\s+)?(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?)""",
             RegexOption.IGNORE_CASE
@@ -56,13 +47,11 @@ class PNBBankParser : BaseIndianBankParser() {
             }
         }
 
-        // Handle credit patterns - both "Rs." and "INR" formats
         val creditPattern = Regex(
             """(?:(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?)\s+(?:has\s+been\s+)?credited|credited\s+(?:with\s+|for\s+)?(?:Rs\.?|INR)\s*([0-9,]+(?:\.\d{2})?))""",
             RegexOption.IGNORE_CASE
         )
         creditPattern.find(message)?.let { match ->
-            // Try to get the amount from either capture group (pattern 1 or pattern 2)
             val amount =
                 (if (match.groupValues[1].isNotEmpty()) match.groupValues[1] else match.groupValues[2])
                     .replace(",", "")
@@ -73,18 +62,10 @@ class PNBBankParser : BaseIndianBankParser() {
             }
         }
 
-        // Note: Removed balance pattern - balance should never be used as transaction amount
-        // Balance is extracted separately by extractBalance() method
-
         return super.extractAmount(message)
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // The counterparty PNB names directly, before the generic "UPI
-        // Transaction" fallback below swallows it:
-        //   "... credited for INR 50000.00 on 28-05-26 by HARDIK JAIN thru UPI"
-        //   "... debited INR 270.00 Dt 21-09-26 to BHASKAR H thru UPI:163054512646"
-        //   "... debited with Rs.1.18 towards bank charges on 05-07-2026"
         for (pattern in COUNTERPARTY_PATTERNS) {
             pattern.find(message)?.let { match ->
                 val merchant = cleanMerchantName(match.groupValues[1].trim())
@@ -117,8 +98,6 @@ class PNBBankParser : BaseIndianBankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
-        // "A/c XX8365", "A/c X8365", "Ac XX8365" - PNB uses one X as often as
-        // two, and drops the slash in its debit alerts.
         val acPattern = Regex(
             """A/?c\s+[Xx\*]*(\d{4,})""",
             RegexOption.IGNORE_CASE

@@ -3,12 +3,6 @@ package com.jainhardik120.expensetracker.parser.core.bank
 import com.jainhardik120.expensetracker.parser.core.TransactionType
 import java.math.BigDecimal
 
-/**
- * Parser for LazyPay wallet transactions.
- * Handles messages from BP-LZYPAY-S, JM-LZYPAY-S, JD-LZYPAY-S and similar senders.
- * LazyPay is a Buy Now Pay Later (BNPL) wallet service similar to Amazon Pay/Juspay.
- * All transactions are treated as CREDIT type since they're wallet-based credit transactions.
- */
 class LazyPayParser : BankParser() {
 
     override fun getBankName() = "LazyPay"
@@ -20,19 +14,16 @@ class LazyPayParser : BankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
-        // Pattern 1: "for txn TXN512924131 on [MERCHANT] was successful"
         val onMerchantPattern =
             Regex("""on\s+([^.]+?)\s+was\s+successful""", RegexOption.IGNORE_CASE)
         onMerchantPattern.find(message)?.let { match ->
             val rawMerchant = match.groupValues[1].trim()
-            // Clean up common merchant names
             val cleanedMerchant = when {
                 rawMerchant.contains("Zepto Marketplace", ignoreCase = true) -> "Zepto"
                 rawMerchant.contains("Innovative Retail Concepts", ignoreCase = true) -> "BigBasket"
                 rawMerchant.contains("Swiggy", ignoreCase = true) -> "Swiggy"
                 rawMerchant.contains("Zomato", ignoreCase = true) -> "Zomato"
                 else -> {
-                    // Remove common suffixes like "Private Limited", "Pvt Ltd", etc.
                     rawMerchant
                         .replace(
                             Regex(
@@ -40,7 +31,7 @@ class LazyPayParser : BankParser() {
                                 RegexOption.IGNORE_CASE
                             ), ""
                         )
-                        .replace(Regex("""\s*\d+$"""), "") // Remove trailing numbers
+                        .replace(Regex("""\s*\d+$"""), "")
                         .trim()
                 }
             }
@@ -49,17 +40,14 @@ class LazyPayParser : BankParser() {
             }
         }
 
-        // Pattern 2: Repayment messages
         if (message.contains("against your LazyPay statement", ignoreCase = true)) {
             return "LazyPay Repayment"
         }
 
-        // Default to LazyPay if no specific merchant found
         return super.extractMerchant(message, sender) ?: "LazyPay"
     }
 
     override fun extractAmount(message: String): BigDecimal? {
-        // Pattern: "Rs. 235.76" or "Rs 235.76"
         val amountPatterns = listOf(
             Regex("""Rs\.?\s*([0-9,]+(?:\.\d{2})?)""", RegexOption.IGNORE_CASE)
         )
@@ -79,7 +67,6 @@ class LazyPayParser : BankParser() {
     }
 
     override fun extractReference(message: String): String? {
-        // Extract transaction ID like "TXN512924131"
         val txnPattern = Regex("""txn\s+([A-Z0-9]+)""", RegexOption.IGNORE_CASE)
         txnPattern.find(message)?.let { match ->
             return match.groupValues[1].trim()
@@ -89,15 +76,12 @@ class LazyPayParser : BankParser() {
     }
 
     override fun extractTransactionType(message: String): TransactionType {
-        // LazyPay is a credit service - all transactions are credit-based
-        // Similar to how JuspayParser handles Amazon Pay
         return TransactionType.CREDIT
     }
 
     override fun isTransactionMessage(message: String): Boolean {
         val lowerMessage = message.lowercase()
 
-        // Skip failed payment messages
         if (lowerMessage.contains("could not be processed") ||
             lowerMessage.contains("due to a failure") ||
             lowerMessage.contains("payment failed") ||
@@ -107,12 +91,10 @@ class LazyPayParser : BankParser() {
             return false
         }
 
-        // Skip promotional messages
         if (lowerMessage.contains("offer") ||
             lowerMessage.contains("get cashback") ||
             lowerMessage.contains("explore more")
         ) {
-            // But allow if it's a payment confirmation
             if (!lowerMessage.contains("payment of") &&
                 !lowerMessage.contains("was successful")
             ) {
@@ -120,7 +102,6 @@ class LazyPayParser : BankParser() {
             }
         }
 
-        // Transaction indicators for LazyPay
         val transactionKeywords = listOf(
             "payment of",
             "was successful",

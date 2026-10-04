@@ -31,13 +31,6 @@ import dagger.hilt.components.SingletonComponent
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
-/**
- * Fetches the widget's numbers and hands them to Glance.
- *
- * The work is a Worker rather than a coroutine started from the widget so it
- * survives the process: a widget is drawn by the launcher, and the process
- * that drew it can be gone a moment later.
- */
 @HiltWorker
 class WidgetRefreshWorker @AssistedInject constructor(
     @Assisted appContext: Context,
@@ -46,7 +39,6 @@ class WidgetRefreshWorker @AssistedInject constructor(
     private val preferences: AppPreferences
 ) : CoroutineWorker(appContext, params) {
 
-    // `Result` inside a worker is the worker's own, so the API's is aliased.
     override suspend fun doWork(): Result {
         val day = preferences.currentDay()
         val iso = DateTimeFormatter.ISO_OFFSET_DATE_TIME
@@ -72,7 +64,6 @@ class WidgetRefreshWorker @AssistedInject constructor(
                 Result.success()
             }
 
-            // Keep whatever is on screen; say when it was last true and move on.
             is ApiResult.ClientException -> {
                 Log.e(TAG, "Widget refresh refused: ${result.statusCode}")
                 updateEvery(applicationContext) { it[WidgetKeys.error] = "sign in needed" }
@@ -102,7 +93,6 @@ private suspend fun updateEvery(context: Context, edit: (MutablePreferences) -> 
     widget.updateAll(context)
 }
 
-/** Tapping the widget asks for fresh numbers. */
 class RefreshWidgetAction : ActionCallback {
     override suspend fun onAction(
         context: Context,
@@ -116,7 +106,6 @@ class RefreshWidgetAction : ActionCallback {
 object WidgetRefreshScheduler {
     private const val UNIQUE_PERIODIC = "widget-refresh-periodic"
     private const val UNIQUE_ONCE = "widget-refresh-now"
-    /** Quarter of an hour, which is as often as WorkManager will run anything. */
     private const val REFRESH_MINUTES = 15L
     private const val BACKOFF_SECONDS = 30L
 
@@ -128,9 +117,6 @@ object WidgetRefreshScheduler {
         val periodic = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(
             REFRESH_MINUTES, TimeUnit.MINUTES
         ).setConstraints(onlyWhenOnline).build()
-        // UPDATE rather than KEEP: a schedule enqueued by an older build
-        // keeps its old interval forever under KEEP, so a phone that has had
-        // the widget for a while would never pick up a change like this one.
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             UNIQUE_PERIODIC,
             ExistingPeriodicWorkPolicy.UPDATE,
@@ -151,10 +137,6 @@ object WidgetRefreshScheduler {
     }
 }
 
-/**
- * Hilt cannot inject a receiver, so the widget's own entry point pulls what it
- * needs out of the graph when the launcher wakes it.
- */
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {

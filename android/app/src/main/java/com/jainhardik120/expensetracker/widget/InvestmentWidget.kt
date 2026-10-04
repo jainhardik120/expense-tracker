@@ -42,12 +42,6 @@ private val Rose = Color(0xFFF43F5E)
 
 private val TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
-/**
- * What the portfolio is worth, and which way it went.
- *
- * Deliberately not the same four numbers as the balance widget: that one is
- * about the money you can spend, this one about the money you cannot.
- */
 class InvestmentWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -67,12 +61,8 @@ private fun InvestmentWidgetBody() {
             .background(Ink)
             .cornerRadius(20.dp)
             .padding(12.dp)
-            // Tapping the numbers opens the app; the footer is the refresh.
             .clickable(actionStartActivity<MainActivity>())
     ) {
-        // The value gets the full width. It is the one figure worth reading
-        // from across the room, and sharing its row with anything else cost it
-        // the room to be that.
         Tile(
             label = "Portfolio",
             value = money(state[InvestmentWidgetKeys.valuation]),
@@ -105,9 +95,6 @@ private fun InvestmentWidgetBody() {
                 modifier = GlanceModifier.defaultWeight()
             )
         }
-        // A whole strip rather than the line of text: a tap that misses the
-        // glyphs falls through to the body and opens the app instead, which
-        // looks exactly like a refresh that did nothing.
         Row(
             modifier = GlanceModifier
                 .fillMaxWidth()

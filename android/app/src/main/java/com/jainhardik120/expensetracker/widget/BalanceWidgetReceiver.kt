@@ -17,8 +17,6 @@ class BalanceWidgetReceiver : GlanceAppWidgetReceiver() {
         appWidgetIds: IntArray
     ) {
         super.onUpdate(context, appWidgetManager, appWidgetIds)
-        // Placed, restored after a reboot, or resized: make sure the timer
-        // exists and put something current on screen.
         WidgetRefreshScheduler.ensureScheduled(context)
         WidgetRefreshScheduler.refreshNow(context)
     }

@@ -22,11 +22,6 @@ class TokenStore @Inject constructor(
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
     )
 
-    /**
-     * Written with commit() rather than apply(): a rotated refresh token that
-     * only ever reached memory is the same as one that never arrived, and the
-     * process can be killed seconds after a refresh.
-     */
     fun save(tokens: TokenSet) {
         prefs.edit(commit = true) {
             putString("access_token", tokens.accessToken)
