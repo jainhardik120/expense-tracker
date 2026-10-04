@@ -7,7 +7,7 @@ import { RowActions, RowActionTrigger } from '@/components/data-table/row-action
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { useTimezone } from '@/components/time-zone-setter';
 import { Badge } from '@/components/ui/badge';
-import { smsTransactionStatusEnum } from '@/db/schema';
+import { smsTransactionStatuses } from '@/db/enums';
 import { zonedFormat } from '@/lib/date';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
@@ -240,7 +240,7 @@ export const createSmsNotificationColumns = ({
     meta: {
       label: 'Status',
       variant: 'multiSelect',
-      options: smsTransactionStatusEnum.enumValues.map((status) => ({
+      options: smsTransactionStatuses.map((status) => ({
         label: status,
         value: status,
       })),

@@ -14,8 +14,6 @@ import {
   type FriendTransferSummary,
   type AggregatedAccountTransferSummary,
   type AggregatedFriendTransferSummary,
-  defaultAccountSummary,
-  defaultFriendSummary,
   type AccountSummary,
   type FriendSummary,
   type Account,
@@ -472,6 +470,25 @@ export const getFriendsSummaryBetweenDates = instrumentedFunction(
     });
   },
 );
+
+const defaultAccountSummary = {
+  startingBalance: new Decimal(0),
+  expenses: new Decimal(0),
+  selfTransfers: new Decimal(0),
+  outsideTransactions: new Decimal(0),
+  friendTransactions: new Decimal(0),
+  totalTransfers: new Decimal(0),
+  finalBalance: new Decimal(0),
+};
+
+const defaultFriendSummary = {
+  startingBalance: new Decimal(0),
+  paidByFriend: new Decimal(0),
+  splits: new Decimal(0),
+  friendTransactions: new Decimal(0),
+  totalTransfers: new Decimal(0),
+  finalBalance: new Decimal(0),
+};
 
 export const addAccountsSummary = (data: AggregatedAccountTransferSummary[]) => {
   const val = data.reduce((acc, cur) => {

@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 import { auth } from '@/lib/auth';
 import logger from '@/lib/logger';
-import { pageSchema, userSchema } from '@/types';
+import { pageSchema } from '@/types';
+import { userSchema } from '@/types/user';
 
 import { adminProcedure, createTRPCRouter } from '../trpc';
 

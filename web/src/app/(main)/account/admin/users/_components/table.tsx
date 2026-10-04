@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { authClient } from '@/lib/auth-client';
 import { useTRPCQuery } from '@/server/react';
-import type { userSchema } from '@/types';
+import type { userSchema } from '@/types/user';
 
 import type { Row } from '@tanstack/react-table';
 import type { z } from 'zod';

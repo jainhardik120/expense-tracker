@@ -16,17 +16,13 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import { user } from './auth-schema';
+import { recurringPaymentFrequencies, smsTransactionStatuses, statementKinds } from './enums';
 
 /** Most Indian employers pay towards the end of the month. */
 const DEFAULT_PAY_DAY = 25;
 
 // Expense Tracker Schema
-export const statementKindEnum = pgEnum('statement_kinds', [
-  'expense',
-  'outside_transaction',
-  'friend_transaction',
-  'self_transfer',
-]);
+export const statementKindEnum = pgEnum('statement_kinds', statementKinds);
 
 export const bankAccount = pgTable(
   'bank_account',
@@ -288,13 +284,10 @@ export const emis = pgTable(
   (table) => [index('emis_user_idx').on(table.userId)],
 );
 
-export const recurringPaymentFrequencyEnum = pgEnum('recurring_payment_frequency', [
-  'daily',
-  'weekly',
-  'monthly',
-  'quarterly',
-  'yearly',
-]);
+export const recurringPaymentFrequencyEnum = pgEnum(
+  'recurring_payment_frequency',
+  recurringPaymentFrequencies,
+);
 
 export const smsTransactionTypeEnum = pgEnum('sms_transaction_type', [
   'income',
@@ -304,11 +297,7 @@ export const smsTransactionTypeEnum = pgEnum('sms_transaction_type', [
   'investment',
 ]);
 
-export const smsTransactionStatusEnum = pgEnum('sms_transaction_status', [
-  'pending',
-  'inserted',
-  'junked',
-]);
+export const smsTransactionStatusEnum = pgEnum('sms_transaction_status', smsTransactionStatuses);
 
 export const recurringPayments = pgTable(
   'recurring_payments',

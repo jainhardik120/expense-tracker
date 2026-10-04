@@ -1,5 +1,3 @@
-import { Decimal } from 'decimal.js';
-import { createSelectSchema } from 'drizzle-zod';
 import {
   parseAsArrayOf,
   parseAsInteger,
@@ -10,7 +8,7 @@ import {
 } from 'nuqs/server';
 import { z } from 'zod';
 
-import { user } from '@/db/auth-schema';
+import { recurringPaymentFrequencies, smsTransactionStatuses, statementKinds } from '@/db/enums';
 import {
   type bankAccount,
   type creditCardAccounts,
@@ -18,11 +16,8 @@ import {
   type friendsProfiles,
   type investments,
   type selfTransferStatements,
-  statementKindEnum,
   type statements,
   type recurringPayments,
-  recurringPaymentFrequencyEnum,
-  smsTransactionStatusEnum,
   type smsNotifications,
 } from '@/db/schema';
 import { investmentKindValues, isUnitBasedInvestment, stockMarketValues } from '@/lib/investments';
@@ -73,7 +68,7 @@ export const createStatementSchema = z.object({
   // same absence, which the handlers store as null.
   accountId: z.string().nullish(),
   friendId: z.string().nullish(),
-  statementKind: z.enum(statementKindEnum.enumValues),
+  statementKind: z.enum(statementKinds),
   createdAt: z.date(),
 });
 
@@ -157,7 +152,7 @@ export const createCreditCardAccountSchema = z.object({
   billingDate: creditCardBillingDateSchema,
 });
 
-export type StatementKind = (typeof statementKindEnum.enumValues)[number];
+export type StatementKind = (typeof statementKinds)[number];
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
 export type SMSNotification = typeof smsNotifications.$inferSelect;
@@ -290,16 +285,6 @@ export const accountSummarySchema = z
 
 export type AccountSummary = z.infer<typeof accountSummarySchema>;
 
-export const defaultAccountSummary = {
-  startingBalance: new Decimal(0),
-  expenses: new Decimal(0),
-  selfTransfers: new Decimal(0),
-  outsideTransactions: new Decimal(0),
-  friendTransactions: new Decimal(0),
-  totalTransfers: new Decimal(0),
-  finalBalance: new Decimal(0),
-};
-
 export const friendTransferSummarySchema = z.object({
   paidByFriend: z.number(),
   splits: z.number(),
@@ -353,15 +338,6 @@ export const statementsResponseSchema = z.object({
   pageCount: z.number(),
   rowsCount: rowsCountSchema,
 });
-
-export const defaultFriendSummary = {
-  startingBalance: new Decimal(0),
-  paidByFriend: new Decimal(0),
-  splits: new Decimal(0),
-  friendTransactions: new Decimal(0),
-  totalTransfers: new Decimal(0),
-  finalBalance: new Decimal(0),
-};
 
 /**
  * A period's totals without its per-account and per-friend breakdown.
@@ -427,14 +403,6 @@ export type DateRange = {
   start: Date;
   end: Date;
 };
-
-export const userSchema = createSelectSchema(user).extend({
-  twoFactorEnabled: z.boolean().optional(),
-  image: z.string().nullish(),
-  role: z.string().nullish(),
-  banReason: z.string().nullish(),
-  banExpires: z.date().nullish(),
-});
 
 export const DEFAULT_PAGE_SIZE = 10;
 
@@ -502,7 +470,7 @@ export const statementParser = {
   account: parseAsArrayOf(parseAsString, ',').withDefault([]),
   category: parseAsArrayOf(parseAsString, ',').withDefault([]),
   tags: parseAsArrayOf(parseAsString, ',').withDefault([]),
-  statementKind: parseAsArrayOf(parseAsStringEnum(statementKindEnum.enumValues), ',').withDefault(
+  statementKind: parseAsArrayOf(parseAsStringEnum([...statementKinds]), ',').withDefault(
     [],
   ),
 };
@@ -522,7 +490,7 @@ export const emiParser = {
 
 export const smsNotificationParser = {
   ...pageParser,
-  status: parseAsArrayOf(parseAsStringEnum(smsTransactionStatusEnum.enumValues), ',').withDefault([
+  status: parseAsArrayOf(parseAsStringEnum([...smsTransactionStatuses]), ',').withDefault([
     'pending',
   ]),
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
@@ -536,7 +504,7 @@ export const statementParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
   sort: statementSortParamSchema,
-  statementKind: z.array(z.enum(statementKindEnum.enumValues)).optional().default([]),
+  statementKind: z.array(z.enum(statementKinds)).optional().default([]),
   account: z.string().array().optional().default([]),
   category: z.string().array().optional().default([]),
   tags: z.string().array().optional().default([]),
@@ -640,12 +608,12 @@ export interface EMICalculationResult {
 
 // Recurring Payments
 export type RecurringPayment = typeof recurringPayments.$inferSelect;
-export type RecurringPaymentFrequency = (typeof recurringPaymentFrequencyEnum.enumValues)[number];
+export type RecurringPaymentFrequency = (typeof recurringPaymentFrequencies)[number];
 
 export const createRecurringPaymentSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   amount: amount,
-  frequency: z.enum(recurringPaymentFrequencyEnum.enumValues),
+  frequency: z.enum(recurringPaymentFrequencies),
   frequencyMultiplier: amount.default('1'),
   startDate: z.date(),
   endDate: z.date().nullable(),
@@ -656,7 +624,7 @@ export const recurringPaymentParser = {
   ...pageParser,
   category: parseAsArrayOf(parseAsString, ',').withDefault([]),
   frequency: parseAsArrayOf(
-    parseAsStringEnum(recurringPaymentFrequencyEnum.enumValues),
+    parseAsStringEnum([...recurringPaymentFrequencies]),
     ',',
   ).withDefault([]),
 };
@@ -664,7 +632,7 @@ export const recurringPaymentParser = {
 export const recurringPaymentParserSchema = z.object({
   ...pageSchema,
   category: z.string().array().optional().default([]),
-  frequency: z.array(z.enum(recurringPaymentFrequencyEnum.enumValues)).optional().default([]),
+  frequency: z.array(z.enum(recurringPaymentFrequencies)).optional().default([]),
 });
 
 export const createSmsNotificationSchema = z.object({

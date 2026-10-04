@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { statementKindEnum } from '@/db/schema';
+import { statementKinds } from '@/db/enums';
 
 /**
  * Which statements a budget line claims.
@@ -14,7 +14,7 @@ export const budgetRuleSchema = z.object({
   tags: z.array(z.string()).default([]),
   /** Account or friend ids, matched the same way the statements filter does. */
   accounts: z.array(z.string()).default([]),
-  statementKinds: z.array(z.enum(statementKindEnum.enumValues)).default([]),
+  statementKinds: z.array(z.enum(statementKinds)).default([]),
   /**
    * Bounds on the amount, which is how a bonus is told apart from the salary it
    * arrives with: both are salary, only one is regular.
