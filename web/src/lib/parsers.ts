@@ -1,8 +1,8 @@
 import { createParser } from 'nuqs/server';
 import { z } from 'zod';
 
-import { dataTableConfig } from '@/config/data-table';
-import type { ExtendedColumnFilter, ExtendedColumnSort } from '@/types/data-table';
+import type { dataTableConfig } from '@/config/data-table';
+import type { ExtendedColumnSort } from '@/types/data-table';
 
 const sortingItemSchema = z.object({
   id: z.string(),
@@ -69,29 +69,10 @@ export const sortStateParser = <TId extends string = string>(columnIds?: readonl
     columnIds === undefined ? undefined : [...columnIds],
   );
 
-const filterItemSchema = z.object({
-  id: z.string(),
-  value: z.union([z.string(), z.array(z.string())]),
-  variant: z.enum(dataTableConfig.filterVariants),
-  operator: z.enum(dataTableConfig.operators),
-  filterId: z.string(),
-});
-
-export type FilterItemSchema = z.infer<typeof filterItemSchema>;
-
-export const getFiltersStateParser = <TData>(columnIds?: string[] | Set<string>) => {
-  return createGenericParser<ExtendedColumnFilter<TData>>(
-    z.array(filterItemSchema),
-    (value) => JSON.stringify(value),
-    (a, b) =>
-      a.length === b.length &&
-      a.every(
-        (filter, index) =>
-          filter.id === b[index]?.id &&
-          filter.value === b[index]?.value &&
-          filter.variant === b[index]?.variant &&
-          filter.operator === b[index]?.operator,
-      ),
-    columnIds,
-  );
+export type FilterItemSchema = {
+  id: string;
+  value: string | string[];
+  variant: (typeof dataTableConfig.filterVariants)[number];
+  operator: (typeof dataTableConfig.operators)[number];
+  filterId: string;
 };

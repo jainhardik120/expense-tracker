@@ -21,7 +21,7 @@ import {
   type Statement,
   type Account,
   type Friend,
-  MINUTES,
+  MS_PER_MINUTE,
   statementParser,
 } from '@/types';
 
@@ -197,9 +197,13 @@ const Table = ({
                 : droppedItem.newIndex;
             let updatedTimestamp: Date;
             if (prevIndex < 0) {
-              updatedTimestamp = new Date(data.statements[nextIndex].createdAt.getTime() + MINUTES);
+              updatedTimestamp = new Date(
+                data.statements[nextIndex].createdAt.getTime() + MS_PER_MINUTE,
+              );
             } else {
-              updatedTimestamp = new Date(data.statements[prevIndex].createdAt.getTime() - MINUTES);
+              updatedTimestamp = new Date(
+                data.statements[prevIndex].createdAt.getTime() - MS_PER_MINUTE,
+              );
             }
             if (isSelfTransfer(droppedItem.item)) {
               await updateSelfTransferStatement.mutateAsync({

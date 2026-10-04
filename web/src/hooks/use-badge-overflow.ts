@@ -170,7 +170,3 @@ export const useBadgeOverflow = <T>({
     overflowBadgeWidth,
   ]);
 };
-
-export const clearBadgeWidthCache = (): void => {
-  badgeWidthCache.clear();
-};

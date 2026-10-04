@@ -79,14 +79,6 @@ export const { createCallerFactory } = t;
 
 export const createTRPCRouter = t.router;
 
-export const publicProcedure = t.procedure.use(timingMiddleware).use(async ({ ctx, next }) => {
-  return next({
-    ctx: {
-      ...ctx,
-    },
-  });
-});
-
 const getUser = instrumentedFunction('getUser', async (ctx: Context) => {
   const { headers } = ctx;
   const authHeader = headers.get('Authorization');

@@ -5,10 +5,7 @@ import { useState } from 'react';
 import {
   QueryClientProvider,
   type QueryKey,
-  useQueryClient,
   type QueryClient,
-  useMutation,
-  type UseMutationOptions,
   type DefaultError,
   type UndefinedInitialDataOptions,
   useQuery,
@@ -49,36 +46,6 @@ export const TRPCReactProvider = (props: { readonly children: React.ReactNode })
       </TRPCProvider>
     </QueryClientProvider>
   );
-};
-
-export const useInvalidateQuery = () => {
-  const queryClient = useQueryClient();
-  const trpc = useTRPC();
-  return async (
-    queryFn: (apiInstance: typeof trpc) => {
-      queryKey: () => QueryKey;
-    },
-  ) => {
-    const queryKey = queryFn(trpc).queryKey();
-    await queryClient.invalidateQueries({
-      queryKey,
-    });
-  };
-};
-
-export const useTRPCMutation = <
-  TData = unknown,
-  TError = DefaultError,
-  TVariables = void,
-  TOnMutateResult = unknown,
->(
-  options: (
-    api: ReturnType<typeof useTRPC>,
-  ) => UseMutationOptions<TData, TError, TVariables, TOnMutateResult>,
-) => {
-  const trpc = useTRPC();
-  const mutationOptions = options(trpc);
-  return useMutation(mutationOptions);
 };
 
 export const useTRPCQuery = <

@@ -5,13 +5,7 @@ import { cache } from 'react';
 
 import { headers } from 'next/headers';
 
-import {
-  type DefaultError,
-  dehydrate,
-  type FetchQueryOptions,
-  HydrationBoundary,
-  type QueryKey,
-} from '@tanstack/react-query';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createHydrationHelpers } from '@trpc/react-query/rsc';
 import {
   createTRPCOptionsProxy,
@@ -52,20 +46,4 @@ export const prefetch = <S extends ResolverDef, T extends ReturnType<TRPCQueryOp
   queryOptions: (trpcInstance: typeof trpc) => T,
 ) => {
   void getQueryClient().prefetchQuery(queryOptions(trpc));
-};
-
-export const fetchQuery = <
-  TQueryFnData,
-  TError = DefaultError,
-  TData = TQueryFnData,
-  TQueryKey extends QueryKey = QueryKey,
-  TPageParam = never,
->(
-  queryOptions: (
-    trpcInstance: typeof trpc,
-  ) => FetchQueryOptions<TQueryFnData, TError, TData, TQueryKey, TPageParam>,
-): Promise<TData> => {
-  const queryClient = getQueryClient();
-  const options = queryOptions(trpc);
-  return queryClient.fetchQuery(options);
 };

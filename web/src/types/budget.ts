@@ -60,7 +60,3 @@ export const budgetIncomeLineSchema = z.object({
 });
 
 export const budgetLineFormSchema = budgetLineSchema.extend({ budgetYearId: z.string() });
-
-export type BudgetYearInput = z.infer<typeof budgetYearSchema>;
-export type BudgetLineInput = z.infer<typeof budgetLineSchema>;
-export type BudgetIncomeLineInput = z.infer<typeof budgetIncomeLineSchema>;

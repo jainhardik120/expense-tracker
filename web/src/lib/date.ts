@@ -106,11 +106,6 @@ export const formatTruncatedPeriodSpan = (
   return `${sameYear ? startText.slice(0, -YEAR_LENGTH) : startText} – ${endText}`;
 };
 
-const ISO_DATE_LENGTH = 10;
-
-export const localDay = (date: Date, timeZone: string): string =>
-  localWallClock(date, timeZone).slice(0, ISO_DATE_LENGTH);
-
 export const getDefaultDateRange = (timezone: string) => {
   const now = new Date();
   const localNow = toZonedTime(now, timezone);

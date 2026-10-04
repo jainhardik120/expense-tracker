@@ -1,3 +1,5 @@
+import { MS_PER_DAY } from '@/types';
+
 export const INDIA_NEW_REGIME_STANDARD_DEDUCTION = 75_000;
 export const INDIA_HEALTH_EDUCATION_CESS_RATE = 0.04;
 export const SALARY_NET_MISMATCH_TOLERANCE = 10;
@@ -153,10 +155,9 @@ export const buildRevisionSchedule = (
     const monthEnd = new Date(Date.UTC(year, month + 1, 1, MIDDAY_UTC_HOUR));
     const intersectionStart = new Date(Math.max(monthStart.getTime(), activeStart.getTime()));
     const intersectionEnd = new Date(Math.min(monthEnd.getTime(), activeEnd.getTime()));
-    const millisecondsPerDay = 86_400_000;
     const daysPaid = Math.max(
       0,
-      Math.round((intersectionEnd.getTime() - intersectionStart.getTime()) / millisecondsPerDay),
+      Math.round((intersectionEnd.getTime() - intersectionStart.getTime()) / MS_PER_DAY),
     );
 
     if (daysPaid > 0) {

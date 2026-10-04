@@ -3,7 +3,7 @@ import { loggerLink, httpBatchStreamLink } from '@trpc/client';
 import { SuperJSON } from 'superjson';
 
 import { getBaseUrl } from '@/lib/getBaseUrl';
-import { SECONDS } from '@/types';
+import { MS_PER_SECOND } from '@/types';
 
 const STALE_TIME_SECONDS = 30;
 
@@ -11,7 +11,7 @@ export const createQueryClient = (): QueryClient =>
   new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: STALE_TIME_SECONDS * SECONDS,
+        staleTime: STALE_TIME_SECONDS * MS_PER_SECOND,
       },
       dehydrate: {
         serializeData: SuperJSON.serialize,

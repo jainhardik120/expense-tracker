@@ -11,7 +11,6 @@ import { z } from 'zod';
 import { recurringPaymentFrequencies, smsTransactionStatuses, statementKinds } from '@/db/enums';
 import {
   type bankAccount,
-  type creditCardAccounts,
   type emis,
   type friendsProfiles,
   type investments,
@@ -19,7 +18,6 @@ import {
   type reportBoundaries,
   type statements,
   type recurringPayments,
-  type smsNotifications,
 } from '@/db/schema';
 import { investmentKindValues, isUnitBasedInvestment, stockMarketValues } from '@/lib/investments';
 import { sortStateParser } from '@/lib/parsers';
@@ -155,7 +153,6 @@ export type LinkedStatement = Pick<typeof statements.$inferSelect, 'id' | 'amoun
 export type ReportBoundary = typeof reportBoundaries.$inferSelect;
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
-export type SMSNotification = typeof smsNotifications.$inferSelect;
 export type Statement = Omit<
   typeof statements.$inferSelect,
   'statementKind' | 'additionalAttributes'
@@ -246,7 +243,6 @@ export const rowsCountSchema = z.object({
   statementCount: z.number(),
   selfTransferStatementCount: z.number(),
 });
-export type CreditCardAccount = typeof creditCardAccounts.$inferSelect;
 export type Emi = typeof emis.$inferSelect;
 export const accountTransferSummarySchema = z.object({
   expenses: z.number(),
@@ -381,11 +377,6 @@ export const MS_PER_MINUTE = MS_PER_SECOND * SECONDS_PER_MINUTE;
 export const MS_PER_HOUR = MS_PER_MINUTE * MINUTES_PER_HOUR;
 export const MS_PER_DAY = MS_PER_HOUR * HOURS_PER_DAY;
 
-export const SECONDS = MS_PER_SECOND;
-export const MINUTES = MS_PER_MINUTE;
-export const HOURS = MS_PER_HOUR;
-export const DAYS = MS_PER_DAY;
-
 export const dateParser = {
   start: parseAsTimestamp,
   end: parseAsTimestamp,
@@ -470,10 +461,6 @@ export const smsNotificationParser = {
   status: parseAsArrayOf(parseAsStringEnum([...smsTransactionStatuses]), ',').withDefault([
     'pending',
   ]),
-  date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
-};
-
-export const summaryParser = {
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
 

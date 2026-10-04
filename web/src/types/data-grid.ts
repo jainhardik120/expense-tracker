@@ -242,9 +242,3 @@ export type FilterOperator =
   | DateFilterOperator
   | SelectFilterOperator
   | BooleanFilterOperator;
-
-export interface FilterValue {
-  operator: FilterOperator;
-  value?: string | number | string[];
-  endValue?: string | number;
-}
