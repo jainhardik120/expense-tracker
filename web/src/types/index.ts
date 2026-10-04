@@ -149,6 +149,7 @@ export const createCreditCardAccountSchema = z.object({
 });
 
 export type StatementKind = (typeof statementKinds)[number];
+export type PaymentStatus = 'paid' | 'missed' | 'upcoming';
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
 export type SMSNotification = typeof smsNotifications.$inferSelect;

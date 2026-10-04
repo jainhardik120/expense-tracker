@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { CreditCard, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { type z } from 'zod';
@@ -32,7 +32,7 @@ export const CreditCardDialog = ({
   accountName,
   existingCreditCard,
   trigger,
-}: CreditCardDialogProps & { trigger?: React.ReactNode }) => {
+}: CreditCardDialogProps & { trigger: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(existingCreditCard !== null);
   const router = useRouter();
@@ -126,17 +126,7 @@ export const CreditCardDialog = ({
       open={open}
       setOpen={handleOpenChange}
       title={isExistingCreditCard ? 'Manage Credit Card' : 'Convert to Credit Card'}
-      trigger={
-        trigger ?? (
-          <Button
-            className="size-8"
-            size="icon"
-            variant={isExistingCreditCard ? 'default' : 'ghost'}
-          >
-            <CreditCard className="size-4" />
-          </Button>
-        )
-      }
+      trigger={trigger}
     >
       {!showForm && !isExistingCreditCard ? (
         <div className="flex flex-col gap-4">

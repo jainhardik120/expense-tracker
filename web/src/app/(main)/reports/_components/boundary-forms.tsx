@@ -68,15 +68,11 @@ export const UpdateBoundaryForm = ({
         boundaryDate: initialDate,
       }}
       fields={fields}
-      mutation={{
-        ...mutation,
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            id: boundaryId,
-            boundaryDate: values.boundaryDate,
-          });
-        },
-      }}
+      mapInput={(values) => ({
+        id: boundaryId,
+        boundaryDate: values.boundaryDate,
+      })}
+      mutation={mutation}
       refresh={refresh}
       schema={createBoundarySchema}
       successToast={() => 'Boundary updated successfully'}

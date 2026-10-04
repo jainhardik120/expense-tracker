@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { SquarePen } from 'lucide-react';
 import { type z } from 'zod';
 
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
@@ -120,19 +119,13 @@ export const UpdateEmiForm = ({
   emiId: string;
   initialData: Emi;
   creditCards: CreditCard[];
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const mutation = api.emis.updateEmi.useMutation();
 
   return (
     <MutationModal
-      button={
-        trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <SquarePen />
-          </Button>
-        )
-      }
+      button={trigger}
       defaultValues={{
         ...initialData,
         calculationMode: 'principal' as const,
@@ -140,15 +133,11 @@ export const UpdateEmiForm = ({
         totalEmiAmount: '',
       }}
       fields={createEmiFormFields(creditCards)}
-      mutation={{
-        ...mutation,
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            id: emiId,
-            ...values,
-          });
-        },
-      }}
+      mapInput={(values) => ({
+        id: emiId,
+        ...values,
+      })}
+      mutation={mutation}
       refresh={refresh}
       schema={createEmiSchema}
       successToast={(result) => `${result.length} EMI(s) updated`}

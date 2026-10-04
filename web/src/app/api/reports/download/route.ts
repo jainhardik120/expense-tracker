@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import logger from '@/lib/logger';
+import { errorMessage } from '@/lib/utils';
 import { loadUserReport } from '@/server/reports/prepare';
 import { renderOneAtATime } from '@/server/reports/render-queue';
 
@@ -44,7 +45,7 @@ export const POST = async (request: Request) => {
     });
   } catch (error) {
     logger.error('Report render failed', {
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     return new Response(error instanceof Error ? error.message : 'Render failed', { status: 500 });
   }

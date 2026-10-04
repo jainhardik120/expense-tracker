@@ -13,6 +13,21 @@ type SummaryData = Pick<RouterOutput['summary']['getAggregatedData'], 'accountsS
 
 const UTILISATION_DECIMALS = 1;
 
+const LimitRow = ({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  highlight?: boolean;
+}) => (
+  <div className="flex justify-between">
+    <span className="text-muted-foreground">{label}</span>
+    <span className={highlight ? 'font-medium text-green-600' : 'font-medium'}>{value}</span>
+  </div>
+);
+
 export const CreditCardsCard = ({
   creditData,
   summaryData,
@@ -68,20 +83,13 @@ export const CreditCardsCard = ({
                       </span>
                     </div>
                     <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Utilized:</span>
-                        <span className="font-medium">{formatCurrency(limitUtilized)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Available:</span>
-                        <span className="font-medium text-green-600">
-                          {formatCurrency(availableLimit)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Billing Date:</span>
-                        <span className="font-medium">{formatOrdinalDay(card.billingDate)}</span>
-                      </div>
+                      <LimitRow label="Utilized:" value={formatCurrency(limitUtilized)} />
+                      <LimitRow
+                        highlight
+                        label="Available:"
+                        value={formatCurrency(availableLimit)}
+                      />
+                      <LimitRow label="Billing Date:" value={formatOrdinalDay(card.billingDate)} />
                     </div>
                     <div className="bg-muted mt-2 h-2 overflow-hidden rounded-full">
                       <div
@@ -97,37 +105,23 @@ export const CreditCardsCard = ({
                   <div className="space-y-2">
                     <h4 className="font-semibold">{card.accountName}</h4>
                     <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Current Balance:</span>
-                        <span className="font-medium">
-                          {formatCurrency(Math.abs(currentBalance))}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">EMI Outstanding:</span>
-                        <span className="font-medium">
-                          {formatCurrency(details.outstandingBalance)}
-                        </span>
-                      </div>
+                      <LimitRow
+                        label="Current Balance:"
+                        value={formatCurrency(Math.abs(currentBalance))}
+                      />
+                      <LimitRow
+                        label="EMI Outstanding:"
+                        value={formatCurrency(details.outstandingBalance)}
+                      />
                       <div className="border-t pt-1" />
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Limit Utilized:</span>
-                        <span className="font-medium">{formatCurrency(limitUtilized)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Limit:</span>
-                        <span className="font-medium">{formatCurrency(totalLimit)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Available Limit:</span>
-                        <span className="font-medium text-green-600">
-                          {formatCurrency(availableLimit)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Billing Date:</span>
-                        <span className="font-medium">{formatOrdinalDay(card.billingDate)}</span>
-                      </div>
+                      <LimitRow label="Limit Utilized:" value={formatCurrency(limitUtilized)} />
+                      <LimitRow label="Total Limit:" value={formatCurrency(totalLimit)} />
+                      <LimitRow
+                        highlight
+                        label="Available Limit:"
+                        value={formatCurrency(availableLimit)}
+                      />
+                      <LimitRow label="Billing Date:" value={formatOrdinalDay(card.billingDate)} />
                     </div>
                   </div>
                 </HoverCardContent>

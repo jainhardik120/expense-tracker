@@ -24,6 +24,7 @@ import {
   type InvestmentCategoryValue,
   type InvestmentKindValue,
   FX_RATE_DECIMALS,
+  mergeTimelines,
 } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -124,25 +125,7 @@ const mergeDashboard = (
   const pnl = summary.valuationAmount - summary.investedAmount;
   const timeline =
     marketData.length === investmentKindValues.length
-      ? [
-          ...marketData
-            .flatMap((data) => data.dashboard.timeline)
-            .reduce((points, point) => {
-              const key = point.date.toISOString();
-              const existing = points.get(key) ?? {
-                date: point.date,
-                investedAmount: 0,
-                valuationAmount: 0,
-                pnl: 0,
-              };
-              existing.investedAmount += point.investedAmount;
-              existing.valuationAmount += point.valuationAmount;
-              existing.pnl += point.pnl;
-              points.set(key, existing);
-              return points;
-            }, new Map<string, InvestmentsPageData['dashboard']['timeline'][number]>())
-            .values(),
-        ]
+      ? mergeTimelines(marketData.flatMap((data) => data.dashboard.timeline))
       : initialDashboard.timeline;
 
   return {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { SquareSlash, Trash } from 'lucide-react';
+import { Trash } from 'lucide-react';
 import { toast } from 'sonner';
 import { type z } from 'zod';
 
@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { errorMessage } from '@/lib/utils';
 import { api } from '@/server/react';
 import { createEmiSplitSchema, type Emi, PERCENTAGE_DIVISOR } from '@/types';
 
@@ -49,7 +50,7 @@ export const EmiSplitsDialog = ({
 }: {
   emiId: string;
   emiData: Emi;
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const [open, setOpen] = useState(false);
   const { data: friends = [] } = api.friends.getFriends.useQuery(undefined, { enabled: open });
@@ -76,7 +77,7 @@ export const EmiSplitsDialog = ({
       await refetch();
       toast.success('Split added successfully');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(errorMessage(error));
     }
   };
 
@@ -94,7 +95,7 @@ export const EmiSplitsDialog = ({
       await refetch();
       toast.success('Split updated successfully');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(errorMessage(error));
     }
   };
 
@@ -107,7 +108,7 @@ export const EmiSplitsDialog = ({
       await refetch();
       toast.success('Split deleted successfully');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(errorMessage(error));
     }
   };
 
@@ -117,13 +118,7 @@ export const EmiSplitsDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <SquareSlash />
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>EMI Splits</DialogTitle>

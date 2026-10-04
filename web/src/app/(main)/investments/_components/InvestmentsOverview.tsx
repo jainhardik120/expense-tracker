@@ -28,6 +28,7 @@ import {
   investmentTimelineRangeDays,
   normalizeStockMarket,
   type StockMarketValue,
+  mergeTimelines,
 } from '@/lib/investments';
 import { cn } from '@/lib/utils';
 import { api } from '@/server/react';
@@ -204,25 +205,9 @@ export const InvestmentsOverview = ({
   const remoteTimelineData = timelineQueries.flatMap((query) =>
     query.data === undefined ? [] : [query.data],
   );
-  const remotePortfolioTimeline = [
-    ...remoteTimelineData
-      .flatMap((data) => data.timeline)
-      .reduce((points, point) => {
-        const key = point.date.toISOString();
-        const existing = points.get(key) ?? {
-          date: point.date,
-          investedAmount: 0,
-          valuationAmount: 0,
-          pnl: 0,
-        };
-        existing.investedAmount += point.investedAmount;
-        existing.valuationAmount += point.valuationAmount;
-        existing.pnl += point.pnl;
-        points.set(key, existing);
-        return points;
-      }, new Map<string, DashboardData['timeline'][number]>())
-      .values(),
-  ].sort((left, right) => left.date.getTime() - right.date.getTime());
+  const remotePortfolioTimeline = mergeTimelines(
+    remoteTimelineData.flatMap((data) => data.timeline),
+  ).sort((left, right) => left.date.getTime() - right.date.getTime());
 
   let selectedTimelineEntries = instrumentTimelines;
   let selectedCategoryTimelineEntries = categoryTimelines;

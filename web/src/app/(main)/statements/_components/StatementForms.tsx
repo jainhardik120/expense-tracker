@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { SquarePen } from 'lucide-react';
 import { useQueryStates } from 'nuqs';
 import { type z } from 'zod';
 
@@ -160,7 +159,7 @@ export const UpdateStatementForm = ({
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const mutation = api.statements.updateStatement.useMutation();
   const formFields = useMemo(
@@ -169,25 +168,15 @@ export const UpdateStatementForm = ({
   );
   return (
     <MutationModal
-      button={
-        trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <SquarePen />
-          </Button>
-        )
-      }
+      button={trigger}
       defaultValues={{
         ...initialData,
         accountId: initialData.accountId ?? undefined,
         friendId: initialData.friendId ?? undefined,
       }}
       fields={formFields}
-      mutation={{
-        ...mutation,
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({ ...values, id: statementId });
-        },
-      }}
+      mapInput={(values) => ({ ...values, id: statementId })}
+      mutation={mutation}
       refresh={refresh}
       schema={createStatementSchema}
       successToast={(result) => `${result.length} statement(s) updated`}

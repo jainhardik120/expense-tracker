@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { SquarePen } from 'lucide-react';
 import { type z } from 'zod';
 
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
@@ -107,27 +106,17 @@ export const UpdateSelfTransferStatementForm = ({
   statementId: string;
   initialData: SelfTransferStatement;
   accountsData: Account[];
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const mutation = api.statements.updateSelfTransferStatement.useMutation();
   const formFields = useMemo(() => statementFormFields(accountsData), [accountsData]);
   return (
     <MutationModal
-      button={
-        trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <SquarePen />
-          </Button>
-        )
-      }
+      button={trigger}
       defaultValues={initialData}
       fields={formFields}
-      mutation={{
-        ...mutation,
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({ ...values, id: statementId });
-        },
-      }}
+      mapInput={(values) => ({ ...values, id: statementId })}
+      mutation={mutation}
       refresh={refresh}
       schema={createSelfTransferSchema}
       successToast={(result) => `${result.length} statement(s) updated`}

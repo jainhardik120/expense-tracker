@@ -280,12 +280,17 @@ const RenderedCheckboxInput = <T extends FieldValues = FieldValues>(props: Field
   />
 );
 
+const renderTextInput = (type?: 'password' | 'email' | 'tel' | 'url') => {
+  const RenderedTextInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
+    <Input placeholder={props.formField.placeholder} type={type} {...props.field} id={props.id} />
+  );
+  return RenderedTextInput;
+};
+
 export const RenderedFormFields: {
   [key: string]: <T extends FieldValues>(props: FieldProps<T>) => ReactNode;
 } = {
-  input: (props) => (
-    <Input placeholder={props.formField.placeholder} {...props.field} id={props.id} />
-  ),
+  input: renderTextInput(),
   autocompleteInput: (props) => (
     <Autocomplete
       options={props.formField.options ?? []}
@@ -307,23 +312,10 @@ export const RenderedFormFields: {
   textarea: (props) => (
     <Textarea placeholder={props.formField.placeholder} {...props.field} id={props.id} />
   ),
-  password: (props) => (
-    <Input
-      placeholder={props.formField.placeholder}
-      type="password"
-      {...props.field}
-      id={props.id}
-    />
-  ),
-  email: (props) => (
-    <Input placeholder={props.formField.placeholder} type="email" {...props.field} id={props.id} />
-  ),
-  tel: (props) => (
-    <Input placeholder={props.formField.placeholder} type="tel" {...props.field} id={props.id} />
-  ),
-  url: (props) => (
-    <Input placeholder={props.formField.placeholder} type="url" {...props.field} id={props.id} />
-  ),
+  password: renderTextInput('password'),
+  email: renderTextInput('email'),
+  tel: renderTextInput('tel'),
+  url: renderTextInput('url'),
   integer: RenderedIntegerInput,
   date: RenderedDateInput,
   time: RenderedTimeInput,

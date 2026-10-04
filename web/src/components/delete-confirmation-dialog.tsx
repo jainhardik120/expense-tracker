@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { errorMessage } from '@/lib/utils';
 
 type DeleteConfirmationDialogProps<T, MutationResult> = {
   mutationInput: T;
@@ -68,7 +69,7 @@ const DeleteConfirmationDialog = <T, MutationResult>({
                 })
                 .catch((err) => {
                   setOpen(false);
-                  toast.error(err instanceof Error ? err.message : String(err));
+                  toast.error(errorMessage(err));
                 });
             }}
           >

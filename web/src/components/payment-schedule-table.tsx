@@ -5,11 +5,11 @@ import { useMemo } from 'react';
 import { isSameMonth } from 'date-fns';
 
 import { DataTable } from '@/components/data-table/data-table';
-import { Badge } from '@/components/ui/badge';
+import { PaymentStatusBadge } from '@/components/payment-status-badge';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat, type ZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
-import { type EMICalculationResult } from '@/types';
+import { type EMICalculationResult, type PaymentStatus } from '@/types';
 
 type LinkedStatement = {
   id: string;
@@ -18,7 +18,7 @@ type LinkedStatement = {
 };
 
 type ScheduleRowWithPayment = EMICalculationResult['schedule'][number] & {
-  paymentStatus: 'paid' | 'upcoming' | 'missed';
+  paymentStatus: PaymentStatus;
   linkedStatement?: LinkedStatement;
 };
 
@@ -27,24 +27,8 @@ interface PaymentScheduleTableProps {
   linkedStatements?: LinkedStatement[];
 }
 
-const StatusBadge = ({ status }: { status: 'paid' | 'upcoming' | 'missed' }) => {
-  const variants: Record<string, 'default' | 'outline' | 'destructive'> = {
-    paid: 'default',
-    upcoming: 'outline',
-    missed: 'destructive',
-  };
-
-  const labels: Record<string, string> = {
-    paid: 'Paid',
-    upcoming: 'Upcoming',
-    missed: 'Missed',
-  };
-
-  return <Badge variant={variants[status]}>{labels[status]}</Badge>;
-};
-
 const renderStatusCell = (row: ScheduleRowWithPayment) => (
-  <StatusBadge status={row.paymentStatus} />
+  <PaymentStatusBadge status={row.paymentStatus} />
 );
 
 // eslint-disable-next-line sonarjs/function-return-type

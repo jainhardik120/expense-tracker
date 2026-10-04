@@ -1,3 +1,4 @@
+import { formatCurrency } from '@/lib/format';
 import type { BudgetRule } from '@/types/budget';
 
 export type MatchableStatement = {
@@ -70,4 +71,27 @@ export const resolveLoanOwners = (
   }
 
   return owners;
+};
+
+export const describeRule = (rule: BudgetRule): string => {
+  const parts: string[] = [];
+  if (rule.categories.length > 0) {
+    parts.push(`category: ${rule.categories.join(', ')}`);
+  }
+  if (rule.tags.length > 0) {
+    parts.push(`tag: ${rule.tags.join(', ')}`);
+  }
+  if (rule.accounts.length > 0) {
+    parts.push(`${rule.accounts.length} account(s)`);
+  }
+  if (rule.statementKinds.length > 0) {
+    parts.push(rule.statementKinds.join(', '));
+  }
+  if (typeof rule.maxAmount === 'number') {
+    parts.push(`up to ${formatCurrency(rule.maxAmount)}`);
+  }
+  if (typeof rule.minAmount === 'number') {
+    parts.push(`over ${formatCurrency(rule.minAmount)}`);
+  }
+  return parts.length === 0 ? 'everything not claimed above' : parts.join(' · ');
 };

@@ -8,7 +8,6 @@ import { Info, SquarePen, SquareSlash, Trash } from 'lucide-react';
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
-import { Button } from '@/components/ui/button';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -20,7 +19,7 @@ import { EmiSplitsDialog } from './EmiSplits';
 type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
 type Emi = RouterOutput['emis']['getEmis']['emis'][number];
 
-const EMIDetailsDialog = ({ emi, trigger }: { emi: Emi; trigger?: React.ReactNode }) => {
+const EMIDetailsDialog = ({ emi, trigger }: { emi: Emi; trigger: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
   return (
     <Modal
@@ -28,13 +27,7 @@ const EMIDetailsDialog = ({ emi, trigger }: { emi: Emi; trigger?: React.ReactNod
       open={open}
       setOpen={setOpen}
       title={emi.name}
-      trigger={
-        trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <Info className="h-4 w-4" />
-          </Button>
-        )
-      }
+      trigger={trigger}
     >
       <EmiDetails emi={emi} />
     </Modal>

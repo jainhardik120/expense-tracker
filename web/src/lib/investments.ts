@@ -140,3 +140,24 @@ export const investmentTimelineRangeDays: Partial<Record<InvestmentTimelineRange
   '3m': 90,
   '6m': 180,
 };
+
+type TimelinePoint = { date: Date; investedAmount: number; valuationAmount: number; pnl: number };
+
+export const mergeTimelines = (points: TimelinePoint[]): TimelinePoint[] => [
+  ...points
+    .reduce((merged, point) => {
+      const key = point.date.toISOString();
+      const existing = merged.get(key) ?? {
+        date: point.date,
+        investedAmount: 0,
+        valuationAmount: 0,
+        pnl: 0,
+      };
+      existing.investedAmount += point.investedAmount;
+      existing.valuationAmount += point.valuationAmount;
+      existing.pnl += point.pnl;
+      merged.set(key, existing);
+      return merged;
+    }, new Map<string, TimelinePoint>())
+    .values(),
+];

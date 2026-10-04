@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/format';
+import { errorMessage } from '@/lib/utils';
 import { api } from '@/server/react';
 import type { Statement } from '@/types';
 
@@ -61,7 +62,7 @@ export const TaxableIncomeLinkOption = ({
       );
       onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(errorMessage(error));
     }
   };
 

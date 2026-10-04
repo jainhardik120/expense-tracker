@@ -9,6 +9,7 @@ import {
   type EMICalculatorFormValues,
   type EMIScheduleRow,
   MS_PER_DAY,
+  type PaymentStatus,
 } from '@/types';
 
 export const calculateEMI = (principal: number, monthlyRate: number, tenure: number): number => {
@@ -404,8 +405,6 @@ export const groupPaymentsByMonth = <T extends { month: string }>(
   }
   return paymentsByMonth;
 };
-
-export type PaymentStatus = 'paid' | 'missed' | 'upcoming';
 
 export type ScheduledEmiPayment = {
   emiId: string;

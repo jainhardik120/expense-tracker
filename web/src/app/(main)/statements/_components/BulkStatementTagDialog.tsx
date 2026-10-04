@@ -56,14 +56,11 @@ export const BulkStatementTagDialog = ({
       customDescription={<p>{description}</p>}
       defaultValues={{ tag: '' }}
       fields={fields}
-      mutation={{
-        mutateAsync: (values) =>
-          mutation.mutateAsync({
-            statementIds: taggable.map((row) => row.id),
-            tag: values.tag,
-          }),
-        isPending: mutation.isPending,
-      }}
+      mapInput={(values) => ({
+        statementIds: taggable.map((row) => row.id),
+        tag: values.tag,
+      })}
+      mutation={mutation}
       refresh={router.refresh}
       schema={bulkTagSchema}
       successToast={(result) =>

@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
+import { errorMessage } from '@/lib/utils';
 import { api } from '@/server/react';
 import type { ReportInput } from '@/server/reports/report-input';
 
@@ -106,7 +107,7 @@ export const TemplateEditor = ({
       setSaveState('saved');
     } catch (err) {
       setSaveState('error');
-      toast.error(err instanceof Error ? err.message : String(err));
+      toast.error(errorMessage(err));
     }
   }, SAVE_DEBOUNCE_MS);
 

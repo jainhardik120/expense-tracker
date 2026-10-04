@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { CircleOff, SquarePen } from 'lucide-react';
 import { type ControllerRenderProps, useFormContext, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -285,7 +284,7 @@ export const UpdateInvestmentForm = ({
   initialData: Investment & {
     normalizedKind?: string;
   };
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const mutation = api.investments.updateInvestment.useMutation();
   const normalizedKind = normalizeInvestmentKind(
@@ -294,13 +293,7 @@ export const UpdateInvestmentForm = ({
 
   return (
     <MutationModal
-      button={
-        trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <SquarePen />
-          </Button>
-        )
-      }
+      button={trigger}
       defaultValues={{
         investmentKind: normalizedKind,
         instrumentCode: initialData.instrumentCode ?? '',
@@ -314,15 +307,11 @@ export const UpdateInvestmentForm = ({
         annualRate: initialData.annualRate ?? '',
       }}
       fields={investmentFormFields}
-      mutation={{
-        ...mutation,
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            id: investmentId,
-            createInvestmentSchema: values,
-          });
-        },
-      }}
+      mapInput={(values) => ({
+        id: investmentId,
+        createInvestmentSchema: values,
+      })}
+      mutation={mutation}
       refresh={refresh}
       schema={createInvestmentSchema}
       successToast={(result) => `${result.length} investment(s) updated`}
@@ -358,33 +347,23 @@ export const CloseInvestmentForm = ({
 }: {
   investmentId: string;
   refresh?: () => void;
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const closeMutation = api.investments.closeInvestment.useMutation();
 
   return (
     <MutationModal
-      button={
-        trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <CircleOff />
-          </Button>
-        )
-      }
+      button={trigger}
       defaultValues={{
         closedAt: new Date(),
         closedAmount: '',
       }}
       fields={closeInvestmentFields}
-      mutation={{
-        ...closeMutation,
-        mutateAsync: (values) => {
-          return closeMutation.mutateAsync({
-            id: investmentId,
-            ...values,
-          });
-        },
-      }}
+      mapInput={(values) => ({
+        id: investmentId,
+        ...values,
+      })}
+      mutation={closeMutation}
       refresh={refresh}
       schema={closeInvestmentSchema}
       successToast={() => 'Investment closed'}

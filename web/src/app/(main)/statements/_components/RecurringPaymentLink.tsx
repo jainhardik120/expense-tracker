@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 
-import { Link, Unlink } from 'lucide-react';
 import { toast } from 'sonner';
 
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
@@ -42,7 +41,7 @@ export const LinkToRecurringPaymentDialog = ({
 }: {
   statement: Statement;
   onRefresh: () => void;
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const alreadyLinked = isAlreadyLinked(statement);
   return (
@@ -63,7 +62,7 @@ export const LinkDialog = ({
 }: {
   statement: Statement;
   onRefresh: () => void;
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
   alreadyLinked: ReturnType<typeof isAlreadyLinked>;
 }) => {
   const [open, setOpen] = useState(false);
@@ -82,18 +81,7 @@ export const LinkDialog = ({
       open={open}
       setOpen={setOpen}
       title="Link Statement"
-      trigger={
-        trigger ?? (
-          <Button
-            className="size-8"
-            size="icon"
-            title={alreadyLinked.isLinked ? 'Manage statement link' : 'Link Statement'}
-            variant="ghost"
-          >
-            {alreadyLinked.isLinked ? <Unlink className="h-4 w-4" /> : <Link className="h-4 w-4" />}
-          </Button>
-        )
-      }
+      trigger={trigger}
     >
       <div className="space-y-4">
         {alreadyLinked.isLinked ? (

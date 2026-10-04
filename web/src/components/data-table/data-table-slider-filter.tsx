@@ -32,6 +32,53 @@ interface DataTableSliderFilterProps<TData> {
   title?: string;
 }
 
+const RangeBoundInput = ({
+  id,
+  label,
+  min,
+  max,
+  unit,
+  placeholder,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  unit?: string;
+  placeholder: number;
+  value: number;
+  onChange: React.ChangeEventHandler<HTMLInputElement>;
+}) => (
+  <>
+    <Label className="sr-only" htmlFor={id}>
+      {label}
+    </Label>
+    <div className="relative">
+      <Input
+        aria-valuemax={max}
+        aria-valuemin={min}
+        className={cn('h-8 w-24', unit !== undefined && 'pr-8')}
+        id={id}
+        inputMode="numeric"
+        max={max}
+        min={min}
+        pattern="[0-9]*"
+        placeholder={placeholder.toString()}
+        type="number"
+        value={value.toString()}
+        onChange={onChange}
+      />
+      {unit !== undefined && (
+        <span className="bg-accent text-muted-foreground absolute top-0 right-0 bottom-0 flex items-center rounded-r-md px-2 text-sm">
+          {unit}
+        </span>
+      )}
+    </div>
+  </>
+);
+
 export const DataTableSliderFilter = <TData,>({
   column,
   title,
@@ -162,54 +209,26 @@ export const DataTableSliderFilter = <TData,>({
             {title}
           </p>
           <div className="flex items-center gap-4">
-            <Label className="sr-only" htmlFor={`${id}-from`}>
-              From
-            </Label>
-            <div className="relative">
-              <Input
-                aria-valuemax={max}
-                aria-valuemin={min}
-                className={cn('h-8 w-24', unit !== undefined && 'pr-8')}
-                id={`${id}-from`}
-                inputMode="numeric"
-                max={max}
-                min={min}
-                pattern="[0-9]*"
-                placeholder={min.toString()}
-                type="number"
-                value={range[0].toString()}
-                onChange={onFromInputChange}
-              />
-              {unit !== undefined && (
-                <span className="bg-accent text-muted-foreground absolute top-0 right-0 bottom-0 flex items-center rounded-r-md px-2 text-sm">
-                  {unit}
-                </span>
-              )}
-            </div>
-            <Label className="sr-only" htmlFor={`${id}-to`}>
-              to
-            </Label>
-            <div className="relative">
-              <Input
-                aria-valuemax={max}
-                aria-valuemin={min}
-                className={cn('h-8 w-24', unit !== undefined && 'pr-8')}
-                id={`${id}-to`}
-                inputMode="numeric"
-                max={max}
-                min={min}
-                pattern="[0-9]*"
-                placeholder={max.toString()}
-                type="number"
-                value={range[1].toString()}
-                onChange={onToInputChange}
-              />
-              {unit !== undefined && (
-                <span className="bg-accent text-muted-foreground absolute top-0 right-0 bottom-0 flex items-center rounded-r-md px-2 text-sm">
-                  {unit}
-                </span>
-              )}
-            </div>
+            <RangeBoundInput
+              id={`${id}-from`}
+              label="From"
+              max={max}
+              min={min}
+              placeholder={min}
+              unit={unit}
+              value={range[0]}
+              onChange={onFromInputChange}
+            />
+            <RangeBoundInput
+              id={`${id}-to`}
+              label="to"
+              max={max}
+              min={min}
+              placeholder={max}
+              unit={unit}
+              value={range[1]}
+              onChange={onToInputChange}
+            />
           </div>
           <Label className="sr-only" htmlFor={`${id}-slider`}>
             {title} slider

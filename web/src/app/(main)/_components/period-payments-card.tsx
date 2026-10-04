@@ -3,16 +3,17 @@
 import { useMemo } from 'react';
 
 import { DataTable } from '@/components/data-table/data-table';
+import { PAYMENT_STATUS_LABEL } from '@/components/payment-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
+import { type PaymentStatus } from '@/types';
 
 type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
 type SummaryData = Pick<RouterOutput['summary']['getAggregatedData'], 'accountsSummary'>;
-type PaymentStatus = 'paid' | 'missed' | 'upcoming';
 
 type PeriodPayment = {
   key: string;
@@ -34,14 +35,8 @@ const STATUS_VARIANT: Record<PaymentStatus, 'default' | 'destructive' | 'seconda
   upcoming: 'default',
 };
 
-const STATUS_LABEL: Record<PaymentStatus, string> = {
-  paid: 'Paid',
-  missed: 'Missed',
-  upcoming: 'Upcoming',
-};
-
 const StatusBadge = ({ status }: { status: PaymentStatus }) => (
-  <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
+  <Badge variant={STATUS_VARIANT[status]}>{PAYMENT_STATUS_LABEL[status]}</Badge>
 );
 
 type ZonedFormat = (date: Date, pattern: string) => string;

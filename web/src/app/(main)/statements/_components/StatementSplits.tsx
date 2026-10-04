@@ -8,7 +8,6 @@ import { DataTableActionBarAction } from '@/components/data-table/data-table-act
 import DynamicForm from '@/components/dynamic-form/dynamic-form';
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { errorMessage } from '@/lib/utils';
 import { api } from '@/server/react';
 import {
   type SelfTransferStatement,
@@ -75,7 +75,7 @@ export const StatementSplitsDialog = ({
 }: {
   statementId: string;
   statementData: Statement;
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const [open, setOpen] = useState(false);
   const { data: friends = [] } = api.friends.getFriends.useQuery(undefined, { enabled: open });
@@ -104,18 +104,12 @@ export const StatementSplitsDialog = ({
       }
       return refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error));
+      toast.error(errorMessage(error));
     }
   };
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <SquareSlash />
-          </Button>
-        )}
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Statement Splits</DialogTitle>
@@ -201,15 +195,11 @@ export const BulkStatementSplitsDialog = ({
         friendId: '',
       }}
       fields={createPercentageSplitFields(friends)}
-      mutation={{
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            statementIds: selectedRows.map((row) => row.id),
-            bulkSplitSchema: values,
-          });
-        },
-        isPending: mutation.isPending,
-      }}
+      mapInput={(values) => ({
+        statementIds: selectedRows.map((row) => row.id),
+        bulkSplitSchema: values,
+      })}
+      mutation={mutation}
       schema={bulkSplitSchema}
       successToast={() => 'Bulk splits applied successfully.'}
       titleText="Bulk Statement Splits"

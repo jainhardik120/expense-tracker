@@ -1,4 +1,3 @@
-import { SquarePen } from 'lucide-react';
 import { type z } from 'zod';
 
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
@@ -6,12 +5,6 @@ import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
 import { createFriendSchema, type Friend } from '@/types';
-
-const EditIconButton = () => (
-  <Button className="size-8" size="icon" variant="ghost">
-    <SquarePen />
-  </Button>
-);
 
 const fields: FormField<z.infer<typeof createFriendSchema>>[] = [
   {
@@ -53,23 +46,19 @@ export const UpdateFriendForm = ({
   refresh?: () => void;
   friendId: string;
   initialData: Friend;
-  trigger?: React.ReactNode;
+  trigger: React.ReactNode;
 }) => {
   const mutation = api.friends.updateFriend.useMutation();
   return (
     <MutationModal
-      button={trigger ?? <EditIconButton />}
+      button={trigger}
       defaultValues={initialData}
       fields={fields}
-      mutation={{
-        ...mutation,
-        mutateAsync: (values) => {
-          return mutation.mutateAsync({
-            id: friendId,
-            createFriendSchema: values,
-          });
-        },
-      }}
+      mapInput={(values) => ({
+        id: friendId,
+        createFriendSchema: values,
+      })}
+      mutation={mutation}
       refresh={refresh}
       schema={createFriendSchema}
       successToast={(result) => `${result.length} friend(s) updated`}

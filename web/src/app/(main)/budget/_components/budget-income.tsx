@@ -4,7 +4,7 @@ import { useOptimistic, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { GripVertical, Pencil, Trash } from 'lucide-react';
+import { Pencil, Trash } from 'lucide-react';
 import { z } from 'zod';
 
 import { DataTable } from '@/components/data-table/data-table';
@@ -13,14 +13,14 @@ import { RowActions, RowActionTrigger } from '@/components/data-table/row-action
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
-import { SortableItemHandle } from '@/components/ui/sortable';
 import { useDataTable } from '@/hooks/use-data-table';
+import { describeRule } from '@/lib/budget-rules';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { budgetIncomeLineSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
-import { BUDGET_COLUMN_SIZE, POSITION_INDENT } from './column-widths';
+import { BUDGET_COLUMN_SIZE, dragHandleColumn, POSITION_INDENT } from './columns';
 
 import type { ColumnDef } from '@tanstack/react-table';
 
@@ -115,26 +115,6 @@ const incomeFields = (lineOptions: { label: string; value: string }[]) => [
     valueWhenHidden: [] as string[],
   },
 ];
-
-const describeRule = (rule: BudgetRule): string => {
-  const parts: string[] = [];
-  if (rule.categories.length > 0) {
-    parts.push(`category: ${rule.categories.join(', ')}`);
-  }
-  if (rule.tags.length > 0) {
-    parts.push(`tag: ${rule.tags.join(', ')}`);
-  }
-  if (rule.statementKinds.length > 0) {
-    parts.push(rule.statementKinds.join(', '));
-  }
-  if (rule.maxAmount !== null) {
-    parts.push(`up to ${formatCurrency(rule.maxAmount)}`);
-  }
-  if (rule.minAmount !== null) {
-    parts.push(`over ${formatCurrency(rule.minAmount)}`);
-  }
-  return parts.length === 0 ? 'everything not claimed above' : parts.join(' · ');
-};
 
 const EditIncome = ({
   line,
@@ -324,21 +304,7 @@ const incomeColumns = ({
       enableHiding: false,
       size: BUDGET_COLUMN_SIZE.actions,
     },
-    {
-      id: 'drag-handle',
-      header: '',
-      cell: ({ row }) =>
-        row.original.kind === 'opening' ? null : (
-          <SortableItemHandle asChild>
-            <Button className="size-8" size="icon" variant="ghost">
-              <GripVertical className="size-4" />
-            </Button>
-          </SortableItemHandle>
-        ),
-      enableSorting: false,
-      enableHiding: false,
-      size: BUDGET_COLUMN_SIZE.dragHandle,
-    },
+    dragHandleColumn((row) => row.kind === 'opening'),
   ];
 };
 

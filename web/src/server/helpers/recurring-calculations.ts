@@ -1,7 +1,12 @@
 import { addDays, addMonths, addWeeks, addYears, format, isBefore, startOfDay } from 'date-fns';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
-import { MS_PER_DAY, type RecurringPayment, type RecurringPaymentFrequency } from '@/types';
+import {
+  MS_PER_DAY,
+  type RecurringPayment,
+  type RecurringPaymentFrequency,
+  type PaymentStatus,
+} from '@/types';
 
 const QUARTERLY_MONTHS = 3;
 const QUARTER_TOLERANCE = 0.25;
@@ -182,7 +187,7 @@ type LinkedStatementWithZonedDate = LinkedStatement & {
 export type PaymentScheduleEntry = {
   scheduledDate: Date;
   expectedAmount: number;
-  status: 'paid' | 'upcoming' | 'missed';
+  status: PaymentStatus;
   linkedStatementId: string | null;
   linkedStatementDate: Date | null;
   linkedStatementAmount: number | null;
@@ -250,7 +255,7 @@ export const generatePaymentSchedule = (
       }
     }
 
-    let status: 'paid' | 'upcoming' | 'missed';
+    let status: PaymentStatus;
     if (matchedStatement !== null) {
       status = 'paid';
     } else if (isBefore(currentDate, now)) {

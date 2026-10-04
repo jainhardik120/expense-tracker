@@ -2,18 +2,18 @@
 
 import { useState } from 'react';
 
-import { Calendar, Eye } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 
 import { DataTable } from '@/components/data-table/data-table';
 import Modal from '@/components/modal';
+import { PaymentStatusBadge } from '@/components/payment-status-badge';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
-import { type RecurringPayment } from '@/types';
+import { type PaymentStatus, type RecurringPayment } from '@/types';
 
 const DATE_FORMAT = 'dd MMM yyyy';
 
@@ -24,7 +24,7 @@ type RecurringPaymentDetailsDialogProps = {
 type ScheduleEntry = {
   scheduledDate: Date;
   expectedAmount: number;
-  status: 'paid' | 'upcoming' | 'missed';
+  status: PaymentStatus;
   linkedStatementDate: Date | null;
   linkedStatementAmount: number | null;
 };
@@ -35,22 +35,6 @@ type LinkedStatement = {
   amount: string;
   category: string;
   statementKind: string;
-};
-
-const StatusBadge = ({ status }: { status: 'paid' | 'upcoming' | 'missed' }) => {
-  const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    paid: 'default',
-    upcoming: 'outline',
-    missed: 'destructive',
-  };
-
-  const labels: Record<string, string> = {
-    paid: 'Paid',
-    upcoming: 'Upcoming',
-    missed: 'Missed',
-  };
-
-  return <Badge variant={variants[status]}>{labels[status]}</Badge>;
 };
 
 const LoadingState = () => (
@@ -80,7 +64,7 @@ const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
         id: 'status',
         header: 'Status',
         // eslint-disable-next-line react/no-unstable-nested-components
-        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        cell: ({ row }) => <PaymentStatusBadge status={row.original.status} />,
       },
       {
         id: 'linkedStatementDate',
@@ -152,7 +136,7 @@ const LinkedStatementsTable = ({ statements }: { statements: LinkedStatement[] }
 export const RecurringPaymentDetailsDialog = ({
   recurringPayment,
   trigger,
-}: RecurringPaymentDetailsDialogProps & { trigger?: React.ReactNode }) => {
+}: RecurringPaymentDetailsDialogProps & { trigger: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
 
   const { data, isLoading, error } = api.recurringPayments.getRecurringPaymentDetails.useQuery(
@@ -255,13 +239,7 @@ export const RecurringPaymentDetailsDialog = ({
       open={open}
       setOpen={setOpen}
       title={`${recurringPayment.name} - Payment Schedule`}
-      trigger={
-        trigger ?? (
-          <Button className="size-8" size="icon" variant="ghost">
-            <Eye />
-          </Button>
-        )
-      }
+      trigger={trigger}
     >
       {renderContent()}
     </Modal>
