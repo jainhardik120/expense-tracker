@@ -13,6 +13,7 @@ import { type Database } from '@/lib/db';
 import { getCreditCards } from '@/server/helpers/account';
 import {
   getEMIData,
+  countEMIs,
   getEMIs,
   getMaxInstallmentNoSubquery,
   getStatementAttributes,
@@ -80,12 +81,10 @@ const getMaxInstallment = async (
 
 export const emisRouter = createTRPCRouter({
   getEmis: protectedProcedure.input(emiParserSchema).query(async ({ ctx, input }) => {
-    const conditions = [eq(emis.userId, ctx.user.id)];
-    const [{ count }] = await ctx.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(emis)
-      .where(and(...conditions));
-    const emisList = await getEMIs(ctx.db, ctx.user.id, input);
+    const [count, emisList] = await Promise.all([
+      countEMIs(ctx.db, ctx.user.id, input),
+      getEMIs(ctx.db, ctx.user.id, input),
+    ]);
     const emisWithCalculations = emisList.map((emi) => {
       const installmentNo =
         emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);

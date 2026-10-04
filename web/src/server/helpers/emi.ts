@@ -11,6 +11,8 @@ import {
   sql,
   sum,
   type SQL,
+  count,
+  isNull,
 } from 'drizzle-orm';
 
 import { bankAccount, creditCardAccounts, emis, recurringPayments, statements } from '@/db/schema';
@@ -38,13 +40,8 @@ export const getMaxInstallmentNoSubquery = (db: Database, userId: string) =>
     .groupBy(sql`${statements.additionalAttributes}->>'emiId'`)
     .as('max_installments');
 
-export const getEMIs = async (
-  db: Database,
-  userId: string,
-  input: z.infer<typeof emiParserSchema>,
-) => {
+const emiListFilter = (db: Database, userId: string, input: z.infer<typeof emiParserSchema>) => {
   const maxInstallmentSubquery = getMaxInstallmentNoSubquery(db, userId);
-
   const conditions: (SQL<unknown> | undefined)[] = [eq(emis.userId, userId)];
   if (input.accountId.length > 0) {
     conditions.push(inArray(creditCardAccounts.accountId, input.accountId));
@@ -59,11 +56,20 @@ export const getEMIs = async (
       conditions.push(
         or(
           lt(maxInstallmentSubquery.maxInstallmentNo, emis.tenure),
-          sql`${maxInstallmentSubquery.maxInstallmentNo} IS NULL`,
+          isNull(maxInstallmentSubquery.maxInstallmentNo),
         ),
       );
     }
   }
+  return { maxInstallmentSubquery, where: and(...conditions) };
+};
+
+export const getEMIs = async (
+  db: Database,
+  userId: string,
+  input: z.infer<typeof emiParserSchema>,
+) => {
+  const { maxInstallmentSubquery, where } = emiListFilter(db, userId, input);
   return db
     .select({
       creditCardName: bankAccount.accountName,
@@ -75,13 +81,29 @@ export const getEMIs = async (
     .innerJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
     .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
     .leftJoin(maxInstallmentSubquery, eq(sql`${emis.id}::text`, maxInstallmentSubquery.emiId))
-    .where(and(...conditions))
+    .where(where)
     .orderBy(
       sql`(${maxInstallmentSubquery.maxInstallmentNo} IS NOT NULL AND ${maxInstallmentSubquery.maxInstallmentNo} = ${emis.tenure}) ASC`,
       asc(emis.name),
     )
     .limit(input.perPage)
     .offset((input.page - 1) * input.perPage);
+};
+
+export const countEMIs = async (
+  db: Database,
+  userId: string,
+  input: z.infer<typeof emiParserSchema>,
+) => {
+  const { maxInstallmentSubquery, where } = emiListFilter(db, userId, input);
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(emis)
+    .innerJoin(creditCardAccounts, eq(emis.creditId, creditCardAccounts.id))
+    .innerJoin(bankAccount, eq(creditCardAccounts.accountId, bankAccount.id))
+    .leftJoin(maxInstallmentSubquery, eq(sql`${emis.id}::text`, maxInstallmentSubquery.emiId))
+    .where(where);
+  return total;
 };
 
 export const getRecurringPayment = async (
