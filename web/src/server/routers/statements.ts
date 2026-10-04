@@ -28,6 +28,7 @@ import {
   createSplitSchema,
   createStatementSchema,
   dateSchema,
+  isMirroredStatement,
   ONE_HUNDRED_PERCENTAGE,
   parseStatementSort,
   statementParserSchema,
@@ -37,11 +38,6 @@ import {
 
 const asOptionalId = (value: string | null | undefined) =>
   value === undefined || value === null || value === '' ? null : value;
-
-const isMirrored = (statement: {
-  mirrorOfSplitId: string | null;
-  mirrorOfStatementId: string | null;
-}) => statement.mirrorOfSplitId !== null || statement.mirrorOfStatementId !== null;
 
 const assertOnlyCategoryChanged = (
   current: {
@@ -267,7 +263,7 @@ export const statementsRouter = createTRPCRouter({
         accountIds: [accountId],
         friendIds: [friendId],
       });
-      if (isMirrored(currentStatement)) {
+      if (isMirroredStatement(currentStatement)) {
         const accountChosenHere =
           currentStatement.mirrorOfStatementId !== null &&
           currentStatement.statementKind === 'friend_transaction' &&

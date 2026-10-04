@@ -526,6 +526,11 @@ export const accountFriendStatementsParserSchema = z.object({
   account: z.string(),
 });
 
+export const isMirroredStatement = (statement: {
+  mirrorOfSplitId: string | null;
+  mirrorOfStatementId: string | null;
+}) => statement.mirrorOfSplitId !== null || statement.mirrorOfStatementId !== null;
+
 export const isSelfTransfer = (
   statement: Statement | SelfTransferStatement,
 ): statement is SelfTransferStatement => {

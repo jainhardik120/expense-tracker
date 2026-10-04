@@ -20,6 +20,7 @@ import {
   type Statement,
   type Account,
   type Friend,
+  isMirroredStatement,
   isSelfTransfer,
 } from '@/types';
 
@@ -93,7 +94,9 @@ const StatementActions = ({
         statementId={id}
         trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
       />
-      <DeleteButton id={id} mutation={mutation} onRefresh={onRefresh} />
+      {statement.mirrorOfSplitId === null ? (
+        <DeleteButton id={id} mutation={mutation} onRefresh={onRefresh} />
+      ) : null}
     </RowActions>
   );
 };
@@ -247,6 +250,15 @@ export const createStatementColumns = ({
         {isSelfTransfer(row.original)
           ? 'Self Transfer'
           : statementKindMap[row.original.statementKind]}
+        {!isSelfTransfer(row.original) && isMirroredStatement(row.original) ? (
+          <Badge
+            className="ml-2"
+            title={`Recorded by ${row.original.friendName ?? 'a friend'}`}
+            variant="outline"
+          >
+            Shared
+          </Badge>
+        ) : null}
       </span>
     ),
     meta: {
@@ -277,7 +289,7 @@ export const createStatementColumns = ({
           {formatCurrency(amount)}
         </span>
       );
-      if (isSelfTransfer(statement)) {
+      if (isSelfTransfer(statement) || isMirroredStatement(statement)) {
         return display;
       }
       return (
@@ -492,7 +504,8 @@ export const createStatementColumns = ({
     id: 'drag-handle',
     header: '',
     meta: { selectable: false },
-    cell: () => <ReorderHandle />,
+    cell: ({ row }) =>
+      isSelfTransfer(row.original) || !isMirroredStatement(row.original) ? <ReorderHandle /> : null,
     enableSorting: false,
     enableHiding: false,
     size: 40,

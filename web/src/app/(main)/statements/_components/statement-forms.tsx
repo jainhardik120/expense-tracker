@@ -15,21 +15,27 @@ import {
   type Account,
   createStatementSchema,
   type Friend,
+  isMirroredStatement,
   type Statement,
   statementKindMap,
   statementParser,
 } from '@/types';
 
+type Lock = 'none' | 'all' | 'allButAccount';
+
 const statementFormFields = (
   accountsData: Account[],
   friendsData: Friend[],
   categories: string[],
+  lock: Lock = 'none',
 ): FormField<z.infer<typeof createStatementSchema>>[] => {
+  const unlocked = lock === 'none';
   return [
     {
       name: 'statementKind',
       label: 'Statement Kind',
       type: 'select',
+      displayCondition: unlocked,
       placeholder: 'Select Statement Kind',
       options: Object.entries(statementKindMap).map(([value, label]) => ({
         label,
@@ -40,6 +46,7 @@ const statementFormFields = (
       name: 'accountId',
       label: 'Account ID',
       type: 'select',
+      displayCondition: lock !== 'all',
       placeholder: 'Select Account',
       options: accountsData.map((account) => ({
         label: account.accountName,
@@ -50,6 +57,7 @@ const statementFormFields = (
       name: 'friendId',
       label: 'Friend ID',
       type: 'select',
+      displayCondition: unlocked,
       placeholder: 'Select Friend',
       options: friendsData.map((account) => ({
         label: account.name,
@@ -67,6 +75,7 @@ const statementFormFields = (
       name: 'amount',
       label: 'Amount',
       type: 'number',
+      displayCondition: unlocked,
       placeholder: 'Amount',
     },
     {
@@ -79,6 +88,7 @@ const statementFormFields = (
       name: 'createdAt',
       label: 'Datetime',
       type: 'datetime',
+      displayCondition: unlocked,
     },
   ];
 };
@@ -144,6 +154,15 @@ export const CreateStatementForm = ({
   );
 };
 
+const statementLock = (statement: Statement): Lock => {
+  if (!isMirroredStatement(statement)) {
+    return 'none';
+  }
+  return statement.mirrorOfStatementId !== null && statement.statementKind === 'friend_transaction'
+    ? 'allButAccount'
+    : 'all';
+};
+
 export const UpdateStatementForm = ({
   refresh,
   statementId,
@@ -162,13 +181,22 @@ export const UpdateStatementForm = ({
   trigger: React.ReactNode;
 }) => {
   const mutation = api.statements.updateStatement.useMutation();
+  const lock = statementLock(initialData);
   const formFields = useMemo(
-    () => statementFormFields(accountsData, friendsData, categories),
-    [accountsData, friendsData, categories],
+    () => statementFormFields(accountsData, friendsData, categories, lock),
+    [accountsData, friendsData, categories, lock],
   );
   return (
     <MutationModal
       button={trigger}
+      customDescription={
+        lock === 'none' ? undefined : (
+          <p className="text-muted-foreground text-sm">
+            {initialData.friendName ?? 'Your friend'} recorded this, so its amount and date follow
+            their copy. The category and tags are yours.
+          </p>
+        )
+      }
       defaultValues={{
         ...initialData,
         accountId: initialData.accountId ?? undefined,
