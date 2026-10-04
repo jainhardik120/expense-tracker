@@ -7,7 +7,8 @@ import { Eye, SquarePen, Trash } from 'lucide-react';
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { ZonedDate } from '@/components/zoned-date';
+import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
@@ -65,17 +66,12 @@ export const createRecurringPaymentColumns = (
   {
     accessorKey: 'startDate',
     header: 'Start Date',
-    cell: ({ row }) => formatDate(row.original.startDate),
+    cell: ({ row }) => <ZonedDate value={row.original.startDate} />,
   },
   {
     accessorKey: 'endDate',
     header: 'End Date',
-    cell: ({ row }) => {
-      if (row.original.endDate === null) {
-        return 'N/A';
-      }
-      return formatDate(row.original.endDate);
-    },
+    cell: ({ row }) => <ZonedDate fallback="N/A" value={row.original.endDate} />,
   },
   {
     id: 'status',

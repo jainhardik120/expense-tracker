@@ -6,8 +6,9 @@ import { type ColumnDef } from '@tanstack/react-table';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ZonedDate } from '@/components/zoned-date';
 import { useDataTable } from '@/hooks/use-data-table';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency } from '@/lib/format';
 
 import { type SalaryData } from './shared';
 
@@ -18,7 +19,7 @@ const taxableStatementColumns: ColumnDef<TaxableStatement>[] = [
     id: 'date',
     accessorFn: (statement) => statement.createdAt,
     header: 'Date',
-    cell: ({ row }) => formatDate(row.original.createdAt),
+    cell: ({ row }) => <ZonedDate value={row.original.createdAt} />,
   },
   {
     id: 'statement',

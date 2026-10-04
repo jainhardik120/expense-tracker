@@ -1,5 +1,6 @@
 import type * as React from 'react';
 
+import { format } from 'date-fns';
 import {
   BaselineIcon,
   CalendarIcon,
@@ -20,6 +21,7 @@ import {
   TextInitialIcon,
 } from 'lucide-react';
 
+import { DATE_FORMAT } from '@/lib/format';
 import type {
   CellOpts,
   CellPosition,
@@ -368,7 +370,7 @@ export const formatDateForDisplay = (dateStr: unknown): string => {
   if (date == null) {
     return typeof dateStr === 'string' ? dateStr : '';
   }
-  return date.toLocaleDateString();
+  return format(date, DATE_FORMAT.date);
 };
 
 export const formatFileSize = (bytes: number): string => {

@@ -8,7 +8,7 @@ import { DataTable } from '@/components/data-table/data-table';
 import { PaymentStatusBadge } from '@/components/payment-status-badge';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat, type ZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { type EMICalculationResult, type LinkedStatement, type PaymentStatus } from '@/types';
 
 type ScheduleRowWithPayment = EMICalculationResult['schedule'][number] & {
@@ -31,7 +31,7 @@ const renderPaidOnCell = (row: ScheduleRowWithPayment, zoned: ZonedFormat): Reac
   if (stmt === undefined) {
     return <span>-</span>;
   }
-  return <span className="text-sm">{zoned(stmt.createdAt, 'dd MMM yyyy')}</span>;
+  return <span className="text-sm">{zoned(stmt.createdAt, DATE_FORMAT.date)}</span>;
 };
 
 const renderAmountPaidCell = (row: ScheduleRowWithPayment): string => {
@@ -110,7 +110,7 @@ export const PaymentScheduleTable = ({ result, linkedStatements }: PaymentSchedu
               id: 'date',
               header: 'Due Date',
               accessorFn: (row: ScheduleRowWithPayment) =>
-                row.date === undefined ? '-' : zoned(row.date, 'dd MMM yyyy'),
+                row.date === undefined ? '-' : zoned(row.date, DATE_FORMAT.date),
             },
           ]
         : []),

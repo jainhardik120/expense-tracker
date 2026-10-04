@@ -10,8 +10,9 @@ import {
   splits,
   statements,
 } from '@/db/schema';
-import { localWallClock } from '@/lib/date';
+import { zonedFormat, localWallClock } from '@/lib/date';
 import type { Database } from '@/lib/db';
+import { DATE_FORMAT } from '@/lib/format';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { parseFloatSafe } from '@/server/helpers/emi-calculations';
 
@@ -110,20 +111,13 @@ export const buildReportInput = instrumentedFunction(
     const spanStart = selected[0].boundaryDate;
     const spanEnd = selected[selected.length - 1].boundaryDate;
 
-    const formatter = new Intl.DateTimeFormat('en-IN', {
-      timeZone: timezone,
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-
     const periods = selected.slice(0, -1).map((boundary, index) => {
       const end = selected[index + 1].boundaryDate;
       return {
         index,
         start: boundary.boundaryDate.toISOString(),
         end: end.toISOString(),
-        label: `${formatter.format(boundary.boundaryDate)} – ${formatter.format(end)}`,
+        label: `${zonedFormat(boundary.boundaryDate, DATE_FORMAT.date, timezone)} – ${zonedFormat(end, DATE_FORMAT.date, timezone)}`,
       };
     });
     const periodStarts = periods.map((period) => new Date(period.start).getTime());

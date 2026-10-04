@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatSignedCurrency, formatPercent, formatNumber } from '@/lib/format';
 import {
   compareInvestmentCategories,
   getInvestmentCategory,
@@ -145,23 +145,6 @@ const mergeDashboard = (
   };
 };
 
-const formatByCurrency = (value: number, currency: string) => {
-  const locale = currency === USD_CURRENCY ? 'en-US' : 'en-IN';
-  return formatCurrency(value, currency, locale);
-};
-
-const formatSignedByCurrency = (value: number, currency: string) => {
-  const abs = Math.abs(value);
-  const formatted = formatByCurrency(abs, currency);
-  if (value > 0) {
-    return `+${formatted}`;
-  }
-  if (value < 0) {
-    return `-${formatted}`;
-  }
-  return formatted;
-};
-
 const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
   if (row.displayCurrency !== USD_CURRENCY) {
     return <span>-</span>;
@@ -177,29 +160,29 @@ const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
       <PopoverContent align="end" className="w-72 text-xs">
         <div className="grid gap-1">
           <div className="font-semibold">USD to INR Details</div>
-          <div>Buy value (USD): {formatByCurrency(row.investedAmount, USD_CURRENCY)}</div>
+          <div>Buy value (USD): {formatCurrency(row.investedAmount, USD_CURRENCY)}</div>
           <div>
             Buy value (INR @ purchase-date FX):{' '}
             {row.buyValueInrAtPurchaseFx === null
               ? '-'
-              : formatByCurrency(row.buyValueInrAtPurchaseFx, INR_CURRENCY)}
+              : formatCurrency(row.buyValueInrAtPurchaseFx, INR_CURRENCY)}
           </div>
-          <div>Current value (USD): {formatByCurrency(row.valuationAmount, USD_CURRENCY)}</div>
+          <div>Current value (USD): {formatCurrency(row.valuationAmount, USD_CURRENCY)}</div>
           <div>
             Current value (INR @ today FX):{' '}
             {row.currentValueInrAtCurrentFx === null
               ? '-'
-              : formatByCurrency(row.currentValueInrAtCurrentFx, INR_CURRENCY)}
+              : formatCurrency(row.currentValueInrAtCurrentFx, INR_CURRENCY)}
           </div>
           <div>
             Purchase FX:{' '}
-            {row.buyFxRateToInr === null ? '-' : row.buyFxRateToInr.toFixed(FX_RATE_DECIMALS)}
+            {row.buyFxRateToInr === null ? '-' : formatNumber(row.buyFxRateToInr, FX_RATE_DECIMALS)}
           </div>
           <div>
             Today FX:{' '}
             {row.currentFxRateToInr === null
               ? '-'
-              : row.currentFxRateToInr.toFixed(FX_RATE_DECIMALS)}
+              : formatNumber(row.currentFxRateToInr, FX_RATE_DECIMALS)}
           </div>
         </div>
       </PopoverContent>
@@ -248,7 +231,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     accessorKey: 'units',
     header: 'Units Held',
     cell: ({ row }) => (
-      <div className="text-right">{row.original.units.toFixed(UNITS_DECIMALS)}</div>
+      <div className="text-right">{formatNumber(row.original.units, UNITS_DECIMALS)}</div>
     ),
     meta: { align: 'right' },
   },
@@ -259,7 +242,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
       <div className="text-right">
         {row.original.averageBuyPrice === null
           ? '-'
-          : formatByCurrency(row.original.averageBuyPrice, row.original.displayCurrency)}
+          : formatCurrency(row.original.averageBuyPrice, row.original.displayCurrency)}
       </div>
     ),
     meta: { align: 'right' },
@@ -271,7 +254,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
       <div className="text-right">
         {row.original.currentUnitPrice === null
           ? '-'
-          : formatByCurrency(row.original.currentUnitPrice, row.original.displayCurrency)}
+          : formatCurrency(row.original.currentUnitPrice, row.original.displayCurrency)}
       </div>
     ),
     meta: { align: 'right' },
@@ -281,7 +264,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     header: 'Invested',
     cell: ({ row }) => (
       <div className="text-right">
-        {formatByCurrency(row.original.investedAmount, row.original.displayCurrency)}
+        {formatCurrency(row.original.investedAmount, row.original.displayCurrency)}
       </div>
     ),
     meta: { align: 'right' },
@@ -291,7 +274,7 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     header: 'Current Value',
     cell: ({ row }) => (
       <div className="text-right">
-        {formatByCurrency(row.original.valuationAmount, row.original.displayCurrency)}
+        {formatCurrency(row.original.valuationAmount, row.original.displayCurrency)}
       </div>
     ),
     meta: { align: 'right' },
@@ -306,8 +289,10 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     header: 'P/L',
     cell: ({ row }) => (
       <div className={`text-right ${getSignedValueTone(row.original.pnl)}`}>
-        {formatSignedByCurrency(row.original.pnl, row.original.displayCurrency)}
-        {row.original.pnlPercentage === null ? '' : ` (${row.original.pnlPercentage.toFixed(2)}%)`}
+        {formatSignedCurrency(row.original.pnl, row.original.displayCurrency)}
+        {row.original.pnlPercentage === null
+          ? ''
+          : ` (${formatPercent(row.original.pnlPercentage)})`}
       </div>
     ),
     meta: { align: 'right' },
@@ -317,10 +302,10 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     header: '1D Change',
     cell: ({ row }) => (
       <div className={`text-right ${getSignedValueTone(row.original.dayChange)}`}>
-        {formatSignedByCurrency(row.original.dayChange, row.original.displayCurrency)}
+        {formatSignedCurrency(row.original.dayChange, row.original.displayCurrency)}
         {row.original.dayChangePercentage === null
           ? ''
-          : ` (${row.original.dayChangePercentage.toFixed(2)}%)`}
+          : ` (${formatPercent(row.original.dayChangePercentage)})`}
       </div>
     ),
     meta: { align: 'right' },

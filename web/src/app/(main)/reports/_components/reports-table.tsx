@@ -20,6 +20,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { useDataTable } from '@/hooks/use-data-table';
+import { DATE_FORMAT } from '@/lib/format';
 import type { PeriodTotals } from '@/types';
 
 import { BoundaryListItem, CreateBoundaryForm } from './boundary-forms';
@@ -53,7 +54,7 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
           const { date } = row.original;
           const d = typeof date === 'string' ? new Date(date) : date;
           const zonedDate = toZonedTime(d, timezone);
-          const formatStr = 'MMM dd, yyyy';
+          const formatStr = DATE_FORMAT.date;
           const string = format(zonedDate, formatStr);
           return <p>{string}</p>;
         },
@@ -66,7 +67,7 @@ const ReportsTable = ({ initialReport, initialBoundaries }: ReportsTableProps) =
           const { endDate } = row.original;
           const d = typeof endDate === 'string' ? new Date(endDate) : endDate;
           const zonedDate = toZonedTime(d, timezone);
-          const formatStr = 'MMM dd, yyyy';
+          const formatStr = DATE_FORMAT.date;
           const string = format(zonedDate, formatStr);
           return <p>{string}</p>;
         },

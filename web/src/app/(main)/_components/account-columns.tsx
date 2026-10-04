@@ -7,7 +7,7 @@ import { CreditCard, SquarePen, Trash } from 'lucide-react';
 
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
-import { formatOrdinalDay } from '@/lib/format';
+import { formatOrdinalDay, formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type FriendSummary, type AccountSummary, isFriendSummary } from '@/types';
 
@@ -130,19 +130,19 @@ export const createAccountColumns = (
     {
       id: 'startingBalance',
       header: 'Starting Balance',
-      accessorFn: (row) => row.startingBalance.toFixed(2),
+      accessorFn: (row) => formatCurrency(row.startingBalance),
       meta: { align: 'right' },
     },
     {
       id: 'expenses',
       header: 'Expenses',
-      accessorFn: (row) => (isFriendSummary(row) ? row.splits : row.expenses).toFixed(2),
+      accessorFn: (row) => formatCurrency(isFriendSummary(row) ? row.splits : row.expenses),
       meta: { align: 'right' },
     },
     {
       id: 'selfTransfers',
       header: 'Self Transfers',
-      accessorFn: (row) => (isFriendSummary(row) ? '-' : row.selfTransfers.toFixed(2)),
+      accessorFn: (row) => (isFriendSummary(row) ? '-' : formatCurrency(row.selfTransfers)),
       meta: { align: 'right' },
     },
     {
@@ -150,21 +150,23 @@ export const createAccountColumns = (
       header: 'Other Transactions',
       accessorFn: (row) =>
         isFriendSummary(row)
-          ? row.friendTransactions.toFixed(2)
-          : row.outsideTransactions.toFixed(2),
+          ? formatCurrency(row.friendTransactions)
+          : formatCurrency(row.outsideTransactions),
       meta: { align: 'right' },
     },
     {
       accessorKey: 'friendTransactions',
       header: 'Friend Transactions',
       accessorFn: (row) =>
-        isFriendSummary(row) ? row.paidByFriend.toFixed(2) : row.friendTransactions.toFixed(2),
+        isFriendSummary(row)
+          ? formatCurrency(row.paidByFriend)
+          : formatCurrency(row.friendTransactions),
       meta: { align: 'right' },
     },
     {
       accessorKey: 'date',
       header: 'Current Balance',
-      cell: ({ row }) => row.original.finalBalance.toFixed(2),
+      cell: ({ row }) => formatCurrency(row.original.finalBalance),
       meta: { align: 'right' },
     },
     {

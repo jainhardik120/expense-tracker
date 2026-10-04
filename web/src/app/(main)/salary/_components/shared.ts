@@ -1,4 +1,6 @@
-import { formatCurrency } from '@/lib/format';
+import { formatInTimeZone } from 'date-fns-tz';
+
+import { DATE_FORMAT, formatCurrency } from '@/lib/format';
 import type { RouterOutput } from '@/server/routers';
 
 export type SalaryData = RouterOutput['salary']['getPageData'];
@@ -19,13 +21,8 @@ export const statusPresentation = {
   awaiting: { label: 'Awaiting link', variant: 'outline' as const },
 };
 
-export const formatSignedCurrency = (value: number) =>
-  `${value >= 0 ? '+' : '−'} ${formatCurrency(Math.abs(value))}`;
-
 export const formatPeriod = (periodStart: Date) =>
-  new Intl.DateTimeFormat('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
-    periodStart,
-  );
+  formatInTimeZone(periodStart, 'UTC', DATE_FORMAT.month);
 
 export const formatSlabRange = (lower: number, upper: number | null) => {
   if (lower === 0 && upper !== null) {

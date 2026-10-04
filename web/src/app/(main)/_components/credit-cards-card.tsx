@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { formatCurrency, formatOrdinalDay } from '@/lib/format';
+import { formatCurrency, formatOrdinalDay, formatPercent } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 import { PERCENTAGE_DIVISOR } from '@/types';
 import type { CardsWithOutstanding } from '@/types/router-outputs';
@@ -76,10 +76,11 @@ export const CreditCardsCard = ({
                     <div className="mb-2 flex items-center justify-between">
                       <span className="font-medium">{card.accountName}</span>
                       <span className="text-muted-foreground text-sm">
-                        {((limitUtilized / totalLimit) * PERCENTAGE_DIVISOR).toFixed(
+                        {formatPercent(
+                          (limitUtilized / totalLimit) * PERCENTAGE_DIVISOR,
                           UTILISATION_DECIMALS,
-                        )}
-                        % used
+                        )}{' '}
+                        used
                       </span>
                     </div>
                     <div className="space-y-1 text-sm">

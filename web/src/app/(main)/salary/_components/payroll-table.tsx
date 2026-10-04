@@ -7,8 +7,9 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { Badge } from '@/components/ui/badge';
+import { ZonedDate } from '@/components/zoned-date';
 import { useDataTable } from '@/hooks/use-data-table';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency } from '@/lib/format';
 import { hasMaterialSalaryNetMismatch } from '@/lib/salary';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +33,7 @@ const createPayrollColumns = (data: SalaryData, refresh: () => void): ColumnDef<
     id: 'paymentDate',
     accessorFn: (row) => row.paymentDate,
     header: 'Pay date',
-    cell: ({ row }) => formatDate(row.original.paymentDate),
+    cell: ({ row }) => <ZonedDate value={row.original.paymentDate} />,
     meta: { label: 'Pay date' },
   },
   {

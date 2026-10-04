@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
+import { DATE_FORMAT } from '@/lib/format';
 import { errorMessage } from '@/lib/utils';
 
 export type Boundary = { id: string; boundaryDate: Date };
@@ -22,7 +23,7 @@ export const useBoundaryOptions = (boundaries: Boundary[]): BoundaryOption[] => 
   const zoned = useZonedFormat();
   return boundaries.map((boundary) => ({
     id: boundary.id,
-    label: zoned(boundary.boundaryDate, 'MMM dd, yyyy'),
+    label: zoned(boundary.boundaryDate, DATE_FORMAT.date),
   }));
 };
 

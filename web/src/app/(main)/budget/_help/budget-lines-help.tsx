@@ -23,7 +23,7 @@ export const BudgetLinesHelp = () => (
           { label: 'Shopping · category Shopping', matches: true },
           { label: 'Living · everything else', matches: true },
         ]}
-        subject="₹8,748 · Shopping · tagged Gift"
+        subject="₹8,748.00 · Shopping · tagged Gift"
       />
     </HelpCard>
 
@@ -79,7 +79,7 @@ export const BudgetLinesHelp = () => (
       </div>
     </HelpCard>
 
-    <HelpCard lede="₹10,000 a month, every month of the year." title="Fixed per month">
+    <HelpCard lede="₹10,000.00 a month, every month of the year." title="Fixed per month">
       <HelpCalc
         result={{ label: YEAR_BUDGET, value: 120000 }}
         rows={[
@@ -92,7 +92,7 @@ export const BudgetLinesHelp = () => (
       </HelpNote>
     </HelpCard>
 
-    <HelpCard lede="₹10,000 for the whole year, spent whenever." title="Fixed per year">
+    <HelpCard lede="₹10,000.00 for the whole year, spent whenever." title="Fixed per year">
       <HelpCalc
         result={{ label: YEAR_BUDGET, value: 10000 }}
         rows={[{ label: 'Allocation', value: 10000, note: '/yr' }]}
@@ -173,10 +173,10 @@ export const BudgetLinesHelp = () => (
       <HelpCompare
         items={[
           {
-            title: 'Running at ₹12,000/mo',
+            title: 'Running at ₹12,000.00/mo',
             children: (
               <>
-                <HelpFigure label="Will have spent" tone="bad" value="₹1,44,000" />
+                <HelpFigure label="Will have spent" tone="bad" value="₹1,44,000.00" />
                 <HelpCalc
                   result={{ label: 'Over', value: 24000 }}
                   rows={[
@@ -189,10 +189,10 @@ export const BudgetLinesHelp = () => (
             ),
           },
           {
-            title: 'Running at ₹8,000/mo',
+            title: 'Running at ₹8,000.00/mo',
             children: (
               <>
-                <HelpFigure label="Will have spent" value="₹96,000" />
+                <HelpFigure label="Will have spent" value="₹96,000.00" />
                 <HelpCalc
                   result={{ label: 'Under', value: -24000 }}
                   rows={[
@@ -206,8 +206,8 @@ export const BudgetLinesHelp = () => (
         ]}
       />
       <HelpNote>
-        On a ₹10,000/mo line. Overspending comes out of what would have been invested; underspending
-        goes back to it.
+        On a ₹10,000.00/mo line. Overspending comes out of what would have been invested;
+        underspending goes back to it.
       </HelpNote>
     </HelpCard>
 

@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 import { type PaymentStatus } from '@/types';
 import type { CardsWithOutstanding } from '@/types/router-outputs';
@@ -65,7 +65,7 @@ const createPeriodPaymentColumns = (zoned: ZonedFormat) => [
   {
     id: 'date',
     header: 'Date',
-    accessorFn: (row: PeriodPayment) => zoned(row.date, 'MMM dd'),
+    accessorFn: (row: PeriodPayment) => zoned(row.date, DATE_FORMAT.day),
   },
   {
     id: 'myShare',
@@ -195,8 +195,8 @@ export const PeriodPaymentsCard = ({
       <CardHeader>
         <CardTitle>Payments</CardTitle>
         <CardDescription>
-          Everything due between {zoned(periodStart, 'MMM dd, yyyy')} and{' '}
-          {zoned(periodEnd, 'MMM dd, yyyy')}
+          Everything due between {zoned(periodStart, DATE_FORMAT.date)} and{' '}
+          {zoned(periodEnd, DATE_FORMAT.date)}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

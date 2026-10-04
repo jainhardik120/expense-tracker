@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { formatTruncatedDate } from '@/lib/date';
+import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { PeriodTotals } from '@/types';
 
@@ -52,8 +53,8 @@ export const aggregationTableColumns = (
   },
   {
     accessorFn: (row) => {
-      return (row.totalAccountsSummary.finalBalance - row.totalFriendsSummary.finalBalance).toFixed(
-        2,
+      return formatCurrency(
+        row.totalAccountsSummary.finalBalance - row.totalFriendsSummary.finalBalance,
       );
     },
     id: 'finalBalance',
@@ -63,13 +64,13 @@ export const aggregationTableColumns = (
   {
     accessorKey: 'totalFriendsSummary.finalBalance',
     header: 'Friends Balance',
-    cell: ({ row }) => row.original.totalFriendsSummary.finalBalance.toFixed(2),
+    cell: ({ row }) => formatCurrency(row.original.totalFriendsSummary.finalBalance),
     meta: { align: 'right' },
   },
   {
     accessorKey: 'totalAccountsSummary.finalBalance',
     header: 'Total Balance',
-    cell: ({ row }) => row.original.totalAccountsSummary.finalBalance.toFixed(2),
+    cell: ({ row }) => formatCurrency(row.original.totalAccountsSummary.finalBalance),
     meta: { align: 'right' },
   },
   {
@@ -80,11 +81,11 @@ export const aggregationTableColumns = (
         <HoverCard closeDelay={200} openDelay={100}>
           <HoverCardTrigger asChild>
             <DrilldownLink kinds={['outside_transaction', 'friend_transaction']} row={row.original}>
-              {(
+              {formatCurrency(
                 row.original.totalAccountsSummary.outsideTransactions +
-                row.original.totalAccountsSummary.friendTransactions -
-                row.original.totalFriendsSummary.friendTransactions
-              ).toFixed(2)}
+                  row.original.totalAccountsSummary.friendTransactions -
+                  row.original.totalFriendsSummary.friendTransactions,
+              )}
             </DrilldownLink>
           </HoverCardTrigger>
           <HoverCardContent className="text-sm">
@@ -95,7 +96,7 @@ export const aggregationTableColumns = (
                     {summary.outsideTransactions !== 0 && (
                       <div className="flex justify-between">
                         <span>{category}:</span>
-                        <span>{summary.outsideTransactions.toFixed(2)}</span>
+                        <span>{formatCurrency(summary.outsideTransactions)}</span>
                       </div>
                     )}
                   </Fragment>
@@ -104,10 +105,10 @@ export const aggregationTableColumns = (
               <div className="flex justify-between">
                 <span>Friend Transactions:</span>
                 <span>
-                  {(
+                  {formatCurrency(
                     row.original.totalAccountsSummary.friendTransactions -
-                    row.original.totalFriendsSummary.friendTransactions
-                  ).toFixed(2)}
+                      row.original.totalFriendsSummary.friendTransactions,
+                  )}
                 </span>
               </div>
             </div>
@@ -125,7 +126,7 @@ export const aggregationTableColumns = (
         <HoverCard closeDelay={200} openDelay={100}>
           <HoverCardTrigger asChild>
             <DrilldownLink kinds={['expense']} row={row.original}>
-              {row.original.totalExpenses.toFixed(2)}
+              {formatCurrency(row.original.totalExpenses)}
             </DrilldownLink>
           </HoverCardTrigger>
           <HoverCardContent className="text-sm">
@@ -136,7 +137,7 @@ export const aggregationTableColumns = (
                     {summary.expenses !== 0 && (
                       <div className="flex justify-between">
                         <span>{category}:</span>
-                        <span>{summary.expenses.toFixed(2)}</span>
+                        <span>{formatCurrency(summary.expenses)}</span>
                       </div>
                     )}
                   </Fragment>

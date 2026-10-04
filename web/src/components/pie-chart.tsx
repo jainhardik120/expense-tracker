@@ -12,6 +12,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import { formatCurrency } from '@/lib/format';
 
 type ChartData<N extends string, D extends string> = {
   nameKey: N;
@@ -71,7 +72,10 @@ const PieChart = <N extends string, D extends string>({
   return (
     <ChartContainer className="aspect-auto h-full min-h-[400]" config={config}>
       <RechartsPieChart>
-        <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={false} />
+        <ChartTooltip
+          content={<ChartTooltipContent hideLabel valueFormatter={formatCurrency} />}
+          cursor={false}
+        />
         <Pie
           data={chartData}
           dataKey={data.dataKey}

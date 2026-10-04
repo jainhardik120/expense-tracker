@@ -26,7 +26,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { ZonedDate } from '@/components/zoned-date';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
+import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { formatFinancialYearLabel } from '@/lib/salary';
 import { api } from '@/server/react';
 import {
@@ -739,6 +741,7 @@ export const PaymentDialog = ({
   bonuses: SalaryData['bonuses'];
   onSaved: () => void;
 }) => {
+  const zoned = useZonedFormat();
   const updatePayment = api.salary.updatePayment.useMutation();
   const mutation = {
     isPending: updatePayment.isPending,
@@ -777,7 +780,7 @@ export const PaymentDialog = ({
       schema={updateSalaryPaymentSchema}
       submitButtonText="Save breakdown"
       successToast={() => 'Salary breakdown updated'}
-      titleText={`Salary breakdown · ${formatDate(row.periodStart, { month: 'long', day: 'numeric' })}`}
+      titleText={`Salary breakdown · ${zoned(row.periodStart, DATE_FORMAT.date)}`}
     />
   );
 };
@@ -850,7 +853,7 @@ export const SalarySetupDialog = ({ data, onSaved }: { data: SalaryData; onSaved
                 <div>
                   <p className="text-sm font-medium">{revision.name}</p>
                   <p className="text-muted-foreground text-xs">
-                    From {formatDate(revision.effectiveFrom)} · pay day {revision.payDay}
+                    From <ZonedDate value={revision.effectiveFrom} /> · pay day {revision.payDay}
                   </p>
                   <p className="mt-1 text-xs">
                     {revision.components

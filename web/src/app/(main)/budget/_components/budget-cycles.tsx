@@ -5,7 +5,7 @@ import { format, parse } from 'date-fns';
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { useDataTable } from '@/hooks/use-data-table';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { YearDetail } from '@/types/router-outputs';
 
@@ -72,7 +72,7 @@ export const BudgetCycles = ({ detail }: { detail: YearDetail }) => {
   const rows: CycleRow[] = [
     ...cycles.map((cycle) => ({
       key: cycle.cycle,
-      label: format(parse(cycle.cycle, 'yyyy-MM', new Date()), 'MMM yyyy'),
+      label: format(parse(cycle.cycle, 'yyyy-MM', new Date()), DATE_FORMAT.month),
       perLine: cycle.perLine,
       total: cycle.total,
       isAverage: false,

@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { formatPercent } from '@/lib/format';
 import { errorMessage } from '@/lib/utils';
 import { api } from '@/server/react';
 import { createEmiSplitSchema, type Emi, PERCENTAGE_DIVISOR } from '@/types';
@@ -127,10 +128,10 @@ export const EmiSplitsDialog = ({
           <div className="space-y-1">
             <p className="text-sm font-medium">EMI Name: {emiData.name}</p>
             <p className="text-muted-foreground text-sm">
-              Total Allocated: {totalPercentage.toFixed(2)}%
+              Total Allocated: {formatPercent(totalPercentage)}
             </p>
             <p className="text-muted-foreground text-sm">
-              Remaining: {(PERCENTAGE_DIVISOR - totalPercentage).toFixed(PERCENTAGE_DECIMALS)}%
+              Remaining: {formatPercent(PERCENTAGE_DIVISOR - totalPercentage, PERCENTAGE_DECIMALS)}
             </p>
           </div>
 

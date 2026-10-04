@@ -32,8 +32,7 @@ const statements = input.statements as Statement[];
 
 const money = (value: number): string => {
   const negative = value < 0;
-  const whole = Math.round(Math.abs(value));
-  const digits = String(whole);
+  const [digits, paise] = Math.abs(value).toFixed(2).split(".");
   // Indian grouping: last three digits, then pairs.
   let grouped = digits.length > 3 ? digits.slice(-3) : digits;
   let rest = digits.length > 3 ? digits.slice(0, -3) : "";
@@ -42,7 +41,7 @@ const money = (value: number): string => {
     rest = rest.slice(0, -2);
   }
   if (rest.length > 0) grouped = rest + "," + grouped;
-  return (negative ? "-Rs " : "Rs ") + grouped;
+  return (negative ? "-Rs " : "Rs ") + grouped + "." + paise;
 };
 
 // Net of anything a friend owes back on the row, so a shared bill counts only

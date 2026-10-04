@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
+import { formatNumber } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 import type { Column } from '@tanstack/react-table';
@@ -131,7 +132,7 @@ export const DataTableSliderFilter = <TData,>({
   }, [columnFilterValue, min, max]);
 
   const formatValue = React.useCallback((value: number) => {
-    return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    return formatNumber(value, 0);
   }, []);
 
   const onFromInputChange = React.useCallback(

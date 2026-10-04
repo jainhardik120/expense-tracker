@@ -9,13 +9,12 @@ import Modal from '@/components/modal';
 import { PaymentStatusBadge } from '@/components/payment-status-badge';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ZonedDate } from '@/components/zoned-date';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { api } from '@/server/react';
 import { type LinkedStatement, type PaymentStatus, type RecurringPayment } from '@/types';
-
-const DATE_FORMAT = 'dd MMM yyyy';
 
 type RecurringPaymentDetailsDialogProps = {
   recurringPayment: RecurringPayment;
@@ -47,7 +46,7 @@ const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
       {
         id: 'scheduledDate',
         header: 'Scheduled Date',
-        accessorFn: (row: ScheduleEntry) => zoned(row.scheduledDate, DATE_FORMAT),
+        accessorFn: (row: ScheduleEntry) => zoned(row.scheduledDate, DATE_FORMAT.date),
       },
       {
         id: 'expectedAmount',
@@ -63,7 +62,7 @@ const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
       {
         id: 'linkedStatementDate',
         header: 'Actual Payment',
-        accessorFn: (row: ScheduleEntry) => zoned(row.linkedStatementDate, DATE_FORMAT),
+        accessorFn: (row: ScheduleEntry) => zoned(row.linkedStatementDate, DATE_FORMAT.date),
       },
       {
         id: 'linkedStatementAmount',
@@ -94,7 +93,7 @@ const LinkedStatementsTable = ({ statements }: { statements: DetailedLinkedState
       {
         id: 'createdAt',
         header: 'Date',
-        accessorFn: (row: DetailedLinkedStatement) => zoned(row.createdAt, DATE_FORMAT),
+        accessorFn: (row: DetailedLinkedStatement) => zoned(row.createdAt, DATE_FORMAT.date),
       },
       {
         id: 'amount',
@@ -181,7 +180,11 @@ export const RecurringPaymentDetailsDialog = ({
                 <div className="flex items-center gap-1">
                   <Calendar className="text-muted-foreground h-4 w-4" />
                   <span className="text-lg font-semibold">
-                    {data.nextPaymentDate !== null ? formatDate(data.nextPaymentDate) : 'N/A'}
+                    {data.nextPaymentDate !== null ? (
+                      <ZonedDate value={data.nextPaymentDate} />
+                    ) : (
+                      'N/A'
+                    )}
                   </span>
                 </div>
               </div>

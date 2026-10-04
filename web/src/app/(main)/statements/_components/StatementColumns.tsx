@@ -6,10 +6,10 @@ import { Link2, SquarePen, SquareSlash, Trash } from 'lucide-react';
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
-import { useTimezone } from '@/components/time-zone-setter';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { zonedFormat } from '@/lib/date';
+import { ZonedDate } from '@/components/zoned-date';
+import { DATE_FORMAT, formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { getFromAccount, getToAccount } from '@/server/helpers/account';
 import type { FacetCount } from '@/server/helpers/statement';
@@ -123,11 +123,6 @@ const SelfTransferStatementActions = ({
   );
 };
 
-const DateCell = ({ date }: { date: Date }) => {
-  const timezone = useTimezone();
-  return zonedFormat(date, "MMMM dd, yyyy 'at' hh:mm a", timezone);
-};
-
 type FacetCounts = Record<'account' | 'category' | 'tags' | 'statementKind', FacetCount[]>;
 
 type FilterOption = { label: string; value: string; count: number };
@@ -232,7 +227,7 @@ export const createStatementColumns = ({
     header: ({ column }) => <DataTableColumnHeader column={column} title="Date" />,
     cell: ({ row }) => {
       const date = row.original.createdAt;
-      return <DateCell date={date} />;
+      return <ZonedDate pattern={DATE_FORMAT.dateTime} value={date} />;
     },
     id: 'date',
     meta: {
@@ -279,7 +274,7 @@ export const createStatementColumns = ({
             hasSignedAmount(statement) && signedAmountClassName(amount),
           )}
         >
-          {amount.toFixed(2)}
+          {formatCurrency(amount)}
         </span>
       );
       if (isSelfTransfer(statement)) {
@@ -391,7 +386,7 @@ export const createStatementColumns = ({
             splitAmount === 0 ? 'text-muted-foreground' : 'font-medium',
           )}
         >
-          {(parseFloat(row.original.amount) - splitAmount).toFixed(2)}
+          {formatCurrency(parseFloat(row.original.amount) - splitAmount)}
         </span>
       );
     },
@@ -405,11 +400,11 @@ export const createStatementColumns = ({
     : [
         {
           id: 'finalBalance',
-          accessorFn: (row) => (row.finalBalance ?? 0).toFixed(2),
+          accessorFn: (row) => formatCurrency(row.finalBalance ?? 0),
           header: startingBalance.name,
           enableSorting: false,
           cell: ({ row }) => (
-            <span className="tabular-nums">{(row.original.finalBalance ?? 0).toFixed(2)}</span>
+            <span className="tabular-nums">{formatCurrency(row.original.finalBalance ?? 0)}</span>
           ),
           meta: {
             align: 'right',

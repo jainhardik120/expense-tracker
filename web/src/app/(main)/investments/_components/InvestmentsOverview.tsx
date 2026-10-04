@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, DATE_FORMAT, formatNumber } from '@/lib/format';
 import {
   investmentCategoryLabels,
   investmentCategoryValues,
@@ -94,11 +94,6 @@ const parseViewValue = (
     };
   }
   return null;
-};
-
-const formatByCurrency = (amount: number, currency: string) => {
-  const locale = currency === USD_CURRENCY ? 'en-US' : 'en-IN';
-  return formatCurrency(amount, currency, locale);
 };
 
 export const InvestmentsOverview = ({
@@ -266,7 +261,7 @@ export const InvestmentsOverview = ({
       })
       .map((point) => ({
         ...point,
-        date: zoned(point.date, timeRange === 'lifetime' ? 'dd MMM yyyy' : 'dd MMM'),
+        date: zoned(point.date, timeRange === 'lifetime' ? DATE_FORMAT.date : DATE_FORMAT.day),
       }));
   }, [
     instrumentTimelineMap,
@@ -419,14 +414,14 @@ export const InvestmentsOverview = ({
               {selectedInstrument.kind === 'stocks' && selectedInstrument.stockMarket !== null
                 ? ` - ${selectedInstrument.stockMarket}`
                 : ''}
-              ) - Units {selectedInstrument.units.toFixed(UNITS_DECIMALS)} - Value{' '}
-              {formatByCurrency(selectedInstrument.valuationAmount, selectedCurrency)} - P/L{' '}
+              ) - Units {formatNumber(selectedInstrument.units, UNITS_DECIMALS)} - Value{' '}
+              {formatCurrency(selectedInstrument.valuationAmount, selectedCurrency)} - P/L{' '}
               <span className={selectedInstrument.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                {formatByCurrency(selectedInstrument.pnl, selectedCurrency)}
+                {formatCurrency(selectedInstrument.pnl, selectedCurrency)}
               </span>{' '}
               - 1D{' '}
               <span className={selectedInstrument.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                {formatByCurrency(selectedInstrument.dayChange, selectedCurrency)}
+                {formatCurrency(selectedInstrument.dayChange, selectedCurrency)}
               </span>
               {getExcludedPortfolioDescription(selectedInstrument)}
             </div>

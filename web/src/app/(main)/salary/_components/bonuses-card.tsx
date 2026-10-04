@@ -9,8 +9,9 @@ import { DataTable } from '@/components/data-table/data-table';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ZonedDate } from '@/components/zoned-date';
 import { useDataTable } from '@/hooks/use-data-table';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 
 import { BonusDialog } from './salary-dialogs';
@@ -30,7 +31,7 @@ const createBonusColumns = (
       <div>
         <p className="font-medium">{row.original.componentName}</p>
         <p className="text-muted-foreground text-xs">
-          {formatDate(row.original.expectedDate)} ·{' '}
+          <ZonedDate value={row.original.expectedDate} /> ·{' '}
           {row.original.actualAmount === null ? 'estimate' : 'reconciled'}
         </p>
       </div>

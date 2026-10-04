@@ -8,7 +8,8 @@ import { Info, SquarePen, SquareSlash, Trash } from 'lucide-react';
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { ZonedDate } from '@/components/zoned-date';
+import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import type { CreditCard } from '@/types/router-outputs';
@@ -96,7 +97,7 @@ export const createEmiColumns = (
     accessorKey: 'nextPaymentOn',
     header: 'Next Date',
     cell: ({ row }) =>
-      row.original.nextPaymentOn === null ? '' : formatDate(row.original.nextPaymentOn),
+      row.original.nextPaymentOn === null ? '' : <ZonedDate value={row.original.nextPaymentOn} />,
   },
   {
     accessorKey: 'nextPaymentAmount',

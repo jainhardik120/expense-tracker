@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import type { YearDetail } from '@/types/router-outputs';
 
 import { LeftBreakdown } from './left-breakdown';
@@ -108,9 +108,9 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
   const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
   const cycleOpened = format(
     setDate(parse(thisCycle.key, 'yyyy-MM', new Date()), detail.year.startDate.getDate()),
-    'd MMM',
+    DATE_FORMAT.day,
   );
-  const cycleCloses = format(thisCycle.endsOn, 'd MMM');
+  const cycleCloses = format(thisCycle.endsOn, DATE_FORMAT.day);
   const paceColour = thisCycle.spent > thisCycle.onPace ? OVERDRAWN : UNDER_PACE;
 
   return (

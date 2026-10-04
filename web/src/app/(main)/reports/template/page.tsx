@@ -1,4 +1,5 @@
 import { getTimezone, zonedFormat } from '@/lib/date';
+import { DATE_FORMAT } from '@/lib/format';
 import { api } from '@/server/server';
 
 import { TemplateEditor } from './_components/template-editor';
@@ -39,7 +40,7 @@ export default async function ReportTemplatePage() {
     <TemplateEditor
       boundaries={boundaries.map((boundary) => ({
         id: boundary.id,
-        label: zonedFormat(boundary.boundaryDate, 'MMM dd, yyyy', timezone),
+        label: zonedFormat(boundary.boundaryDate, DATE_FORMAT.date, timezone),
       }))}
       initialFrom={initialFrom}
       initialInput={initialInput}

@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { formatPercent, formatCurrency } from '@/lib/format';
 import { errorMessage } from '@/lib/utils';
 import { api } from '@/server/react';
 import {
@@ -115,7 +116,7 @@ export const StatementSplitsDialog = ({
           <DialogTitle>Statement Splits</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-2">
-          <p>Total Amount: {statementData.amount}</p>
+          <p>Total Amount: {formatCurrency(statementData.amount)}</p>
           {statementData.accountName !== null && <p>Paid From: {statementData.accountName}</p>}
           {statementData.friendName !== null && <p>Paid By: {statementData.friendName}</p>}
           {[...splits, { id: 'new-split', amount: '0', friendId: '' }].map((split) => {
@@ -183,8 +184,8 @@ export const BulkStatementSplitsDialog = ({
       customDescription={
         bulkSplitConditions.allowed ? (
           <p>
-            You can apply a bulk split up to {bulkSplitConditions.maxPercentage.toFixed(2)}% for the
-            selected statements.
+            You can apply a bulk split up to {formatPercent(bulkSplitConditions.maxPercentage)} for
+            the selected statements.
           </p>
         ) : (
           <p className="text-red-600">Bulk splits cannot be applied to self-transfer statements.</p>

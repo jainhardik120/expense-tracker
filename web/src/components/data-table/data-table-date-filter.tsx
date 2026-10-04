@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
-import { formatDate } from '@/lib/format';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
+import { DATE_FORMAT } from '@/lib/format';
 
 import type { Column } from '@tanstack/react-table';
 import type { DateRange } from 'react-day-picker';
@@ -118,15 +119,24 @@ export const DataTableDateFilter = <TData,>({
     return selectedDates.length > 0;
   }, [multiple, selectedDates]);
 
-  const formatDateRange = React.useCallback((range: DateRange) => {
-    if (range.from === undefined && range.to === undefined) {
-      return '';
-    }
-    if (range.from !== undefined && range.to !== undefined) {
-      return `${formatDate(range.from)} - ${formatDate(range.to)}`;
-    }
-    return formatDate(range.from ?? range.to);
-  }, []);
+  const zoned = useZonedFormat();
+  const formatDate = React.useCallback(
+    (date: Date | undefined) => (date === undefined ? '' : zoned(date, DATE_FORMAT.date)),
+    [zoned],
+  );
+
+  const formatDateRange = React.useCallback(
+    (range: DateRange) => {
+      if (range.from === undefined && range.to === undefined) {
+        return '';
+      }
+      if (range.from !== undefined && range.to !== undefined) {
+        return `${formatDate(range.from)} - ${formatDate(range.to)}`;
+      }
+      return formatDate(range.from ?? range.to);
+    },
+    [formatDate],
+  );
 
   const label = React.useMemo(() => {
     if (multiple === true) {
@@ -172,7 +182,7 @@ export const DataTableDateFilter = <TData,>({
         ) : null}
       </span>
     );
-  }, [selectedDates, multiple, formatDateRange, title]);
+  }, [selectedDates, multiple, formatDate, formatDateRange, title]);
 
   return (
     <Popover>

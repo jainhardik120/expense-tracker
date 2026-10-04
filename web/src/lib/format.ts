@@ -16,31 +16,15 @@ export const cachedDateFormat = (
   return formatter;
 };
 
-export const formatDate = (
-  date: Date | string | number | undefined,
-  opts: Intl.DateTimeFormatOptions = {},
-) => {
-  if (date === undefined) {
-    return '';
-  }
+export const DATE_FORMAT = {
+  date: 'dd MMM yyyy',
+  day: 'dd MMM',
+  month: 'MMM yyyy',
+  dateTime: 'dd MMM yyyy, hh:mm a',
+} as const;
 
-  try {
-    return cachedDateFormat('en-US', {
-      month: opts.month ?? 'long',
-      day: opts.day ?? 'numeric',
-      year: opts.year ?? 'numeric',
-      ...opts,
-    }).format(new Date(date));
-  } catch {
-    return '';
-  }
-};
-
-export const formatCurrency = (
-  amount: number | string,
-  currency: string = 'INR',
-  locale: string = 'en-IN',
-) => {
+export const formatCurrency = (amount: number | string, currency: string = 'INR') => {
+  const locale = currency === 'USD' ? 'en-US' : 'en-IN';
   const key = `${locale}|${currency}`;
   let formatter = numberFormats.get(key);
   if (formatter === undefined) {
@@ -54,6 +38,25 @@ export const formatCurrency = (
   }
   return formatter.format(parseFloatSafe(amount));
 };
+
+export const formatSignedCurrency = (value: number, currency: string = 'INR') =>
+  `${value > 0 ? '+' : ''}${formatCurrency(value, currency)}`;
+
+export const formatNumber = (value: number, decimals: number = 2) => {
+  const key = `number|${String(decimals)}`;
+  let formatter = numberFormats.get(key);
+  if (formatter === undefined) {
+    formatter = new Intl.NumberFormat('en-IN', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    numberFormats.set(key, formatter);
+  }
+  return formatter.format(value);
+};
+
+export const formatPercent = (value: number, decimals: number = 2) =>
+  `${formatNumber(value, decimals)}%`;
 
 const ORDINAL_TEENS_START = 11;
 const ORDINAL_TEENS_END = 13;

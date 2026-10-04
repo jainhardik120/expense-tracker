@@ -22,16 +22,16 @@ import {
 import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import { getCookies } from 'next-client-cookies/server';
 
-import { cachedDateFormat } from '@/lib/format';
+import { cachedDateFormat, DATE_FORMAT } from '@/lib/format';
 import { TIMEZONE_COOKIE, type DateTruncUnit } from '@/types';
 
 const truncFormatMap: Record<DateTruncUnit, string> = {
   second: 'mm:ss',
-  minute: 'HH:mm',
-  hour: 'dd MMM HH:mm',
-  day: 'MMM dd',
+  minute: 'hh:mm a',
+  hour: 'dd MMM, hh:mm a',
+  day: DATE_FORMAT.day,
   week: "yyyy 'W'II",
-  month: 'MMM yyyy',
+  month: DATE_FORMAT.month,
   quarter: "yyyy 'Q'q",
   year: 'yyyy',
 };
@@ -96,8 +96,8 @@ export const formatTruncatedPeriodSpan = (
       range.end.getTime(),
     ),
   );
-  const startText = zonedFormat(start, 'dd MMM yyyy', timezone);
-  const endText = zonedFormat(end, 'dd MMM yyyy', timezone);
+  const startText = zonedFormat(start, DATE_FORMAT.date, timezone);
+  const endText = zonedFormat(end, DATE_FORMAT.date, timezone);
   if (startText === endText) {
     return endText;
   }

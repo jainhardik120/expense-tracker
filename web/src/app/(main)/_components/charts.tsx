@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { ALL_EXPENSES, writeChartScopeCookie } from '@/lib/chart-scope';
 import { formatTruncatedDate, formatTruncatedPeriodSpan, periodStartsBetween } from '@/lib/date';
+import { formatCurrency } from '@/lib/format';
 import type {
   AggregatedAccountTransferSummary,
   AggregatedFriendTransferSummary,
@@ -363,7 +364,7 @@ const constructOverlayBarData = (data: SummaryData) => {
     return {
       label: d.label,
       name: d.name,
-      value: d.change.toFixed(2),
+      value: formatCurrency(d.change),
       color: `var(--chart-${colorIndex})`,
       range: [Math.min(a, b), Math.max(a, b)],
     };

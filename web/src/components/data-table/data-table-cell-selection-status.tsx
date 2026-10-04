@@ -1,7 +1,5 @@
 import type { CellSelectionStats } from '@/hooks/use-cell-range-selection';
-
-const format = (value: number) =>
-  value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { formatNumber } from '@/lib/format';
 
 export const hasCellSelectionSummary = (
   stats: CellSelectionStats | null,
@@ -16,10 +14,11 @@ export const DataTableCellSelectionStatus = ({ stats }: { stats: CellSelectionSt
       {stats.numeric > 0 ? (
         <>
           <span>
-            Sum <span className="text-foreground font-medium">{format(stats.sum)}</span>
+            Sum <span className="text-foreground font-medium">{formatNumber(stats.sum)}</span>
           </span>
           <span>
-            Average <span className="text-foreground font-medium">{format(stats.average)}</span>
+            Average{' '}
+            <span className="text-foreground font-medium">{formatNumber(stats.average)}</span>
           </span>
         </>
       ) : null}

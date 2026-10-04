@@ -12,6 +12,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import { formatCurrency } from '@/lib/format';
 
 type ChartData = {
   primaryAxis: {
@@ -75,7 +76,14 @@ const LineChart = ({
           tickLine={false}
           tickMargin={8}
         />
-        <ChartTooltip content={<ChartTooltipContent labelFormatter={tooltipLabelFormatter} />} />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={tooltipLabelFormatter}
+              valueFormatter={formatCurrency}
+            />
+          }
+        />
         {Object.keys(dataWithColors.secondaryAxes).map((key) => (
           <Line
             key={key}

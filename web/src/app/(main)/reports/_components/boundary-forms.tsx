@@ -8,6 +8,7 @@ import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
+import { DATE_FORMAT } from '@/lib/format';
 import { api } from '@/server/react';
 import type { ReportBoundary as Boundary } from '@/types';
 
@@ -114,7 +115,7 @@ export const BoundaryListItem = ({
   const zoned = useZonedFormat();
   return (
     <div className="flex items-center justify-between rounded-md border p-2">
-      <span className="font-medium">{zoned(boundary.boundaryDate, 'MMM dd, yyyy')}</span>
+      <span className="font-medium">{zoned(boundary.boundaryDate, DATE_FORMAT.date)}</span>
       <div className="flex items-center gap-1">
         <UpdateBoundaryForm
           boundaryId={boundary.id}

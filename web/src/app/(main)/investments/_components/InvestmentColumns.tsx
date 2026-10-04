@@ -9,7 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { type ZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency } from '@/lib/format';
+import {
+  formatCurrency,
+  formatSignedCurrency,
+  DATE_FORMAT,
+  formatPercent,
+  formatNumber,
+} from '@/lib/format';
 import { FX_RATE_DECIMALS, investmentKindLabels } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -22,46 +28,11 @@ type InvestmentRow =
 const USD_CURRENCY = 'USD';
 const INR_CURRENCY = 'INR';
 
-export const formatSignedCurrency = (value: number | null): string => {
-  if (value === null) {
-    return '-';
-  }
-  const absValue = Math.abs(value);
-  const formatted = formatCurrency(absValue, INR_CURRENCY, 'en-IN');
-  if (value > 0) {
-    return `+${formatted}`;
-  }
-  if (value < 0) {
-    return `-${formatted}`;
-  }
-  return formatted;
-};
-
 export const getSignedValueTone = (value: number | null): string => {
   if (value === null || value === 0) {
     return 'text-muted-foreground';
   }
   return value > 0 ? 'text-green-600' : 'text-red-600';
-};
-
-const formatByCurrency = (amount: number, currency: string): string => {
-  const locale = currency === USD_CURRENCY ? 'en-US' : 'en-IN';
-  return formatCurrency(amount, currency, locale);
-};
-
-const formatSignedByCurrency = (value: number | null, currency: string): string => {
-  if (value === null) {
-    return '-';
-  }
-  const absValue = Math.abs(value);
-  const formatted = formatByCurrency(absValue, currency);
-  if (value > 0) {
-    return `+${formatted}`;
-  }
-  if (value < 0) {
-    return `-${formatted}`;
-  }
-  return formatted;
 };
 
 const CurrencyDetailsPopover = ({ row }: { row: InvestmentRow }) => {
@@ -85,23 +56,23 @@ const CurrencyDetailsPopover = ({ row }: { row: InvestmentRow }) => {
       <PopoverContent align="end" className="w-72 text-xs">
         <div className="grid gap-1">
           <div className="font-semibold">USD to INR Details</div>
-          <div>Buy value (USD): {formatByCurrency(row.investedAmountDisplay, USD_CURRENCY)}</div>
-          <div>
-            Buy value (INR @ purchase-date FX): {formatByCurrency(buyValueInr, INR_CURRENCY)}
-          </div>
+          <div>Buy value (USD): {formatCurrency(row.investedAmountDisplay, USD_CURRENCY)}</div>
+          <div>Buy value (INR @ purchase-date FX): {formatCurrency(buyValueInr, INR_CURRENCY)}</div>
           <div>
             Current value (USD):{' '}
             {row.valuationAmountDisplay === null
               ? '-'
-              : formatByCurrency(row.valuationAmountDisplay, USD_CURRENCY)}
+              : formatCurrency(row.valuationAmountDisplay, USD_CURRENCY)}
           </div>
           <div>
             Current value (INR @ today FX):{' '}
-            {currentValueInr === null ? '-' : formatByCurrency(currentValueInr, INR_CURRENCY)}
+            {currentValueInr === null ? '-' : formatCurrency(currentValueInr, INR_CURRENCY)}
           </div>
-          <div>Purchase FX: {buyFxRate === null ? '-' : buyFxRate.toFixed(FX_RATE_DECIMALS)}</div>
           <div>
-            Today FX: {currentFxRate === null ? '-' : currentFxRate.toFixed(FX_RATE_DECIMALS)}
+            Purchase FX: {buyFxRate === null ? '-' : formatNumber(buyFxRate, FX_RATE_DECIMALS)}
+          </div>
+          <div>
+            Today FX: {currentFxRate === null ? '-' : formatNumber(currentFxRate, FX_RATE_DECIMALS)}
           </div>
         </div>
       </PopoverContent>
@@ -149,13 +120,13 @@ export const createInvestmentColumns = (
   {
     accessorKey: 'investmentDate',
     header: 'Investment Date',
-    cell: ({ row }) => zoned(row.original.investmentDate, 'PP'),
+    cell: ({ row }) => zoned(row.original.investmentDate, DATE_FORMAT.date),
   },
   {
     accessorKey: 'investmentAmount',
     header: 'Invested',
     cell: ({ row }) =>
-      formatByCurrency(row.original.investedAmountDisplay, row.original.displayCurrency),
+      formatCurrency(row.original.investedAmountDisplay, row.original.displayCurrency),
     meta: { align: 'right' },
   },
   {
@@ -171,7 +142,7 @@ export const createInvestmentColumns = (
       if (row.original.liveUnitPriceDisplay === null) {
         return '-';
       }
-      return formatByCurrency(row.original.liveUnitPriceDisplay, row.original.displayCurrency);
+      return formatCurrency(row.original.liveUnitPriceDisplay, row.original.displayCurrency);
     },
     meta: { align: 'right' },
   },
@@ -181,7 +152,7 @@ export const createInvestmentColumns = (
     cell: ({ row }) =>
       row.original.valuationAmountDisplay === null
         ? '-'
-        : formatByCurrency(row.original.valuationAmountDisplay, row.original.displayCurrency),
+        : formatCurrency(row.original.valuationAmountDisplay, row.original.displayCurrency),
     meta: { align: 'right' },
   },
   {
@@ -199,10 +170,10 @@ export const createInvestmentColumns = (
         return <span>-</span>;
       }
       const tone = getSignedValueTone(pnlValue);
-      const percentage = pnlPercent === null ? '' : ` (${pnlPercent.toFixed(2)}%)`;
+      const percentage = pnlPercent === null ? '' : ` (${formatPercent(pnlPercent)})`;
       return (
         <span className={tone}>
-          {`${formatSignedByCurrency(pnlValue, row.original.displayCurrency)}${percentage}`}
+          {`${formatSignedCurrency(pnlValue, row.original.displayCurrency)}${percentage}`}
         </span>
       );
     },
@@ -217,10 +188,10 @@ export const createInvestmentColumns = (
       if (dayChangeValue === null) {
         return <span>-</span>;
       }
-      const percentage = dayChangePercent === null ? '' : ` (${dayChangePercent.toFixed(2)}%)`;
+      const percentage = dayChangePercent === null ? '' : ` (${formatPercent(dayChangePercent)})`;
       return (
         <span className={getSignedValueTone(dayChangeValue)}>
-          {`${formatSignedByCurrency(dayChangeValue, row.original.displayCurrency)}${percentage}`}
+          {`${formatSignedCurrency(dayChangeValue, row.original.displayCurrency)}${percentage}`}
         </span>
       );
     },

@@ -44,7 +44,7 @@ const toRange = (anchor: CellRef, focus: CellRef): CellRange => ({
 });
 
 const asNumber = (text: string): number | null => {
-  const cleaned = text.replaceAll(/[,\s₹]/gu, '');
+  const cleaned = text.replaceAll(/[,\s₹$]/gu, '');
   if (cleaned === '') {
     return null;
   }

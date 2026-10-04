@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { ZonedDate } from '@/components/zoned-date';
+import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { api } from '@/server/react';
 import type { Statement } from '@/types';
 
@@ -191,7 +192,7 @@ const LinkToRecurringPaymentContent = ({
           <div className="space-y-1">
             <div className="font-medium">{candidate.revisionName}</div>
             <div className="text-muted-foreground text-sm">
-              {formatDate(candidate.periodStart, { month: 'long', day: undefined })} ·{' '}
+              <ZonedDate pattern={DATE_FORMAT.month} value={candidate.periodStart} /> ·{' '}
               {formatCurrency(candidate.totals.net)} estimated net
             </div>
           </div>
@@ -225,9 +226,12 @@ const LinkToRecurringPaymentContent = ({
             <div className="text-muted-foreground text-sm">
               Instalment {candidate.installmentNo} of {candidate.tenure}
               {candidate.amount === null ? null : ` · ${formatCurrency(candidate.amount)}`}
-              {candidate.scheduledDate === null
-                ? null
-                : ` · due ${formatDate(candidate.scheduledDate)}`}
+              {candidate.scheduledDate === null ? null : (
+                <>
+                  {' '}
+                  · due <ZonedDate value={candidate.scheduledDate} />
+                </>
+              )}
             </div>
           </div>
           <Button
@@ -255,7 +259,7 @@ const LinkToRecurringPaymentContent = ({
             <div className="font-medium">{candidate.name}</div>
             <div className="text-muted-foreground text-sm">
               {candidate.category} · {formatCurrency(Number(candidate.amount))} · due{' '}
-              {formatDate(candidate.scheduledDate)}
+              <ZonedDate value={candidate.scheduledDate} />
             </div>
           </div>
           <Button

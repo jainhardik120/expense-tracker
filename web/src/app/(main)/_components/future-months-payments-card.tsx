@@ -10,7 +10,7 @@ import { DataTable } from '@/components/data-table/data-table';
 import { useTimezone } from '@/components/time-zone-setter';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useDataTable } from '@/hooks/use-data-table';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { getFutureRecurringPayments } from '@/server/helpers/recurring-calculations';
 import { dateParser } from '@/types';
 import type { CardsWithOutstanding } from '@/types/router-outputs';
@@ -30,7 +30,7 @@ const MonthButton = ({ month, onSelect }: { month: string; onSelect: (month: str
       onSelect(month);
     }}
   >
-    {format(parse(month, 'yyyy-MM', new Date()), 'MMMM yyyy')}
+    {format(parse(month, 'yyyy-MM', new Date()), DATE_FORMAT.month)}
   </button>
 );
 

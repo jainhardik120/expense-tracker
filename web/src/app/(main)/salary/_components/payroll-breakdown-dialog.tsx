@@ -16,13 +16,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatCurrency, formatDate } from '@/lib/format';
+import { ZonedDate } from '@/components/zoned-date';
+import { formatCurrency, formatSignedCurrency } from '@/lib/format';
 import { hasMaterialSalaryNetMismatch } from '@/lib/salary';
 
 import {
   classificationLabels,
   formatPeriod,
-  formatSignedCurrency,
   type SalaryRow,
   statusPresentation,
   tdsAdjustment,
@@ -64,7 +64,7 @@ export const PayrollBreakdownDialog = ({ row }: { row: SalaryRow }) => {
               </Badge>
             }
           />
-          <Detail label="Pay date" value={formatDate(row.paymentDate)} />
+          <Detail label="Pay date" value={<ZonedDate value={row.paymentDate} />} />
           <Detail label="Days paid" value={`${row.daysPaid} / ${row.daysInPeriod}`} />
           {bonusTds === 0 ? null : (
             <Detail label="Bonus tax in TDS" value={formatSignedCurrency(bonusTds)} />
