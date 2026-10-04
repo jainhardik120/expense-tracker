@@ -79,7 +79,7 @@ const fetchText = (url: string, init?: RequestInit): Promise<string | null> => {
 };
 
 export const fetchJson = instrumentedFunction(
-  'fetchJSON',
+  'fetchJson',
   async <T>(url: string, init?: RequestInit): Promise<T | null> => {
     const text = await fetchText(url, init);
     if (text === null) {
@@ -204,25 +204,28 @@ let mfSchemesCache:
     }
   | undefined;
 
-export const getMutualFundSchemes = async (): Promise<MFScheme[]> => {
-  const now = Date.now();
-  if (
-    mfSchemesCache !== undefined &&
-    now - mfSchemesCache.fetchedAt < MF_CACHE_TTL_MS &&
-    mfSchemesCache.items.length > 0
-  ) {
-    return mfSchemesCache.items;
-  }
+export const getMutualFundSchemes = instrumentedFunction(
+  'getMutualFundSchemes',
+  async (): Promise<MFScheme[]> => {
+    const now = Date.now();
+    if (
+      mfSchemesCache !== undefined &&
+      now - mfSchemesCache.fetchedAt < MF_CACHE_TTL_MS &&
+      mfSchemesCache.items.length > 0
+    ) {
+      return mfSchemesCache.items;
+    }
 
-  const payload = await fetchJson<MFScheme[]>('https://api.mfapi.in/mf', {
-    cache: 'no-store',
-  });
-  const items = payload ?? [];
-  mfSchemesCache = {
-    items,
-    fetchedAt: now,
-  };
-  return items;
-};
+    const payload = await fetchJson<MFScheme[]>('https://api.mfapi.in/mf', {
+      cache: 'no-store',
+    });
+    const items = payload ?? [];
+    mfSchemesCache = {
+      items,
+      fetchedAt: now,
+    };
+    return items;
+  },
+);
 
 export const parseNumericString = (value: string): number => parseFloatSafe(value);

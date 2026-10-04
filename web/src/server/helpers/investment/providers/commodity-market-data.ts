@@ -1,3 +1,5 @@
+import { instrumentedFunction } from '@/lib/instrumentation';
+
 import type { PriceHistoryPoint, Quote } from '../types';
 
 import {
@@ -260,62 +262,66 @@ const mergeHistoryPoints = (
     .map(([, point]) => point);
 };
 
-export const fetchCommodityLiveQuote = async (
-  definition: CommodityDefinition,
-): Promise<Quote | null> => {
-  const payload = await fetchJson<UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse>(
-    getUpstoxOverviewUrl(definition),
-    {
-      cache: 'no-store',
-      headers: UPSTOX_HEADERS,
-    },
-  );
-
-  const unitPrice =
-    definition.code === 'gold'
-      ? parseFiniteNumber((payload as UpstoxGoldOverviewResponse | null)?.data?.price24k?.today)
-      : parseFiniteNumber((payload as UpstoxSilverOverviewResponse | null)?.data?.price?.today);
-  if (unitPrice === null) {
-    return null;
-  }
-
-  const asOfRaw = payload?.data?.updatedDate;
-  const asOf = asOfRaw === undefined ? null : parseDateString(asOfRaw);
-
-  return {
-    unitPriceInr: unitPrice,
-    unitPriceNative: unitPrice,
-    nativeCurrency: INDIAN_RUPEE,
-    fxRateToInr: 1,
-    asOf,
-    source: UPSTOX_SOURCE,
-  };
-};
-
-export const fetchCommodityHistoricalPrices = async (
-  definition: CommodityDefinition,
-  startDate: Date,
-  endDate: Date,
-): Promise<PriceHistoryPoint[]> => {
-  const [upstoxOverview, hindustanTimesHistory] = await Promise.all([
-    fetchJson<UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse>(
+export const fetchCommodityLiveQuote = instrumentedFunction(
+  'fetchCommodityLiveQuote',
+  async (definition: CommodityDefinition): Promise<Quote | null> => {
+    const payload = await fetchJson<UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse>(
       getUpstoxOverviewUrl(definition),
       {
         cache: 'no-store',
         headers: UPSTOX_HEADERS,
       },
-    ),
-    fetchJson<Array<HindustanTimesGoldHistoryPoint | HindustanTimesSilverHistoryPoint>>(
-      getHindustanTimesHistoryUrl(definition, buildHistoryWindowInDays(startDate)),
-      {
-        cache: 'no-store',
-        headers: HINDUSTAN_TIMES_HEADERS,
-      },
-    ),
-  ]);
+    );
 
-  const historicalPoints = buildHindustanTimesHistoryPoints(definition, hindustanTimesHistory);
-  const exactRecentPoints = buildUpstoxHistoryPoints(definition, upstoxOverview);
+    const unitPrice =
+      definition.code === 'gold'
+        ? parseFiniteNumber((payload as UpstoxGoldOverviewResponse | null)?.data?.price24k?.today)
+        : parseFiniteNumber((payload as UpstoxSilverOverviewResponse | null)?.data?.price?.today);
+    if (unitPrice === null) {
+      return null;
+    }
 
-  return mergeHistoryPoints(historicalPoints, exactRecentPoints, startDate, endDate);
-};
+    const asOfRaw = payload?.data?.updatedDate;
+    const asOf = asOfRaw === undefined ? null : parseDateString(asOfRaw);
+
+    return {
+      unitPriceInr: unitPrice,
+      unitPriceNative: unitPrice,
+      nativeCurrency: INDIAN_RUPEE,
+      fxRateToInr: 1,
+      asOf,
+      source: UPSTOX_SOURCE,
+    };
+  },
+);
+
+export const fetchCommodityHistoricalPrices = instrumentedFunction(
+  'fetchCommodityHistoricalPrices',
+  async (
+    definition: CommodityDefinition,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<PriceHistoryPoint[]> => {
+    const [upstoxOverview, hindustanTimesHistory] = await Promise.all([
+      fetchJson<UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse>(
+        getUpstoxOverviewUrl(definition),
+        {
+          cache: 'no-store',
+          headers: UPSTOX_HEADERS,
+        },
+      ),
+      fetchJson<Array<HindustanTimesGoldHistoryPoint | HindustanTimesSilverHistoryPoint>>(
+        getHindustanTimesHistoryUrl(definition, buildHistoryWindowInDays(startDate)),
+        {
+          cache: 'no-store',
+          headers: HINDUSTAN_TIMES_HEADERS,
+        },
+      ),
+    ]);
+
+    const historicalPoints = buildHindustanTimesHistoryPoints(definition, hindustanTimesHistory);
+    const exactRecentPoints = buildUpstoxHistoryPoints(definition, upstoxOverview);
+
+    return mergeHistoryPoints(historicalPoints, exactRecentPoints, startDate, endDate);
+  },
+);

@@ -11,29 +11,29 @@ import {
   type LinkedHistoryEntry,
 } from '@/lib/sms-insert-hints';
 
-export const getLinkedHistory = async (
-  db: Database,
-  userId: string,
-): Promise<LinkedHistoryEntry[]> =>
-  db
-    .select({
-      bankName: smsNotifications.bankName,
-      accountLast4: smsNotifications.accountLast4,
-      merchant: smsNotifications.merchant,
-      accountId: statements.accountId,
-      category: statements.category,
-      tags: statements.tags,
-    })
-    .from(smsNotifications)
-    .innerJoin(
-      statements,
-      eq(
-        sql`CAST(${smsNotifications.additionalAttributes}->>'statementId' AS uuid)`,
-        statements.id,
-      ),
-    )
-    .where(eq(smsNotifications.userId, userId))
-    .orderBy(desc(smsNotifications.createdAt));
+export const getLinkedHistory = instrumentedFunction(
+  'getLinkedHistory',
+  async (db: Database, userId: string): Promise<LinkedHistoryEntry[]> =>
+    db
+      .select({
+        bankName: smsNotifications.bankName,
+        accountLast4: smsNotifications.accountLast4,
+        merchant: smsNotifications.merchant,
+        accountId: statements.accountId,
+        category: statements.category,
+        tags: statements.tags,
+      })
+      .from(smsNotifications)
+      .innerJoin(
+        statements,
+        eq(
+          sql`CAST(${smsNotifications.additionalAttributes}->>'statementId' AS uuid)`,
+          statements.id,
+        ),
+      )
+      .where(eq(smsNotifications.userId, userId))
+      .orderBy(desc(smsNotifications.createdAt)),
+);
 
 export const getInsertHintsForMany = instrumentedFunction(
   'getInsertHintsForMany',
@@ -53,24 +53,23 @@ export const getInsertHintsForOne = instrumentedFunction(
   },
 );
 
-export const getHintSubject = async (
-  db: Database,
-  userId: string,
-  id: string,
-): Promise<HintSubject> => {
-  const found = await db
-    .select({
-      id: smsNotifications.id,
-      bankName: smsNotifications.bankName,
-      accountLast4: smsNotifications.accountLast4,
-      merchant: smsNotifications.merchant,
-    })
-    .from(smsNotifications)
-    .where(and(eq(smsNotifications.id, id), eq(smsNotifications.userId, userId)))
-    .limit(1);
-  const subject = found.at(0);
-  if (subject === undefined) {
-    throw new Error('SMS notification not found');
-  }
-  return subject;
-};
+export const getHintSubject = instrumentedFunction(
+  'getHintSubject',
+  async (db: Database, userId: string, id: string): Promise<HintSubject> => {
+    const found = await db
+      .select({
+        id: smsNotifications.id,
+        bankName: smsNotifications.bankName,
+        accountLast4: smsNotifications.accountLast4,
+        merchant: smsNotifications.merchant,
+      })
+      .from(smsNotifications)
+      .where(and(eq(smsNotifications.id, id), eq(smsNotifications.userId, userId)))
+      .limit(1);
+    const subject = found.at(0);
+    if (subject === undefined) {
+      throw new Error('SMS notification not found');
+    }
+    return subject;
+  },
+);

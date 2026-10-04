@@ -1,4 +1,4 @@
-import { trace } from '@opentelemetry/api';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { initTRPC, TRPCError } from '@trpc/server';
 import { verifyJwsAccessToken, type JWTPayload } from 'better-auth';
 import { eq } from 'drizzle-orm';
@@ -29,18 +29,24 @@ const t = initTRPC
     }),
   });
 
-const timingMiddleware = t.middleware(async ({ next, path }) => {
+const timingMiddleware = t.middleware(async ({ next, path, type }) => {
   const start = Date.now();
   const result = await trace.getTracer('expense-tracker').startActiveSpan(path, async (span) => {
-    const result = await next();
-    span.end();
-    return result;
+    span.setAttributes({ 'trpc.path': path, 'trpc.type': type });
+    try {
+      const outcome = await next();
+      if (!outcome.ok) {
+        span.recordException(outcome.error);
+        span.setAttribute('trpc.error_code', outcome.error.code);
+        span.setStatus({ code: SpanStatusCode.ERROR, message: outcome.error.message });
+      }
+      return outcome;
+    } finally {
+      span.end();
+    }
   });
-  const end = Date.now();
-  logger.info(`TRPC ${path} took ${end - start}ms to execute`, {
-    path,
-    durationMs: end - start,
-  });
+  const durationMs = Date.now() - start;
+  logger.info(`TRPC ${path} took ${durationMs}ms to execute`, { path, durationMs, ok: result.ok });
   return result;
 });
 

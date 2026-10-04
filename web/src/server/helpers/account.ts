@@ -5,19 +5,23 @@ import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { type SelfTransferStatement, type Statement, isSelfTransfer } from '@/types';
 
-export const getAccounts = (db: Database, userId: string) =>
-  db
-    .select()
-    .from(bankAccount)
-    .where(eq(bankAccount.userId, userId))
-    .orderBy(bankAccount.accountName);
+export const getAccounts = instrumentedFunction(
+  'getAccounts',
+  async (db: Database, userId: string) =>
+    db
+      .select()
+      .from(bankAccount)
+      .where(eq(bankAccount.userId, userId))
+      .orderBy(bankAccount.accountName),
+);
 
-export const getFriends = (db: Database, userId: string) =>
+export const getFriends = instrumentedFunction('getFriends', async (db: Database, userId: string) =>
   db
     .select()
     .from(friendsProfiles)
     .where(eq(friendsProfiles.userId, userId))
-    .orderBy(friendsProfiles.name);
+    .orderBy(friendsProfiles.name),
+);
 
 export const getFromAccount = (statement: Statement | SelfTransferStatement): string | null => {
   if (isSelfTransfer(statement)) {

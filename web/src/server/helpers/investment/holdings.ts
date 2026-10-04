@@ -57,129 +57,132 @@ export const getDailyRangeFromInvestments = ({
   };
 };
 
-export const buildDailyInstrumentTimeline = async ({
-  kind,
-  code,
-  stockMarket,
-  positions,
-  startDate,
-  endDate,
-  historyByInstrumentKey,
-  usdInrHistory,
-}: {
-  kind: InvestmentKindValue;
-  code: string;
-  stockMarket: StockMarketValue | null;
-  positions: EnrichedInvestment[];
-  startDate: Date;
-  endDate: Date;
-  historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
-  usdInrHistory?: Array<{ date: Date; price: number }>;
-}): Promise<InstrumentHoldingTimelinePoint[]> => {
-  const dailyDates = buildDailyRange(startDate, endDate);
-  if (dailyDates.length === 0) {
-    return [];
-  }
-
-  if (!isUnitBasedInvestment(kind)) {
-    return dailyDates.map((day) => {
-      let value = 0;
-      for (const position of positions) {
-        const investmentDay = startOfDay(position.investmentDate);
-        const closedDay = position.closedAt === null ? null : startOfDay(position.closedAt);
-        if (day.getTime() < investmentDay.getTime()) {
-          continue;
-        }
-        if (closedDay !== null && day.getTime() > closedDay.getTime()) {
-          continue;
-        }
-        if (kind === 'fd') {
-          value += getFdValuationAtDate(position, day) ?? 0;
-          continue;
-        }
-        if (position.isClosedPosition) {
-          value +=
-            parseOptionalNumber(position.amount) ??
-            parseOptionalNumber(position.investmentAmount) ??
-            0;
-          continue;
-        }
-        value += parseOptionalNumber(position.investmentAmount) ?? 0;
-      }
-      return {
-        date: day,
-        unitPrice: value,
-        unitsHeld: value > 0 ? 1 : 0,
-        holdingValue: value,
-      };
-    });
-  }
-
-  const fallbackPrice = positions
-    .map((position) => getFallbackUnitPrice(position))
-    .find((value): value is number => value !== undefined && value > 0);
-  const usdInrRateFallback =
-    positions
-      .map((position) => position.liveFxRateToInr)
-      .find((value): value is number => value !== null && value > 0) ?? null;
-
-  const rawPrices =
-    historyByInstrumentKey?.get(createInstrumentKey(kind, code, stockMarket)) ??
-    (await getHistoricalUnitPrices(kind, code, startDate, endDate, {
-      stockMarket,
-      usdInrRate: usdInrRateFallback,
-      usdInrHistory: usdInrHistory ?? [],
-    }));
-  const dailyPrices = buildDailyPriceSeries({
-    rawPoints: rawPrices,
+export const buildDailyInstrumentTimeline = instrumentedFunction(
+  'buildDailyInstrumentTimeline',
+  async ({
+    kind,
+    code,
+    stockMarket,
+    positions,
     startDate,
     endDate,
-    fallbackPrice,
-  });
+    historyByInstrumentKey,
+    usdInrHistory,
+  }: {
+    kind: InvestmentKindValue;
+    code: string;
+    stockMarket: StockMarketValue | null;
+    positions: EnrichedInvestment[];
+    startDate: Date;
+    endDate: Date;
+    historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
+    usdInrHistory?: Array<{ date: Date; price: number }>;
+  }): Promise<InstrumentHoldingTimelinePoint[]> => {
+    const dailyDates = buildDailyRange(startDate, endDate);
+    if (dailyDates.length === 0) {
+      return [];
+    }
 
-  const unitEvents = new Map<string, number>();
-  let unitsHeld = 0;
-  for (const position of positions) {
-    const positionUnits = getUnitsForInvestment(position);
-    if (positionUnits <= 0) {
-      continue;
+    if (!isUnitBasedInvestment(kind)) {
+      return dailyDates.map((day) => {
+        let value = 0;
+        for (const position of positions) {
+          const investmentDay = startOfDay(position.investmentDate);
+          const closedDay = position.closedAt === null ? null : startOfDay(position.closedAt);
+          if (day.getTime() < investmentDay.getTime()) {
+            continue;
+          }
+          if (closedDay !== null && day.getTime() > closedDay.getTime()) {
+            continue;
+          }
+          if (kind === 'fd') {
+            value += getFdValuationAtDate(position, day) ?? 0;
+            continue;
+          }
+          if (position.isClosedPosition) {
+            value +=
+              parseOptionalNumber(position.amount) ??
+              parseOptionalNumber(position.investmentAmount) ??
+              0;
+            continue;
+          }
+          value += parseOptionalNumber(position.investmentAmount) ?? 0;
+        }
+        return {
+          date: day,
+          unitPrice: value,
+          unitsHeld: value > 0 ? 1 : 0,
+          holdingValue: value,
+        };
+      });
     }
-    const investmentDay = startOfDay(position.investmentDate);
-    const closedDay = position.closedAt === null ? null : startOfDay(position.closedAt);
-    if (investmentDay.getTime() < startDate.getTime()) {
-      unitsHeld += positionUnits;
-    } else {
-      const key = dateToDayKey(investmentDay);
-      unitEvents.set(key, (unitEvents.get(key) ?? 0) + positionUnits);
-    }
-    if (closedDay !== null) {
-      if (closedDay.getTime() < startDate.getTime()) {
-        unitsHeld -= positionUnits;
+
+    const fallbackPrice = positions
+      .map((position) => getFallbackUnitPrice(position))
+      .find((value): value is number => value !== undefined && value > 0);
+    const usdInrRateFallback =
+      positions
+        .map((position) => position.liveFxRateToInr)
+        .find((value): value is number => value !== null && value > 0) ?? null;
+
+    const rawPrices =
+      historyByInstrumentKey?.get(createInstrumentKey(kind, code, stockMarket)) ??
+      (await getHistoricalUnitPrices(kind, code, startDate, endDate, {
+        stockMarket,
+        usdInrRate: usdInrRateFallback,
+        usdInrHistory: usdInrHistory ?? [],
+      }));
+    const dailyPrices = buildDailyPriceSeries({
+      rawPoints: rawPrices,
+      startDate,
+      endDate,
+      fallbackPrice,
+    });
+
+    const unitEvents = new Map<string, number>();
+    let unitsHeld = 0;
+    for (const position of positions) {
+      const positionUnits = getUnitsForInvestment(position);
+      if (positionUnits <= 0) {
+        continue;
+      }
+      const investmentDay = startOfDay(position.investmentDate);
+      const closedDay = position.closedAt === null ? null : startOfDay(position.closedAt);
+      if (investmentDay.getTime() < startDate.getTime()) {
+        unitsHeld += positionUnits;
       } else {
-        const key = dateToDayKey(closedDay);
-        unitEvents.set(key, (unitEvents.get(key) ?? 0) - positionUnits);
+        const key = dateToDayKey(investmentDay);
+        unitEvents.set(key, (unitEvents.get(key) ?? 0) + positionUnits);
+      }
+      if (closedDay !== null) {
+        if (closedDay.getTime() < startDate.getTime()) {
+          unitsHeld -= positionUnits;
+        } else {
+          const key = dateToDayKey(closedDay);
+          unitEvents.set(key, (unitEvents.get(key) ?? 0) - positionUnits);
+        }
       }
     }
-  }
 
-  if (unitsHeld < 0) {
-    unitsHeld = 0;
-  }
-
-  return dailyPrices.map((pricePoint) => {
-    const dayKey = dateToDayKey(pricePoint.date);
-    unitsHeld += unitEvents.get(dayKey) ?? 0;
     if (unitsHeld < 0) {
       unitsHeld = 0;
     }
-    return {
-      date: pricePoint.date,
-      unitPrice: pricePoint.price,
-      unitsHeld,
-      holdingValue: pricePoint.price * unitsHeld,
-    };
-  });
-};
+
+    return dailyPrices.map((pricePoint) => {
+      const dayKey = dateToDayKey(pricePoint.date);
+      unitsHeld += unitEvents.get(dayKey) ?? 0;
+      if (unitsHeld < 0) {
+        unitsHeld = 0;
+      }
+      return {
+        date: pricePoint.date,
+        unitPrice: pricePoint.price,
+        unitsHeld,
+        holdingValue: pricePoint.price * unitsHeld,
+      };
+    });
+  },
+);
 
 const getInstrumentHoldingTimeline = instrumentedFunction(
   'getInstrumentHoldingTimeline',

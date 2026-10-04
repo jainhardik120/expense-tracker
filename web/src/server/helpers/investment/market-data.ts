@@ -80,40 +80,43 @@ export const searchInvestmentInstruments = instrumentedFunction(
   },
 );
 
-export const getHistoricalUnitPrices = async (
-  kind: InvestmentKindValue,
-  code: string,
-  startDate: Date,
-  endDate: Date,
-  options?: {
-    stockMarket?: StockMarketValue | null;
-    usdInrRate?: number | null;
-    usdInrHistory?: PriceHistoryPoint[];
-  },
-): Promise<PriceHistoryPoint[]> => {
-  const effectiveStockMarket =
-    kind === 'stocks' ? normalizeStockMarket(options?.stockMarket) : null;
-  const provider = investmentInstrumentProviderRegistry.getProviderForKind(
-    kind,
-    effectiveStockMarket,
-  );
-  if (provider === null) {
-    return [];
-  }
-  return provider.getHistoricalPrices(
-    {
+export const getHistoricalUnitPrices = instrumentedFunction(
+  'getHistoricalUnitPrices',
+  async (
+    kind: InvestmentKindValue,
+    code: string,
+    startDate: Date,
+    endDate: Date,
+    options?: {
+      stockMarket?: StockMarketValue | null;
+      usdInrRate?: number | null;
+      usdInrHistory?: PriceHistoryPoint[];
+    },
+  ): Promise<PriceHistoryPoint[]> => {
+    const effectiveStockMarket =
+      kind === 'stocks' ? normalizeStockMarket(options?.stockMarket) : null;
+    const provider = investmentInstrumentProviderRegistry.getProviderForKind(
       kind,
-      code,
-      stockMarket: effectiveStockMarket,
-    },
-    startDate,
-    endDate,
-    {
-      usdInrRate: options?.usdInrRate ?? null,
-      usdInrHistory: options?.usdInrHistory ?? [],
-    },
-  );
-};
+      effectiveStockMarket,
+    );
+    if (provider === null) {
+      return [];
+    }
+    return provider.getHistoricalPrices(
+      {
+        kind,
+        code,
+        stockMarket: effectiveStockMarket,
+      },
+      startDate,
+      endDate,
+      {
+        usdInrRate: options?.usdInrRate ?? null,
+        usdInrHistory: options?.usdInrHistory ?? [],
+      },
+    );
+  },
+);
 
 const getUniqueInstruments = (
   investmentsList: InvestmentRow[],
