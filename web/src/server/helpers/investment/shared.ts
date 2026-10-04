@@ -36,15 +36,47 @@ export const parseMfDate = (value: string): Date | null => {
 export const startOfDay = (date: Date): Date =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
+/**
+ * Requests for the same URL already on their way, shared rather than repeated.
+ *
+ * Every investment page asks the same public sources for the same instruments
+ * -- eighteen calls a load -- so users opening theirs at the same moment were
+ * each making all of them. One fetch now answers everyone asking at once; the
+ * body is shared as text and parsed per caller, so no caller can change what
+ * another sees. Nothing is kept once the response is in: the next request
+ * fetches afresh, exactly as before.
+ */
+const inFlight = new Map<string, Promise<string | null>>();
+
+const fetchText = (url: string, init?: RequestInit): Promise<string | null> => {
+  const key = `${url}\n${JSON.stringify(init?.headers ?? {})}`;
+  const pending = inFlight.get(key);
+  if (pending !== undefined) {
+    return pending;
+  }
+  const request = (async () => {
+    try {
+      const response = await fetch(url, init);
+      return response.ok ? await response.text() : null;
+    } catch {
+      return null;
+    } finally {
+      inFlight.delete(key);
+    }
+  })();
+  inFlight.set(key, request);
+  return request;
+};
+
 export const fetchJson = instrumentedFunction(
   'fetchJSON',
   async <T>(url: string, init?: RequestInit): Promise<T | null> => {
+    const text = await fetchText(url, init);
+    if (text === null) {
+      return null;
+    }
     try {
-      const response = await fetch(url, init);
-      if (!response.ok) {
-        return null;
-      }
-      return (await response.json()) as T;
+      return JSON.parse(text) as T;
     } catch {
       return null;
     }
