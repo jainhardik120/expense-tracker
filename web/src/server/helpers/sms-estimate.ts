@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql, count } from 'drizzle-orm';
 
 import { bankAccount, smsNotifications, statements } from '@/db/schema';
 import { type Database } from '@/lib/db';
@@ -50,7 +50,7 @@ export const getPendingSmsEstimate = instrumentedFunction(
         accountLast4: smsNotifications.accountLast4,
         accountId: statements.accountId,
         accountName: bankAccount.accountName,
-        uses: sql<number>`count(*)::int`,
+        uses: count(),
       })
       .from(smsNotifications)
       .innerJoin(
@@ -74,7 +74,7 @@ export const getPendingSmsEstimate = instrumentedFunction(
         statements.accountId,
         bankAccount.accountName,
       )
-      .orderBy(desc(sql`count(*)`));
+      .orderBy(desc(count()));
 
     const byLast4 = new Map<string, { id: string; name: string }>();
     const byBank = new Map<string, { id: string; name: string }>();

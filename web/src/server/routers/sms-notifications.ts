@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, count as countRows } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { smsNotifications } from '@/db/schema';
@@ -102,7 +102,7 @@ export const smsNotificationsRouter = createTRPCRouter({
       conditions.push(inArray(smsNotifications.status, input.status));
     }
     const [{ count }] = await ctx.db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: countRows() })
       .from(smsNotifications)
       .where(and(...conditions));
 

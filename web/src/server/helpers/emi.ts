@@ -13,8 +13,10 @@ import {
   type SQL,
   count,
   isNull,
+  isNotNull,
 } from 'drizzle-orm';
 
+import { statementAttribute } from '@/db/attribute-sql';
 import { bankAccount, creditCardAccounts, emis, recurringPayments, statements } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
@@ -25,20 +27,15 @@ import type { z } from 'zod';
 export const getMaxInstallmentNoSubquery = (db: Database, userId: string) =>
   db
     .select({
-      emiId: sql<string>`(${statements.additionalAttributes}->>'emiId')`.as('emi_id'),
+      emiId: statementAttribute<string>('emiId').as('emi_id'),
       maxInstallmentNo: max(
-        sql<number>`CAST(${statements.additionalAttributes}->>'installmentNo' AS INTEGER)`,
+        sql<number>`CAST(${statementAttribute('installmentNo')} AS INTEGER)`,
       ).as('max_installment_no'),
       totalPaid: sum(sql<number>`ABS(${statements.amount})`).as('total_paid'),
     })
     .from(statements)
-    .where(
-      and(
-        eq(statements.userId, userId),
-        sql`${statements.additionalAttributes}->>'emiId' IS NOT NULL`,
-      ),
-    )
-    .groupBy(sql`${statements.additionalAttributes}->>'emiId'`)
+    .where(and(eq(statements.userId, userId), isNotNull(statementAttribute('emiId'))))
+    .groupBy(statementAttribute('emiId'))
     .as('max_installments');
 
 const emiListFilter = (db: Database, userId: string, input: z.infer<typeof emiParserSchema>) => {
@@ -142,7 +139,7 @@ export const getLinkedStatementsRecurringPayment = instrumentedFunction(
       .where(
         and(
           eq(statements.userId, userId),
-          eq(sql`${statements.additionalAttributes}->>'recurringPaymentId'`, recurringPaymentId),
+          eq(statementAttribute('recurringPaymentId'), recurringPaymentId),
         ),
       )
       .orderBy(desc(statements.createdAt)),
@@ -156,14 +153,11 @@ export const getRecurringLinkedStatements = instrumentedFunction(
         id: statements.id,
         amount: statements.amount,
         createdAt: statements.createdAt,
-        recurringPaymentId: sql<string>`${statements.additionalAttributes}->>'recurringPaymentId'`,
+        recurringPaymentId: statementAttribute<string>('recurringPaymentId'),
       })
       .from(statements)
       .where(
-        and(
-          eq(statements.userId, userId),
-          sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
-        ),
+        and(eq(statements.userId, userId), isNotNull(statementAttribute('recurringPaymentId'))),
       ),
 );
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, getTableColumns, gte, lt, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, gte, lt, sql, sum } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -131,7 +131,7 @@ export const buildReportInput = instrumentedFunction(
     const owedByStatement = db
       .select({
         statementId: splits.statementId,
-        owed: sql<string>`sum(${splits.amount})`.as('owed'),
+        owed: sum(splits.amount).as('owed'),
       })
       .from(splits)
       .where(eq(splits.userId, userId))

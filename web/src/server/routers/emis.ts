@@ -1,7 +1,8 @@
 import { endOfMonth, parse } from 'date-fns';
-import { and, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, or, sql, sum } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { statementAttribute } from '@/db/attribute-sql';
 import type { EmiSplit } from '@/db/attributes';
 import { emis, selfTransferStatements, statements, recurringPayments } from '@/db/schema';
 import {
@@ -335,10 +336,7 @@ export const emisRouter = createTRPCRouter({
         })
         .from(statements)
         .where(
-          and(
-            eq(statements.userId, ctx.user.id),
-            eq(sql`${statements.additionalAttributes}->>'emiId'`, input.emiId),
-          ),
+          and(eq(statements.userId, ctx.user.id), eq(statementAttribute('emiId'), input.emiId)),
         )
         .orderBy(desc(statements.createdAt));
     }),
@@ -433,43 +431,49 @@ export const emisRouter = createTRPCRouter({
       const cutoff = periodStart < now ? periodStart : now;
       const openingByAccount = new Map<string, number>();
       if (cardAccountIds.length > 0) {
-        const openingStatements = await ctx.db
-          .select({
-            accountId: statements.accountId,
-            delta: sql<string>`COALESCE(SUM(CASE WHEN ${statements.statementKind} = 'expense' THEN -${statements.amount} ELSE ${statements.amount} END), 0)`,
-          })
-          .from(statements)
-          .where(
-            and(
-              eq(statements.userId, ctx.user.id),
-              inArray(statements.accountId, cardAccountIds),
-              lt(statements.createdAt, cutoff),
-            ),
-          )
-          .groupBy(statements.accountId);
-        const openingTransfers = await ctx.db.execute<{ account_id: string; delta: string }>(sql`
-          select account_id, coalesce(sum(delta), 0) as delta from (
-            select ${selfTransferStatements.toAccountId} as account_id, ${selfTransferStatements.amount} as delta
-            from ${selfTransferStatements}
-            where ${selfTransferStatements.userId} = ${ctx.user.id}
-              and ${inArray(selfTransferStatements.toAccountId, cardAccountIds)}
-              and ${selfTransferStatements.createdAt} < ${cutoff}
-            union all
-            select ${selfTransferStatements.fromAccountId}, -${selfTransferStatements.amount}
-            from ${selfTransferStatements}
-            where ${selfTransferStatements.userId} = ${ctx.user.id}
-              and ${inArray(selfTransferStatements.fromAccountId, cardAccountIds)}
-              and ${selfTransferStatements.createdAt} < ${cutoff}
-          ) moves
-          group by account_id`);
+        const transfersBefore = (
+          column:
+            | typeof selfTransferStatements.toAccountId
+            | typeof selfTransferStatements.fromAccountId,
+        ) =>
+          ctx.db
+            .select({ accountId: column, total: sum(selfTransferStatements.amount) })
+            .from(selfTransferStatements)
+            .where(
+              and(
+                eq(selfTransferStatements.userId, ctx.user.id),
+                inArray(column, cardAccountIds),
+                lt(selfTransferStatements.createdAt, cutoff),
+              ),
+            )
+            .groupBy(column);
+        const [openingStatements, transfersIn, transfersOut] = await Promise.all([
+          ctx.db
+            .select({
+              accountId: statements.accountId,
+              delta: sql<string>`COALESCE(SUM(CASE WHEN ${statements.statementKind} = 'expense' THEN -${statements.amount} ELSE ${statements.amount} END), 0)`,
+            })
+            .from(statements)
+            .where(
+              and(
+                eq(statements.userId, ctx.user.id),
+                inArray(statements.accountId, cardAccountIds),
+                lt(statements.createdAt, cutoff),
+              ),
+            )
+            .groupBy(statements.accountId),
+          transfersBefore(selfTransferStatements.toAccountId),
+          transfersBefore(selfTransferStatements.fromAccountId),
+        ]);
         for (const row of [
-          ...openingStatements.map((o) => ({ accountId: o.accountId, delta: o.delta })),
-          ...openingTransfers.rows.map((o) => ({ accountId: o.account_id, delta: o.delta })),
+          ...openingStatements.map((o) => ({ accountId: o.accountId, delta: Number(o.delta) })),
+          ...transfersIn.map((o) => ({ accountId: o.accountId, delta: Number(o.total) })),
+          ...transfersOut.map((o) => ({ accountId: o.accountId, delta: -Number(o.total) })),
         ]) {
           if (row.accountId !== null) {
             openingByAccount.set(
               row.accountId,
-              (openingByAccount.get(row.accountId) ?? 0) + Number(row.delta),
+              (openingByAccount.get(row.accountId) ?? 0) + row.delta,
             );
           }
         }

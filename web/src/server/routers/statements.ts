@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql, arrayContains, not } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -343,7 +343,7 @@ export const statementsRouter = createTRPCRouter({
           and(
             eq(statements.userId, ctx.user.id),
             inArray(statements.id, input.statementIds),
-            sql`NOT (${input.tag} = ANY(${statements.tags}))`,
+            not(arrayContains(statements.tags, [input.tag])),
           ),
         )
         .returning({ id: statements.id });

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql, count as countRows } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { StatementAttributes } from '@/db/attributes';
@@ -56,7 +56,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }
 
       const [{ count }] = await ctx.db
-        .select({ count: sql<number>`count(*)::int` })
+        .select({ count: countRows() })
         .from(recurringPayments)
         .where(and(...conditions));
 

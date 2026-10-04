@@ -12,6 +12,7 @@ import {
 } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { statementAttribute } from '@/db/attribute-sql';
 import {
   bankAccount,
   salaryBonuses,
@@ -183,7 +184,7 @@ export const getSalaryPageData = instrumentedFunction(
             lt(statements.createdAt, financialYear.end),
             isNotNull(statements.taxableAmount),
             isNull(salaryPayments.id),
-            sql`${statements.additionalAttributes}->>'salaryPaymentId' IS NULL`,
+            isNull(statementAttribute('salaryPaymentId')),
           ),
         )
         .orderBy(asc(statements.createdAt)),
