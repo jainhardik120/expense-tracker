@@ -74,6 +74,23 @@ export const getStatementAmountAndSplits = instrumentedFunction(
   },
 );
 
+export const splitTotalsByStatement = (db: Database, userId: string, statementIds?: string[]) =>
+  db.$with('split_totals').as(
+    db
+      .select({
+        statementId: splits.statementId,
+        total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
+      })
+      .from(splits)
+      .where(
+        and(
+          eq(splits.userId, userId),
+          statementIds === undefined ? undefined : inArray(splits.statementId, statementIds),
+        ),
+      )
+      .groupBy(splits.statementId),
+  );
+
 const generateStatementUnionDetailedQuery = (
   db: Database,
   userId: string,
@@ -81,16 +98,7 @@ const generateStatementUnionDetailedQuery = (
 ) => {
   const fromAccount = alias(bankAccount, 'from_account');
   const toAccount = alias(bankAccount, 'to_account');
-  const splitTotals = db.$with('split_totals').as(
-    db
-      .select({
-        statementId: splits.statementId,
-        total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
-      })
-      .from(splits)
-      .where(eq(splits.userId, userId))
-      .groupBy(splits.statementId),
-  );
+  const splitTotals = splitTotalsByStatement(db, userId);
   let statementQuery = db
     .with(splitTotals)
     .select({
@@ -203,14 +211,7 @@ const getMergedStatementsDetailedRaw = (
   end?: Date,
 ) => {
   const union = generateStatementUnionDetailedQuery(db, userId, false);
-  const conditions = [];
-  conditions.push(eq(union.userId, userId));
-  if (start !== undefined) {
-    conditions.push(gte(union.createdAt, start));
-  }
-  if (end !== undefined) {
-    conditions.push(lt(union.createdAt, end));
-  }
+  const conditions: (SQL | undefined)[] = buildQueryConditions(union, userId, start, end);
   if (account.length > 0) {
     const statementIdsWithSplits = db
       .select({ statementId: splits.statementId })
@@ -437,14 +438,7 @@ const getFriendSplitsLimited = instrumentedFunction(
     end?: Date,
   ) => {
     const union = generateStatementUnionOverviewQuery(db, userId);
-    const conditions = [];
-    conditions.push(eq(union.userId, userId));
-    if (start !== undefined) {
-      conditions.push(gte(union.createdAt, start));
-    }
-    if (end !== undefined) {
-      conditions.push(lt(union.createdAt, end));
-    }
+    const conditions: (SQL | undefined)[] = buildQueryConditions(union, userId, start, end);
     if (account.length > 0) {
       const statementIdsWithSplits = db
         .select({ statementId: splits.statementId })

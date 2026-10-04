@@ -5,8 +5,8 @@ import { reportBoundaries, reportTemplates } from '@/db/schema';
 import { startOfDayLocal, getTimezone } from '@/lib/date';
 import { type Database, lockUser } from '@/lib/db';
 import { getRawDataForCustomAggregation, processAggregatedData } from '@/server/helpers/summary';
-import { defaultExpenseReportTemplate } from '@/server/reports/default-template';
 import { buildReportInput } from '@/server/reports/report-input';
+import { getStoredReportTemplate } from '@/server/reports/stored-template';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
 import { getAccounts, getFriends } from '../helpers/account';
@@ -102,25 +102,7 @@ export const reportsRouter = createTRPCRouter({
       });
     }),
 
-  getTemplate: protectedProcedure.query(async ({ ctx }) => {
-    const stored = await ctx.db
-      .select()
-      .from(reportTemplates)
-      .where(eq(reportTemplates.userId, ctx.user.id))
-      .limit(1);
-    if (stored.length === 0) {
-      return { ...defaultExpenseReportTemplate, isDefault: true };
-    }
-    const row = stored[0];
-    return {
-      inputSchema: row.inputSchema,
-      code: row.code,
-      outputSchema: row.outputSchema,
-      spec: row.spec,
-      demoInput: defaultExpenseReportTemplate.demoInput,
-      isDefault: false,
-    };
-  }),
+  getTemplate: protectedProcedure.query(({ ctx }) => getStoredReportTemplate(ctx.db, ctx.user.id)),
 
   saveTemplate: protectedProcedure
     .input(

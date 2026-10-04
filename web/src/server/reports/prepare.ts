@@ -1,62 +1,41 @@
-import { eq } from 'drizzle-orm';
-
-import { reportTemplates } from '@/db/schema';
 import { getTimezone } from '@/lib/date';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { reportBranding } from '@/server/reports/branding';
-import { defaultExpenseReportTemplate } from '@/server/reports/default-template';
 import { buildReportInput } from '@/server/reports/report-input';
+import { getStoredReportTemplate } from '@/server/reports/stored-template';
+
+type UserReportRequest = {
+  db: Database;
+  userId: string;
+  userName: string;
+  fromBoundaryId: string;
+  toBoundaryId: string;
+};
+
+export const loadUserReport = instrumentedFunction(
+  'loadUserReport',
+  async ({ db, userId, userName, fromBoundaryId, toBoundaryId }: UserReportRequest) => {
+    const { resolveReportTemplate } = await import('@helix-hq/pdf-report');
+    const [{ isDefault: _isDefault, ...stored }, timezone] = await Promise.all([
+      getStoredReportTemplate(db, userId),
+      getTimezone(),
+    ]);
+    const input = await buildReportInput({ db, userId, fromBoundaryId, toBoundaryId, timezone });
+    return {
+      template: resolveReportTemplate(stored),
+      input,
+      branding: reportBranding(userName, timezone),
+    };
+  },
+);
 
 export const prepareUserReport = instrumentedFunction(
   'prepareUserReport',
-  async ({
-    db,
-    userId,
-    userName,
-    fromBoundaryId,
-    toBoundaryId,
-  }: {
-    db: Database;
-    userId: string;
-    userName: string;
-    fromBoundaryId: string;
-    toBoundaryId: string;
-  }) => {
-    const { prepareReport, resolveReportTemplate } = await import('@helix-hq/pdf-report');
-
-    const stored = await db
-      .select()
-      .from(reportTemplates)
-      .where(eq(reportTemplates.userId, userId))
-      .limit(1);
-
-    const template = resolveReportTemplate(
-      stored.length === 0
-        ? defaultExpenseReportTemplate
-        : {
-            inputSchema: stored[0].inputSchema,
-            code: stored[0].code,
-            outputSchema: stored[0].outputSchema,
-            spec: stored[0].spec,
-            demoInput: defaultExpenseReportTemplate.demoInput,
-          },
-    );
-
-    const timezone = await getTimezone();
-    const input = await buildReportInput({
-      db,
-      userId,
-      fromBoundaryId,
-      toBoundaryId,
-      timezone,
-    });
-
-    const { spec, data } = await prepareReport(template, {
-      input,
-      branding: reportBranding(userName, timezone),
-    });
-
+  async (request: UserReportRequest) => {
+    const { prepareReport } = await import('@helix-hq/pdf-report');
+    const { template, input, branding } = await loadUserReport(request);
+    const { spec, data } = await prepareReport(template, { input, branding });
     return { spec, data };
   },
 );

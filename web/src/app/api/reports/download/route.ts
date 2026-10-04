@@ -1,15 +1,10 @@
-import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { reportTemplates } from '@/db/schema';
 import { auth } from '@/lib/auth';
-import { getTimezone } from '@/lib/date';
 import { db } from '@/lib/db';
 import logger from '@/lib/logger';
-import { reportBranding } from '@/server/reports/branding';
-import { defaultExpenseReportTemplate } from '@/server/reports/default-template';
+import { loadUserReport } from '@/server/reports/prepare';
 import { renderOneAtATime } from '@/server/reports/render-queue';
-import { buildReportInput } from '@/server/reports/report-input';
 
 export const runtime = 'nodejs';
 
@@ -29,43 +24,17 @@ export const POST = async (request: Request) => {
     return new Response('Bad request', { status: 400 });
   }
 
-  const { resolveReportTemplate } = await import('@helix-hq/pdf-report');
-  const { renderReportToBuffer } = await import('@helix-hq/pdf-report/server');
-
-  const stored = await db
-    .select()
-    .from(reportTemplates)
-    .where(eq(reportTemplates.userId, session.user.id))
-    .limit(1);
-
-  const template = resolveReportTemplate(
-    stored.length === 0
-      ? defaultExpenseReportTemplate
-      : {
-          inputSchema: stored[0].inputSchema,
-          code: stored[0].code,
-          outputSchema: stored[0].outputSchema,
-          spec: stored[0].spec,
-          demoInput: defaultExpenseReportTemplate.demoInput,
-        },
-  );
-
   try {
-    const timezone = await getTimezone();
-    const input = await buildReportInput({
+    const { renderReportToBuffer } = await import('@helix-hq/pdf-report/server');
+    const { template, input, branding } = await loadUserReport({
       db,
       userId: session.user.id,
+      userName: session.user.name,
       fromBoundaryId: parsed.data.fromBoundaryId,
       toBoundaryId: parsed.data.toBoundaryId,
-      timezone,
     });
 
-    const pdf = await renderOneAtATime(() =>
-      renderReportToBuffer(template, {
-        input,
-        branding: reportBranding(session.user.name, timezone),
-      }),
-    );
+    const pdf = await renderOneAtATime(() => renderReportToBuffer(template, { input, branding }));
 
     return new Response(Buffer.from(pdf) as unknown as BodyInit, {
       headers: {

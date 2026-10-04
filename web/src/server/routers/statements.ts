@@ -9,11 +9,12 @@ import {
   statements,
 } from '@/db/schema';
 import { buildQueryConditions } from '@/server/helpers';
-import { accountBelongToUser, friendBelongToUser } from '@/server/helpers/account';
+import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
 import {
   getMergedStatements,
   getRowsCount,
   getStatementAmountAndSplits,
+  splitTotalsByStatement,
   getStatementFacetCounts,
   mergeRawStatementsWithSummary,
 } from '@/server/helpers/statement';
@@ -30,9 +31,6 @@ import {
   statementsResponseSchema,
   updateStatementTaxableIncomeSchema,
 } from '@/types';
-
-const ACCOUNT_NOT_FOUND_ERROR = 'Account not found';
-const FRIEND_NOT_FOUND_ERROR = 'Friend not found';
 
 const asOptionalId = (value: string | null | undefined) =>
   value === undefined || value === null || value === '' ? null : value;
@@ -142,12 +140,10 @@ export const statementsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const accountId = asOptionalId(input.accountId);
       const friendId = asOptionalId(input.friendId);
-      if (accountId !== null && !(await accountBelongToUser(accountId, ctx.user.id, ctx.db))) {
-        throw new Error(ACCOUNT_NOT_FOUND_ERROR);
-      }
-      if (friendId !== null && !(await friendBelongToUser(friendId, ctx.user.id, ctx.db))) {
-        throw new Error(FRIEND_NOT_FOUND_ERROR);
-      }
+      await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, {
+        accountIds: [accountId],
+        friendIds: [friendId],
+      });
       return ctx.db
         .insert(statements)
         .values({
@@ -181,12 +177,10 @@ export const statementsRouter = createTRPCRouter({
       }
       const accountId = asOptionalId(fields.accountId);
       const friendId = asOptionalId(fields.friendId);
-      if (accountId !== null && !(await accountBelongToUser(accountId, ctx.user.id, ctx.db))) {
-        throw new Error(ACCOUNT_NOT_FOUND_ERROR);
-      }
-      if (friendId !== null && !(await friendBelongToUser(friendId, ctx.user.id, ctx.db))) {
-        throw new Error(FRIEND_NOT_FOUND_ERROR);
-      }
+      await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, {
+        accountIds: [accountId],
+        friendIds: [friendId],
+      });
       const nextAmount = Number(fields.amount);
       const remainsTaxableCandidate =
         fields.statementKind === 'outside_transaction' && nextAmount > 0;
@@ -274,12 +268,9 @@ export const statementsRouter = createTRPCRouter({
     .input(createSelfTransferSchema)
     .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
-      if (
-        !(await accountBelongToUser(input.fromAccountId, ctx.user.id, ctx.db)) ||
-        !(await accountBelongToUser(input.toAccountId, ctx.user.id, ctx.db))
-      ) {
-        throw new Error(ACCOUNT_NOT_FOUND_ERROR);
-      }
+      await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, {
+        accountIds: [input.fromAccountId, input.toAccountId],
+      });
       return ctx.db
         .insert(selfTransferStatements)
         .values({
@@ -299,12 +290,9 @@ export const statementsRouter = createTRPCRouter({
     .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
       const { id, ...fields } = input;
-      if (
-        !(await accountBelongToUser(fields.fromAccountId, ctx.user.id, ctx.db)) ||
-        !(await accountBelongToUser(fields.toAccountId, ctx.user.id, ctx.db))
-      ) {
-        throw new Error(ACCOUNT_NOT_FOUND_ERROR);
-      }
+      await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, {
+        accountIds: [fields.fromAccountId, fields.toAccountId],
+      });
       return ctx.db
         .update(selfTransferStatements)
         .set(fields)
@@ -379,16 +367,7 @@ export const statementsRouter = createTRPCRouter({
           )
           .orderBy(asc(statements.id))
           .for('update');
-        const splitTotals = db.$with('split_totals').as(
-          db
-            .select({
-              statementId: splits.statementId,
-              total: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number).as('total'),
-            })
-            .from(splits)
-            .where(eq(splits.userId, ctx.user.id))
-            .groupBy(splits.statementId),
-        );
+        const splitTotals = splitTotalsByStatement(db, ctx.user.id, input.statementIds);
         const rawStatements = await db
           .with(splitTotals)
           .select({
@@ -457,9 +436,9 @@ export const statementsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (!(await friendBelongToUser(input.createSplitSchema.friendId, ctx.user.id, ctx.db))) {
-        throw new Error(FRIEND_NOT_FOUND_ERROR);
-      }
+      await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, {
+        friendIds: [input.createSplitSchema.friendId],
+      });
       return ctx.db.transaction(async (tx) => {
         const { statementAmount, totalAllocated, kind } = await getStatementAmountAndSplits(
           tx,
@@ -512,9 +491,9 @@ export const statementsRouter = createTRPCRouter({
         if (currentSplit.length === 0) {
           throw new Error('Split not found');
         }
-        if (!(await friendBelongToUser(input.createSplitSchema.friendId, ctx.user.id, tx))) {
-          throw new Error(FRIEND_NOT_FOUND_ERROR);
-        }
+        await assertOwnsAccountsAndFriends(tx, ctx.user.id, {
+          friendIds: [input.createSplitSchema.friendId],
+        });
         const { statementId } = currentSplit[0];
         const { statementAmount, totalAllocated } = await getStatementAmountAndSplits(
           tx,

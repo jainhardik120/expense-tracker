@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import { bankAccount, creditCardAccounts, friendsProfiles } from '@/db/schema';
 import { type Database } from '@/lib/db';
@@ -55,27 +55,42 @@ export const getToAccount = (statement: Statement | SelfTransferStatement): stri
   }
 };
 
-export const friendBelongToUser = instrumentedFunction(
-  'friendBelongToUser',
-  async (friendId: string, userId: string, db: Database) => {
-    const friend = await db
-      .select()
-      .from(friendsProfiles)
-      .where(and(eq(friendsProfiles.id, friendId), eq(friendsProfiles.userId, userId)))
-      .limit(1);
-    return friend.length > 0;
-  },
-);
+const distinctIds = (ids: (string | null)[]) => [
+  ...new Set(ids.filter((id): id is string => id !== null && id !== '')),
+];
 
-export const accountBelongToUser = instrumentedFunction(
-  'accountBelongToUser',
-  async (accountId: string, userId: string, db: Database) => {
-    const account = await db
-      .select()
-      .from(bankAccount)
-      .where(and(eq(bankAccount.id, accountId), eq(bankAccount.userId, userId)))
-      .limit(1);
-    return account.length > 0;
+export const assertOwnsAccountsAndFriends = instrumentedFunction(
+  'assertOwnsAccountsAndFriends',
+  async (
+    db: Database,
+    userId: string,
+    {
+      accountIds = [],
+      friendIds = [],
+    }: { accountIds?: (string | null)[]; friendIds?: (string | null)[] },
+  ) => {
+    const accounts = distinctIds(accountIds);
+    const friends = distinctIds(friendIds);
+    const [ownedAccounts, ownedFriends] = await Promise.all([
+      accounts.length === 0
+        ? []
+        : db
+            .select({ id: bankAccount.id })
+            .from(bankAccount)
+            .where(and(eq(bankAccount.userId, userId), inArray(bankAccount.id, accounts))),
+      friends.length === 0
+        ? []
+        : db
+            .select({ id: friendsProfiles.id })
+            .from(friendsProfiles)
+            .where(and(eq(friendsProfiles.userId, userId), inArray(friendsProfiles.id, friends))),
+    ]);
+    if (ownedAccounts.length !== accounts.length) {
+      throw new Error('Account not found');
+    }
+    if (ownedFriends.length !== friends.length) {
+      throw new Error('Friend not found');
+    }
   },
 );
 

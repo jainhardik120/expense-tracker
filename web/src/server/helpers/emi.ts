@@ -148,6 +148,25 @@ export const getLinkedStatementsRecurringPayment = instrumentedFunction(
       .orderBy(desc(statements.createdAt)),
 );
 
+export const getRecurringLinkedStatements = instrumentedFunction(
+  'getRecurringLinkedStatements',
+  async (db: Database, userId: string) =>
+    db
+      .select({
+        id: statements.id,
+        amount: statements.amount,
+        createdAt: statements.createdAt,
+        recurringPaymentId: sql<string>`${statements.additionalAttributes}->>'recurringPaymentId'`,
+      })
+      .from(statements)
+      .where(
+        and(
+          eq(statements.userId, userId),
+          sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
+        ),
+      ),
+);
+
 export const verifyCreditCardAccount = instrumentedFunction(
   'verifyCreditCardAccount',
   async (db: Database, userId: string, creditId: string) => {

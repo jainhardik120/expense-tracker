@@ -12,6 +12,7 @@ import { endOfMonthLocal, getTimezone, startOfDayLocal, startOfMonthLocal } from
 import { type Database } from '@/lib/db';
 import { getCreditCards } from '@/server/helpers/account';
 import {
+  getRecurringLinkedStatements,
   getEMIData,
   countEMIs,
   getEMIs,
@@ -559,20 +560,7 @@ export const emisRouter = createTRPCRouter({
         .from(recurringPayments)
         .where(eq(recurringPayments.userId, ctx.user.id))
         .orderBy(desc(recurringPayments.startDate));
-      const linkedRecurringStatements = await ctx.db
-        .select({
-          id: statements.id,
-          amount: statements.amount,
-          createdAt: statements.createdAt,
-          recurringPaymentId: sql<string>`${statements.additionalAttributes}->>'recurringPaymentId'`,
-        })
-        .from(statements)
-        .where(
-          and(
-            eq(statements.userId, ctx.user.id),
-            sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
-          ),
-        );
+      const linkedRecurringStatements = await getRecurringLinkedStatements(ctx.db, ctx.user.id);
 
       const periodEmiPayments = allEMIs.flatMap((emi) =>
         getEmiPaymentsInRange(emi, emi.creditCardName, periodStart, periodEnd, now),

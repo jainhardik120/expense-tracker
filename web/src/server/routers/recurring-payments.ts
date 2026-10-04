@@ -16,6 +16,7 @@ import { createRecurringPaymentSchema, recurringPaymentParserSchema } from '@/ty
 
 import {
   getLinkedStatementsRecurringPayment,
+  getRecurringLinkedStatements,
   getRecurringPayment,
   lockStatementAttributes,
 } from '../helpers/emi';
@@ -144,20 +145,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
         .select()
         .from(recurringPayments)
         .where(eq(recurringPayments.userId, ctx.user.id));
-      const linkedStatements = await ctx.db
-        .select({
-          id: statements.id,
-          amount: statements.amount,
-          createdAt: statements.createdAt,
-          recurringPaymentId: sql<string>`${statements.additionalAttributes}->>'recurringPaymentId'`,
-        })
-        .from(statements)
-        .where(
-          and(
-            eq(statements.userId, ctx.user.id),
-            sql`${statements.additionalAttributes}->>'recurringPaymentId' IS NOT NULL`,
-          ),
-        );
+      const linkedStatements = await getRecurringLinkedStatements(ctx.db, ctx.user.id);
       const linkedByPayment = new Map<string, typeof linkedStatements>();
       for (const statement of linkedStatements) {
         const existing = linkedByPayment.get(statement.recurringPaymentId) ?? [];

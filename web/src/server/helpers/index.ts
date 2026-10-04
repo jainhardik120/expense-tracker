@@ -1,19 +1,12 @@
-import { eq, gte, lt } from 'drizzle-orm';
-import { type PgTableWithColumns, type TableConfig } from 'drizzle-orm/pg-core';
+import { type AnyColumn, eq, gte, lt, type SQL } from 'drizzle-orm';
 
-export const buildQueryConditions = <T extends TableConfig>(
-  table: PgTableWithColumns<T>,
+export const buildQueryConditions = (
+  source: { userId: AnyColumn; createdAt: AnyColumn },
   userId: string,
   start?: Date,
   end?: Date,
-) => {
-  const conditions = [];
-  conditions.push(eq(table.userId, userId));
-  if (start !== undefined) {
-    conditions.push(gte(table.createdAt, start));
-  }
-  if (end !== undefined) {
-    conditions.push(lt(table.createdAt, end));
-  }
-  return conditions;
-};
+): SQL[] => [
+  eq(source.userId, userId),
+  ...(start === undefined ? [] : [gte(source.createdAt, start)]),
+  ...(end === undefined ? [] : [lt(source.createdAt, end)]),
+];

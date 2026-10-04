@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
-import { bankAccount, friendsProfiles, smsNotifications, statements } from '@/db/schema';
+import { smsNotifications, statements } from '@/db/schema';
 import { withZonedDatePart } from '@/lib/date-part';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
@@ -15,6 +15,7 @@ import {
   type SmsType,
 } from '@/lib/sms-bulk-import';
 import { buildInsertHints, collectTagVocabulary, getHintsFor } from '@/lib/sms-insert-hints';
+import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
 import { getLinkedHistory } from '@/server/helpers/sms-hints';
 
 export type BulkImportQueue = {
@@ -67,37 +68,6 @@ export type BulkInsertResult = {
   stale: number;
 };
 
-const assertOwnership = async (
-  db: Database,
-  userId: string,
-  rows: SubmittedRow[],
-): Promise<void> => {
-  const accountIds = [...new Set(rows.map((row) => row.accountId).filter((id) => id !== ''))];
-  const friendIds = [...new Set(rows.map((row) => row.friendId).filter((id) => id !== ''))];
-
-  const [ownedAccounts, ownedFriends] = await Promise.all([
-    accountIds.length === 0
-      ? Promise.resolve([])
-      : db
-          .select({ id: bankAccount.id })
-          .from(bankAccount)
-          .where(and(eq(bankAccount.userId, userId), inArray(bankAccount.id, accountIds))),
-    friendIds.length === 0
-      ? Promise.resolve([])
-      : db
-          .select({ id: friendsProfiles.id })
-          .from(friendsProfiles)
-          .where(and(eq(friendsProfiles.userId, userId), inArray(friendsProfiles.id, friendIds))),
-  ]);
-
-  if (ownedAccounts.length !== accountIds.length) {
-    throw new Error('One of the accounts does not exist');
-  }
-  if (ownedFriends.length !== friendIds.length) {
-    throw new Error('One of the friends does not exist');
-  }
-};
-
 export const bulkInsertFromNotifications = instrumentedFunction(
   'bulkInsertFromNotifications',
   async (
@@ -122,7 +92,10 @@ export const bulkInsertFromNotifications = instrumentedFunction(
       }
     }
 
-    await assertOwnership(db, userId, rows);
+    await assertOwnsAccountsAndFriends(db, userId, {
+      accountIds: rows.map((row) => row.accountId),
+      friendIds: rows.map((row) => row.friendId),
+    });
 
     return db.transaction(async (tx) => {
       const pending = await tx
