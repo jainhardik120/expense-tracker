@@ -13,7 +13,7 @@ import { isAiAssistantEnabled } from '@/lib/features';
 import { SIDEBAR_COOKIE_NAME } from '@/lib/sidebar';
 
 import AdminSession from './_components/admin-session';
-import FloatingChatbot from './_components/floating-chatbot';
+import FloatingChatbot from './_components/lazy-floating-chatbot';
 import UserButton from './_components/user-button';
 
 export default async function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
