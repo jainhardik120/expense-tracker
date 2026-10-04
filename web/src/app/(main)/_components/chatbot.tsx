@@ -88,19 +88,21 @@ const ChatBotDemo = () => {
                             <MessageContent>
                               <MessageResponse>{part.text}</MessageResponse>
                             </MessageContent>
-                            {message.role === 'assistant' && i === messages.length - 1 && (
-                              <MessageActions>
-                                <MessageAction label="Retry" onClick={() => regenerate()}>
-                                  <RefreshCcwIcon className="size-3" />
-                                </MessageAction>
-                                <MessageAction
-                                  label="Copy"
-                                  onClick={() => navigator.clipboard.writeText(part.text)}
-                                >
-                                  <CopyIcon className="size-3" />
-                                </MessageAction>
-                              </MessageActions>
-                            )}
+                            {message.role === 'assistant' &&
+                              message.id === messages.at(-1)?.id &&
+                              i === message.parts.findLastIndex((p) => p.type === 'text') && (
+                                <MessageActions>
+                                  <MessageAction label="Retry" onClick={() => regenerate()}>
+                                    <RefreshCcwIcon className="size-3" />
+                                  </MessageAction>
+                                  <MessageAction
+                                    label="Copy"
+                                    onClick={() => navigator.clipboard.writeText(part.text)}
+                                  >
+                                    <CopyIcon className="size-3" />
+                                  </MessageAction>
+                                </MessageActions>
+                              )}
                           </Message>
                         );
                       case part.type === 'reasoning':

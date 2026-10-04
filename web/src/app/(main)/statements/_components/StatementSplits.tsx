@@ -123,7 +123,7 @@ export const StatementSplitsDialog = ({
         <div className="flex flex-col gap-2">
           <p>Total Amount: {statementData.amount}</p>
           {statementData.accountName !== null && <p>Paid From: {statementData.accountName}</p>}
-          {statementData.friendName !== null && <p>Paid By: {statementData.accountName}</p>}
+          {statementData.friendName !== null && <p>Paid By: {statementData.friendName}</p>}
           {[...splits, { id: 'new-split', amount: '0', friendId: '' }].map((split) => {
             return (
               <DynamicForm
