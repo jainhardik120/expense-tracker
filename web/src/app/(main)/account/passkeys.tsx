@@ -13,8 +13,7 @@ import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { authClient } from '@/lib/auth-client';
-
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@/lib/table';
 
 type Passkey = {
   id: string;

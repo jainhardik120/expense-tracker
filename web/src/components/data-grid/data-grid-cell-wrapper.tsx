@@ -7,12 +7,14 @@ import { getCellKey } from '@/lib/data-grid';
 import { cn } from '@/lib/utils';
 import type { CellOpts, DataGridCellProps } from '@/types/data-grid';
 
+import type { RowData } from '@tanstack/react-table';
+
 const MENU_EDITOR_VARIANTS = new Set<CellOpts['variant']>(['select', 'multi-select', 'date']);
 
-interface DataGridCellWrapperProps<TData>
+interface DataGridCellWrapperProps<TData extends RowData>
   extends DataGridCellProps<TData>, React.ComponentProps<'div'> {}
 
-export const DataGridCellWrapper = <TData,>({
+export const DataGridCellWrapper = <TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -30,17 +32,17 @@ export const DataGridCellWrapper = <TData,>({
   ref,
   ...props
 }: DataGridCellWrapperProps<TData>) => {
-  const cellMapRef = tableMeta?.cellMapRef;
+  const { cellMapRef } = tableMeta;
 
   const onCellChange = React.useCallback(
     (node: HTMLDivElement | null) => {
-      if (!cellMapRef) {
+      if (cellMapRef === undefined) {
         return;
       }
 
       const cellKey = getCellKey(rowIndex, columnId);
 
-      if (node) {
+      if (node !== null) {
         cellMapRef.current.set(cellKey, node);
       } else {
         cellMapRef.current.delete(cellKey);
@@ -66,9 +68,9 @@ export const DataGridCellWrapper = <TData,>({
       const shouldEdit = !readOnly && isPlainClick && (isFocused || opensOnSingleClick);
 
       if (shouldEdit) {
-        tableMeta?.onCellEditingStart?.(rowIndex, columnId);
+        tableMeta.onCellEditingStart?.(rowIndex, columnId);
       } else {
-        tableMeta?.onCellClick?.(rowIndex, columnId, event);
+        tableMeta.onCellClick?.(rowIndex, columnId, event);
       }
     },
     [
@@ -86,7 +88,7 @@ export const DataGridCellWrapper = <TData,>({
   const onContextMenu = React.useCallback(
     (event: React.MouseEvent) => {
       if (!isEditing) {
-        tableMeta?.onCellContextMenu?.(rowIndex, columnId, event);
+        tableMeta.onCellContextMenu?.(rowIndex, columnId, event);
       }
     },
     [tableMeta, rowIndex, columnId, isEditing],
@@ -96,7 +98,7 @@ export const DataGridCellWrapper = <TData,>({
     (event: React.MouseEvent) => {
       if (!isEditing) {
         event.preventDefault();
-        tableMeta?.onCellDoubleClick?.(rowIndex, columnId);
+        tableMeta.onCellDoubleClick?.(rowIndex, columnId);
       }
     },
     [tableMeta, rowIndex, columnId, isEditing],
@@ -128,21 +130,21 @@ export const DataGridCellWrapper = <TData,>({
         if (event.key === 'F2' || event.key === 'Enter') {
           event.preventDefault();
           event.stopPropagation();
-          tableMeta?.onCellEditingStart?.(rowIndex, columnId);
+          tableMeta.onCellEditingStart?.(rowIndex, columnId);
           return;
         }
 
         if (event.key === ' ') {
           event.preventDefault();
           event.stopPropagation();
-          tableMeta?.onCellEditingStart?.(rowIndex, columnId);
+          tableMeta.onCellEditingStart?.(rowIndex, columnId);
           return;
         }
 
         if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
           event.preventDefault();
           event.stopPropagation();
-          tableMeta?.onCellEditingStart?.(rowIndex, columnId);
+          tableMeta.onCellEditingStart?.(rowIndex, columnId);
         }
       }
     },
@@ -152,7 +154,7 @@ export const DataGridCellWrapper = <TData,>({
   const onMouseDown = React.useCallback(
     (event: React.MouseEvent) => {
       if (!isEditing) {
-        tableMeta?.onCellMouseDown?.(rowIndex, columnId, event);
+        tableMeta.onCellMouseDown?.(rowIndex, columnId, event);
       }
     },
     [tableMeta, rowIndex, columnId, isEditing],
@@ -160,13 +162,13 @@ export const DataGridCellWrapper = <TData,>({
 
   const onMouseEnter = React.useCallback(() => {
     if (!isEditing) {
-      tableMeta?.onCellMouseEnter?.(rowIndex, columnId);
+      tableMeta.onCellMouseEnter?.(rowIndex, columnId);
     }
   }, [tableMeta, rowIndex, columnId, isEditing]);
 
   const onMouseUp = React.useCallback(() => {
     if (!isEditing) {
-      tableMeta?.onCellMouseUp?.();
+      tableMeta.onCellMouseUp?.();
     }
   }, [tableMeta, isEditing]);
 

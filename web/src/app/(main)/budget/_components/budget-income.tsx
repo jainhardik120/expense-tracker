@@ -16,13 +16,12 @@ import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { describeRule } from '@/lib/budget-rules';
 import { formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { budgetIncomeLineSchema, emptyBudgetRule } from '@/types/budget';
 import type { YearDetail } from '@/types/router-outputs';
 
 import { BUDGET_COLUMN_SIZE, dragHandleColumn, POSITION_INDENT } from './columns';
-
-import type { ColumnDef } from '@tanstack/react-table';
 
 import { BudgetIncomeHelp } from '../_help/budget-income-help';
 

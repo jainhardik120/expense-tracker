@@ -16,12 +16,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
-export interface AutocompleteOption {
+interface AutocompleteOption {
   value: string;
   label: string;
 }
 
-export type AutocompleteProps = {
+type AutocompleteProps = {
   options: AutocompleteOption[];
   value: string;
   onValueChange: (value: string) => void;
@@ -38,11 +38,13 @@ const Autocomplete = ({
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState('');
   const [internalValue, setInternalValue] = React.useState(value);
+  const [syncedValue, setSyncedValue] = React.useState(value);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
+  if (syncedValue !== value) {
+    setSyncedValue(value);
     setInternalValue(value);
-  }, [value]);
+  }
 
   const filteredOptions = React.useMemo(() => {
     if (searchValue === '') {

@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { FileText, RefreshCw, Trash } from 'lucide-react';
 
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
@@ -10,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { smsTransactionStatuses } from '@/db/enums';
 import { zonedFormat } from '@/lib/date';
 import { formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import type { Account, Friend } from '@/types';

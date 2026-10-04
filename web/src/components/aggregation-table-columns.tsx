@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { formatTruncatedDate } from '@/lib/date';
 import { formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 import { cn } from '@/lib/utils';
 import type { PeriodTotals } from '@/types';
-
-import type { ColumnDef } from '@tanstack/react-table';
 
 const statementsHref = (start: Date, end: Date, kinds: string[]) => {
   const params = new URLSearchParams({

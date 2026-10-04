@@ -5,13 +5,18 @@ import * as React from 'react';
 import { useDataGrid, type UseDataGridProps } from '@/hooks/use-data-grid';
 import { prepareGridColumns } from '@/lib/data-grid';
 
-export type EditableTableMode = 'view' | 'edit';
+import type { RowData } from '@tanstack/react-table';
 
-interface UseEditableTableProps<TData> extends Omit<UseDataGridProps<TData>, 'readOnly'> {
+type EditableTableMode = 'view' | 'edit';
+
+interface UseEditableTableProps<TData extends RowData> extends Omit<
+  UseDataGridProps<TData>,
+  'readOnly'
+> {
   mode: EditableTableMode;
 }
 
-export const useEditableTable = <TData>({
+export const useEditableTable = <TData extends RowData>({
   mode,
   columns,
   ...props

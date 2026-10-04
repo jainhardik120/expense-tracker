@@ -1,0 +1,89 @@
+name: Web checks
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'web/**'
+      - 'android/app/src/**'
+      - '.github/workflows/web.yml'
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'android/app/src/**'
+      - '.github/workflows/web.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: web-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, typecheck, test, format, unused
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    env:
+      SKIP_ENV_VALIDATION: 'true'
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: pnpm run lint
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: pnpm run typecheck
+
+      - name: Test
+        id: test
+        continue-on-error: true
+        run: pnpm run test
+
+      - name: Format
+        id: format
+        continue-on-error: true
+        run: pnpm run format:check
+
+      - name: Unused code (knip + tRPC procedures)
+        id: unused
+        continue-on-error: true
+        run: pnpm run unused
+
+      - name: Gate
+        if: always()
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+          UNUSED: ${{ steps.unused.outcome }}
+        run: |
+          failed=0
+          for check in LINT TYPECHECK TEST FORMAT UNUSED; do
+            outcome="${!check}"
+            echo "$check: $outcome"
+            if [ "$outcome" != "success" ]; then
+              failed=1
+            fi
+          done
+          exit $failed

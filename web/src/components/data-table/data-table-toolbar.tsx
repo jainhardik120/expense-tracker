@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 
+import { type RowData } from '@tanstack/react-table';
 import { X } from 'lucide-react';
 
 import { DataTableDateFilter } from '@/components/data-table/data-table-date-filter';
@@ -10,17 +11,19 @@ import { DataTableSliderFilter } from '@/components/data-table/data-table-slider
 import { DataTableViewOptions } from '@/components/data-table/data-table-view-options';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import type { Column, Table } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
-import type { Column, Table } from '@tanstack/react-table';
-
-interface DataTableToolbarProps<TData> extends Omit<React.ComponentProps<'div'>, 'title'> {
+interface DataTableToolbarProps<TData extends RowData> extends Omit<
+  React.ComponentProps<'div'>,
+  'title'
+> {
   table: Table<TData>;
   viewOptions?: boolean;
   title?: React.ReactNode;
 }
 
-export const DataTableToolbar = <TData,>({
+export const DataTableToolbar = <TData extends RowData>({
   table,
   children,
   className,
@@ -28,7 +31,7 @@ export const DataTableToolbar = <TData,>({
   title,
   ...props
 }: DataTableToolbarProps<TData>) => {
-  const isFiltered = table.getState().columnFilters.length > 0;
+  const isFiltered = table.state.columnFilters.length > 0;
 
   const allColumns = table.getAllColumns();
   const columns = React.useMemo(
@@ -78,11 +81,13 @@ export const DataTableToolbar = <TData,>({
     </div>
   );
 };
-interface DataTableToolbarFilterProps<TData> {
+interface DataTableToolbarFilterProps<TData extends RowData> {
   column: Column<TData>;
 }
 
-const DataTableToolbarFilter = <TData,>({ column }: DataTableToolbarFilterProps<TData>) => {
+const DataTableToolbarFilter = <TData extends RowData>({
+  column,
+}: DataTableToolbarFilterProps<TData>) => {
   const columnMeta = column.columnDef.meta;
 
   const onFilterRender = React.useCallback(() => {

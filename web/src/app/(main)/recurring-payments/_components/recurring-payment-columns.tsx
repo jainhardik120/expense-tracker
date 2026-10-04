@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { isBefore } from 'date-fns';
 import { Eye, SquarePen, Trash } from 'lucide-react';
 
@@ -9,6 +8,7 @@ import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { Badge } from '@/components/ui/badge';
 import { ZonedDate } from '@/components/zoned-date';
 import { formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 

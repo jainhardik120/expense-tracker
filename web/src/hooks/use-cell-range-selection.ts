@@ -72,6 +72,27 @@ const cellsIn = (container: HTMLElement | null, range: CellRange): HTMLElement[]
   return rows;
 };
 
+const statsOf = (lines: HTMLElement[][]): CellSelectionStats => {
+  const values: number[] = [];
+  let count = 0;
+  for (const line of lines) {
+    for (const cell of line) {
+      count++;
+      const value = asNumber(cell.innerText);
+      if (value !== null) {
+        values.push(value);
+      }
+    }
+  }
+  const sum = values.reduce((total, value) => total + value, 0);
+  return {
+    count,
+    numeric: values.length,
+    sum,
+    average: values.length === 0 ? 0 : sum / values.length,
+  };
+};
+
 const asTabSeparated = (lines: HTMLElement[][]) =>
   lines
     .map((line) => line.map((cell) => cell.innerText.replaceAll('\n', ' ').trim()).join('\t'))
@@ -100,35 +121,19 @@ export const useCellRangeSelection = ({
     setIsDragging(false);
   }, []);
 
-  React.useEffect(() => {
-    if (!enabled) {
-      clear();
-    }
-  }, [enabled, clear]);
+  if (!enabled && (anchor !== null || focus !== null || isDragging)) {
+    clear();
+  }
+
+  if (range === null && stats !== null) {
+    setStats(null);
+  }
 
   React.useEffect(() => {
     if (range === null) {
-      setStats(null);
       return;
     }
-    const values: number[] = [];
-    let count = 0;
-    for (const line of cellsIn(containerRef.current, range)) {
-      for (const cell of line) {
-        count++;
-        const value = asNumber(cell.innerText);
-        if (value !== null) {
-          values.push(value);
-        }
-      }
-    }
-    const sum = values.reduce((total, value) => total + value, 0);
-    setStats({
-      count,
-      numeric: values.length,
-      sum,
-      average: values.length === 0 ? 0 : sum / values.length,
-    });
+    setStats(statsOf(cellsIn(containerRef.current, range)));
   }, [range, containerRef]);
 
   const onPointerDown = React.useCallback(

@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 
+import { type RowData } from '@tanstack/react-table';
 import { PlusCircle, XCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -11,9 +12,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Slider } from '@/components/ui/slider';
 import { formatNumber } from '@/lib/format';
+import type { Column } from '@/lib/table';
 import { cn } from '@/lib/utils';
-
-import type { Column } from '@tanstack/react-table';
 
 interface Range {
   min: number;
@@ -28,7 +28,7 @@ const getIsValidRange = (value: unknown): value is RangeValue =>
   typeof value[0] === 'number' &&
   typeof value[1] === 'number';
 
-interface DataTableSliderFilterProps<TData> {
+interface DataTableSliderFilterProps<TData extends RowData> {
   column: Column<TData, unknown>;
   title?: string;
 }
@@ -80,7 +80,7 @@ const RangeBoundInput = ({
   </>
 );
 
-export const DataTableSliderFilter = <TData,>({
+export const DataTableSliderFilter = <TData extends RowData>({
   column,
   title,
 }: DataTableSliderFilterProps<TData>) => {
@@ -165,7 +165,7 @@ export const DataTableSliderFilter = <TData,>({
   );
 
   const onReset = React.useCallback(
-    (event: React.MouseEvent) => {
+    (event: React.SyntheticEvent) => {
       if (event.target instanceof HTMLDivElement) {
         event.stopPropagation();
       }
@@ -187,6 +187,12 @@ export const DataTableSliderFilter = <TData,>({
               role="button"
               tabIndex={0}
               onClick={onReset}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onReset(event);
+                }
+              }}
             >
               <XCircle />
             </div>

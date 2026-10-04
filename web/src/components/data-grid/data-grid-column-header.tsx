@@ -3,6 +3,12 @@
 import * as React from 'react';
 
 import {
+  type ColumnSort,
+  type SortDirection,
+  type SortingState,
+  type RowData,
+} from '@tanstack/react-table';
+import {
   ChevronDownIcon,
   ChevronUpIcon,
   EyeOffIcon,
@@ -21,18 +27,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getColumnVariant } from '@/lib/data-grid';
+import type { Header, Table } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
-import type { ColumnSort, Header, SortDirection, SortingState, Table } from '@tanstack/react-table';
-
-interface DataGridColumnHeaderProps<TData, TValue> extends React.ComponentProps<
+interface DataGridColumnHeaderProps<TData extends RowData, TValue> extends React.ComponentProps<
   typeof DropdownMenuTrigger
 > {
   header: Header<TData, TValue>;
   table: Table<TData>;
 }
 
-export const DataGridColumnHeader = <TData, TValue>({
+export const DataGridColumnHeader = <TData extends RowData, TValue>({
   header,
   table,
   className,
@@ -45,14 +50,14 @@ export const DataGridColumnHeader = <TData, TValue>({
       ? column.columnDef.header
       : (column.columnDef.meta?.label ?? column.id);
 
-  const isAnyColumnResizing = table.getState().columnSizingInfo.isResizingColumn;
+  const isAnyColumnResizing = table.state.columnResizing.isResizingColumn;
 
   const cellVariant = column.columnDef.meta?.cell;
   const columnVariant = getColumnVariant(cellVariant?.variant);
 
   const pinnedPosition = column.getIsPinned();
-  const isPinnedLeft = pinnedPosition === 'left';
-  const isPinnedRight = pinnedPosition === 'right';
+  const isPinnedLeft = pinnedPosition === 'start';
+  const isPinnedRight = pinnedPosition === 'end';
 
   const onSortingChange = React.useCallback(
     (direction: SortDirection) => {
@@ -79,11 +84,11 @@ export const DataGridColumnHeader = <TData, TValue>({
   }, [column.id, table]);
 
   const onLeftPin = React.useCallback(() => {
-    column.pin('left');
+    column.pin('start');
   }, [column]);
 
   const onRightPin = React.useCallback(() => {
-    column.pin('right');
+    column.pin('end');
   }, [column]);
 
   const onUnpin = React.useCallback(() => {
@@ -130,14 +135,14 @@ export const DataGridColumnHeader = <TData, TValue>({
         <DropdownMenuTrigger
           className={cn(
             'hover:bg-accent/40 data-[state=open]:bg-accent/40 flex size-full items-center justify-between gap-2 px-2 py-1 text-sm font-medium [&_svg]:size-4',
-            isAnyColumnResizing && 'pointer-events-none',
+            isAnyColumnResizing !== false && isAnyColumnResizing !== '' && 'pointer-events-none',
             className,
           )}
           onPointerDown={onTriggerPointerDown}
           {...props}
         >
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            {columnVariant ? (
+            {columnVariant !== null ? (
               <Tooltip delayDuration={100}>
                 <TooltipTrigger asChild>
                   <columnVariant.icon className="text-muted-foreground size-3.5 shrink-0" />
@@ -174,7 +179,7 @@ export const DataGridColumnHeader = <TData, TValue>({
                 <ChevronDownIcon />
                 Sort desc
               </DropdownMenuCheckboxItem>
-              {column.getIsSorted() && (
+              {column.getIsSorted() !== false && (
                 <DropdownMenuItem onSelect={onSortRemove}>
                   <XIcon />
                   Remove sort
@@ -233,21 +238,21 @@ export const DataGridColumnHeader = <TData, TValue>({
   );
 };
 
-interface DataGridColumnResizerProps<TData, TValue> extends DataGridColumnHeaderProps<
-  TData,
-  TValue
-> {
+interface DataGridColumnResizerProps<
+  TData extends RowData,
+  TValue,
+> extends DataGridColumnHeaderProps<TData, TValue> {
   label: string;
 }
 
-const DataGridColumnResizerImpl = <TData, TValue>({
+const DataGridColumnResizerImpl = <TData extends RowData, TValue>({
   header,
   table,
   label,
 }: DataGridColumnResizerProps<TData, TValue>) => {
   const visibleColumns = table.getVisibleLeafColumns();
   const isLastColumn = visibleColumns.at(-1)?.id === header.column.id;
-  const defaultColumnDef = table._getDefaultColumnDef();
+  const defaultColumnDef = table.getDefaultColumnDef();
 
   const onDoubleClick = React.useCallback(() => {
     header.column.resetSize();
@@ -256,7 +261,7 @@ const DataGridColumnResizerImpl = <TData, TValue>({
   return (
     <div
       aria-label={`Resize ${label} column`}
-      aria-orientation="vertical"
+      aria-orientation="horizontal"
       aria-valuemax={defaultColumnDef.maxSize}
       aria-valuemin={defaultColumnDef.minSize}
       aria-valuenow={header.column.getSize()}
@@ -265,7 +270,7 @@ const DataGridColumnResizerImpl = <TData, TValue>({
         isLastColumn ? 'end-0 after:end-0' : '-end-px after:start-1/2 after:-translate-x-1/2',
         header.column.getIsResizing() ? 'bg-primary' : 'opacity-0 hover:opacity-100',
       )}
-      role="separator"
+      role="slider"
       tabIndex={0}
       onDoubleClick={onDoubleClick}
       onMouseDown={header.getResizeHandler()}

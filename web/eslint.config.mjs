@@ -1,55 +1,76 @@
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { fixupConfigRules, fixupPluginRules } from '@eslint/compat';
-import { FlatCompat } from '@eslint/eslintrc';
-import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
+import js from '@eslint/js';
+import pluginNext from '@next/eslint-plugin-next';
+import eslintConfigPrettier from 'eslint-config-prettier';
+import importPlugin from 'eslint-plugin-import';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import preferArrowFunctions from 'eslint-plugin-prefer-arrow-functions';
 import promise from 'eslint-plugin-promise';
+import pluginReact from 'eslint-plugin-react';
+import pluginReactHooks from 'eslint-plugin-react-hooks';
 import reactPreferFunctionComponent from 'eslint-plugin-react-prefer-function-component';
 import security from 'eslint-plugin-security';
 import sonarjs from 'eslint-plugin-sonarjs';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const tsconfigRootDir = dirname(fileURLToPath(import.meta.url));
 
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'postcss.config.mjs']),
+const eslintConfig = [
   {
-    extends: fixupConfigRules(
-      compat.extends(
-        'plugin:sonarjs/recommended-legacy',
-        'plugin:security/recommended-legacy',
-        'plugin:promise/recommended',
-        'plugin:react-prefer-function-component/recommended',
-      ),
-    ),
-    plugins: {
-      sonarjs: fixupPluginRules(sonarjs),
-      security: fixupPluginRules(security),
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      promise: fixupPluginRules(promise),
-      'react-prefer-function-component': fixupPluginRules(reactPreferFunctionComponent),
-      'prefer-arrow-functions': preferArrowFunctions,
-    },
+    ignores: [
+      '.next/**',
+      'out/**',
+      'build/**',
+      'public/**',
+      'drizzle/**',
+      'reports/**',
+      'next-env.d.ts',
+      'src/db/auth-schema.ts',
+    ],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  ...fixupConfigRules([
+    pluginReact.configs.flat.recommended,
+    pluginReact.configs.flat['jsx-runtime'],
+  ]),
+  sonarjs.configs.recommended,
+  security.configs.recommended,
+  promise.configs['flat/recommended'],
+  eslintConfigPrettier,
+  {
     languageOptions: {
-      ecmaVersion: 5,
-      sourceType: 'script',
-
+      ...pluginReact.configs.flat.recommended.languageOptions,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
       parserOptions: {
         project: './tsconfig.json',
-        tsconfigRootDir: __dirname,
+        tsconfigRootDir,
       },
     },
+    settings: {
+      react: { version: 'detect' },
+    },
+    plugins: {
+      '@next/next': pluginNext,
+      import: fixupPluginRules(importPlugin),
+      'jsx-a11y': fixupPluginRules(jsxA11y),
+      'prefer-arrow-functions': fixupPluginRules(preferArrowFunctions),
+      'react-hooks': fixupPluginRules(pluginReactHooks),
+      'react-prefer-function-component': fixupPluginRules(reactPreferFunctionComponent),
+    },
     rules: {
+      ...pluginReactHooks.configs.recommended.rules,
+      ...pluginNext.configs.recommended.rules,
+      ...pluginNext.configs['core-web-vitals'].rules,
+      ...reactPreferFunctionComponent.configs.recommended.rules,
+      'import/no-unassigned-import': ['error', { allow: ['server-only', '**/*.css', '**/*.scss'] }],
       '@typescript-eslint/ban-ts-comment': [
         'error',
         {
@@ -215,7 +236,6 @@ const eslintConfig = defineConfig([
       'import/no-named-default': 'error',
       'import/no-relative-packages': 'error',
       'import/no-self-import': 'error',
-      'import/no-unassigned-import': ['error', { allow: ['**/*.css', '**/*.scss'] }],
       'import/no-useless-path-segments': ['error', { noUselessIndex: true }],
       'import/no-webpack-loader-syntax': 'error',
       'import/order': [
@@ -356,100 +376,13 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ['src/components/data-table/**/*.tsx', 'src/lib/parsers.ts'],
-    rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
-      '@typescript-eslint/strict-boolean-expressions': 'warn',
-      'jsx-a11y/click-events-have-key-events': 'warn',
-      'sonarjs/function-return-type': 'warn',
-    },
+    files: ['**/*.{js,mjs,cjs}'],
+    ...tseslint.configs.disableTypeChecked,
   },
   {
-    files: ['src/components/data-grid/**/*.tsx'],
+    files: ['scripts/**/*.ts'],
     rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
-      'react-hooks/refs': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
-      'sonarjs/no-nested-conditional': 'warn',
-      'no-nested-ternary': 'warn',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      'react-hooks/exhaustive-deps': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn',
-      'sonarjs/no-selector-parameter': 'warn',
-      '@typescript-eslint/no-unsafe-assignment': 'warn',
-      'sonarjs/function-return-type': 'warn',
-      '@typescript-eslint/switch-exhaustiveness-check': 'warn',
-      'sonarjs/no-collapsible-if': 'warn',
-      'promise/always-return': 'warn',
-      'jsx-a11y/no-noninteractive-element-interactions': 'warn',
-      'react/jsx-sort-props': 'warn',
-      'security/detect-unsafe-regex': 'warn',
-      'sonarjs/deprecation': 'warn',
-      'jsx-a11y/no-autofocus': 'warn',
-      'sonarjs/no-nested-template-literals': 'warn',
-      '@typescript-eslint/no-empty-object-type': 'warn',
-      'sonarjs/no-duplicate-string': 'warn',
-      'sonarjs/no-all-duplicated-branches': 'warn',
-    },
-  },
-  {
-    files: ['src/components/ai-elements/**/*.tsx'],
-    rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
-      'sonarjs/function-return-type': 'warn',
-      'no-duplicate-imports': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
-      'promise/always-return': 'warn',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      'sonarjs/redundant-type-aliases': 'warn',
-      'sonarjs/no-identical-functions': 'warn',
-      'promise/no-nesting': 'warn',
-      'react-hooks/exhaustive-deps': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      '@typescript-eslint/no-unsafe-assignment': 'warn',
-      '@typescript-eslint/no-unsafe-member-access': 'warn',
-      '@typescript-eslint/prefer-optional-chain': 'warn',
-      'no-console': 'warn',
-      'sonarjs/no-selector-parameter': 'warn',
-    },
-  },
-  {
-    files: [
-      'src/hooks/use-as-ref.ts',
-      'src/hooks/use-badge-overflow.ts',
-      'src/hooks/use-data-grid.ts',
-      'src/hooks/use-isomorphic-layout-effect.ts',
-      'src/hooks/use-lazy-ref.ts',
-      'src/lib/data-grid.ts',
-      'src/types/data-grid.ts',
-    ],
-    rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
-      'sonarjs/no-nested-conditional': 'warn',
-      'no-nested-ternary': 'warn',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      'react-hooks/exhaustive-deps': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn',
-      '@typescript-eslint/no-unsafe-assignment': 'warn',
-      'sonarjs/function-return-type': 'warn',
-      '@typescript-eslint/switch-exhaustiveness-check': 'warn',
-      'sonarjs/no-collapsible-if': 'warn',
-      'promise/always-return': 'warn',
-      'security/detect-unsafe-regex': 'warn',
-      'sonarjs/no-duplicate-string': 'warn',
-      'sonarjs/no-all-duplicated-branches': 'warn',
-    },
-  },
-  {
-    files: ['src/components/ui/**/*.tsx'],
-    rules: {
-      '@typescript-eslint/no-unnecessary-condition': 'warn',
-      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
-      'jsx-a11y/click-events-have-key-events': 'warn',
-      'jsx-a11y/no-noninteractive-element-interactions': 'warn',
+      'security/detect-non-literal-fs-filename': 'off',
     },
   },
   {
@@ -459,6 +392,6 @@ const eslintConfig = defineConfig([
       'sonarjs/no-duplicate-string': 'off',
     },
   },
-]);
+];
 
-export default defineConfig(eslintConfig);
+export default eslintConfig;

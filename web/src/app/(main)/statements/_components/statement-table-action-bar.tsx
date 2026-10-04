@@ -3,12 +3,11 @@ import {
   DataTableActionBarSelection,
 } from '@/components/data-table/data-table-action-bar';
 import { Separator } from '@/components/ui/separator';
+import type { Table } from '@/lib/table';
 import type { SelfTransferStatement, Statement } from '@/types';
 
 import { BulkStatementTagDialog } from './bulk-statement-tag-dialog';
 import { BulkStatementSplitsDialog } from './statement-splits';
-
-import type { Table } from '@tanstack/react-table';
 
 const StatementTableActionBar = ({
   table,

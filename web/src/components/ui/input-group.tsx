@@ -5,7 +5,6 @@ import type * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
@@ -56,13 +55,14 @@ const InputGroupAddon = ({
   align = 'inline-start',
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof inputGroupAddonVariants>) => (
+  // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
   <div
     className={cn(inputGroupAddonVariants({ align }), className)}
     data-align={align}
     data-slot="input-group-addon"
     role="group"
     onClick={(e) => {
-      if ((e.target as HTMLElement).closest('button')) {
+      if ((e.target as HTMLElement).closest('button') !== null) {
         return;
       }
       e.currentTarget.parentElement?.querySelector('input')?.focus();
@@ -102,27 +102,6 @@ const InputGroupButton = ({
   />
 );
 
-const InputGroupText = ({ className, ...props }: React.ComponentProps<'span'>) => (
-  <span
-    className={cn(
-      "text-muted-foreground flex items-center gap-2 text-sm [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
-      className,
-    )}
-    {...props}
-  />
-);
-
-const InputGroupInput = ({ className, ...props }: React.ComponentProps<'input'>) => (
-  <Input
-    className={cn(
-      'flex-1 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent',
-      className,
-    )}
-    data-slot="input-group-control"
-    {...props}
-  />
-);
-
 const InputGroupTextarea = ({ className, ...props }: React.ComponentProps<'textarea'>) => (
   <Textarea
     className={cn(
@@ -134,11 +113,4 @@ const InputGroupTextarea = ({ className, ...props }: React.ComponentProps<'texta
   />
 );
 
-export {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupButton,
-  InputGroupText,
-  InputGroupInput,
-  InputGroupTextarea,
-};
+export { InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea };

@@ -2,6 +2,13 @@
 
 import * as React from 'react';
 
+import {
+  type ColumnPinningState,
+  type TableMeta,
+  type ColumnVisibilityState,
+  type RowData,
+} from '@tanstack/react-table';
+
 import { DataGridCell } from '@/components/data-grid/data-grid-cell';
 import { useComposedRefs } from '@/lib/compose-refs';
 import {
@@ -13,20 +20,20 @@ import {
   getColumnWidthStyle,
   getRowHeightValue,
 } from '@/lib/data-grid';
+import type { Row, AppTableFeatures } from '@/lib/table';
 import { cn } from '@/lib/utils';
 import type { CellPosition, Direction, RowHeightValue } from '@/types/data-grid';
 
-import type { ColumnPinningState, Row, TableMeta, VisibilityState } from '@tanstack/react-table';
 import type { VirtualItem } from '@tanstack/react-virtual';
 
-interface DataGridRowProps<TData> extends React.ComponentProps<'div'> {
+interface DataGridRowProps<TData extends RowData> extends React.ComponentProps<'div'> {
   row: Row<TData>;
-  tableMeta: TableMeta<TData>;
+  tableMeta: TableMeta<AppTableFeatures, TData>;
   virtualItem: VirtualItem;
   measureElement: (node: Element | null) => void;
   rowMapRef: React.RefObject<Map<number, HTMLDivElement>>;
   rowHeight: RowHeightValue;
-  columnVisibility: VisibilityState;
+  columnVisibility: ColumnVisibilityState;
   columnPinning: ColumnPinningState;
   focusedCell: CellPosition | null;
   editingCell: CellPosition | null;
@@ -39,15 +46,15 @@ interface DataGridRowProps<TData> extends React.ComponentProps<'div'> {
   adjustLayout: boolean;
 }
 
-const DataGridRowImpl = <TData,>({
+const DataGridRowImpl = <TData extends RowData>({
   row,
   tableMeta,
   virtualItem,
   measureElement,
   rowMapRef,
   rowHeight,
-  columnVisibility,
-  columnPinning,
+  columnVisibility: _columnVisibility,
+  columnPinning: _columnPinning,
   focusedCell,
   editingCell,
   cellSelectionKeys,
@@ -70,11 +77,11 @@ const DataGridRowImpl = <TData,>({
         return;
       }
 
-      if (node) {
+      if (node !== null) {
         measureElement(node);
-        rowMapRef.current?.set(virtualRowIndex, node);
+        rowMapRef.current.set(virtualRowIndex, node);
       } else {
-        rowMapRef.current?.delete(virtualRowIndex);
+        rowMapRef.current.delete(virtualRowIndex);
       }
     },
     [virtualRowIndex, measureElement, rowMapRef],
@@ -84,10 +91,7 @@ const DataGridRowImpl = <TData,>({
 
   const isRowSelected = row.getIsSelected();
 
-  const visibleCells = React.useMemo(
-    () => row.getVisibleCells(),
-    [row, columnVisibility, columnPinning],
-  );
+  const visibleCells = row.getVisibleCells();
 
   return (
     <div
@@ -117,16 +121,15 @@ const DataGridRowImpl = <TData,>({
         const columnId = cell.column.id;
 
         const isCellFocused =
-          focusedCell?.rowIndex === virtualRowIndex && focusedCell?.columnId === columnId;
+          focusedCell?.rowIndex === virtualRowIndex && focusedCell.columnId === columnId;
         const isCellEditing =
-          editingCell?.rowIndex === virtualRowIndex && editingCell?.columnId === columnId;
-        const isCellSelected =
-          cellSelectionKeys?.has(getCellKey(virtualRowIndex, columnId)) ?? false;
+          editingCell?.rowIndex === virtualRowIndex && editingCell.columnId === columnId;
+        const isCellSelected = cellSelectionKeys.has(getCellKey(virtualRowIndex, columnId));
 
         const isSearchMatch = searchMatchColumns?.has(columnId) ?? false;
         const isActiveSearchMatch = activeSearchMatch?.columnId === columnId;
 
-        const nextCell = visibleCells[colIndex + 1];
+        const nextCell = visibleCells.at(colIndex + 1);
         const isLastColumn = colIndex === visibleCells.length - 1;
         const { showEndBorder, showStartBorder } = getColumnBorderVisibility({
           column: cell.column,
@@ -212,10 +215,8 @@ export const DataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
     return false;
   }
 
-  if (nextHasFocus && prevHasFocus) {
-    if (prev.focusedCell?.columnId !== next.focusedCell?.columnId) {
-      return false;
-    }
+  if (nextHasFocus && prevHasFocus && prev.focusedCell.columnId !== next.focusedCell.columnId) {
+    return false;
   }
 
   const prevHasEditing = prev.editingCell?.rowIndex === prevRowIndex;
@@ -225,10 +226,8 @@ export const DataGridRow = React.memo(DataGridRowImpl, (prev, next) => {
     return false;
   }
 
-  if (nextHasEditing && prevHasEditing) {
-    if (prev.editingCell?.columnId !== next.editingCell?.columnId) {
-      return false;
-    }
+  if (nextHasEditing && prevHasEditing && prev.editingCell.columnId !== next.editingCell.columnId) {
+    return false;
   }
 
   if (prev.cellSelectionKeys !== next.cellSelectionKeys) {

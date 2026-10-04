@@ -49,7 +49,7 @@ export const CreateBoundaryForm = ({ refresh }: { refresh?: () => void }) => {
   );
 };
 
-export const UpdateBoundaryForm = ({
+const UpdateBoundaryForm = ({
   refresh,
   boundaryId,
   initialDate,
@@ -83,7 +83,7 @@ export const UpdateBoundaryForm = ({
   );
 };
 
-export const DeleteBoundaryButton = ({
+const DeleteBoundaryButton = ({
   refresh,
   boundaryId,
 }: {

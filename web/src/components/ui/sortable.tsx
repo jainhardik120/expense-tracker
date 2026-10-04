@@ -147,7 +147,6 @@ const SortableRoot = <T,>(props: SortableRootProps<T>) => {
   const config = React.useMemo(() => orientationConfig[orientation], [orientation]);
 
   const getItemValue: (item: T) => UniqueIdentifier = React.useCallback(
-    // eslint-disable-next-line sonarjs/function-return-type
     (item: T) => {
       if (typeof item === 'object' && item != null && getItemValueProp === undefined) {
         throw new Error('getItemValue is required when using array of objects');
@@ -541,15 +540,18 @@ interface SortableOverlayProps extends Omit<
   children?: ((params: { value: UniqueIdentifier }) => React.ReactNode) | React.ReactNode;
 }
 
+const subscribeToNothing = () => () => {};
+
 const SortableOverlay = (props: SortableOverlayProps) => {
   const { container: containerProp, children, ...overlayProps } = props;
 
   const context = useSortableContext(OVERLAY_NAME);
 
-  const [mounted, setMounted] = React.useState(false);
-  React.useLayoutEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = React.useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
 
   const container = containerProp ?? (mounted ? globalThis.document.body : null);
 
@@ -579,9 +581,4 @@ export {
   SortableItem,
   SortableItemHandle,
   SortableOverlay,
-  SortableRoot as Root,
-  SortableContent as Content,
-  SortableItem as Item,
-  SortableItemHandle as ItemHandle,
-  SortableOverlay as Overlay,
 };

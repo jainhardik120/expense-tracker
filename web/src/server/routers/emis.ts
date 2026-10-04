@@ -433,8 +433,7 @@ export const emisRouter = createTRPCRouter({
       if (cardAccountIds.length > 0) {
         const transfersBefore = (
           column:
-            | typeof selfTransferStatements.toAccountId
-            | typeof selfTransferStatements.fromAccountId,
+            typeof selfTransferStatements.toAccountId | typeof selfTransferStatements.fromAccountId,
         ) =>
           ctx.db
             .select({ accountId: column, total: sum(selfTransferStatements.amount) })

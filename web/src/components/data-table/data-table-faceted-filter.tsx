@@ -17,19 +17,20 @@ import {
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import type { Column } from '@/lib/table';
 import { cn } from '@/lib/utils';
 import type { Option } from '@/types/data-table';
 
-import type { Column } from '@tanstack/react-table';
+import type { RowData } from '@tanstack/react-table';
 
-interface DataTableFacetedFilterProps<TData, TValue> {
+interface DataTableFacetedFilterProps<TData extends RowData, TValue> {
   column?: Column<TData, TValue>;
   title?: string;
   options: Option[];
   multiple?: boolean;
 }
 
-export const DataTableFacetedFilter = <TData, TValue>({
+export const DataTableFacetedFilter = <TData extends RowData, TValue>({
   column,
   title,
   options,
@@ -67,7 +68,7 @@ export const DataTableFacetedFilter = <TData, TValue>({
   );
 
   const onReset = React.useCallback(
-    (event?: React.MouseEvent) => {
+    (event?: React.SyntheticEvent) => {
       event?.stopPropagation();
       column?.setFilterValue(undefined);
     },
@@ -85,6 +86,12 @@ export const DataTableFacetedFilter = <TData, TValue>({
               role="button"
               tabIndex={0}
               onClick={onReset}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onReset(event);
+                }
+              }}
             >
               <XCircle />
             </div>

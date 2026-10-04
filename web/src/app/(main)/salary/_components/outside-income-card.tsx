@@ -2,13 +2,12 @@
 
 import { useMemo } from 'react';
 
-import { type ColumnDef } from '@tanstack/react-table';
-
 import { DataTable } from '@/components/data-table/data-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ZonedDate } from '@/components/zoned-date';
 import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 
 import { type SalaryData } from './shared';
 

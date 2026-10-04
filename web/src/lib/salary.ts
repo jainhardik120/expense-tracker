@@ -1,8 +1,8 @@
 import { MS_PER_DAY } from '@/types';
 
-export const INDIA_NEW_REGIME_STANDARD_DEDUCTION = 75_000;
-export const INDIA_HEALTH_EDUCATION_CESS_RATE = 0.04;
-export const SALARY_NET_MISMATCH_TOLERANCE = 10;
+const INDIA_NEW_REGIME_STANDARD_DEDUCTION = 75_000;
+const INDIA_HEALTH_EDUCATION_CESS_RATE = 0.04;
+const SALARY_NET_MISMATCH_TOLERANCE = 10;
 
 const REBATE_LIMIT = 1_200_000;
 const REBATE_MAX = 60_000;
@@ -13,7 +13,7 @@ export const MIDDAY_UTC_HOUR = 12;
 const SUNDAY = 0;
 const SATURDAY = 6;
 
-export type SalaryComponentKind = 'earning' | 'deduction';
+type SalaryComponentKind = 'earning' | 'deduction';
 
 export type SalaryScheduleComponent = {
   componentId: string;
@@ -61,7 +61,7 @@ export type SalaryTaxResult = {
   marginalRate: number;
 };
 
-export type SalaryTaxSlabBreakdown = {
+type SalaryTaxSlabBreakdown = {
   lower: number;
   upper: number | null;
   rate: number;

@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { CircleOff, Info, SquarePen, Trash } from 'lucide-react';
 
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
@@ -17,6 +16,7 @@ import {
   formatNumber,
 } from '@/lib/format';
 import { FX_RATE_DECIMALS, investmentKindLabels } from '@/lib/investments';
+import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 

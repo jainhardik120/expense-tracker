@@ -23,7 +23,7 @@ const ShimmerComponent = ({
 }: TextShimmerProps) => {
   const MotionComponent = motion.create(Component as keyof JSX.IntrinsicElements);
 
-  const dynamicSpread = useMemo(() => (children?.length ?? 0) * spread, [children, spread]);
+  const dynamicSpread = useMemo(() => children.length * spread, [children, spread]);
 
   return (
     // eslint-disable-next-line react-hooks/static-components

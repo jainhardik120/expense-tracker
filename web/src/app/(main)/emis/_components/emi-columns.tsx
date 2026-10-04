@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Info, SquarePen, SquareSlash, Trash } from 'lucide-react';
 
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
@@ -10,6 +9,7 @@ import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
 import { ZonedDate } from '@/components/zoned-date';
 import { formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import type { CreditCard } from '@/types/router-outputs';

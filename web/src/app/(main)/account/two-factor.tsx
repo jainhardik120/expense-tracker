@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import { Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
-import QRCode from 'react-qr-code';
+import { QRCode } from 'react-qr-code';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';

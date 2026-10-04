@@ -36,6 +36,8 @@ const FILL: Record<Tone, string> = {
   over: 'bg-destructive',
 };
 
+const PERCENT = 100;
+
 export type Segment = { label: string; value: number; tone: Tone };
 
 export const HelpBar = ({ segments }: { segments: Segment[] }) => {
@@ -48,7 +50,7 @@ export const HelpBar = ({ segments }: { segments: Segment[] }) => {
           <div
             key={segment.label}
             className={cn(FILL[segment.tone], 'first:rounded-l-md last:rounded-r-md')}
-            style={{ width: `${String((Math.abs(segment.value) / total) * 100)}%` }}
+            style={{ width: `${String((Math.abs(segment.value) / total) * PERCENT)}%` }}
           />
         ))}
       </div>

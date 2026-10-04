@@ -1,6 +1,14 @@
 import { headers } from 'next/headers';
 
-import { streamText, convertToModelMessages, type UIMessage, tool, stepCountIs } from 'ai';
+import {
+  streamText,
+  convertToModelMessages,
+  createUIMessageStreamResponse,
+  toUIMessageStream,
+  type UIMessage,
+  tool,
+  stepCountIs,
+} from 'ai';
 import { z } from 'zod';
 
 import { statementKindEnum } from '@/db/schema';
@@ -248,15 +256,20 @@ export const POST = async (req: Request) => {
     messages: UIMessage[];
   } = await req.json();
   const modelMessages = await convertToModelMessages(messages);
+  const agentTools = tools(caller);
   const result = streamText({
     model: 'google/gemini-3-flash',
     messages: modelMessages,
-    tools: tools(caller),
+    tools: agentTools,
     stopWhen: stepCountIs(MAX_AGENT_STEPS),
     system: `You are an accounting expert. You are helpful and honest. You will answer questions about accounting and finance. You will also provide financial advice and guidance. Your answers should be helpful, honest, and informative. You should not provide any financial advice that is not related to the question. If you are unsure of the answer, you should say "I'm not sure" and not "I don't know". You can only answer questions related to accounting and finance. If you are asked about a topic that is not related to accounting or finance, you should say "I'm not sure" and not "I don't know". You should not answer questions that are not related to accounting or finance.`,
   });
-  return result.toUIMessageStreamResponse({
-    sendSources: true,
-    sendReasoning: true,
+  return createUIMessageStreamResponse({
+    stream: toUIMessageStream({
+      stream: result.stream,
+      tools: agentTools,
+      sendSources: true,
+      sendReasoning: true,
+    }),
   });
 };

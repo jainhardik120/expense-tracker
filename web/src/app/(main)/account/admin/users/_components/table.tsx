@@ -4,10 +4,10 @@ import { DataTable } from '@/components/data-table/data-table';
 import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { authClient } from '@/lib/auth-client';
+import type { Row } from '@/lib/table';
 import { useTRPCQuery } from '@/server/react';
 import type { userSchema } from '@/types/user';
 
-import type { Row } from '@tanstack/react-table';
 import type { z } from 'zod';
 
 const ImpersonateUserButton = ({ row }: { row: Row<z.infer<typeof userSchema>> }) => {
@@ -19,7 +19,7 @@ const ImpersonateUserButton = ({ row }: { row: Row<z.infer<typeof userSchema>> }
         await authClient.admin.impersonateUser({
           userId: row.original.id,
         });
-        window.location.href = '/';
+        window.location.assign(new URL('/', window.location.origin));
       }}
     >
       Impersonate

@@ -61,7 +61,7 @@ export default function SmsNotificationsTable({
     data: data.notifications,
     columns,
     getRowId: (row) => row.id,
-    state: table.getState(),
+    state: table.state,
     onSortingChange: table.setSorting,
     onColumnFiltersChange: table.setColumnFilters,
     onRowSelectionChange: table.setRowSelection,

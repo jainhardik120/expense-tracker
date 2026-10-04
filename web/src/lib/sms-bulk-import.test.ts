@@ -193,7 +193,7 @@ test('readiness counts what will go in and what is blocking', () => {
     gridRow({ id: 'skipped', include: false }),
   ];
   const readiness = getBulkImportReadiness(rows);
-  expect(readiness.included.length).toBe(2);
+  expect(readiness.included).toHaveLength(2);
   expect(readiness.skipped).toBe(1);
   expect(readiness.problems).toStrictEqual([{ id: 'broken', problem: CATEGORY_REQUIRED }]);
   expect(readiness.canImport).toBe(false);
@@ -204,7 +204,7 @@ test('readiness clears once the blocking row is fixed', () => {
   const readiness = getBulkImportReadiness(rows);
   expect(readiness.problems).toStrictEqual([]);
   expect(readiness.canImport).toBe(true);
-  expect(readiness.included.length).toBe(2);
+  expect(readiness.included).toHaveLength(2);
 });
 
 test('nothing ticked means nothing to import', () => {

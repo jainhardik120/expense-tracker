@@ -2,6 +2,8 @@
 
 import * as React from 'react';
 
+import { type TableMeta, type RowData } from '@tanstack/react-table';
+
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -12,22 +14,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAsRef } from '@/hooks/use-as-ref';
+import { type AppTableFeatures } from '@/lib/table';
 import { cn } from '@/lib/utils';
 import type { PasteDialogState } from '@/types/data-grid';
 
-import type { TableMeta } from '@tanstack/react-table';
-
-interface DataGridPasteDialogProps<TData> {
-  tableMeta: TableMeta<TData>;
+interface DataGridPasteDialogProps<TData extends RowData> {
+  tableMeta: TableMeta<AppTableFeatures, TData>;
   pasteDialog: PasteDialogState;
 }
 
-export const DataGridPasteDialog = <TData,>({
+export const DataGridPasteDialog = <TData extends RowData>({
   tableMeta,
   pasteDialog,
 }: DataGridPasteDialogProps<TData>) => {
-  const onPasteDialogOpenChange = tableMeta?.onPasteDialogOpenChange;
-  const onCellsPaste = tableMeta?.onCellsPaste;
+  const { onPasteDialogOpenChange, onCellsPaste } = tableMeta;
 
   if (!pasteDialog.open) {
     return null;
@@ -44,8 +44,8 @@ export const DataGridPasteDialog = <TData,>({
 
 interface PasteDialogProps
   extends
-    Pick<TableMeta<unknown>, 'onPasteDialogOpenChange' | 'onCellsPaste'>,
-    Required<Pick<TableMeta<unknown>, 'pasteDialog'>> {}
+    Pick<TableMeta<AppTableFeatures, RowData>, 'onPasteDialogOpenChange' | 'onCellsPaste'>,
+    Required<Pick<TableMeta<AppTableFeatures, RowData>, 'pasteDialog'>> {}
 
 const PasteDialogImpl = ({
   pasteDialog,
@@ -58,6 +58,8 @@ const PasteDialogImpl = ({
   });
 
   const expandRadioRef = React.useRef<HTMLInputElement | null>(null);
+  const expandRadioId = React.useId();
+  const keepRadioId = React.useId();
 
   const onOpenChange = React.useCallback(
     (open: boolean) => {
@@ -85,8 +87,14 @@ const PasteDialogImpl = ({
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3 py-1">
-          <label className="flex cursor-pointer items-start gap-3">
-            <RadioItem ref={expandRadioRef} defaultChecked name="expand-option" value="expand" />
+          <label className="flex cursor-pointer items-start gap-3" htmlFor={expandRadioId}>
+            <RadioItem
+              ref={expandRadioRef}
+              defaultChecked
+              id={expandRadioId}
+              name="expand-option"
+              value="expand"
+            />
             <div className="flex flex-col gap-1">
               <span className="text-sm leading-none font-medium">Create new rows</span>
               <span className="text-muted-foreground text-sm">
@@ -95,8 +103,8 @@ const PasteDialogImpl = ({
               </span>
             </div>
           </label>
-          <label className="flex cursor-pointer items-start gap-3">
-            <RadioItem name="expand-option" value="no-expand" />
+          <label className="flex cursor-pointer items-start gap-3" htmlFor={keepRadioId}>
+            <RadioItem id={keepRadioId} name="expand-option" value="no-expand" />
             <div className="flex flex-col gap-1">
               <span className="text-sm leading-none font-medium">Keep current rows</span>
               <span className="text-muted-foreground text-sm">

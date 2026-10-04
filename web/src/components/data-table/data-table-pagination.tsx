@@ -1,3 +1,4 @@
+import { type RowData } from '@tanstack/react-table';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -8,20 +9,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import type { Table } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
-import type { Table } from '@tanstack/react-table';
+const PAGE_SIZE_STEP = 10;
+const PAGE_SIZE_OPTION_COUNT = 5;
+const DEFAULT_PAGE_SIZE_OPTIONS = Array.from(
+  { length: PAGE_SIZE_OPTION_COUNT },
+  (_, index) => (index + 1) * PAGE_SIZE_STEP,
+);
 
-interface DataTablePaginationProps<TData> extends React.ComponentProps<'div'> {
+interface DataTablePaginationProps<TData extends RowData> extends React.ComponentProps<'div'> {
   table: Table<TData>;
   pageSizeOptions?: number[];
   enableSelection?: boolean;
   status?: React.ReactNode;
 }
 
-export const DataTablePagination = <TData,>({
+export const DataTablePagination = <TData extends RowData>({
   table,
-  pageSizeOptions = [10, 20, 30, 40, 50],
+  pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   className,
   enableSelection = true,
   status,
@@ -47,13 +54,13 @@ export const DataTablePagination = <TData,>({
       <div className="flex items-center space-x-2">
         <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
         <Select
-          value={`${table.getState().pagination.pageSize}`}
+          value={`${table.state.pagination.pageSize}`}
           onValueChange={(value) => {
             table.setPageSize(Number(value));
           }}
         >
           <SelectTrigger className="h-8 w-[4.5rem] [&[data-size]]:h-8">
-            <SelectValue placeholder={table.getState().pagination.pageSize} />
+            <SelectValue placeholder={table.state.pagination.pageSize} />
           </SelectTrigger>
           <SelectContent side="top">
             {pageSizeOptions.map((pageSize) => (
@@ -65,7 +72,7 @@ export const DataTablePagination = <TData,>({
         </Select>
       </div>
       <div className="flex items-center justify-center text-sm font-medium">
-        Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+        Page {table.state.pagination.pageIndex + 1} of {table.getPageCount()}
       </div>
       <div className="flex items-center space-x-2">
         <Button

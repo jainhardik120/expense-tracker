@@ -2,8 +2,6 @@
 
 import { useMemo } from 'react';
 
-import { type ColumnDef } from '@tanstack/react-table';
-
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +9,7 @@ import { ZonedDate } from '@/components/zoned-date';
 import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
 import { hasMaterialSalaryNetMismatch } from '@/lib/salary';
+import type { ColumnDef } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
 import { PayrollBreakdownDialog } from './payroll-breakdown-dialog';

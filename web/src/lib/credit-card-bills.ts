@@ -20,8 +20,7 @@ const LAST_SECOND_OF_MINUTE = 59;
 const LAST_MILLISECOND_OF_SECOND = 999;
 const PAISE_PER_RUPEE = 100;
 
-export const roundToPaise = (amount: number) =>
-  Math.round(amount * PAISE_PER_RUPEE) / PAISE_PER_RUPEE;
+const roundToPaise = (amount: number) => Math.round(amount * PAISE_PER_RUPEE) / PAISE_PER_RUPEE;
 
 export const getStatementBalanceDelta = (
   statementKind: 'expense' | 'outside_transaction' | 'friend_transaction' | 'self_transfer',

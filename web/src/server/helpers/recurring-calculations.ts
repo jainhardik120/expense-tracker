@@ -33,7 +33,7 @@ export const isRecurringPaymentActive = (recurringPayment: RecurringPayment): bo
   return isBefore(now, recurringPayment.endDate);
 };
 
-export const getNextPaymentDate = (
+const getNextPaymentDate = (
   currentDate: Date,
   frequency: RecurringPaymentFrequency,
   multiplier: number,
@@ -74,7 +74,7 @@ export const getPeriodInDays = (
   }
 };
 
-export const isPaymentWithinTolerance = (
+const isPaymentWithinTolerance = (
   paymentDate: Date,
   expectedDate: Date,
   frequency: RecurringPaymentFrequency,

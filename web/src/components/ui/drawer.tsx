@@ -18,10 +18,6 @@ const DrawerPortal = ({ ...props }: React.ComponentProps<typeof DrawerPrimitive.
   <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />
 );
 
-const DrawerClose = ({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Close>) => (
-  <DrawerPrimitive.Close data-slot="drawer-close" {...props} />
-);
-
 const DrawerOverlay = ({
   className,
   ...props
@@ -72,14 +68,6 @@ const DrawerHeader = ({ className, ...props }: React.ComponentProps<'div'>) => (
   />
 );
 
-const DrawerFooter = ({ className, ...props }: React.ComponentProps<'div'>) => (
-  <div
-    className={cn('mt-auto flex flex-col gap-2 p-4', className)}
-    data-slot="drawer-footer"
-    {...props}
-  />
-);
-
 const DrawerTitle = ({
   className,
   ...props
@@ -102,15 +90,4 @@ const DrawerDescription = ({
   />
 );
 
-export {
-  Drawer,
-  DrawerPortal,
-  DrawerOverlay,
-  DrawerTrigger,
-  DrawerClose,
-  DrawerContent,
-  DrawerHeader,
-  DrawerFooter,
-  DrawerTitle,
-  DrawerDescription,
-};
+export { Drawer, DrawerTrigger, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription };

@@ -37,11 +37,9 @@ export const amount = z
     message: 'Expected number, received a string',
   });
 
-export const optionalAmount = z
-  .string()
-  .refine((val) => val === '' || !Number.isNaN(parseInt(val, 10)), {
-    message: 'Expected number, received a string',
-  });
+const optionalAmount = z.string().refine((val) => val === '' || !Number.isNaN(parseInt(val, 10)), {
+  message: 'Expected number, received a string',
+});
 
 const MAX_DAYS_IN_MONTH = 31;
 const BILLING_DATE_MESSAGE = { message: `Billing date must be between 1 and ${MAX_DAYS_IN_MONTH}` };
@@ -187,7 +185,7 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
 
 export type Investment = typeof investments.$inferSelect;
 
-export const statementSchema = z.object({
+const statementSchema = z.object({
   id: z.string(),
   createdAt: z.date(),
   userId: z.string(),
@@ -218,7 +216,7 @@ export const updateStatementTaxableIncomeSchema = z.object({
     .refine((value) => Number.isFinite(Number(value)), 'Enter a valid taxable amount')
     .nullable(),
 });
-export const selfTransferStatementSchema = z.object({
+const selfTransferStatementSchema = z.object({
   id: z.string(),
   createdAt: z.date(),
   userId: z.string(),
@@ -239,12 +237,12 @@ export const selfTransferStatementSchema = z.object({
   additionalAttributes: z.record(z.string(), z.unknown()).optional(),
   finalBalance: z.number().optional(),
 });
-export const rowsCountSchema = z.object({
+const rowsCountSchema = z.object({
   statementCount: z.number(),
   selfTransferStatementCount: z.number(),
 });
 export type Emi = typeof emis.$inferSelect;
-export const accountTransferSummarySchema = z.object({
+const accountTransferSummarySchema = z.object({
   expenses: z.number(),
   selfTransfers: z.number(),
   outsideTransactions: z.number(),
@@ -265,7 +263,7 @@ export type AggregatedAccountTransferSummary = z.infer<
   typeof aggregatedAccountTransferSummarySchema
 >;
 
-export const accountSchema = z.object({
+const accountSchema = z.object({
   id: z.string(),
   userId: z.string(),
   createdAt: z.date().nullable(),
@@ -281,7 +279,7 @@ export const accountSummarySchema = z
 
 export type AccountSummary = z.infer<typeof accountSummarySchema>;
 
-export const friendTransferSummarySchema = z.object({
+const friendTransferSummarySchema = z.object({
   paidByFriend: z.number(),
   splits: z.number(),
   friendTransactions: z.number(),
@@ -299,7 +297,7 @@ export const aggregatedFriendTransferSummarySchema = z
 
 export type AggregatedFriendTransferSummary = z.infer<typeof aggregatedFriendTransferSummarySchema>;
 
-export const friendSchema = z.object({
+const friendSchema = z.object({
   id: z.string(),
   userId: z.string(),
   createdAt: z.date().nullable(),
@@ -314,14 +312,14 @@ export const friendSummarySchema = z
 
 export type FriendSummary = z.infer<typeof friendSummarySchema>;
 
-export const paginatedAccountSummarySchema = z.object({
+const paginatedAccountSummarySchema = z.object({
   account: accountSchema,
   startingBalance: z.number(),
   transfers: accountTransferSummarySchema,
   finalBalance: z.number(),
 });
 
-export const paginatedFriendSummarySchema = z.object({
+const paginatedFriendSummarySchema = z.object({
   friend: friendSchema,
   startingBalance: z.number(),
   transfers: friendTransferSummarySchema,
@@ -337,7 +335,7 @@ export const statementsResponseSchema = z.object({
 
 export type PeriodTotals = Omit<ProcessedAggregationData, 'accountsSummary' | 'friendsSummary'>;
 
-export type ProcessedAggregationData = {
+type ProcessedAggregationData = {
   date: Date;
   endDate: Date;
   accountsSummary: ({
@@ -387,7 +385,7 @@ export type DateRange = {
   end: Date;
 };
 
-export const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
 
 export const pageParser = {
   page: parseAsInteger.withDefault(1),
@@ -409,16 +407,16 @@ export const aggregationParser = {
   ...dateParser,
 };
 
-export const STATEMENT_SORTABLE_COLUMNS = ['date', 'amount', 'category'] as const;
+const STATEMENT_SORTABLE_COLUMNS = ['date', 'amount', 'category'] as const;
 
-export const statementSortSchema = z
+const statementSortSchema = z
   .array(z.object({ id: z.enum(STATEMENT_SORTABLE_COLUMNS), desc: z.boolean() }))
   .optional()
   .default([]);
 
 export type StatementSort = z.infer<typeof statementSortSchema>;
 
-export const statementSortParamSchema = z.string().optional().default('');
+const statementSortParamSchema = z.string().optional().default('');
 
 export const parseStatementSort = (raw: string): StatementSort => {
   if (raw === '') {

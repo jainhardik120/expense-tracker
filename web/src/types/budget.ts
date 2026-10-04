@@ -30,8 +30,8 @@ export const budgetAllocationKinds = [
   'earmarked',
   'schedule',
 ] as const;
-export const budgetIncomeDestinations = ['waterfall', 'line', 'excluded'] as const;
-export const budgetIncomeSources = ['statements', 'pending_salary', 'pending_bonus'] as const;
+const budgetIncomeDestinations = ['waterfall', 'line', 'excluded'] as const;
+const budgetIncomeSources = ['statements', 'pending_salary', 'pending_bonus'] as const;
 
 const NAME_REQUIRED = 'Name is required';
 

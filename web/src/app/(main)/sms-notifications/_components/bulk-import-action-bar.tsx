@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
+import { type RowData } from '@tanstack/react-table';
 import { EyeOff, RotateCcw, X } from 'lucide-react';
 
 import {
@@ -20,8 +21,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-
-import type { Table } from '@tanstack/react-table';
+import type { Table } from '@/lib/table';
 
 type Option = { label: string; value: string };
 
@@ -101,7 +101,7 @@ const BulkValuePicker = ({
   );
 };
 
-export type BulkImportActionBarProps<TRow> = Readonly<{
+export type BulkImportActionBarProps<TRow extends RowData> = Readonly<{
   table: Table<TRow>;
   selectedCount: number;
   categories: string[];
@@ -116,7 +116,7 @@ export type BulkImportActionBarProps<TRow> = Readonly<{
   onSetInclude: (include: boolean) => void;
 }>;
 
-export const BulkImportActionBar = <TRow,>({
+export const BulkImportActionBar = <TRow extends RowData>({
   table,
   selectedCount,
   categories,

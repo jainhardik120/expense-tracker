@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 
 import { parseAsString, useQueryStates } from 'nuqs';
 
+import { useIsHydrated } from '@/hooks/use-is-hydrated';
+
 const STORAGE_KEY = 'expense-tracker.report-span';
 
 export type ReportSpan = { from: string; to: string };
 
-export const readStoredSpan = (): ReportSpan | null => {
+const readStoredSpan = (): ReportSpan | null => {
   if (typeof window === 'undefined') {
     return null;
   }
@@ -28,16 +30,18 @@ export const readStoredSpan = (): ReportSpan | null => {
   }
 };
 
-export const writeStoredSpan = (span: ReportSpan): void => {
+const writeStoredSpan = (span: ReportSpan): void => {
   if (typeof window === 'undefined') {
     return;
   }
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(span));
-  } catch {}
+  } catch {
+    return;
+  }
 };
 
-export const isUsableSpan = (span: ReportSpan, boundaryIds: string[]): boolean => {
+const isUsableSpan = (span: ReportSpan, boundaryIds: string[]): boolean => {
   const from = boundaryIds.indexOf(span.from);
   const to = boundaryIds.indexOf(span.to);
   return from !== -1 && to !== -1 && to > from;
@@ -47,15 +51,14 @@ export const useStoredSpan = (
   boundaryIds: string[],
   fallback: ReportSpan,
 ): [ReportSpan, (next: ReportSpan) => void] => {
-  const [span, setSpan] = useState<ReportSpan>(fallback);
-
-  useEffect(() => {
+  const hydrated = useIsHydrated();
+  const [initialSpan] = useState<ReportSpan>(fallback);
+  const [storedSpan] = useState<ReportSpan | null>(() => {
     const stored = readStoredSpan();
-    if (stored !== null && isUsableSpan(stored, boundaryIds)) {
-      setSpan(stored);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return stored !== null && isUsableSpan(stored, boundaryIds) ? stored : null;
+  });
+  const [chosenSpan, setSpan] = useState<ReportSpan | null>(null);
+  const span = chosenSpan ?? (hydrated && storedSpan !== null ? storedSpan : initialSpan);
 
   const update = (next: ReportSpan) => {
     setSpan(next);

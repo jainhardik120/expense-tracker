@@ -1,11 +1,10 @@
-import type { DataTableConfig } from '@/config/data-table';
-import type { FilterItemSchema } from '@/lib/parsers';
+import { type ColumnSort, type RowData, type TableFeatures } from '@tanstack/react-table';
 
-import type { ColumnSort, RowData } from '@tanstack/react-table';
+import type { filterVariants } from '@/config/data-table';
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
+  interface ColumnMeta<TFeatures extends TableFeatures, TData extends RowData, TValue> {
     label?: string;
     placeholder?: string;
     variant?: FilterVariant;
@@ -25,13 +24,8 @@ export interface Option {
   icon?: React.FC<React.SVGProps<SVGSVGElement>>;
 }
 
-export type FilterVariant = DataTableConfig['filterVariants'][number];
+type FilterVariant = (typeof filterVariants)[number];
 
-export interface ExtendedColumnSort<TData> extends Omit<ColumnSort, 'id'> {
-  // eslint-disable-next-line sonarjs/no-useless-intersection
+export interface ExtendedColumnSort<TData extends RowData> extends Omit<ColumnSort, 'id'> {
   id: Extract<keyof TData, string> | (string & {});
-}
-
-export interface ExtendedColumnFilter<TData> extends FilterItemSchema {
-  id: Extract<keyof TData, string>;
 }

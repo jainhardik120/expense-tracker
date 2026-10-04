@@ -4,7 +4,6 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { type ColumnDef, type Row, type Table } from '@tanstack/react-table';
 import { AlertCircle, Check, EyeOff, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,6 +22,7 @@ import {
   statementKindOptions,
   updateRows,
 } from '@/lib/sms-bulk-import';
+import type { ColumnDef, Row, CoreTable } from '@/lib/table';
 import { api } from '@/server/react';
 import type { Account, Friend } from '@/types';
 import type { CellOpts } from '@/types/data-grid';
@@ -68,7 +68,7 @@ const SelectRowCell = ({
   table,
 }: {
   row: Row<BulkImportRow>;
-  table: Table<BulkImportRow>;
+  table: CoreTable<BulkImportRow>;
 }) => {
   const shiftHeld = useRef(false);
   const { meta } = table.options;
@@ -255,7 +255,7 @@ export const BulkImportGrid = ({
   const selectedIds = useMemo(
     () => new Set(table.getSelectedRowModel().rows.map((row) => row.id)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [table, table.getState().rowSelection],
+    [table, table.state.rowSelection],
   );
 
   const applyToSelected = useCallback(

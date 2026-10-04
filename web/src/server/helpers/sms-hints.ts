@@ -35,7 +35,7 @@ export const getLinkedHistory = instrumentedFunction(
       .orderBy(desc(smsNotifications.createdAt)),
 );
 
-export const getInsertHintsForMany = instrumentedFunction(
+const getInsertHintsForMany = instrumentedFunction(
   'getInsertHintsForMany',
   async (
     db: Database,

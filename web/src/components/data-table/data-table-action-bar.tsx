@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 
+import { type RowData } from '@tanstack/react-table';
 import { Loader, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import * as ReactDOM from 'react-dom';
@@ -9,17 +10,19 @@ import * as ReactDOM from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useIsHydrated } from '@/hooks/use-is-hydrated';
+import type { Table } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
-import type { Table } from '@tanstack/react-table';
-
-interface DataTableActionBarProps<TData> extends React.ComponentProps<typeof motion.div> {
+interface DataTableActionBarProps<TData extends RowData> extends React.ComponentProps<
+  typeof motion.div
+> {
   table: Table<TData>;
   visible?: boolean;
   portalContainer?: Element | DocumentFragment | null;
 }
 
-const DataTableActionBar = <TData,>({
+const DataTableActionBar = <TData extends RowData>({
   table,
   visible: visibleProp,
   portalContainer: portalContainerProp,
@@ -27,11 +30,7 @@ const DataTableActionBar = <TData,>({
   className,
   ...props
 }: DataTableActionBarProps<TData>) => {
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useLayoutEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useIsHydrated();
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -125,11 +124,11 @@ const DataTableActionBarAction = ({
   );
 };
 
-interface DataTableActionBarSelectionProps<TData> {
+interface DataTableActionBarSelectionProps<TData extends RowData> {
   table: Table<TData>;
 }
 
-const DataTableActionBarSelection = <TData,>({
+const DataTableActionBarSelection = <TData extends RowData>({
   table,
 }: DataTableActionBarSelectionProps<TData>) => {
   const onClearSelection = React.useCallback(() => {

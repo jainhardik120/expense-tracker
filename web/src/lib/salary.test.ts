@@ -104,13 +104,13 @@ test('adds bonus TDS in its month and spreads the tax balance across eligible mo
     ],
   });
 
-  expect(rows[0]?.estimatedTds).toBe(86_200.1);
+  expect(rows[0]?.estimatedTds).toBeCloseTo(86_200.1, 2);
   expect(rows[0]?.reconciliation).toBe(0);
   expect(rows.slice(1).map((row) => row.reconciliation)).toStrictEqual([
     4_311.07, 4_311.07, 4_311.07, 4_311.07, 4_311.06, 4_311.06,
   ]);
-  expect(rows[1]?.estimatedTds).toBe(41_491.07);
-  expect(rows.at(-1)?.estimatedTds).toBe(16_011.06);
+  expect(rows[1]?.estimatedTds).toBeCloseTo(41_491.07, 2);
+  expect(rows.at(-1)?.estimatedTds).toBeCloseTo(16_011.06, 2);
   expect(
     Math.round(rows.reduce((total, row) => total + row.estimatedTds, 60_234) * 100) / 100,
   ).toBe(267_980.5);
@@ -190,7 +190,7 @@ test('calculates outside income as incremental tax above salary tax', () => {
     otherTaxableIncome: 10.11,
   });
 
-  expect(salaryTax.totalTax).toBe(267_980.5);
-  expect(totalTax.totalTax).toBe(267_983.13);
-  expect(Number((totalTax.totalTax - salaryTax.totalTax).toFixed(2))).toBe(2.63);
+  expect(salaryTax.totalTax).toBeCloseTo(267_980.5, 2);
+  expect(totalTax.totalTax).toBeCloseTo(267_983.13, 2);
+  expect(Number((totalTax.totalTax - salaryTax.totalTax).toFixed(2))).toBeCloseTo(2.63, 2);
 });

@@ -464,17 +464,6 @@ export const statementsRouter = createTRPCRouter({
           .returning({ id: splits.id });
       });
     }),
-  deleteStatementSplit: protectedProcedure
-    .input(
-      z.object({
-        splitId: z.string(),
-      }),
-    )
-    .mutation(({ ctx, input }) => {
-      return ctx.db
-        .delete(splits)
-        .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
-    }),
   updateStatementSplit: protectedProcedure
     .input(
       z.object({

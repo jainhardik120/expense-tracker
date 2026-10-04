@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Trash2 } from 'lucide-react';
 
 import { DataTable } from '@/components/data-table/data-table';
@@ -12,6 +11,7 @@ import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/componen
 import { ZonedDate } from '@/components/zoned-date';
 import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 
 import { BonusDialog } from './salary-dialogs';

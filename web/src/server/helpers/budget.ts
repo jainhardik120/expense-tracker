@@ -18,7 +18,7 @@ type WithParsedRule<T> = Omit<T, 'rule'> & { rule: BudgetRule };
 
 export type BudgetLineRow = WithParsedRule<typeof budgetLines.$inferSelect>;
 export type BudgetIncomeLineRow = WithParsedRule<typeof budgetIncomeLines.$inferSelect>;
-export const parseRule = (value: unknown): BudgetRule => {
+const parseRule = (value: unknown): BudgetRule => {
   const result = budgetRuleSchema.safeParse(value);
   return result.success ? result.data : emptyBudgetRule;
 };

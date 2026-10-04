@@ -1,9 +1,10 @@
+import { apiKey } from '@better-auth/api-key';
 import { oauthProvider } from '@better-auth/oauth-provider';
 import { passkey } from '@better-auth/passkey';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { createAuthMiddleware } from 'better-auth/api';
-import { admin, apiKey, twoFactor, jwt } from 'better-auth/plugins';
+import { admin, twoFactor, jwt } from 'better-auth/plugins';
 
 import * as schema from '@/db/auth-schema';
 import ResetPasswordEmail from '@/emails/reset-password';

@@ -13,7 +13,7 @@ const AdminSession = ({ session }: { session: Session }) => {
           variant="destructive"
           onClick={async () => {
             await authClient.admin.stopImpersonating();
-            window.location.href = '/account/admin/users';
+            window.location.assign(new URL('/account/admin/users', window.location.origin));
           }}
         >
           Stop Impersonating

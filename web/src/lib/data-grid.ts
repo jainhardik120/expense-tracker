@@ -1,5 +1,6 @@
 import type * as React from 'react';
 
+import { type RowData } from '@tanstack/react-table';
 import { format } from 'date-fns';
 import {
   BaselineIcon,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 
 import { DATE_FORMAT } from '@/lib/format';
+import type { Column, ColumnDef, Table } from '@/lib/table';
 import type {
   CellOpts,
   CellPosition,
@@ -30,16 +32,12 @@ import type {
   RowHeightValue,
 } from '@/types/data-grid';
 
-import type { Column, ColumnDef, Table } from '@tanstack/react-table';
-
 export const flexRender = <TProps extends object>(
   Comp: ((props: TProps) => React.ReactNode) | string | undefined,
   props: TProps,
 ): React.ReactNode => {
-  if (typeof Comp === 'string') {
-    return Comp;
-  }
-  return Comp?.(props);
+  const rendered: React.ReactNode = typeof Comp === 'string' ? Comp : Comp?.(props);
+  return rendered;
 };
 
 export const getIsFileCellData = (item: unknown): item is FileCellData =>
@@ -64,10 +62,8 @@ export const matchSelectOption = (
 export const getCellKey = (rowIndex: number, columnId: string) => `${rowIndex}:${columnId}`;
 
 export const parseCellKey = (cellKey: string): Required<CellPosition> => {
-  const parts = cellKey.split(':');
-  const rowIndexStr = parts[0];
-  const columnId = parts[1];
-  if (rowIndexStr && columnId) {
+  const [rowIndexStr = '', columnId = ''] = cellKey.split(':');
+  if (rowIndexStr !== '' && columnId !== '') {
     const rowIndex = parseInt(rowIndexStr, 10);
     if (!Number.isNaN(rowIndex)) {
       return { rowIndex, columnId };
@@ -98,7 +94,7 @@ export const getLineCount = (rowHeight: RowHeightValue): number => {
   return lineCountMap[rowHeight];
 };
 
-export const getColumnBorderVisibility = <TData>(params: {
+export const getColumnBorderVisibility = <TData extends RowData>(params: {
   column: Column<TData>;
   nextColumn?: Column<TData>;
   isLastColumn: boolean;
@@ -109,11 +105,11 @@ export const getColumnBorderVisibility = <TData>(params: {
   const { column, nextColumn, isLastColumn } = params;
 
   const isPinned = column.getIsPinned();
-  const isFirstRightPinnedColumn = isPinned === 'right' && column.getIsFirstColumn('right');
-  const isLastRightPinnedColumn = isPinned === 'right' && column.getIsLastColumn('right');
+  const isFirstRightPinnedColumn = isPinned === 'end' && column.getIsFirstColumn('end');
+  const isLastRightPinnedColumn = isPinned === 'end' && column.getIsLastColumn('end');
 
   const nextIsPinned = nextColumn?.getIsPinned();
-  const isBeforeRightPinned = nextIsPinned === 'right' && nextColumn?.getIsFirstColumn('right');
+  const isBeforeRightPinned = nextIsPinned === 'end' && nextColumn?.getIsFirstColumn('end');
 
   const showEndBorder = isBeforeRightPinned !== true && (isLastColumn || !isLastRightPinnedColumn);
 
@@ -125,7 +121,7 @@ export const getColumnBorderVisibility = <TData>(params: {
   };
 };
 
-export const getColumnPinningStyle = <TData>(params: {
+export const getColumnPinningStyle = <TData extends RowData>(params: {
   column: Column<TData>;
   withBorder?: boolean;
   dir?: Direction;
@@ -133,13 +129,13 @@ export const getColumnPinningStyle = <TData>(params: {
   const { column, dir = 'ltr', withBorder = false } = params;
 
   const isPinned = column.getIsPinned();
-  const isLastLeftPinnedColumn = isPinned === 'left' && column.getIsLastColumn('left');
-  const isFirstRightPinnedColumn = isPinned === 'right' && column.getIsFirstColumn('right');
+  const isLastLeftPinnedColumn = isPinned === 'start' && column.getIsLastColumn('start');
+  const isFirstRightPinnedColumn = isPinned === 'end' && column.getIsFirstColumn('end');
 
   const isRtl = dir === 'rtl';
 
-  const leftPosition = isPinned === 'left' ? `${column.getStart('left')}px` : undefined;
-  const rightPosition = isPinned === 'right' ? `${column.getAfter('right')}px` : undefined;
+  const leftPosition = isPinned === 'start' ? `${column.getStart('start')}px` : undefined;
+  const rightPosition = isPinned === 'end' ? `${column.getAfter('end')}px` : undefined;
 
   const PINNED_OPACITY = 0.97;
 
@@ -186,7 +182,7 @@ export const getScrollDirection = (
   return undefined;
 };
 
-export const scrollCellIntoView = <TData>(params: {
+export const scrollCellIntoView = <TData extends RowData>(params: {
   container: HTMLDivElement;
   targetCell: HTMLDivElement;
   tableRef: React.RefObject<Table<TData> | null>;
@@ -203,8 +199,8 @@ export const scrollCellIntoView = <TData>(params: {
   const isActuallyRtl = isRtl === true || hasNegativeScroll;
 
   const currentTable = tableRef.current;
-  const leftPinnedColumns = currentTable?.getLeftVisibleLeafColumns() ?? [];
-  const rightPinnedColumns = currentTable?.getRightVisibleLeafColumns() ?? [];
+  const leftPinnedColumns = currentTable?.getStartVisibleLeafColumns() ?? [];
+  const rightPinnedColumns = currentTable?.getEndVisibleLeafColumns() ?? [];
 
   const leftPinnedWidth = leftPinnedColumns.reduce((sum, c) => sum + c.getSize(), 0);
   const rightPinnedWidth = rightPinnedColumns.reduce((sum, c) => sum + c.getSize(), 0);
@@ -285,7 +281,7 @@ export const getColumnVariant = (
 
 export type CellRenderMode = 'editor' | 'display' | 'value';
 
-export const getCellRenderMode = <TData, TValue>(params: {
+export const getCellRenderMode = <TData extends RowData, TValue>(params: {
   column: Column<TData, TValue>;
   readOnly: boolean;
 }): CellRenderMode => {
@@ -301,8 +297,8 @@ export const getCellRenderMode = <TData, TValue>(params: {
   return meta?.cell === undefined ? 'display' : 'value';
 };
 
-export const prepareGridColumns = <TData, TValue>(
-  columns: ColumnDef<TData, TValue>[],
+export const prepareGridColumns = <TData extends RowData, TValue>(
+  columns: readonly ColumnDef<TData, TValue>[],
 ): ColumnDef<TData, TValue>[] =>
   columns.map((column) => ({
     ...column,
@@ -411,7 +407,7 @@ export const getFileIcon = (type: string): React.ComponentType<React.SVGProps<SV
   return File;
 };
 
-export const getColumnWidthStyle = <TData>(params: {
+export const getColumnWidthStyle = <TData extends RowData>(params: {
   column: Column<TData>;
   stretchColumns: boolean | 'last';
   isLastColumn: boolean;

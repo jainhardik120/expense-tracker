@@ -7,12 +7,14 @@ import { DataTablePagination } from '@/components/data-table/data-table-paginati
 import type { useEditableTable } from '@/hooks/use-editable-table';
 import { cn } from '@/lib/utils';
 
+import type { RowData } from '@tanstack/react-table';
+
 type DataGridOwnProps = Pick<
   React.ComponentProps<typeof DataGrid>,
   'height' | 'fill' | 'stretchColumns' | 'emptyState' | 'dir'
 >;
 
-type EditableTableProps<TData> = ReturnType<typeof useEditableTable<TData>> &
+type EditableTableProps<TData extends RowData> = ReturnType<typeof useEditableTable<TData>> &
   DataGridOwnProps & {
     className?: string;
     children?: React.ReactNode;
@@ -21,7 +23,7 @@ type EditableTableProps<TData> = ReturnType<typeof useEditableTable<TData>> &
     enableSelection?: boolean;
   };
 
-export const EditableTable = <TData,>({
+export const EditableTable = <TData extends RowData>({
   children,
   actionBar,
   enablePagination = true,

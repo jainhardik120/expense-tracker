@@ -45,3 +45,4 @@ sonar-project.properties
 .scannerwork
 .env*.local
 package-lock.json
+/reports/

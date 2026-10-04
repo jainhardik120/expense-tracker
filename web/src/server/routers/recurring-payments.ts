@@ -214,16 +214,6 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }),
     ),
 
-  getLinkedStatements: protectedProcedure
-    .input(
-      z.object({
-        recurringPaymentId: z.string(),
-      }),
-    )
-    .query(({ ctx, input }) => {
-      return getLinkedStatementsRecurringPayment(ctx.db, ctx.user.id, input.recurringPaymentId);
-    }),
-
   getRecurringPaymentDetails: protectedProcedure
     .input(
       z.object({

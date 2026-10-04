@@ -25,7 +25,6 @@ const renderStatusCell = (row: ScheduleRowWithPayment) => (
   <PaymentStatusBadge status={row.paymentStatus} />
 );
 
-// eslint-disable-next-line sonarjs/function-return-type
 const renderPaidOnCell = (row: ScheduleRowWithPayment, zoned: ZonedFormat): React.ReactNode => {
   const stmt = row.linkedStatement;
   if (stmt === undefined) {

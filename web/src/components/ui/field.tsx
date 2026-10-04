@@ -1,53 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
-
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-
-const FieldSet = ({ className, ...props }: React.ComponentProps<'fieldset'>) => (
-  <fieldset
-    className={cn(
-      'flex flex-col gap-6',
-      'has-[>[data-slot=checkbox-group]]:gap-3 has-[>[data-slot=radio-group]]:gap-3',
-      className,
-    )}
-    data-slot="field-set"
-    {...props}
-  />
-);
-
-const FieldLegend = ({
-  className,
-  variant = 'legend',
-  ...props
-}: React.ComponentProps<'legend'> & { variant?: 'legend' | 'label' }) => (
-  <legend
-    className={cn(
-      'mb-3 font-medium',
-      'data-[variant=legend]:text-base',
-      'data-[variant=label]:text-sm',
-      className,
-    )}
-    data-slot="field-legend"
-    data-variant={variant}
-    {...props}
-  />
-);
-
-const FieldGroup = ({ className, ...props }: React.ComponentProps<'div'>) => (
-  <div
-    className={cn(
-      'group/field-group @container/field-group flex w-full flex-col gap-7 data-[slot=checkbox-group]:gap-3 [&>[data-slot=field-group]]:gap-4',
-      className,
-    )}
-    data-slot="field-group"
-    {...props}
-  />
-);
 
 const fieldVariants = cva('group/field flex w-full gap-3 data-[invalid=true]:text-destructive', {
   variants: {
@@ -80,38 +36,6 @@ const Field = ({
     data-orientation={orientation}
     data-slot="field"
     role="group"
-    {...props}
-  />
-);
-
-const FieldContent = ({ className, ...props }: React.ComponentProps<'div'>) => (
-  <div
-    className={cn('group/field-content flex flex-1 flex-col gap-1.5 leading-snug', className)}
-    data-slot="field-content"
-    {...props}
-  />
-);
-
-const FieldLabel = ({ className, ...props }: React.ComponentProps<typeof Label>) => (
-  <Label
-    className={cn(
-      'group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50',
-      'has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col has-[>[data-slot=field]]:rounded-md has-[>[data-slot=field]]:border [&>*]:data-[slot=field]:p-4',
-      'has-data-[state=checked]:bg-primary/5 has-data-[state=checked]:border-primary dark:has-data-[state=checked]:bg-primary/10',
-      className,
-    )}
-    data-slot="field-label"
-    {...props}
-  />
-);
-
-const FieldTitle = ({ className, ...props }: React.ComponentProps<'div'>) => (
-  <div
-    className={cn(
-      'flex w-fit items-center gap-2 text-sm leading-snug font-medium group-data-[disabled=true]/field:opacity-50',
-      className,
-    )}
-    data-slot="field-label"
     {...props}
   />
 );
@@ -157,63 +81,4 @@ const FieldSeparator = ({
   </div>
 );
 
-const FieldError = ({
-  className,
-  children,
-  errors,
-  ...props
-}: React.ComponentProps<'div'> & {
-  errors?: Array<{ message?: string } | undefined>;
-}) => {
-  // eslint-disable-next-line sonarjs/function-return-type
-  const content = useMemo(() => {
-    if (children !== undefined) {
-      return children;
-    }
-
-    if (errors == null) {
-      return null;
-    }
-
-    if (errors.length === 1 && errors[0]?.message != null) {
-      return errors[0].message;
-    }
-
-    return (
-      <ul className="ml-4 flex list-disc flex-col gap-1">
-        {errors.map(
-          (error) =>
-            error?.message != null && <li key={`error-${error.message}`}>{error.message}</li>,
-        )}
-      </ul>
-    );
-  }, [children, errors]);
-
-  if (content == null) {
-    return null;
-  }
-
-  return (
-    <div
-      className={cn('text-destructive text-sm font-normal', className)}
-      data-slot="field-error"
-      role="alert"
-      {...props}
-    >
-      {content}
-    </div>
-  );
-};
-
-export {
-  Field,
-  FieldLabel,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLegend,
-  FieldSeparator,
-  FieldSet,
-  FieldContent,
-  FieldTitle,
-};
+export { Field, FieldDescription, FieldSeparator };

@@ -4,7 +4,6 @@ import { z } from 'zod';
 
 import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
 import { cycleAllowance, monthsBetween, project } from '@/lib/budget-projection';
-import { matchesRule } from '@/lib/budget-rules';
 import { type Database } from '@/lib/db';
 import {
   expenseLineOptions,
@@ -12,7 +11,6 @@ import {
   getStatementsInWindow,
   getYearIncomeLines,
   getYearLines,
-  parseRule,
   cycleKeyFor,
   spentOnDiscretionary,
   summariseByCycle,
@@ -23,14 +21,7 @@ import { getPendingIncome } from '@/server/helpers/pending-income';
 import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
 import { getNetBalance } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import {
-  budgetIncomeLineSchema,
-  budgetLineSchema,
-  budgetRuleSchema,
-  budgetYearSchema,
-} from '@/types/budget';
-
-const SAMPLE_STATEMENT_LIMIT = 10;
+import { budgetIncomeLineSchema, budgetLineSchema, budgetYearSchema } from '@/types/budget';
 
 const YEAR_NOT_FOUND = 'Budget year not found';
 
@@ -122,13 +113,6 @@ export const budgetRouter = createTRPCRouter({
       await assertOwnedYear(ctx.db, ctx.user.id, input.id);
       const { id, ...rest } = input;
       await ctx.db.update(budgetYears).set(rest).where(eq(budgetYears.id, id));
-    }),
-
-  deleteYear: protectedProcedure
-    .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await assertOwnedYear(ctx.db, ctx.user.id, input.id);
-      await ctx.db.delete(budgetYears).where(eq(budgetYears.id, input.id));
     }),
 
   getYearDetail: protectedProcedure
@@ -337,22 +321,5 @@ export const budgetRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
       await deleteYearLine(ctx.db, budgetIncomeLines, input.budgetYearId, input.id);
-    }),
-
-  previewRule: protectedProcedure
-    .input(z.object({ budgetYearId: z.string(), rule: budgetRuleSchema }))
-    .query(async ({ ctx, input }) => {
-      const year = await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, year.startDate, year.endDate);
-      const rule = parseRule(input.rule);
-      const matched = scoped.filter((statement) => matchesRule(statement, rule));
-      return {
-        count: matched.length,
-        total: matched.reduce((sum, statement) => sum + statement.myAmount, 0),
-        sample: matched
-          .toSorted((a, b) => b.myAmount - a.myAmount)
-          .slice(0, SAMPLE_STATEMENT_LIMIT)
-          .map((s) => ({ id: s.id, category: s.category, tags: s.tags, amount: s.myAmount })),
-      };
     }),
 });

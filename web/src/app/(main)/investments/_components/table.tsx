@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Info } from 'lucide-react';
 
 import { DataTable } from '@/components/data-table/data-table';
@@ -27,6 +26,7 @@ import {
   mergeTimelines,
   type TimelineFilters,
 } from '@/lib/investments';
+import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { PERCENTAGE_DIVISOR } from '@/types';

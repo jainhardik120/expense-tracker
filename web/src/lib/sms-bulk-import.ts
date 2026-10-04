@@ -38,7 +38,7 @@ const KIND_BY_SMS_TYPE: Record<SmsType, { statementKind: BulkImportKind; sign: 1
   transfer: { statementKind: 'expense', sign: 1 },
 };
 
-export const getDefaultsForSmsType = (smsType: SmsType) => KIND_BY_SMS_TYPE[smsType];
+const getDefaultsForSmsType = (smsType: SmsType) => KIND_BY_SMS_TYPE[smsType];
 
 export const formatGridDate = (date: Date): string => {
   const year = date.getFullYear();

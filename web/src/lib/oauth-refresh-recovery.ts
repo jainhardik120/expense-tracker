@@ -35,7 +35,7 @@ export const recoverRotatedRefreshToken = instrumentedFunction(
       return;
     }
     const now = new Date();
-    if (row.expiresAt === null || row.expiresAt <= now) {
+    if (row.expiresAt <= now) {
       return;
     }
     const family = await db

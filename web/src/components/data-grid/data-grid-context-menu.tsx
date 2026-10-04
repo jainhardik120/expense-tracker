@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 
+import { type TableMeta, type RowData } from '@tanstack/react-table';
 import { CopyIcon, EraserIcon, ScissorsIcon, Trash2Icon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -14,28 +15,29 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useAsRef } from '@/hooks/use-as-ref';
 import { parseCellKey } from '@/lib/data-grid';
+import type { ColumnDef, AppTableFeatures } from '@/lib/table';
 import type { CellUpdate, ContextMenuState } from '@/types/data-grid';
 
-import type { ColumnDef, TableMeta } from '@tanstack/react-table';
-
-interface DataGridContextMenuProps<TData> {
-  tableMeta: TableMeta<TData>;
-  columns: Array<ColumnDef<TData>>;
+interface DataGridContextMenuProps<TData extends RowData> {
+  tableMeta: TableMeta<AppTableFeatures, TData>;
+  columns: ReadonlyArray<ColumnDef<TData>>;
   contextMenu: ContextMenuState;
 }
 
-export const DataGridContextMenu = <TData,>({
+export const DataGridContextMenu = <TData extends RowData>({
   tableMeta,
   columns,
   contextMenu,
 }: DataGridContextMenuProps<TData>) => {
-  const onContextMenuOpenChange = tableMeta?.onContextMenuOpenChange;
-  const selectionState = tableMeta?.selectionState;
-  const dataGridRef = tableMeta?.dataGridRef;
-  const onDataUpdate = tableMeta?.onDataUpdate;
-  const onRowsDelete = tableMeta?.onRowsDelete;
-  const onCellsCopy = tableMeta?.onCellsCopy;
-  const onCellsCut = tableMeta?.onCellsCut;
+  const {
+    onContextMenuOpenChange,
+    selectionState,
+    dataGridRef,
+    onDataUpdate,
+    onRowsDelete,
+    onCellsCopy,
+    onCellsCut,
+  } = tableMeta;
 
   if (!contextMenu.open) {
     return null;
@@ -57,10 +59,10 @@ export const DataGridContextMenu = <TData,>({
   );
 };
 
-interface ContextMenuProps<TData>
+interface ContextMenuProps<TData extends RowData>
   extends
     Pick<
-      TableMeta<TData>,
+      TableMeta<AppTableFeatures, TData>,
       | 'dataGridRef'
       | 'onContextMenuOpenChange'
       | 'selectionState'
@@ -70,12 +72,12 @@ interface ContextMenuProps<TData>
       | 'onCellsCut'
       | 'readOnly'
     >,
-    Required<Pick<TableMeta<TData>, 'contextMenu'>> {
-  tableMeta: TableMeta<TData>;
-  columns: Array<ColumnDef<TData>>;
+    Required<Pick<TableMeta<AppTableFeatures, TData>, 'contextMenu'>> {
+  tableMeta: TableMeta<AppTableFeatures, TData>;
+  columns: ReadonlyArray<ColumnDef<TData>>;
 }
 
-const ContextMenuImpl = <TData,>({
+const ContextMenuImpl = <TData extends RowData>({
   tableMeta,
   columns,
   dataGridRef,
@@ -135,7 +137,7 @@ const ContextMenuImpl = <TData,>({
   const onClear = React.useCallback(() => {
     const { selectionState, columns, onDataUpdate } = propsRef.current;
 
-    if (!selectionState?.selectedCells || selectionState.selectedCells.size === 0) {
+    if (selectionState === undefined || selectionState.selectedCells.size === 0) {
       return;
     }
 
@@ -145,7 +147,7 @@ const ContextMenuImpl = <TData,>({
       const { rowIndex, columnId } = parseCellKey(cellKey);
 
       const column = columns.find((col) => {
-        if (col.id) {
+        if (col.id !== undefined && col.id !== '') {
           return col.id === columnId;
         }
         if ('accessorKey' in col) {
@@ -175,7 +177,7 @@ const ContextMenuImpl = <TData,>({
   const onDelete = React.useCallback(async () => {
     const { selectionState, onRowsDelete } = propsRef.current;
 
-    if (!selectionState?.selectedCells || selectionState.selectedCells.size === 0) {
+    if (selectionState === undefined || selectionState.selectedCells.size === 0) {
       return;
     }
 
@@ -206,15 +208,15 @@ const ContextMenuImpl = <TData,>({
           <CopyIcon />
           Copy
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={tableMeta?.readOnly} onSelect={onCut}>
+        <DropdownMenuItem disabled={tableMeta.readOnly} onSelect={onCut}>
           <ScissorsIcon />
           Cut
         </DropdownMenuItem>
-        <DropdownMenuItem disabled={tableMeta?.readOnly} onSelect={onClear}>
+        <DropdownMenuItem disabled={tableMeta.readOnly} onSelect={onClear}>
           <EraserIcon />
           Clear
         </DropdownMenuItem>
-        {onRowsDelete ? (
+        {onRowsDelete !== undefined ? (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={onDelete}>
@@ -242,8 +244,8 @@ const ContextMenu = React.memo(ContextMenuImpl, (prev, next) => {
     return false;
   }
 
-  const prevSize = prev.selectionState?.selectedCells?.size ?? 0;
-  const nextSize = next.selectionState?.selectedCells?.size ?? 0;
+  const prevSize = prev.selectionState?.selectedCells.size ?? 0;
+  const nextSize = next.selectionState?.selectedCells.size ?? 0;
   if (prevSize !== nextSize) {
     return false;
   }

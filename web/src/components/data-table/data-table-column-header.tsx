@@ -1,12 +1,14 @@
 'use client';
 
-import { type Column } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import type { Column } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
-export const DataTableColumnHeader = <TData, TValue>({
+import type { RowData } from '@tanstack/react-table';
+
+export const DataTableColumnHeader = <TData extends RowData, TValue>({
   column,
   title,
   className,

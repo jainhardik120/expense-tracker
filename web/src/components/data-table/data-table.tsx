@@ -1,12 +1,7 @@
 import * as React from 'react';
 
-import {
-  defaultColumnSizing,
-  flexRender,
-  type Column,
-  type Row,
-  type Table as TanstackTable,
-} from '@tanstack/react-table';
+import { flexRender, type RowData } from '@tanstack/react-table';
+import { getDefaultColumnSizingColumnDef } from '@tanstack/react-table/static-functions';
 
 import {
   DataTableCellSelectionStatus,
@@ -24,24 +19,25 @@ import {
 } from '@/components/ui/table';
 import { useCellRangeSelection } from '@/hooks/use-cell-range-selection';
 import { getCommonPinningStyles } from '@/lib/data-table';
+import type { Column, Row, Table as TanstackTable } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
-const alignmentClass = <TData, TValue>(column: Column<TData, TValue>) =>
+const alignmentClass = <TData extends RowData, TValue>(column: Column<TData, TValue>) =>
   column.columnDef.meta?.align === 'right' ? 'text-right tabular-nums' : undefined;
 
-const widthStyle = <TData, TValue>(
+const widthStyle = <TData extends RowData, TValue>(
   column: Column<TData, TValue>,
   layout: 'auto' | 'fixed',
 ): React.CSSProperties => {
   if (layout === 'auto') {
     return {};
   }
-  return column.columnDef.size === defaultColumnSizing.size
+  return column.columnDef.size === getDefaultColumnSizingColumnDef().size
     ? { width: undefined }
     : { width: column.columnDef.size };
 };
 
-type DataTableProps<TData extends object> = React.ComponentProps<'div'> & {
+type DataTableProps<TData extends RowData> = React.ComponentProps<'div'> & {
   table: TanstackTable<TData>;
   actionBar?: React.ReactNode;
   onValueChange?: (items: Row<TData>[]) => void;
@@ -83,7 +79,7 @@ const SortableItemIf = ({
 
 const INTERACTIVE_SELECTOR = 'a, button, input, select, textarea, [role="checkbox"]';
 
-export const DataTable = <TData extends object>({
+export const DataTable = <TData extends RowData>({
   table,
   actionBar,
   children,

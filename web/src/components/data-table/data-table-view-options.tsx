@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 
+import { type RowData } from '@tanstack/react-table';
 import { Check, ChevronsUpDown, Settings2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -14,15 +15,16 @@ import {
   CommandList,
 } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type { Table } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
-import type { Table } from '@tanstack/react-table';
-
-interface DataTableViewOptionsProps<TData> {
+interface DataTableViewOptionsProps<TData extends RowData> {
   table: Table<TData>;
 }
 
-export const DataTableViewOptions = <TData,>({ table }: DataTableViewOptionsProps<TData>) => {
+export const DataTableViewOptions = <TData extends RowData>({
+  table,
+}: DataTableViewOptionsProps<TData>) => {
   const columns = React.useMemo(
     () =>
       table

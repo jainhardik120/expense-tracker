@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 const Table = ({ className, ...props }: React.ComponentProps<'table'>) => (
   <div className="relative w-full overflow-x-auto" data-slot="table-container">
-    {/* eslint-disable-next-line sonarjs/table-header */}
+    {}
     <table
       className={cn('w-full caption-bottom text-sm', className)}
       data-slot="table"
@@ -68,12 +68,4 @@ const TableCell = ({ className, ...props }: React.ComponentProps<'td'>) => (
   />
 );
 
-const TableCaption = ({ className, ...props }: React.ComponentProps<'caption'>) => (
-  <caption
-    className={cn('text-muted-foreground mt-4 text-sm', className)}
-    data-slot="table-caption"
-    {...props}
-  />
-);
-
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell };

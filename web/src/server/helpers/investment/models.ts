@@ -7,9 +7,9 @@ import type {
 
 import type { InvestmentRow, PriceHistoryPoint, Quote } from './types';
 
-export type DisplayCurrencyValue = 'INR' | 'USD';
+type DisplayCurrencyValue = 'INR' | 'USD';
 
-export type InvestmentTimelinePoint = {
+type InvestmentTimelinePoint = {
   date: Date;
   investedAmount: number;
   valuationAmount: number;

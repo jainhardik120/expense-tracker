@@ -1,6 +1,5 @@
 'use client';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { Link2, SquarePen, SquareSlash, Trash } from 'lucide-react';
 
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
@@ -10,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ZonedDate } from '@/components/zoned-date';
 import { DATE_FORMAT, formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 import { cn } from '@/lib/utils';
 import { getFromAccount, getToAccount } from '@/server/helpers/account';
 import type { FacetCount } from '@/server/helpers/statement';
@@ -199,7 +199,7 @@ export const createStatementColumns = ({
             const { rows } = table.getRowModel();
             const from = Math.min(anchor, row.index);
             const to = Math.max(anchor, row.index);
-            const selection = { ...table.getState().rowSelection };
+            const selection = { ...table.atoms.rowSelection.get() };
             for (let index = from; index <= to; index++) {
               const id = rows.at(index)?.id;
               if (id === undefined) {

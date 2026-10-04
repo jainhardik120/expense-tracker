@@ -354,7 +354,7 @@ test('the three rates describe the same year from three choices', () => {
     9910.87,
     2.8667,
   );
-  expect(p.pacePerMonth).toBe(11396.85);
+  expect(p.pacePerMonth).toBeCloseTo(11396.85, 2);
   expect(p.budgetPerMonth).toBe(9300);
   expect(p.projectedAtPace).toBeLessThan(p.projectedAtBudget);
   expect(Math.round(p.projectedAtBudget - p.projectedAtPace)).toBe(

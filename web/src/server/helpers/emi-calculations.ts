@@ -12,7 +12,7 @@ import {
   type PaymentStatus,
 } from '@/types';
 
-export const calculateEmi = (principal: number, monthlyRate: number, tenure: number): number => {
+const calculateEmi = (principal: number, monthlyRate: number, tenure: number): number => {
   if (monthlyRate === 0) {
     return principal / tenure;
   }
@@ -22,11 +22,7 @@ export const calculateEmi = (principal: number, monthlyRate: number, tenure: num
   );
 };
 
-export const calculatePrincipalFromEmi = (
-  emi: number,
-  monthlyRate: number,
-  tenure: number,
-): number => {
+const calculatePrincipalFromEmi = (emi: number, monthlyRate: number, tenure: number): number => {
   if (monthlyRate === 0) {
     return emi * tenure;
   }
@@ -54,8 +50,8 @@ export const calculateEmiAndPrincipal = (values: {
   emiAmount: number;
   totalEmiAmount: number;
 }) => {
-  let calculatedPrincipal: number = 0;
-  let emi: number = 0;
+  let calculatedPrincipal: number;
+  let emi: number;
   if (values.calculationMode === 'totalEmi') {
     const totalEmi = values.totalEmiAmount;
     emi = totalEmi / values.tenure;
@@ -225,7 +221,7 @@ export const getEmiBalances = (
   };
 };
 
-export const getRemainingPayments = (
+const getRemainingPayments = (
   emi: Emi,
   installmentNo: number | null,
 ): { installment: number; amount: number; date: Date | null }[] => {
@@ -287,7 +283,7 @@ type FuturePayment = PaymentWithLocation & {
   month: string;
 };
 
-export const categorizePaymentsByTimeframe = (
+const categorizePaymentsByTimeframe = (
   emi: Emi,
   installmentNo: number | null,
   monthEnd: Date,
@@ -310,12 +306,12 @@ export const categorizePaymentsByTimeframe = (
     return sum + parseFloat(split.percentage);
   }, 0);
 
-  const mySplitPercentage = 100 - friendSplitPercentage;
+  const mySplitPercentage = PERCENTAGE_DIVISOR - friendSplitPercentage;
 
   for (const payment of remainingPayments) {
     if (payment.date !== null) {
       const zonedDate = toZonedTime(payment.date, timezone);
-      const myShare = (payment.amount * mySplitPercentage) / 100;
+      const myShare = (payment.amount * mySplitPercentage) / PERCENTAGE_DIVISOR;
 
       if (zonedDate <= zonedMonthEnd) {
         currentMonthPayments.push({

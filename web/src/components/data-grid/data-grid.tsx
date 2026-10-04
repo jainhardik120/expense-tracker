@@ -20,9 +20,11 @@ import {
 import { cn } from '@/lib/utils';
 import type { Direction } from '@/types/data-grid';
 
+import type { RowData } from '@tanstack/react-table';
+
 const EMPTY_CELL_SELECTION_SET = new Set<string>();
 
-interface DataGridProps<TData>
+interface DataGridProps<TData extends RowData>
   extends
     Omit<ReturnType<typeof useDataGrid<TData>>, 'dir'>,
     Omit<React.ComponentProps<'div'>, 'contextMenu'> {
@@ -33,7 +35,7 @@ interface DataGridProps<TData>
   emptyState?: React.ReactNode;
 }
 
-export const DataGrid = <TData,>({
+export const DataGrid = <TData extends RowData>({
   dataGridRef,
   headerRef,
   rowMapRef,
@@ -65,15 +67,14 @@ export const DataGrid = <TData,>({
   ...props
 }: DataGridProps<TData>) => {
   const { rows } = table.getRowModel();
-  const readOnly = tableMeta?.readOnly ?? false;
-  const { columnVisibility } = table.getState();
-  const { columnPinning } = table.getState();
+  const readOnly = tableMeta.readOnly ?? false;
+  const { columnVisibility, columnPinning } = table.state;
 
   const onRowAddRef = useAsRef(onRowAddProp);
 
   const onRowAdd = React.useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      onRowAddRef.current?.(event);
+      void onRowAddRef.current?.(event);
     },
     [onRowAddRef],
   );
@@ -84,13 +85,13 @@ export const DataGrid = <TData,>({
 
   const onFooterCellKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!onRowAddRef.current) {
+      if (onRowAddRef.current === undefined) {
         return;
       }
 
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        onRowAddRef.current();
+        void onRowAddRef.current();
       }
     },
     [onRowAddRef],
@@ -117,14 +118,14 @@ export const DataGrid = <TData,>({
       {...props}
       className={cn('relative flex w-full flex-col', fill && 'min-h-0 flex-1', className)}
     >
-      {searchState ? <DataGridSearch {...searchState} /> : null}
+      {searchState !== undefined ? <DataGridSearch {...searchState} /> : null}
       <DataGridContextMenu columns={columns} contextMenu={contextMenu} tableMeta={tableMeta} />
       <DataGridPasteDialog pasteDialog={pasteDialog} tableMeta={tableMeta} />
       <div
         ref={dataGridRef}
         aria-colcount={columns.length}
         aria-label="Data grid"
-        aria-rowcount={rows.length + (onRowAddProp ? 1 : 0)}
+        aria-rowcount={rows.length + (onRowAddProp !== undefined ? 1 : 0)}
         className={cn(
           'relative grid overflow-auto rounded-md border text-sm select-none focus:outline-none',
           fill && 'min-h-0 flex-1',
@@ -155,11 +156,11 @@ export const DataGrid = <TData,>({
               tabIndex={-1}
             >
               {headerGroup.headers.map((header, colIndex) => {
-                const { sorting } = table.getState();
+                const sorting = table.atoms.sorting.get();
                 const currentSort = sorting.find((sort) => sort.id === header.column.id);
                 const isSortable = header.column.getCanSort();
 
-                const nextHeader = headerGroup.headers[colIndex + 1];
+                const nextHeader = headerGroup.headers.at(colIndex + 1);
                 const isLastColumn = colIndex === headerGroup.headers.length - 1;
 
                 const { showEndBorder, showStartBorder } = getColumnBorderVisibility({
@@ -168,19 +169,39 @@ export const DataGrid = <TData,>({
                   isLastColumn,
                 });
 
+                let ariaSort: React.AriaAttributes['aria-sort'];
+                if (currentSort?.desc === false) {
+                  ariaSort = 'ascending';
+                } else if (currentSort?.desc === true) {
+                  ariaSort = 'descending';
+                } else if (isSortable) {
+                  ariaSort = 'none';
+                }
+
+                let headerContent: React.ReactNode = null;
+                if (!header.isPlaceholder) {
+                  headerContent =
+                    typeof header.column.columnDef.header === 'function' ? (
+                      <div
+                        className={cn(
+                          'flex size-full items-center px-2 py-1',
+                          header.column.columnDef.meta?.align === 'right'
+                            ? 'justify-end'
+                            : 'justify-start',
+                        )}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                      </div>
+                    ) : (
+                      <DataGridColumnHeader header={header} table={table} />
+                    );
+                }
+
                 return (
                   <div
                     key={header.id}
                     aria-colindex={colIndex + 1}
-                    aria-sort={
-                      currentSort?.desc === false
-                        ? 'ascending'
-                        : currentSort?.desc === true
-                          ? 'descending'
-                          : isSortable
-                            ? 'none'
-                            : undefined
-                    }
+                    aria-sort={ariaSort}
                     className={cn(
                       'relative font-medium',
                       header.column.columnDef.meta?.align === 'right' && 'text-right tabular-nums',
@@ -202,21 +223,7 @@ export const DataGrid = <TData,>({
                     }}
                     tabIndex={-1}
                   >
-                    {header.isPlaceholder ? null : typeof header.column.columnDef.header ===
-                      'function' ? (
-                      <div
-                        className={cn(
-                          'flex size-full items-center px-2 py-1',
-                          header.column.columnDef.meta?.align === 'right'
-                            ? 'justify-end'
-                            : 'justify-start',
-                        )}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </div>
-                    ) : (
-                      <DataGridColumnHeader header={header} table={table} />
-                    )}
+                    {headerContent}
                   </div>
                 );
               })}
@@ -243,8 +250,8 @@ export const DataGrid = <TData,>({
             </div>
           ) : null}
           {virtualItems.map((virtualItem) => {
-            const row = rows[virtualItem.index];
-            if (!row) {
+            const row = rows.at(virtualItem.index);
+            if (row === undefined) {
               return null;
             }
 
@@ -278,7 +285,7 @@ export const DataGrid = <TData,>({
             );
           })}
         </div>
-        {!readOnly && onRowAddProp ? (
+        {!readOnly && onRowAddProp !== undefined ? (
           <div
             ref={footerRef}
             className="bg-background sticky bottom-0 z-10 grid border-t"

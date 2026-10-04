@@ -64,7 +64,7 @@ const Calendar = ({
   components,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
-  buttonVariant?: React.ComponentProps<typeof Button>['variant'];
+  buttonVariant?: Exclude<React.ComponentProps<typeof Button>['variant'], undefined>;
 }) => {
   const defaultClassNames = getDefaultClassNames();
 
@@ -115,7 +115,7 @@ const Calendar = ({
             : 'rounded-md pl-2 pr-1 flex items-center gap-1 text-sm h-8 [&>svg]:text-muted-foreground [&>svg]:size-3.5',
           defaultClassNames.caption_label,
         ),
-        table: 'w-full border-collapse',
+        month_grid: cn('w-full border-collapse', defaultClassNames.month_grid),
         weekdays: cn('flex', defaultClassNames.weekdays),
         weekday: cn(
           'text-muted-foreground rounded-md flex-1 font-normal text-[0.8rem] select-none',
@@ -202,4 +202,4 @@ const CalendarDayButton = ({
   );
 };
 
-export { Calendar, CalendarDayButton };
+export { Calendar };

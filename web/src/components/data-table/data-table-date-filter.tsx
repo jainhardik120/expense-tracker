@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 
+import { type RowData } from '@tanstack/react-table';
 import { CalendarIcon, XCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -10,8 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { DATE_FORMAT } from '@/lib/format';
+import type { Column } from '@/lib/table';
 
-import type { Column } from '@tanstack/react-table';
 import type { DateRange } from 'react-day-picker';
 
 type DateSelection = Date[] | DateRange;
@@ -49,36 +50,37 @@ const parseColumnFilterValue = (value: unknown) => {
   return [];
 };
 
-interface DataTableDateFilterProps<TData> {
+const parseDateRange = (value: unknown): DateRange => {
+  const timestamps = parseColumnFilterValue(value);
+  return {
+    from: parseAsDate(timestamps[0]),
+    to: parseAsDate(timestamps[1]),
+  };
+};
+
+const parseDateList = (value: unknown): Date[] => {
+  const date = parseAsDate(parseColumnFilterValue(value)[0]);
+  return date === undefined ? [] : [date];
+};
+
+interface DataTableDateFilterProps<TData extends RowData> {
   column: Column<TData, unknown>;
   title?: string;
   multiple?: boolean;
 }
 
-export const DataTableDateFilter = <TData,>({
+export const DataTableDateFilter = <TData extends RowData>({
   column,
   title,
   multiple,
 }: DataTableDateFilterProps<TData>) => {
   const columnFilterValue = column.getFilterValue();
 
-  const selectedDates = React.useMemo<DateSelection>(() => {
-    if (columnFilterValue === undefined || columnFilterValue === null) {
-      return multiple === true ? { from: undefined, to: undefined } : [];
-    }
-
-    if (multiple === true) {
-      const timestamps = parseColumnFilterValue(columnFilterValue);
-      return {
-        from: parseAsDate(timestamps[0]),
-        to: parseAsDate(timestamps[1]),
-      };
-    }
-
-    const timestamps = parseColumnFilterValue(columnFilterValue);
-    const date = parseAsDate(timestamps[0]);
-    return date === undefined ? [] : [date];
-  }, [columnFilterValue, multiple]);
+  const selectedDates = React.useMemo<DateSelection>(
+    () =>
+      multiple === true ? parseDateRange(columnFilterValue) : parseDateList(columnFilterValue),
+    [columnFilterValue, multiple],
+  );
 
   const onSelect = React.useCallback(
     (date: Date | DateRange | undefined) => {
@@ -99,7 +101,7 @@ export const DataTableDateFilter = <TData,>({
   );
 
   const onReset = React.useCallback(
-    (event: React.MouseEvent) => {
+    (event: React.SyntheticEvent) => {
       event.stopPropagation();
       column.setFilterValue(undefined);
     },
@@ -195,6 +197,12 @@ export const DataTableDateFilter = <TData,>({
               role="button"
               tabIndex={0}
               onClick={onReset}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onReset(event);
+                }
+              }}
             >
               <XCircle />
             </div>

@@ -14,7 +14,7 @@ export type LineForProjection = {
   pacePerMonth: number;
 };
 
-export type ProjectedLine = LineForProjection & {
+type ProjectedLine = LineForProjection & {
   varianceAtBudget: number;
   forecastRemaining: number;
   projectedSpend: number;

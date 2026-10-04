@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-unassigned-import
 import 'server-only';
 
 import { cache } from 'react';
@@ -45,5 +44,7 @@ export const HydrateClient = (props: { children: React.ReactNode }) => {
 export const prefetch = <S extends ResolverDef, T extends ReturnType<TRPCQueryOptions<S>>>(
   queryOptions: (trpcInstance: typeof trpc) => T,
 ) => {
-  void getQueryClient().prefetchQuery(queryOptions(trpc));
+  void getQueryClient()
+    .query(queryOptions(trpc))
+    .catch(() => undefined);
 };

@@ -6,6 +6,9 @@ const DEFAULT_CONTAINER_PADDING = 16;
 const DEFAULT_BADGE_GAP = 4;
 const DEFAULT_OVERFLOW_BADGE_WIDTH = 40;
 
+const isNonZero = (size: number | undefined): size is number =>
+  size !== undefined && size !== 0 && !Number.isNaN(size);
+
 interface MeasureBadgeWidthProps {
   label: string;
   cacheKey: string;
@@ -32,7 +35,7 @@ const measureBadgeWidth = ({
   }`;
   measureEl.style.whiteSpace = 'nowrap';
 
-  if (iconSize) {
+  if (isNonZero(iconSize)) {
     const icon = document.createElement('span');
     icon.className = 'shrink-0';
     icon.style.width = `${iconSize}px`;
@@ -40,7 +43,7 @@ const measureBadgeWidth = ({
     measureEl.appendChild(icon);
   }
 
-  if (maxWidth) {
+  if (isNonZero(maxWidth)) {
     const text = document.createElement('span');
     text.className = 'truncate';
     text.style.maxWidth = `${maxWidth}px`;
@@ -94,12 +97,12 @@ export const useBadgeOverflow = <T>({
   const [containerWidth, setContainerWidth] = React.useState(0);
 
   React.useEffect(() => {
-    if (!containerRef.current) {
+    if (containerRef.current === null) {
       return;
     }
 
     const measureWidth = () => {
-      if (containerRef.current) {
+      if (containerRef.current !== null) {
         const width = containerRef.current.clientWidth - containerPadding;
         setContainerWidth(width);
       }
@@ -116,7 +119,7 @@ export const useBadgeOverflow = <T>({
   }, [containerRef, containerPadding]);
 
   return React.useMemo(() => {
-    if (!containerWidth || items.length === 0) {
+    if (!isNonZero(containerWidth) || items.length === 0) {
       return { visibleItems: items, hiddenCount: 0, containerWidth };
     }
 
@@ -126,7 +129,7 @@ export const useBadgeOverflow = <T>({
 
     for (const item of items) {
       const label = getLabel(item);
-      const cacheKey = cacheKeyPrefix ? `${cacheKeyPrefix}:${label}` : label;
+      const cacheKey = cacheKeyPrefix === '' ? label : `${cacheKeyPrefix}:${label}`;
       const badgeWidth = measureBadgeWidth({
         label,
         cacheKey,

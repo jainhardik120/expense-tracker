@@ -1,9 +1,9 @@
+import { type RowData } from '@tanstack/react-table';
 import { GripVertical } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { SortableItemHandle } from '@/components/ui/sortable';
-
-import type { ColumnDef } from '@tanstack/react-table';
+import type { ColumnDef } from '@/lib/table';
 
 export const BUDGET_COLUMN_SIZE = {
   position: 64,
@@ -14,7 +14,9 @@ export const BUDGET_COLUMN_SIZE = {
 
 export const POSITION_INDENT = 'pl-2';
 
-export const dragHandleColumn = <T,>(isFixed?: (row: T) => boolean): ColumnDef<T> => ({
+export const dragHandleColumn = <T extends RowData>(
+  isFixed?: (row: T) => boolean,
+): ColumnDef<T> => ({
   id: 'drag-handle',
   header: '',
   cell: ({ row }) =>

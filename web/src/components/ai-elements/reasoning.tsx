@@ -1,7 +1,14 @@
 'use client';
 
-import type { ComponentProps, ReactNode } from 'react';
-import { createContext, memo, useContext, useEffect, useState } from 'react';
+import {
+  type ComponentProps,
+  type ReactNode,
+  createContext,
+  memo,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 
 import { useControllableState } from '@radix-ui/react-use-controllable-state';
 import { BrainIcon, ChevronDownIcon } from 'lucide-react';
@@ -21,9 +28,9 @@ type ReasoningContextValue = {
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
 
-export const useReasoning = () => {
+const useReasoning = () => {
   const context = useContext(ReasoningContext);
-  if (!context) {
+  if (context === null) {
     throw new Error('Reasoning components must be used within Reasoning');
   }
   return context;
@@ -166,7 +173,7 @@ export const ReasoningContent = memo(({ className, children, ...props }: Reasoni
     )}
     {...props}
   >
-    <Streamdown {...props}>{children}</Streamdown>
+    <Streamdown>{children}</Streamdown>
   </CollapsibleContent>
 ));
 

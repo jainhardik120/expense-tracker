@@ -101,7 +101,7 @@ const componentDefaults: CreateComponentInput = {
   proratable: true,
 };
 
-export const ComponentDialog = ({ onSaved }: { onSaved: () => void }) => {
+const ComponentDialog = ({ onSaved }: { onSaved: () => void }) => {
   const mutation = api.salary.createComponent.useMutation();
   return (
     <MutationModal
@@ -206,7 +206,7 @@ const revisionDefaults = (revision: SalaryRevision | undefined): CreateRevisionI
     })) ?? [],
 });
 
-export const RevisionDialog = ({
+const RevisionDialog = ({
   components,
   onSaved,
   revision,

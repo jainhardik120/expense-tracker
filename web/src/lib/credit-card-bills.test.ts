@@ -101,7 +101,7 @@ test('treats a bill paid off to a float residue as fully settled', () => {
     ],
   );
 
-  expect(bill.billedAmount).toBe(24_836.8);
+  expect(bill.billedAmount).toBeCloseTo(24_836.8, 2);
   expect(bill.remainingAmount).toBe(0);
   expect(bill.status).toBe('paid');
 });
@@ -152,7 +152,7 @@ test('projects bills no further than next month', () => {
     TIMEZONE,
   );
 
-  expect(octoberBills.length).toBe(1);
+  expect(octoberBills).toHaveLength(1);
   expect(octoberBills[0].status).toBe('upcoming');
   expect(novemberBills).toStrictEqual([]);
 });

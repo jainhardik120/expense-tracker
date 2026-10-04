@@ -1,10 +1,12 @@
-import type { Cell, RowData, TableMeta } from '@tanstack/react-table';
+import { type RowData, type TableMeta, type TableFeatures } from '@tanstack/react-table';
+
+import type { Cell, AppTableFeatures } from '@/lib/table';
 
 export type Direction = 'ltr' | 'rtl';
 
 export type RowHeightValue = 'short' | 'medium' | 'tall' | 'extra-tall';
 
-export interface CellSelectOption {
+interface CellSelectOption {
   label: string;
   value: string;
   icon?: React.FC<React.SVGProps<SVGSVGElement>>;
@@ -58,7 +60,7 @@ export interface CellUpdate {
 
 declare module '@tanstack/react-table' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
+  interface ColumnMeta<TFeatures extends TableFeatures, TData extends RowData, TValue> {
     label?: string;
     cell?: CellOpts;
     hasDisplayCell?: boolean;
@@ -66,7 +68,7 @@ declare module '@tanstack/react-table' {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface TableMeta<TData extends RowData> {
+  interface TableMeta<TFeatures extends TableFeatures, TData extends RowData> {
     dataGridRef?: React.RefObject<HTMLElement | null>;
     cellMapRef?: React.RefObject<Map<string, HTMLDivElement>>;
     focusedCell?: CellPosition | null;
@@ -121,7 +123,7 @@ export interface CellPosition {
   columnId: string;
 }
 
-export interface CellRange {
+interface CellRange {
   start: CellPosition;
   end: CellPosition;
 }
@@ -172,9 +174,9 @@ export interface SearchState {
   onNavigateToPrevMatch: () => void;
 }
 
-export interface DataGridCellProps<TData> {
+export interface DataGridCellProps<TData extends RowData> {
   cell: Cell<TData, unknown>;
-  tableMeta: TableMeta<TData>;
+  tableMeta: TableMeta<AppTableFeatures, TData>;
   rowIndex: number;
   columnId: string;
   rowHeight: RowHeightValue;
@@ -193,52 +195,3 @@ export interface FileCellData {
   type: string;
   url?: string;
 }
-
-export type TextFilterOperator =
-  | 'contains'
-  | 'notContains'
-  | 'equals'
-  | 'notEquals'
-  | 'startsWith'
-  | 'endsWith'
-  | 'isEmpty'
-  | 'isNotEmpty';
-
-export type NumberFilterOperator =
-  | 'equals'
-  | 'notEquals'
-  | 'lessThan'
-  | 'lessThanOrEqual'
-  | 'greaterThan'
-  | 'greaterThanOrEqual'
-  | 'isBetween'
-  | 'isEmpty'
-  | 'isNotEmpty';
-
-export type DateFilterOperator =
-  | 'equals'
-  | 'notEquals'
-  | 'before'
-  | 'after'
-  | 'onOrBefore'
-  | 'onOrAfter'
-  | 'isBetween'
-  | 'isEmpty'
-  | 'isNotEmpty';
-
-export type SelectFilterOperator =
-  | 'is'
-  | 'isNot'
-  | 'isAnyOf'
-  | 'isNoneOf'
-  | 'isEmpty'
-  | 'isNotEmpty';
-
-export type BooleanFilterOperator = 'isTrue' | 'isFalse';
-
-export type FilterOperator =
-  | TextFilterOperator
-  | NumberFilterOperator
-  | DateFilterOperator
-  | SelectFilterOperator
-  | BooleanFilterOperator;

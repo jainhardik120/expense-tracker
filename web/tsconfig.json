@@ -31,11 +31,14 @@
   "include": [
     "next-env.d.ts",
     "*.ts",
+    "*.mjs",
+    "*.cjs",
+    ".pnpmfile.cjs",
     "src/**/*.ts",
     "src/**/*.tsx",
+    "scripts/**/*.ts",
     ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "eslint.config.mjs"
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 
-import { type ColumnDef } from '@tanstack/react-table';
 import { CreditCard, SquarePen, Trash } from 'lucide-react';
 
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { formatOrdinalDay, formatCurrency } from '@/lib/format';
+import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type FriendSummary, type AccountSummary, isFriendSummary } from '@/types';
 

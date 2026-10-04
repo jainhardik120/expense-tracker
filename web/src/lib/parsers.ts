@@ -1,8 +1,9 @@
 import { createParser } from 'nuqs/server';
 import { z } from 'zod';
 
-import type { dataTableConfig } from '@/config/data-table';
 import type { ExtendedColumnSort } from '@/types/data-table';
+
+import type { RowData } from '@tanstack/react-table';
 
 const sortingItemSchema = z.object({
   id: z.string(),
@@ -10,7 +11,7 @@ const sortingItemSchema = z.object({
 });
 
 const createGenericParser = <T extends { id: string }>(
-  schema: z.ZodArray<z.ZodTypeAny>,
+  schema: z.ZodArray<z.ZodType>,
   serializeValue: (value: T[]) => string,
   equalityCheck: (a: T[], b: T[]) => boolean,
   columnIds?: string[] | Set<string>,
@@ -46,7 +47,9 @@ const createGenericParser = <T extends { id: string }>(
   });
 };
 
-export const getSortingStateParser = <TData>(columnIds?: string[] | Set<string>) => {
+export const getSortingStateParser = <TData extends RowData>(
+  columnIds?: string[] | Set<string>,
+) => {
   return createGenericParser<ExtendedColumnSort<TData>>(
     z.array(sortingItemSchema),
     (value) => JSON.stringify(value),
@@ -68,11 +71,3 @@ export const sortStateParser = <TId extends string = string>(columnIds?: readonl
       a.every((item, index) => item.id === b[index]?.id && item.desc === b[index]?.desc),
     columnIds === undefined ? undefined : [...columnIds],
   );
-
-export type FilterItemSchema = {
-  id: string;
-  value: string | string[];
-  variant: (typeof dataTableConfig.filterVariants)[number];
-  operator: (typeof dataTableConfig.operators)[number];
-  filterId: string;
-};

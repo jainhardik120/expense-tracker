@@ -1,7 +1,6 @@
 'use client';
 
-import type { ComponentProps } from 'react';
-import { useCallback } from 'react';
+import { type ComponentProps, type ReactElement, useCallback } from 'react';
 
 import { ArrowDownIcon } from 'lucide-react';
 import { StickToBottom, useStickToBottomContext } from 'use-stick-to-bottom';
@@ -30,7 +29,7 @@ export const ConversationContent = ({ className, ...props }: ConversationContent
 export type ConversationEmptyStateProps = ComponentProps<'div'> & {
   title?: string;
   description?: string;
-  icon?: React.ReactNode;
+  icon?: ReactElement;
 };
 
 export const ConversationEmptyState = ({
@@ -50,10 +49,12 @@ export const ConversationEmptyState = ({
   >
     {children ?? (
       <>
-        {icon ? <div className="text-muted-foreground">{icon}</div> : null}
+        {icon === undefined ? null : <div className="text-muted-foreground">{icon}</div>}
         <div className="space-y-1">
           <h3 className="text-sm font-medium">{title}</h3>
-          {description ? <p className="text-muted-foreground text-sm">{description}</p> : null}
+          {description === '' ? null : (
+            <p className="text-muted-foreground text-sm">{description}</p>
+          )}
         </div>
       </>
     )}
@@ -69,7 +70,7 @@ export const ConversationScrollButton = ({
   const { isAtBottom, scrollToBottom } = useStickToBottomContext();
 
   const handleScrollToBottom = useCallback(() => {
-    scrollToBottom();
+    void Promise.resolve(scrollToBottom());
   }, [scrollToBottom]);
 
   return (

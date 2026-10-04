@@ -10,7 +10,7 @@ import { useAsRef } from '@/hooks/use-as-ref';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import type { SearchState } from '@/types/data-grid';
 
-interface DataGridSearchProps extends SearchState {}
+const SEARCH_DEBOUNCE_MS = 150;
 
 const DataGridSearchImpl = ({
   searchMatches,
@@ -22,7 +22,7 @@ const DataGridSearchImpl = ({
   onSearch,
   onNavigateToNextMatch,
   onNavigateToPrevMatch,
-}: DataGridSearchProps) => {
+}: SearchState) => {
   const propsRef = useAsRef({
     onSearchOpenChange,
     onSearchQueryChange,
@@ -77,7 +77,7 @@ const DataGridSearchImpl = ({
 
   const debouncedSearch = useDebouncedCallback((query: string) => {
     propsRef.current.onSearch(query);
-  }, 150);
+  }, SEARCH_DEBOUNCE_MS);
 
   const onChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,6 +137,19 @@ const DataGridSearchImpl = ({
     return null;
   }
 
+  let status: React.ReactNode;
+  if (searchMatches.length > 0) {
+    status = (
+      <span>
+        {matchIndex + 1} of {searchMatches.length}
+      </span>
+    );
+  } else if (searchQuery !== '') {
+    status = <span>No results</span>;
+  } else {
+    status = <span>Type to search</span>;
+  }
+
   return (
     <div
       className="fade-in-0 slide-in-from-top-2 animate-in bg-background absolute end-4 top-4 z-50 flex flex-col gap-2 rounded-lg border p-2 shadow-lg"
@@ -191,15 +204,7 @@ const DataGridSearchImpl = ({
         </div>
       </div>
       <div className="text-muted-foreground flex items-center gap-1 text-xs whitespace-nowrap">
-        {searchMatches.length > 0 ? (
-          <span>
-            {matchIndex + 1} of {searchMatches.length}
-          </span>
-        ) : searchQuery ? (
-          <span>No results</span>
-        ) : (
-          <span>Type to search</span>
-        )}
+        {status}
       </div>
     </div>
   );
@@ -225,10 +230,6 @@ export const DataGridSearch = React.memo(DataGridSearchImpl, (prev, next) => {
   for (let i = 0; i < prev.searchMatches.length; i++) {
     const prevMatch = prev.searchMatches[i];
     const nextMatch = next.searchMatches[i];
-
-    if (!prevMatch || !nextMatch) {
-      return false;
-    }
 
     if (prevMatch.rowIndex !== nextMatch.rowIndex || prevMatch.columnId !== nextMatch.columnId) {
       return false;

@@ -35,4 +35,4 @@ const Badge = ({
   );
 };
 
-export { Badge, badgeVariants };
+export { Badge };

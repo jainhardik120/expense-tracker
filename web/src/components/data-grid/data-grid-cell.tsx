@@ -15,7 +15,9 @@ import {
 } from '@/components/data-grid/data-grid-cell-variants';
 import type { DataGridCellProps } from '@/types/data-grid';
 
-const DataGridCellImpl = <TData,>({
+import type { RowData } from '@tanstack/react-table';
+
+const DataGridCellImpl = <TData extends RowData>({
   cell,
   tableMeta,
   rowIndex,
@@ -61,7 +63,7 @@ const DataGridCellImpl = <TData,>({
     case 'file':
       Comp = FileCell;
       break;
-
+    case 'text':
     default:
       Comp = ShortTextCell;
       break;

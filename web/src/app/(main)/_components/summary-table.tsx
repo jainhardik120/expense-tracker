@@ -45,7 +45,8 @@ const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditCard
     shallow: false,
     initialState: {
       columnPinning: {
-        left: ['name'],
+        start: ['name'],
+        end: [],
       },
     },
   });

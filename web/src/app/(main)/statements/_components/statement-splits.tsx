@@ -152,8 +152,7 @@ export const BulkStatementSplitsDialog = ({
 }) => {
   const { data: friends = [] } = api.friends.getFriends.useQuery();
   const bulkSplitConditions = useMemo(():
-    | { allowed: false }
-    | { allowed: true; maxPercentage: number } => {
+    { allowed: false } | { allowed: true; maxPercentage: number } => {
     const isAnyNotExpense = selectedRows.some(
       (row) => isSelfTransfer(row) || row.statementKind !== 'expense',
     );

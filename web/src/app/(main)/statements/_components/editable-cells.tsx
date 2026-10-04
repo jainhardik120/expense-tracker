@@ -107,7 +107,7 @@ export const EditableCell = ({
               ArrowLeft: [0, -1],
             };
             const step = STEPS[event.key];
-            if (step) {
+            if (step !== undefined) {
               event.preventDefault();
               moveFocus(event.currentTarget, step[0], step[1]);
               return;
