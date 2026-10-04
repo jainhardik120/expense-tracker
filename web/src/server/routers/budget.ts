@@ -269,26 +269,34 @@ export const budgetRouter = createTRPCRouter({
     .input(budgetLineSchema.extend({ id: z.string(), budgetYearId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      const { id, budgetYearId: _budgetYearId, ...rest } = input;
-      await ctx.db.update(budgetLines).set(rest).where(eq(budgetLines.id, id));
+      const { id, budgetYearId, ...rest } = input;
+      await ctx.db
+        .update(budgetLines)
+        .set(rest)
+        .where(and(eq(budgetLines.id, id), eq(budgetLines.budgetYearId, budgetYearId)));
     }),
 
   deleteLine: protectedProcedure
     .input(z.object({ id: z.string(), budgetYearId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      await ctx.db.delete(budgetLines).where(eq(budgetLines.id, input.id));
+      await ctx.db
+        .delete(budgetLines)
+        .where(and(eq(budgetLines.id, input.id), eq(budgetLines.budgetYearId, input.budgetYearId)));
     }),
 
   reorderLines: protectedProcedure
     .input(z.object({ budgetYearId: z.string(), orderedIds: z.array(z.string()) }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      await Promise.all(
-        input.orderedIds.map((id, position) =>
-          ctx.db.update(budgetLines).set({ position }).where(eq(budgetLines.id, id)),
-        ),
-      );
+      await ctx.db.transaction(async (tx) => {
+        for (const [position, id] of input.orderedIds.entries()) {
+          await tx
+            .update(budgetLines)
+            .set({ position })
+            .where(and(eq(budgetLines.id, id), eq(budgetLines.budgetYearId, input.budgetYearId)));
+        }
+      });
     }),
 
   addIncomeLine: protectedProcedure
@@ -311,26 +319,44 @@ export const budgetRouter = createTRPCRouter({
     .input(budgetIncomeLineSchema.extend({ id: z.string(), budgetYearId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      const { id, budgetYearId: _budgetYearId, ...rest } = input;
-      await ctx.db.update(budgetIncomeLines).set(rest).where(eq(budgetIncomeLines.id, id));
+      const { id, budgetYearId, ...rest } = input;
+      await ctx.db
+        .update(budgetIncomeLines)
+        .set(rest)
+        .where(and(eq(budgetIncomeLines.id, id), eq(budgetIncomeLines.budgetYearId, budgetYearId)));
     }),
 
   reorderIncomeLines: protectedProcedure
     .input(z.object({ budgetYearId: z.string(), orderedIds: z.array(z.string()) }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      await Promise.all(
-        input.orderedIds.map((id, position) =>
-          ctx.db.update(budgetIncomeLines).set({ position }).where(eq(budgetIncomeLines.id, id)),
-        ),
-      );
+      await ctx.db.transaction(async (tx) => {
+        for (const [position, id] of input.orderedIds.entries()) {
+          await tx
+            .update(budgetIncomeLines)
+            .set({ position })
+            .where(
+              and(
+                eq(budgetIncomeLines.id, id),
+                eq(budgetIncomeLines.budgetYearId, input.budgetYearId),
+              ),
+            );
+        }
+      });
     }),
 
   deleteIncomeLine: protectedProcedure
     .input(z.object({ id: z.string(), budgetYearId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      await ctx.db.delete(budgetIncomeLines).where(eq(budgetIncomeLines.id, input.id));
+      await ctx.db
+        .delete(budgetIncomeLines)
+        .where(
+          and(
+            eq(budgetIncomeLines.id, input.id),
+            eq(budgetIncomeLines.budgetYearId, input.budgetYearId),
+          ),
+        );
     }),
 
   previewRule: protectedProcedure
