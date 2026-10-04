@@ -1,13 +1,18 @@
 'use client';
 
+import { useState } from 'react';
+
+import { useRouter } from 'next/navigation';
+
+import { Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
+import Modal from '@/components/modal';
 import MutationModal from '@/components/mutation-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { errorMessage } from '@/lib/utils';
 import { api } from '@/server/react';
 
@@ -56,7 +61,9 @@ const InviteButton = ({
   );
 };
 
-const FriendsCard = () => {
+export const FriendsDialog = () => {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
   const utils = api.useUtils();
   const { data: friends = [] } = api.friends.getFriends.useQuery();
   const { data: invitations } = api.friends.getInvitations.useQuery();
@@ -66,6 +73,7 @@ const FriendsCard = () => {
       utils.friends.getFriends.invalidate(),
       utils.friends.getInvitations.invalidate(),
     ]);
+    router.refresh();
   };
   const pendingByFriend = new Map(
     (invitations?.outgoing ?? []).map((invitation) => [invitation.friendId, invitation]),
@@ -78,18 +86,31 @@ const FriendsCard = () => {
       .catch((error: unknown) => toast.error(errorMessage(error)));
   };
 
+  const connected = friends.filter((friend) => friend.linkedUserId !== null).length;
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle>Friends</CardTitle>
-          <CardDescription>
-            Connect a friend to their own account so neither of you types the same bill twice.
-          </CardDescription>
-        </div>
+    <Modal
+      className="sm:max-w-xl"
+      description="Connect a friend to their own account so neither of you types the same bill twice."
+      open={open}
+      setOpen={setOpen}
+      title="Friends"
+      trigger={
+        <Button className="h-8" variant="outline">
+          <Users className="size-4" />
+          Friends
+          {friends.length > 0 ? (
+            <span className="text-muted-foreground">
+              {connected}/{friends.length}
+            </span>
+          ) : null}
+        </Button>
+      }
+    >
+      <div className="flex justify-end">
         <CreateFriendForm refresh={refresh} />
-      </CardHeader>
-      <CardContent className="flex flex-col divide-y">
+      </div>
+      <div className="flex max-h-[60svh] flex-col divide-y overflow-y-auto">
         {friends.map((friend) => {
           const pending = pendingByFriend.get(friend.id);
           let status: React.ReactNode;
@@ -127,9 +148,7 @@ const FriendsCard = () => {
             </div>
           );
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </Modal>
   );
 };
-
-export default FriendsCard;

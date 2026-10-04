@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -36,18 +38,20 @@ const InvitationRow = ({
   canAccept: boolean;
 }) => {
   const utils = api.useUtils();
+  const router = useRouter();
   const suggested = friends.find(
     (friend) => friend.name.toLowerCase() === invitation.inviterName.toLowerCase(),
   );
   const [choice, setChoice] = useState(suggested?.id ?? NEW_FRIEND);
   const accept = api.friends.acceptInvitation.useMutation();
   const decline = api.friends.declineInvitation.useMutation();
-  const refresh = () =>
-    Promise.all([
+  const refresh = async () => {
+    await Promise.all([
       utils.friends.getInvitations.invalidate(),
       utils.friends.getFriends.invalidate(),
-      utils.friends.getInbox.invalidate(),
     ]);
+    router.refresh();
+  };
 
   const onAccept = () => {
     accept

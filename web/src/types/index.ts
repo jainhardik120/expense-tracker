@@ -8,7 +8,12 @@ import {
 } from 'nuqs/server';
 import { z } from 'zod';
 
-import { recurringPaymentFrequencies, smsTransactionStatuses, statementKinds } from '@/db/enums';
+import {
+  friendStatementInboxStatuses,
+  recurringPaymentFrequencies,
+  smsTransactionStatuses,
+  statementKinds,
+} from '@/db/enums';
 import {
   type bankAccount,
   type emis,
@@ -496,6 +501,29 @@ export const smsNotificationParser = {
   ]),
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
+
+const FRIEND_INBOX_SORTABLE_COLUMNS = ['date', 'amount'] as const;
+
+export const friendInboxParser = {
+  ...pageParser,
+  sort: sortStateParser(FRIEND_INBOX_SORTABLE_COLUMNS).withDefault([]),
+  date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
+  friend: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  status: parseAsArrayOf(parseAsStringEnum([...friendStatementInboxStatuses]), ',').withDefault([
+    'pending',
+  ]),
+};
+
+export const friendInboxListSchema = z.object({
+  ...dateSchema,
+  ...pageSchema,
+  sort: z
+    .array(z.object({ id: z.enum(FRIEND_INBOX_SORTABLE_COLUMNS), desc: z.boolean() }))
+    .optional()
+    .default([]),
+  friend: z.string().array().optional().default([]),
+  status: z.array(z.enum(friendStatementInboxStatuses)).optional().default(['pending']),
+});
 
 export const statementParserSchema = z.object({
   ...dateSchema,

@@ -1,15 +1,22 @@
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, asc, count as countRows, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 
 import { user } from '@/db/auth-schema';
-import { friendInvitations, friendStatementInbox, friendsProfiles } from '@/db/schema';
+import {
+  bankAccount,
+  friendInvitations,
+  friendStatementInbox,
+  friendsProfiles,
+  statements,
+} from '@/db/schema';
 import FriendInvitationEmail from '@/emails/friend-invitation';
 import { getBaseUrl } from '@/lib/get-base-url';
 import { sendSESEmail } from '@/lib/send-email';
 import { assertOwnsAccountsAndFriends, getFriends } from '@/server/helpers/account';
 import { acceptFriendInvitation, resolveInboxEntry } from '@/server/helpers/friend-mirror';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createFriendSchema, inboxResolutionSchema } from '@/types';
+import { createFriendSchema, friendInboxListSchema, inboxResolutionSchema } from '@/types';
 
 export const friendsRouter = createTRPCRouter({
   getFriends: protectedProcedure
@@ -197,28 +204,84 @@ export const friendsRouter = createTRPCRouter({
         acceptFriendInvitation(tx, ctx.user, input.id, input.friendId),
       );
     }),
-  getInbox: protectedProcedure.query(async ({ ctx }) => {
-    const rows = await ctx.db
-      .select({
-        id: friendStatementInbox.id,
-        friendId: friendStatementInbox.friendId,
-        friendName: friendsProfiles.name,
-        amount: friendStatementInbox.amount,
-        category: friendStatementInbox.category,
-        tags: friendStatementInbox.tags,
-        occurredAt: friendStatementInbox.occurredAt,
-      })
-      .from(friendStatementInbox)
-      .innerJoin(friendsProfiles, eq(friendsProfiles.id, friendStatementInbox.friendId))
-      .where(
-        and(
-          eq(friendStatementInbox.userId, ctx.user.id),
-          eq(friendStatementInbox.status, 'pending'),
-        ),
-      )
-      .orderBy(desc(friendStatementInbox.occurredAt));
-    return rows.map((row) => ({ ...row, amount: (-Number(row.amount)).toString() }));
+  getInbox: protectedProcedure.input(friendInboxListSchema).query(async ({ ctx, input }) => {
+    const resolved = alias(statements, 'resolved');
+    const conditions = [eq(friendStatementInbox.userId, ctx.user.id)];
+    if (input.status.length > 0) {
+      conditions.push(inArray(friendStatementInbox.status, input.status));
+    }
+    if (input.friend.length > 0) {
+      conditions.push(inArray(friendStatementInbox.friendId, input.friend));
+    }
+    if (input.start !== undefined) {
+      conditions.push(gte(friendStatementInbox.occurredAt, input.start));
+    }
+    if (input.end !== undefined) {
+      conditions.push(lte(friendStatementInbox.occurredAt, input.end));
+    }
+    const ordering = input.sort.map(({ id, desc: descending }) => {
+      if (id === 'amount') {
+        return descending ? asc(friendStatementInbox.amount) : desc(friendStatementInbox.amount);
+      }
+      return descending
+        ? desc(friendStatementInbox.occurredAt)
+        : asc(friendStatementInbox.occurredAt);
+    });
+    const [[{ count }], rows] = await Promise.all([
+      ctx.db
+        .select({ count: countRows() })
+        .from(friendStatementInbox)
+        .where(and(...conditions)),
+      ctx.db
+        .select({
+          id: friendStatementInbox.id,
+          friendId: friendStatementInbox.friendId,
+          friendName: friendsProfiles.name,
+          amount: friendStatementInbox.amount,
+          category: friendStatementInbox.category,
+          tags: friendStatementInbox.tags,
+          occurredAt: friendStatementInbox.occurredAt,
+          receivedAt: friendStatementInbox.createdAt,
+          status: friendStatementInbox.status,
+          resolvedAt: friendStatementInbox.resolvedAt,
+          resolvedKind: resolved.statementKind,
+          resolvedCategory: resolved.category,
+          resolvedAccountName: bankAccount.accountName,
+        })
+        .from(friendStatementInbox)
+        .innerJoin(friendsProfiles, eq(friendsProfiles.id, friendStatementInbox.friendId))
+        .leftJoin(resolved, eq(resolved.id, friendStatementInbox.resolvedStatementId))
+        .leftJoin(bankAccount, eq(bankAccount.id, resolved.accountId))
+        .where(and(...conditions))
+        .orderBy(
+          ...(ordering.length > 0 ? ordering : [desc(friendStatementInbox.occurredAt)]),
+          asc(friendStatementInbox.id),
+        )
+        .limit(input.perPage)
+        .offset((input.page - 1) * input.perPage),
+    ]);
+    return {
+      entries: rows.map((row) => ({ ...row, amount: (-Number(row.amount)).toString() })),
+      pageCount: Math.ceil(count / input.perPage),
+      rowsCount: count,
+    };
   }),
+  reopenInboxEntries: protectedProcedure
+    .input(z.object({ ids: z.array(z.uuid()).min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const reopened = await ctx.db
+        .update(friendStatementInbox)
+        .set({ status: 'pending', resolvedAt: null })
+        .where(
+          and(
+            eq(friendStatementInbox.userId, ctx.user.id),
+            inArray(friendStatementInbox.id, input.ids),
+            eq(friendStatementInbox.status, 'dismissed'),
+          ),
+        )
+        .returning({ id: friendStatementInbox.id });
+      return { reopened: reopened.length };
+    }),
   resolveInboxEntries: protectedProcedure
     .input(z.object({ ids: z.array(z.uuid()).min(1), resolution: inboxResolutionSchema }))
     .mutation(async ({ ctx, input }) => {
