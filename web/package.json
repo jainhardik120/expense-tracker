@@ -14,7 +14,7 @@
     "email:dev": "email dev --dir src/emails --port 3001",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx,mjs,cjs}\" --cache",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx,mjs,cjs}\"",
-    "lint": "NODE_OPTIONS=--max-old-space-size=8192 eslint --max-warnings=0 .",
+    "lint": "next typegen && NODE_OPTIONS=--max-old-space-size=8192 eslint --max-warnings=0 .",
     "start": "TZ=UTC next start",
     "test": "TZ=UTC vitest run",
     "test:watch": "TZ=UTC vitest",

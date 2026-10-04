@@ -36,6 +36,7 @@
     ".pnpmfile.cjs",
     "src/**/*.ts",
     "src/**/*.tsx",
+    "src/app/.well-known/**/*.ts",
     "scripts/**/*.ts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
