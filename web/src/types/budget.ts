@@ -12,6 +12,7 @@ export const budgetRuleSchema = z.object({
 });
 
 export type BudgetRule = z.infer<typeof budgetRuleSchema>;
+export type StoredBudgetRule = z.input<typeof budgetRuleSchema>;
 
 export const emptyBudgetRule: BudgetRule = {
   categories: [],

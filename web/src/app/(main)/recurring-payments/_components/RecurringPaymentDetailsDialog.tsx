@@ -13,7 +13,7 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
-import { type PaymentStatus, type RecurringPayment } from '@/types';
+import { type LinkedStatement, type PaymentStatus, type RecurringPayment } from '@/types';
 
 const DATE_FORMAT = 'dd MMM yyyy';
 
@@ -29,13 +29,7 @@ type ScheduleEntry = {
   linkedStatementAmount: number | null;
 };
 
-type LinkedStatement = {
-  id: string;
-  createdAt: Date;
-  amount: string;
-  category: string;
-  statementKind: string;
-};
+type DetailedLinkedStatement = LinkedStatement & { category: string; statementKind: string };
 
 const LoadingState = () => (
   <div className="text-muted-foreground py-8 text-center text-sm">Loading details...</div>
@@ -92,7 +86,7 @@ const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
   );
 };
 
-const LinkedStatementsTable = ({ statements }: { statements: LinkedStatement[] }) => {
+const LinkedStatementsTable = ({ statements }: { statements: DetailedLinkedStatement[] }) => {
   const zoned = useZonedFormat();
   const { table } = useDataTable({
     data: statements,
@@ -100,17 +94,17 @@ const LinkedStatementsTable = ({ statements }: { statements: LinkedStatement[] }
       {
         id: 'createdAt',
         header: 'Date',
-        accessorFn: (row: LinkedStatement) => zoned(row.createdAt, DATE_FORMAT),
+        accessorFn: (row: DetailedLinkedStatement) => zoned(row.createdAt, DATE_FORMAT),
       },
       {
         id: 'amount',
         header: 'Amount',
-        accessorFn: (row: LinkedStatement) => formatCurrency(Number(row.amount)),
+        accessorFn: (row: DetailedLinkedStatement) => formatCurrency(Number(row.amount)),
       },
       {
         id: 'category',
         header: 'Category',
-        accessorFn: (row: LinkedStatement) => row.category,
+        accessorFn: (row: DetailedLinkedStatement) => row.category,
       },
       {
         id: 'statementKind',

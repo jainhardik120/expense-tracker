@@ -9,6 +9,7 @@ import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { useDataTable } from '@/hooks/use-data-table';
 import { type RouterOutput } from '@/server/routers';
 import { isFriendSummary } from '@/types';
+import type { CreditCards } from '@/types/router-outputs';
 
 import { createAccountColumns } from './account-columns';
 import { CreateAccountForm } from './account-forms';
@@ -18,9 +19,8 @@ type SummaryData = Pick<
   RouterOutput['summary']['getAggregatedData'],
   'accountsSummary' | 'friendsSummary'
 >;
-type CreditData = RouterOutput['accounts']['getCreditCards'];
 
-const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditData }) => {
+const Table = ({ data, creditData }: { data: SummaryData; creditData: CreditCards }) => {
   const router = useRouter();
   const refetch = () => {
     router.refresh();

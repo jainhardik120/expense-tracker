@@ -2,10 +2,11 @@ import { addDays, addMonths, addWeeks, addYears, format, isBefore, startOfDay } 
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 import {
+  type LinkedStatement,
   MS_PER_DAY,
+  type PaymentStatus,
   type RecurringPayment,
   type RecurringPaymentFrequency,
-  type PaymentStatus,
 } from '@/types';
 
 const QUARTERLY_MONTHS = 3;
@@ -172,12 +173,6 @@ export const getFutureRecurringPayments = (
   }
 
   return groupRecurringPaymentsByMonth(allPayments);
-};
-
-type LinkedStatement = {
-  id: string;
-  amount: string;
-  createdAt: Date;
 };
 
 type LinkedStatementWithZonedDate = LinkedStatement & {

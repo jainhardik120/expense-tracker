@@ -12,11 +12,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
-import { type RouterOutput } from '@/server/routers';
+import type { YearDetail } from '@/types/router-outputs';
 
 import { LeftBreakdown } from './left-breakdown';
-
-type Detail = RouterOutput['budget']['getYearDetail'];
 
 const DAYS_PER_MONTH = 30.4;
 
@@ -83,7 +81,7 @@ const Scenario = ({
   );
 };
 
-export const BudgetHeadline = ({ detail }: { detail: Detail }) => {
+export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
   const {
     projection,
     balanceToday,

@@ -304,11 +304,7 @@ export const categorizePaymentsByTimeframe = (
 
   const zonedMonthEnd = toZonedTime(monthEnd, timezone);
 
-  const attributes = emi.additionalAttributes as Record<string, unknown>;
-  const splits =
-    attributes.splits !== undefined
-      ? (attributes.splits as Array<{ friendId: string; percentage: string }>)
-      : [];
+  const splits = emi.additionalAttributes.splits ?? [];
 
   const friendSplitPercentage = splits.reduce((sum, split) => {
     return sum + parseFloat(split.percentage);
@@ -419,11 +415,7 @@ export type ScheduledEmiPayment = {
 };
 
 const getMySplitPercentage = (emi: Emi): number => {
-  const attributes = emi.additionalAttributes as Record<string, unknown>;
-  const splits =
-    attributes.splits === undefined
-      ? []
-      : (attributes.splits as Array<{ friendId: string; percentage: string }>);
+  const splits = emi.additionalAttributes.splits ?? [];
   const friendSplitPercentage = splits.reduce(
     (sum, split) => sum + parseFloat(split.percentage),
     0,

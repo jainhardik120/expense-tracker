@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { zonedFormat } from '@/lib/date';
 import { cn } from '@/lib/utils';
 import { getFromAccount, getToAccount } from '@/server/helpers/account';
+import type { FacetCount } from '@/server/helpers/statement';
 import { api } from '@/server/react';
 import {
   type SelfTransferStatement,
@@ -127,7 +128,6 @@ const DateCell = ({ date }: { date: Date }) => {
   return zonedFormat(date, "MMMM dd, yyyy 'at' hh:mm a", timezone);
 };
 
-type FacetCount = { value: string; count: number };
 type FacetCounts = Record<'account' | 'category' | 'tags' | 'statementKind', FacetCount[]>;
 
 type FilterOption = { label: string; value: string; count: number };

@@ -29,6 +29,7 @@ import {
   normalizeStockMarket,
   type StockMarketValue,
   mergeTimelines,
+  type TimelineFilters,
 } from '@/lib/investments';
 import { cn } from '@/lib/utils';
 import { api } from '@/server/react';
@@ -41,11 +42,6 @@ type CategoryTimelineEntry =
   RouterOutput['investments']['getInvestmentsInitialData']['categoryTimelines'][number];
 type InstrumentTimelineEntry =
   RouterOutput['investments']['getInvestmentsInitialData']['instrumentTimelines'][number];
-type TimelineFilters = {
-  start?: Date;
-  end?: Date;
-  investmentKind: string[];
-};
 
 const PORTFOLIO_VIEW = '__portfolio__';
 const CATEGORY_VIEW_PREFIX = '__category__|';

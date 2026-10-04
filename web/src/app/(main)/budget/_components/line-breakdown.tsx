@@ -8,10 +8,9 @@ import { RowActionTrigger } from '@/components/data-table/row-actions';
 import { HelpCalc, HelpNote, type CalcRow } from '@/components/help/help-visuals';
 import Modal from '@/components/modal';
 import { formatCurrency } from '@/lib/format';
-import { type RouterOutput } from '@/server/routers';
+import type { YearDetail } from '@/types/router-outputs';
 
-type Detail = RouterOutput['budget']['getYearDetail'];
-type Projection = Detail['projection'];
+type Projection = YearDetail['projection'];
 type ProjectedLine = Projection['lines'][number];
 
 const Step = ({ title, children }: { title: string; children: React.ReactNode }) => (

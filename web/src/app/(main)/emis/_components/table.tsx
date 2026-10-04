@@ -6,12 +6,12 @@ import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { useDataTable } from '@/hooks/use-data-table';
 import { type RouterOutput } from '@/server/routers';
+import type { CreditCards } from '@/types/router-outputs';
 
 import { createEmiColumns } from './EmiColumns';
 import { CreateEmiForm } from './EmiForms';
 
 type EmiData = RouterOutput['emis']['getEmis'];
-type CreditCards = RouterOutput['accounts']['getCreditCards'];
 
 const Table = ({ data, creditCards }: { data: EmiData; creditCards: CreditCards }) => {
   const router = useRouter();

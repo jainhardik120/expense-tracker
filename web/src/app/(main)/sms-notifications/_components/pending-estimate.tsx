@@ -10,11 +10,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
-import { type RouterOutput } from '@/server/routers';
+import type { PendingSmsEstimate } from '@/types/router-outputs';
 
-type Estimate = RouterOutput['smsNotifications']['getPendingEstimate'];
-
-export const PendingEstimate = ({ estimate }: { estimate: Estimate }) => {
+export const PendingEstimate = ({ estimate }: { estimate: PendingSmsEstimate }) => {
   if (estimate.count === 0) {
     return null;
   }

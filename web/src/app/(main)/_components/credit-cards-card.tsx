@@ -7,8 +7,8 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { formatCurrency, formatOrdinalDay } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 import { PERCENTAGE_DIVISOR } from '@/types';
+import type { CardsWithOutstanding } from '@/types/router-outputs';
 
-type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
 type SummaryData = Pick<RouterOutput['summary']['getAggregatedData'], 'accountsSummary'>;
 
 const UTILISATION_DECIMALS = 1;
@@ -32,7 +32,7 @@ export const CreditCardsCard = ({
   creditData,
   summaryData,
 }: {
-  creditData: CreditCardData;
+  creditData: CardsWithOutstanding;
   summaryData: SummaryData;
 }) => {
   const { cards, cardDetails } = creditData;

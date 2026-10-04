@@ -16,6 +16,7 @@ import {
 import { unionAll, alias } from 'drizzle-orm/pg-core';
 import { type z } from 'zod';
 
+import type { StatementAttributes } from '@/db/attributes';
 import {
   bankAccount,
   friendsProfiles,
@@ -151,7 +152,7 @@ const generateStatementUnionDetailedQuery = (
         category: sql<string>`NULL`.as('category'),
         tags: sql<string[]>`ARRAY[]::text[]`.as('tags'),
         statementKind: sql<'self_transfer'>`'self_transfer'`.as('statement_kind'),
-        additionalAttributes: sql`'{}'`.as('additional_attributes'),
+        additionalAttributes: sql<StatementAttributes>`'{}'`.as('additional_attributes'),
         type: sql<string>`'self_transfer'`.as('type'),
         fromAccount: fromAccount.accountName,
         toAccount: toAccount.accountName,
@@ -285,7 +286,7 @@ export const getMergedStatements = instrumentedFunction(
             splitAmount: row.splitAmount,
             accountName: row.accountName,
             friendName: row.friendName,
-            additionalAttributes: row.additionalAttributes as Record<string, unknown>,
+            additionalAttributes: row.additionalAttributes,
             fromAccountId: null,
             toAccountId: null,
             fromAccount: null,

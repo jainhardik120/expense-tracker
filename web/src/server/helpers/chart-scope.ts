@@ -1,10 +1,10 @@
 import { asc, eq } from 'drizzle-orm';
 
-import { budgetLines, budgetYears } from '@/db/schema';
+import { budgetYears } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 
-import { getStatementsInWindow, statementIdsForLine } from './budget';
+import { getStatementsInWindow, getYearLines, statementIdsForLine } from './budget';
 
 export const claimedStatementIds = instrumentedFunction(
   'claimedStatementIds',
@@ -24,7 +24,7 @@ export const claimedStatementIds = instrumentedFunction(
     if (year === undefined || start === undefined || end === undefined) {
       return [];
     }
-    const lines = await db.select().from(budgetLines).where(eq(budgetLines.budgetYearId, year.id));
+    const lines = await getYearLines(db, year.id);
     const scoped = await getStatementsInWindow(db, userId, start, end);
     return statementIdsForLine(lines, scoped, lineId);
   },

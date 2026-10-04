@@ -25,6 +25,7 @@ import {
   type InvestmentKindValue,
   FX_RATE_DECIMALS,
   mergeTimelines,
+  type TimelineFilters,
 } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -36,11 +37,6 @@ import { InvestmentsOverview } from './InvestmentsOverview';
 
 type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialData'];
 type MarketDataResult = RouterOutput['investments']['getInvestmentsMarketDataByType'];
-type TimelineFilters = {
-  start?: Date;
-  end?: Date;
-  investmentKind: string[];
-};
 const UNITS_DECIMALS = 4;
 type GroupedInvestmentRow = InvestmentsPageData['dashboard']['instrumentBreakdown'][number];
 const USD_CURRENCY = 'USD';

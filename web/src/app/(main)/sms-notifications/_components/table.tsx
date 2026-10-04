@@ -12,11 +12,10 @@ import { useEditableTable } from '@/hooks/use-editable-table';
 import { api } from '@/server/react';
 import type { RouterOutput } from '@/server/routers';
 import { type Account, type Friend } from '@/types';
+import type { PendingSmsEstimate } from '@/types/router-outputs';
 
 import { BulkImportGrid } from './bulk-import-grid';
 import { createSmsNotificationColumns } from './sms-notification-columns';
-
-type Estimate = RouterOutput['smsNotifications']['getPendingEstimate'];
 
 type SmsNotificationsData = RouterOutput['smsNotifications']['list'];
 type Queue = RouterOutput['smsNotifications']['getBulkImportRows'];
@@ -25,7 +24,7 @@ type SmsNotificationsTableProps = Readonly<{
   accountsData: Account[];
   friendsData: Friend[];
   categories: string[];
-  estimate: Estimate;
+  estimate: PendingSmsEstimate;
   initialQueue: Queue;
 }>;
 

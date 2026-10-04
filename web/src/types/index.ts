@@ -16,6 +16,7 @@ import {
   type friendsProfiles,
   type investments,
   type selfTransferStatements,
+  type reportBoundaries,
   type statements,
   type recurringPayments,
   type smsNotifications,
@@ -150,6 +151,8 @@ export const createCreditCardAccountSchema = z.object({
 
 export type StatementKind = (typeof statementKinds)[number];
 export type PaymentStatus = 'paid' | 'missed' | 'upcoming';
+export type LinkedStatement = Pick<typeof statements.$inferSelect, 'id' | 'amount' | 'createdAt'>;
+export type ReportBoundary = typeof reportBoundaries.$inferSelect;
 export type Account = typeof bankAccount.$inferSelect;
 export type Friend = typeof friendsProfiles.$inferSelect;
 export type SMSNotification = typeof smsNotifications.$inferSelect;

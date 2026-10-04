@@ -17,8 +17,8 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { describeRule } from '@/lib/budget-rules';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
-import { type RouterOutput } from '@/server/routers';
-import { budgetIncomeLineSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
+import { budgetIncomeLineSchema, emptyBudgetRule } from '@/types/budget';
+import type { YearDetail } from '@/types/router-outputs';
 
 import { BUDGET_COLUMN_SIZE, dragHandleColumn, POSITION_INDENT } from './columns';
 
@@ -26,8 +26,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 
 import { BudgetIncomeHelp } from '../_help/budget-income-help';
 
-type Detail = RouterOutput['budget']['getYearDetail'];
-type IncomeLine = Detail['incomeLines'][number];
+type IncomeLine = YearDetail['incomeLines'][number];
 
 const OPENING_ROW_ID = '__opening_balance__';
 
@@ -47,7 +46,7 @@ const describeClaims = (row: IncomeRow): string => {
     return 'whatever last year closed with';
   }
   if (row.source === 'statements') {
-    return describeRule(row.rule as BudgetRule);
+    return describeRule(row.rule);
   }
   return PAYROLL_CLAIM[row.source];
 };
@@ -134,7 +133,7 @@ const EditIncome = ({
         id: line.id,
         budgetYearId,
         name: line.name,
-        rule: line.rule as BudgetRule,
+        rule: line.rule,
         source: line.source,
         destination: line.destination,
         destinationLineId: line.destinationLineId,
@@ -151,7 +150,7 @@ const EditIncome = ({
   );
 };
 
-const EditOpeningBalance = ({ detail }: { detail: Detail }) => {
+const EditOpeningBalance = ({ detail }: { detail: YearDetail }) => {
   const router = useRouter();
   const mutation = api.budget.updateYear.useMutation();
   const { year, lines } = detail;
@@ -216,7 +215,7 @@ const incomeColumns = ({
   detail,
   lineOptions,
 }: {
-  detail: Detail;
+  detail: YearDetail;
   lineOptions: { label: string; value: string }[];
 }): ColumnDef<IncomeRow>[] => {
   const { year, lines, pendingByLine } = detail;
@@ -308,7 +307,7 @@ const incomeColumns = ({
   ];
 };
 
-export const BudgetIncome = ({ detail }: { detail: Detail }) => {
+export const BudgetIncome = ({ detail }: { detail: YearDetail }) => {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const addIncome = api.budget.addIncomeLine.useMutation();

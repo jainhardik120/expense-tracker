@@ -7,11 +7,9 @@ import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { type RouterOutput } from '@/server/routers';
+import type { YearDetail } from '@/types/router-outputs';
 
 import type { ColumnDef } from '@tanstack/react-table';
-
-type Detail = RouterOutput['budget']['getYearDetail'];
 
 type CycleRow = {
   key: string;
@@ -63,7 +61,7 @@ const cycleColumns = (names: string[]): ColumnDef<CycleRow>[] => [
   },
 ];
 
-export const BudgetCycles = ({ detail }: { detail: Detail }) => {
+export const BudgetCycles = ({ detail }: { detail: YearDetail }) => {
   const { cycles, lines } = detail;
   const names = [...lines].sort((a, b) => a.position - b.position).map((line) => line.name);
   const used = names.filter((name) => cycles.some((cycle) => (cycle.perLine[name] ?? 0) !== 0));

@@ -10,11 +10,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCurrency } from '@/lib/format';
-import { type RouterOutput } from '@/server/routers';
+import type { YearDetail } from '@/types/router-outputs';
 
-type Detail = RouterOutput['budget']['getYearDetail'];
-
-type ProjectedLine = Detail['projection']['lines'][number];
+type ProjectedLine = YearDetail['projection']['lines'][number];
 
 const Section = ({
   title,
@@ -87,7 +85,7 @@ const Section = ({
 
 const VARIANCE_EPSILON = 0.5;
 
-export const BudgetVariance = ({ detail }: { detail: Detail }) => {
+export const BudgetVariance = ({ detail }: { detail: YearDetail }) => {
   const { projection } = detail;
   const spendLines = projection.lines.filter((line) => line.allocationKind !== 'residual');
   const over = spendLines

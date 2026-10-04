@@ -9,13 +9,7 @@ import { PaymentStatusBadge } from '@/components/payment-status-badge';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat, type ZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
-import { type EMICalculationResult, type PaymentStatus } from '@/types';
-
-type LinkedStatement = {
-  id: string;
-  amount: string;
-  createdAt: Date;
-};
+import { type EMICalculationResult, type LinkedStatement, type PaymentStatus } from '@/types';
 
 type ScheduleRowWithPayment = EMICalculationResult['schedule'][number] & {
   paymentStatus: PaymentStatus;

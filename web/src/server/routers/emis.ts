@@ -2,6 +2,7 @@ import { endOfMonth, parse } from 'date-fns';
 import { and, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import type { EmiSplit } from '@/db/attributes';
 import { emis, selfTransferStatements, statements, recurringPayments } from '@/db/schema';
 import {
   getCardBillsInRange,
@@ -82,11 +83,6 @@ const getMaxInstallment = async (
   return maxInstallment.length === 0 ? null : maxInstallment[0].maxInstallmentNo;
 };
 
-type EmiSplit = { friendId: string; percentage: string };
-
-const readEmiSplits = (attributes: unknown): EmiSplit[] =>
-  (attributes as { splits?: EmiSplit[] }).splits ?? [];
-
 const sumPercentages = (splits: EmiSplit[]) =>
   splits.reduce((sum, split) => sum + parseFloat(split.percentage), 0);
 
@@ -103,13 +99,10 @@ const changeEmiSplits = (
   change: (currentSplits: EmiSplit[]) => EmiSplit[],
 ) =>
   db.transaction(async (tx) => {
-    const attributes = (await lockEMIData(tx, userId, emiId)).additionalAttributes as Record<
-      string,
-      unknown
-    >;
+    const attributes = (await lockEMIData(tx, userId, emiId)).additionalAttributes;
     await tx
       .update(emis)
-      .set({ additionalAttributes: { ...attributes, splits: change(readEmiSplits(attributes)) } })
+      .set({ additionalAttributes: { ...attributes, splits: change(attributes.splits ?? []) } })
       .where(and(eq(emis.id, emiId), eq(emis.userId, userId)));
     return { success: true };
   });
@@ -188,15 +181,14 @@ export const emisRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const peeked = (await getStatementAttributes(ctx.db, ctx.user.id, input.statementId))
-        .attributes as Partial<Record<string, unknown>>;
+        .attributes;
       if (typeof peeked.emiId !== 'string') {
         throw new Error(STATEMENT_NOT_LINKED);
       }
       const { emiId } = peeked;
       return ctx.db.transaction(async (tx) => {
         await lockEMIData(tx, ctx.user.id, emiId);
-        const attributes = (await lockStatementAttributes(tx, ctx.user.id, input.statementId))
-          .attributes as Partial<Record<string, unknown>>;
+        const { attributes } = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
         if (attributes.emiId !== emiId) {
           throw new Error(STATEMENT_NOT_LINKED);
         }
@@ -238,7 +230,7 @@ export const emisRouter = createTRPCRouter({
       ctx.db.transaction(async (tx) => {
         const emi = await lockEMIData(tx, ctx.user.id, input.emiId);
         const statement = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
-        const attributes = statement.attributes as Partial<Record<string, unknown>>;
+        const { attributes } = statement;
         if (attributes.emiId !== undefined) {
           throw new Error('Statement is already linked to an EMI');
         }
@@ -634,8 +626,9 @@ export const emisRouter = createTRPCRouter({
     }),
   getEmiSplits: protectedProcedure
     .input(z.object({ emiId: z.string() }))
-    .query(async ({ ctx, input }) =>
-      readEmiSplits((await getEMIData(ctx.db, ctx.user.id, input.emiId)).additionalAttributes),
+    .query(
+      async ({ ctx, input }) =>
+        (await getEMIData(ctx.db, ctx.user.id, input.emiId)).additionalAttributes.splits ?? [],
     ),
   addEmiSplit: protectedProcedure
     .input(

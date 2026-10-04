@@ -8,9 +8,7 @@ import { HelpCalc, HelpNote, type CalcRow } from '@/components/help/help-visuals
 import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
-import { type RouterOutput } from '@/server/routers';
-
-type Detail = RouterOutput['budget']['getYearDetail'];
+import type { YearDetail } from '@/types/router-outputs';
 
 const Step = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section className="flex flex-col gap-2">
@@ -19,7 +17,7 @@ const Step = ({ title, children }: { title: string; children: React.ReactNode })
   </section>
 );
 
-export const LeftBreakdown = ({ detail }: { detail: Detail }) => {
+export const LeftBreakdown = ({ detail }: { detail: YearDetail }) => {
   const [open, setOpen] = useState(false);
   const {
     projection,

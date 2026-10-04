@@ -11,8 +11,8 @@ import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency } from '@/lib/format';
 import { type RouterOutput } from '@/server/routers';
 import { type PaymentStatus } from '@/types';
+import type { CardsWithOutstanding } from '@/types/router-outputs';
 
-type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
 type SummaryData = Pick<RouterOutput['summary']['getAggregatedData'], 'accountsSummary'>;
 
 type PeriodPayment = {
@@ -86,7 +86,7 @@ export const PeriodPaymentsCard = ({
   creditData,
   summaryData,
 }: {
-  creditData: CreditCardData;
+  creditData: CardsWithOutstanding;
   summaryData: SummaryData;
 }) => {
   const zoned = useZonedFormat();

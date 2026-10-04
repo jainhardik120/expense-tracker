@@ -10,11 +10,9 @@ import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { api } from '@/server/react';
-import { type RouterOutput } from '@/server/routers';
 import { createEmiSchema, type Emi } from '@/types';
 import { emiCalculationFormFields } from '@/types/emi';
-
-type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
+import type { CreditCard } from '@/types/router-outputs';
 
 const createEmiFormFields = (
   creditCards: CreditCard[],

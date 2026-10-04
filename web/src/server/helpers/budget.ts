@@ -1,6 +1,6 @@
-import { sql } from 'drizzle-orm';
+import { asc, eq, sql } from 'drizzle-orm';
 
-import { type budgetIncomeLines, type budgetLines, type budgetYears } from '@/db/schema';
+import { budgetIncomeLines, budgetLines, type budgetYears } from '@/db/schema';
 import {
   assignToLine,
   matchesRule,
@@ -14,8 +14,10 @@ import { getEmiPaymentsInRange } from '@/server/helpers/emi-calculations';
 import { type PendingIncome } from '@/server/helpers/pending-income';
 import { budgetRuleSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
-export type BudgetLineRow = typeof budgetLines.$inferSelect;
-export type BudgetIncomeLineRow = typeof budgetIncomeLines.$inferSelect;
+type WithParsedRule<T> = Omit<T, 'rule'> & { rule: BudgetRule };
+
+export type BudgetLineRow = WithParsedRule<typeof budgetLines.$inferSelect>;
+export type BudgetIncomeLineRow = WithParsedRule<typeof budgetIncomeLines.$inferSelect>;
 export type BudgetYearRow = typeof budgetYears.$inferSelect;
 
 export const parseRule = (value: unknown): BudgetRule => {
@@ -32,6 +34,30 @@ type ScopedStatement = MatchableStatement & {
 };
 
 const toTimestamp = (date: Date): string => date.toISOString().replace('T', ' ').replace('Z', '');
+
+export const getYearLines = instrumentedFunction(
+  'getYearLines',
+  async (db: Database, budgetYearId: string): Promise<BudgetLineRow[]> =>
+    (
+      await db
+        .select()
+        .from(budgetLines)
+        .where(eq(budgetLines.budgetYearId, budgetYearId))
+        .orderBy(asc(budgetLines.position))
+    ).map((line) => ({ ...line, rule: parseRule(line.rule) })),
+);
+
+export const getYearIncomeLines = instrumentedFunction(
+  'getYearIncomeLines',
+  async (db: Database, budgetYearId: string): Promise<BudgetIncomeLineRow[]> =>
+    (
+      await db
+        .select()
+        .from(budgetIncomeLines)
+        .where(eq(budgetIncomeLines.budgetYearId, budgetYearId))
+        .orderBy(asc(budgetIncomeLines.position))
+    ).map((line) => ({ ...line, rule: parseRule(line.rule) })),
+);
 
 export const getStatementsInWindow = instrumentedFunction(
   'getStatementsInWindow',
@@ -102,7 +128,6 @@ export const summariseIncome = (
   pendingByLine: Map<string, number>;
 } => {
   const ordered = [...incomeLines].sort((a, b) => a.position - b.position);
-  const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
   const earmarked = new Map<string, number>();
   let waterfall = 0;
   let pendingWaterfall = 0;
@@ -115,7 +140,7 @@ export const summariseIncome = (
     }
     return source === 'pending_bonus' ? pending.bonus : null;
   };
-  for (const line of parsed) {
+  for (const line of ordered) {
     const amount = pendingAmountFor(line.source);
     if (amount === null || amount === 0) {
       continue;
@@ -135,7 +160,7 @@ export const summariseIncome = (
   }
 
   for (const statement of scoped) {
-    const match = parsed.find(
+    const match = ordered.find(
       (line) => line.source === 'statements' && matchesRule(statement, line.rule),
     );
     if (match === undefined || match.destination === 'excluded') {
@@ -161,8 +186,7 @@ export const summariseLines = (
   scoped: ScopedStatement[],
 ): { totals: LineTotals[]; unclaimed: ScopedStatement[] } => {
   const ordered = [...lines].sort((a, b) => a.position - b.position);
-  const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
-  const totals: LineTotals[] = parsed.map((line) => ({
+  const totals: LineTotals[] = ordered.map((line) => ({
     lineId: line.id,
     name: line.name,
     position: line.position,
@@ -176,7 +200,7 @@ export const summariseLines = (
   const unclaimed: ScopedStatement[] = [];
 
   for (const statement of scoped) {
-    const index = assignToLine(statement, parsed);
+    const index = assignToLine(statement, ordered);
     if (index === -1) {
       unclaimed.push(statement);
       continue;
@@ -208,17 +232,16 @@ export const summariseByCycle = (
   cycleStartDay: number,
 ): CycleRow[] => {
   const ordered = [...lines].sort((a, b) => a.position - b.position);
-  const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
   const byCycle = new Map<string, Record<string, number>>();
 
   for (const statement of scoped) {
-    const index = assignToLine(statement, parsed);
+    const index = assignToLine(statement, ordered);
     if (index === -1) {
       continue;
     }
     const key = cycleKeyFor(statement.createdAt, cycleStartDay);
     const row = byCycle.get(key) ?? {};
-    row[parsed[index].name] = (row[parsed[index].name] ?? 0) + statement.costAmount;
+    row[ordered[index].name] = (row[ordered[index].name] ?? 0) + statement.costAmount;
     byCycle.set(key, row);
   }
 
@@ -275,7 +298,7 @@ export const getScheduledTotals = instrumentedFunction(
     const ownerByEmi = resolveLoanOwners(
       lines.map((line) => ({
         id: line.id,
-        rule: parseRule(line.rule),
+        rule: line.rule,
         readsSchedule: line.allocationKind === 'schedule',
       })),
       emis,
@@ -309,7 +332,7 @@ export const expenseLineOptions = (lines: BudgetLineRow[]): ExpenseLineOption[] 
       if (line.allocationKind === 'residual') {
         return false;
       }
-      const { statementKinds } = parseRule(line.rule);
+      const { statementKinds } = line.rule;
       return statementKinds.length === 0 || statementKinds.includes('expense');
     })
     .map((line) => ({ id: line.id, name: line.name }));
@@ -320,11 +343,10 @@ export const statementIdsForLine = (
   lineId: string,
 ): string[] => {
   const ordered = [...lines].sort((a, b) => a.position - b.position);
-  const parsed = ordered.map((line) => ({ ...line, rule: parseRule(line.rule) }));
   const claimed: string[] = [];
   for (const statement of scoped) {
-    const index = assignToLine(statement, parsed);
-    if (index !== -1 && parsed[index].id === lineId) {
+    const index = assignToLine(statement, ordered);
+    if (index !== -1 && ordered[index].id === lineId) {
       claimed.push(statement.id);
     }
   }

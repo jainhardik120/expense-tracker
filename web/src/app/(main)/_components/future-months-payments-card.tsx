@@ -12,10 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
 import { getFutureRecurringPayments } from '@/server/helpers/recurring-calculations';
-import { type RouterOutput } from '@/server/routers';
 import { dateParser } from '@/types';
-
-type CreditCardData = RouterOutput['emis']['getCreditCardsWithOutstandingBalance'];
+import type { CardsWithOutstanding } from '@/types/router-outputs';
 
 type FutureMonthData = {
   month: string;
@@ -64,7 +62,7 @@ const createFutureMonthColumns = (onSelectMonth: (month: string) => void) => [
   },
 ];
 
-export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CreditCardData }) => {
+export const FutureMonthsPaymentsCard = ({ creditData }: { creditData: CardsWithOutstanding }) => {
   const { paymentsByMonth, recurringPayments, recurringHorizon } = creditData;
   const timezone = useTimezone();
   const [, setDateRange] = useQueryStates(dateParser, { shallow: false });

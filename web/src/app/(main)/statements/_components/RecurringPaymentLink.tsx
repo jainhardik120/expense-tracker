@@ -18,12 +18,12 @@ type LinkType = 'recurring' | 'emi' | 'salary';
 const isAlreadyLinked = (
   statement: Statement,
 ): { isLinked: true; type: LinkType } | { isLinked: false } => {
-  const attributes = statement.additionalAttributes as Partial<Record<string, unknown>>;
-  const isRecurring = attributes['recurringPaymentId'] !== undefined;
+  const attributes = statement.additionalAttributes;
+  const isRecurring = attributes.recurringPaymentId !== undefined;
   if (isRecurring) {
     return { isLinked: true, type: 'recurring' };
   }
-  const isEMI = attributes['emiId'] !== undefined;
+  const isEMI = attributes.emiId !== undefined;
   if (isEMI) {
     return { isLinked: true, type: 'emi' };
   }

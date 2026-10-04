@@ -1,6 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import type { StatementAttributes } from '@/db/attributes';
 import { recurringPayments, statements } from '@/db/schema';
 import { getDefaultDateRange, getTimezone, startOfDayLocal } from '@/lib/date';
 import { type Database } from '@/lib/db';
@@ -29,13 +30,13 @@ const setStatementAttributes = (
   db: Database,
   userId: string,
   statementId: string,
-  changes: Record<string, unknown>,
+  changes: StatementAttributes,
 ) =>
   db.transaction(async (tx) => {
     const { attributes } = await lockStatementAttributes(tx, userId, statementId);
     await tx
       .update(statements)
-      .set({ additionalAttributes: { ...(attributes as Record<string, unknown>), ...changes } })
+      .set({ additionalAttributes: { ...attributes, ...changes } })
       .where(eq(statements.id, statementId));
     return { success: true };
   });

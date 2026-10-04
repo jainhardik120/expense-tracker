@@ -10,6 +10,8 @@ import {
   expenseLineOptions,
   getScheduledTotals,
   getStatementsInWindow,
+  getYearIncomeLines,
+  getYearLines,
   parseRule,
   cycleKeyFor,
   spentOnDiscretionary,
@@ -95,11 +97,7 @@ export const budgetRouter = createTRPCRouter({
     if (year === null) {
       return [];
     }
-    const lines = await ctx.db
-      .select()
-      .from(budgetLines)
-      .where(eq(budgetLines.budgetYearId, year.id));
-    return expenseLineOptions(lines);
+    return expenseLineOptions(await getYearLines(ctx.db, year.id));
   }),
 
   getYears: protectedProcedure.query(async ({ ctx }) =>
@@ -137,16 +135,10 @@ export const budgetRouter = createTRPCRouter({
     .input(z.object({ budgetYearId: z.string() }))
     .query(async ({ ctx, input }) => {
       const year = await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      const lines = await ctx.db
-        .select()
-        .from(budgetLines)
-        .where(eq(budgetLines.budgetYearId, year.id))
-        .orderBy(asc(budgetLines.position));
-      const incomeLines = await ctx.db
-        .select()
-        .from(budgetIncomeLines)
-        .where(eq(budgetIncomeLines.budgetYearId, year.id))
-        .orderBy(asc(budgetIncomeLines.position));
+      const [lines, incomeLines] = await Promise.all([
+        getYearLines(ctx.db, year.id),
+        getYearIncomeLines(ctx.db, year.id),
+      ]);
       const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, year.startDate, year.endDate);
       const { totals, unclaimed } = summariseLines(lines, scoped);
       const now = new Date();

@@ -17,13 +17,13 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { describeRule } from '@/lib/budget-rules';
 import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
-import { type RouterOutput } from '@/server/routers';
 import {
   budgetLineFormSchema,
   emptyBudgetRule,
   type budgetAllocationKinds,
   type BudgetRule,
 } from '@/types/budget';
+import type { YearDetail } from '@/types/router-outputs';
 
 import { BUDGET_COLUMN_SIZE, dragHandleColumn, POSITION_INDENT } from './columns';
 import { LineBreakdown } from './line-breakdown';
@@ -31,8 +31,6 @@ import { LineBreakdown } from './line-breakdown';
 import type { ColumnDef } from '@tanstack/react-table';
 
 import { BudgetLinesHelp } from '../_help/budget-lines-help';
-
-type Detail = RouterOutput['budget']['getYearDetail'];
 
 type WaterfallRow = {
   lineId: string;
@@ -46,8 +44,8 @@ type WaterfallRow = {
   remaining: number;
   closed: boolean;
   overspent: boolean;
-  line: Detail['lines'][number] | undefined;
-  projected: Detail['projection']['lines'][number] | undefined;
+  line: YearDetail['lines'][number] | undefined;
+  projected: YearDetail['projection']['lines'][number] | undefined;
   matchedCount: number;
 };
 
@@ -155,7 +153,7 @@ const EditLine = ({ row, budgetYearId }: { row: WaterfallRow; budgetYearId: stri
         id: line.id,
         budgetYearId,
         name: line.name,
-        rule: line.rule as BudgetRule,
+        rule: line.rule,
         allocationKind: line.allocationKind,
         allocationAmount: line.allocationAmount,
         discretionary: line.discretionary,
@@ -191,7 +189,7 @@ const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) 
 
 const waterfallColumns = (
   budgetYearId: string,
-  projection: Detail['projection'],
+  projection: YearDetail['projection'],
 ): ColumnDef<WaterfallRow>[] => [
   {
     id: 'position',
@@ -296,7 +294,7 @@ const waterfallColumns = (
   dragHandleColumn(),
 ];
 
-export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
+export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const addLine = api.budget.addLine.useMutation();
@@ -309,7 +307,7 @@ export const BudgetWaterfall = ({ detail }: { detail: Detail }) => {
   const serverRows: WaterfallRow[] = totals.map((line) => ({
     lineId: line.lineId,
     name: line.name,
-    rule: (lineById.get(line.lineId)?.rule as BudgetRule | undefined) ?? emptyBudgetRule,
+    rule: lineById.get(line.lineId)?.rule ?? emptyBudgetRule,
     allocationKind: line.allocationKind,
     allocationAmount: line.allocationAmount,
     actual: line.actual,

@@ -15,8 +15,12 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
+import type { StoredBudgetRule } from '@/types/budget';
+
 import { user } from './auth-schema';
 import { recurringPaymentFrequencies, smsTransactionStatuses, statementKinds } from './enums';
+
+import type { EmiAttributes, SmsAttributes, StatementAttributes } from './attributes';
 
 const DEFAULT_PAY_DAY = 25;
 
@@ -69,7 +73,10 @@ export const statements = pgTable(
     createdAt: timestamp('created_at')
       .notNull()
       .$defaultFn(() => new Date()),
-    additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
+    additionalAttributes: jsonb('additional_attributes')
+      .$type<StatementAttributes>()
+      .notNull()
+      .default({}),
   },
   (table) => [
     check(
@@ -248,7 +255,10 @@ export const emis = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
+    additionalAttributes: jsonb('additional_attributes')
+      .$type<EmiAttributes>()
+      .notNull()
+      .default({}),
   },
   (table) => [index('emis_user_idx').on(table.userId)],
 );
@@ -310,7 +320,10 @@ export const smsNotifications = pgTable(
     fromAccount: text('from_account'),
     toAccount: text('to_account'),
     status: smsTransactionStatusEnum().notNull().default('pending'),
-    additionalAttributes: jsonb('additional_attributes').notNull().default('{}'),
+    additionalAttributes: jsonb('additional_attributes')
+      .$type<SmsAttributes>()
+      .notNull()
+      .default({}),
   },
   (table) => [index('sms_notifications_user_idx').on(table.userId)],
 );
@@ -526,7 +539,7 @@ export const budgetLines = pgTable(
       .references(() => budgetYears.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     position: integer('position').notNull(),
-    rule: jsonb('rule').notNull().default({}),
+    rule: jsonb('rule').$type<StoredBudgetRule>().notNull().default({}),
     allocationKind: budgetAllocationKindEnum('allocation_kind').notNull(),
     allocationAmount: numeric('allocation_amount').notNull().default('0'),
     discretionary: boolean('discretionary').notNull().default(true),
@@ -557,7 +570,7 @@ export const budgetIncomeLines = pgTable('budget_income_lines', {
     .references(() => budgetYears.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   position: integer('position').notNull(),
-  rule: jsonb('rule').notNull().default({}),
+  rule: jsonb('rule').$type<StoredBudgetRule>().notNull().default({}),
   source: budgetIncomeSourceEnum('source').notNull().default('statements'),
   destination: budgetIncomeDestinationEnum('destination').notNull(),
   destinationLineId: uuid('destination_line_id').references(() => budgetLines.id, {

@@ -51,14 +51,7 @@ export const HydrateClient = (props: { children: React.ReactNode }) => {
 export const prefetch = <S extends ResolverDef, T extends ReturnType<TRPCQueryOptions<S>>>(
   queryOptions: (trpcInstance: typeof trpc) => T,
 ) => {
-  const queryClient = getQueryClient();
-  const options = queryOptions(trpc);
-  if (options.queryKey[1]?.type === 'infinite') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument
-    void queryClient.prefetchInfiniteQuery(options as any);
-  } else {
-    void queryClient.prefetchQuery(options);
-  }
+  void getQueryClient().prefetchQuery(queryOptions(trpc));
 };
 
 export const fetchQuery = <

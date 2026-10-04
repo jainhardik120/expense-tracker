@@ -9,6 +9,7 @@ import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { api } from '@/server/react';
+import type { ReportBoundary as Boundary } from '@/types';
 
 const createBoundarySchema = z.object({
   boundaryDate: z.date(),
@@ -101,13 +102,6 @@ export const DeleteBoundaryButton = ({
       </Button>
     </DeleteConfirmationDialog>
   );
-};
-
-type Boundary = {
-  id: string;
-  boundaryDate: Date;
-  createdAt: Date;
-  userId: string;
 };
 
 export const BoundaryListItem = ({

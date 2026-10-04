@@ -720,11 +720,11 @@ export const salaryRouter = createTRPCRouter({
 
       return ctx.db.transaction(async (tx) => {
         const statement = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
-        const attributes = statement.attributes as Record<string, unknown>;
+        const { attributes } = statement;
         if (
-          attributes['recurringPaymentId'] !== undefined ||
-          attributes['emiId'] !== undefined ||
-          attributes['salaryPaymentId'] !== undefined
+          attributes.recurringPaymentId !== undefined ||
+          attributes.emiId !== undefined ||
+          attributes.salaryPaymentId !== undefined
         ) {
           throw new Error('This statement is already linked');
         }
@@ -778,8 +778,8 @@ export const salaryRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       ctx.db.transaction(async (tx) => {
         const statement = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
-        const attributes = statement.attributes as Record<string, unknown>;
-        const paymentId = attributes['salaryPaymentId'];
+        const { attributes } = statement;
+        const paymentId = attributes.salaryPaymentId;
         if (typeof paymentId !== 'string') {
           throw new Error('Statement is not linked to a salary payment');
         }

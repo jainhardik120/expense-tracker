@@ -161,3 +161,5 @@ export const mergeTimelines = (points: TimelinePoint[]): TimelinePoint[] => [
     }, new Map<string, TimelinePoint>())
     .values(),
 ];
+
+export type TimelineFilters = { start?: Date; end?: Date; investmentKind: string[] };

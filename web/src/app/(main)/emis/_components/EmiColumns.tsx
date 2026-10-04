@@ -11,12 +11,12 @@ import Modal from '@/components/modal';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
+import type { CreditCard } from '@/types/router-outputs';
 
 import EmiDetails from './EmiDetails';
 import { UpdateEmiForm } from './EmiForms';
 import { EmiSplitsDialog } from './EmiSplits';
 
-type CreditCard = RouterOutput['accounts']['getCreditCards'][number];
 type Emi = RouterOutput['emis']['getEmis']['emis'][number];
 
 const EMIDetailsDialog = ({ emi, trigger }: { emi: Emi; trigger: React.ReactNode }) => {
