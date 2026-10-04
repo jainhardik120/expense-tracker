@@ -89,7 +89,7 @@ export const StatementSplitsDialog = ({
     },
   );
   const updateSplitMutation = api.statements.updateStatementSplit.useMutation();
-  const createSplitMutation = api.statements.addStatementSplit.useMutation();
+  const createSplitMutation = api.statements.createStatementSplit.useMutation();
   const handleSubmit = async (splitId: string, values: z.infer<typeof createSplitSchema>) => {
     try {
       if (splitId === 'new-split') {
@@ -173,7 +173,7 @@ export const BulkStatementSplitsDialog = ({
     });
     return { allowed: true, maxPercentage };
   }, [selectedRows]);
-  const mutation = api.statements.addBulkStatementSplits.useMutation();
+  const mutation = api.statements.createBulkStatementSplits.useMutation();
   return (
     <MutationModal
       button={

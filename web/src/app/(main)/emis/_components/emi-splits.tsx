@@ -64,7 +64,7 @@ export const EmiSplitsDialog = ({
     },
   );
 
-  const addSplitMutation = api.emis.addEmiSplit.useMutation();
+  const addSplitMutation = api.emis.createEmiSplit.useMutation();
   const updateSplitMutation = api.emis.updateEmiSplit.useMutation();
   const deleteSplitMutation = api.emis.deleteEmiSplit.useMutation();
 

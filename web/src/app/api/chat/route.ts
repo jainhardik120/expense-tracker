@@ -200,7 +200,7 @@ const tools = (caller: ReturnType<typeof createCaller>) => {
           .describe('Date of the transaction (ISO 8601 format, defaults to current date)'),
       }),
       execute: async (input) => {
-        const result = await caller.statements.addStatement({
+        const result = await caller.statements.createStatement({
           amount: input.amount,
           category: input.category,
           tags: input.tags ?? [],

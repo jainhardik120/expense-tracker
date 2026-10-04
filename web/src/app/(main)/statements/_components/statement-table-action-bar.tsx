@@ -5,8 +5,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import type { SelfTransferStatement, Statement } from '@/types';
 
-import { BulkStatementTagDialog } from './BulkStatementTagDialog';
-import { BulkStatementSplitsDialog } from './StatementSplits';
+import { BulkStatementTagDialog } from './bulk-statement-tag-dialog';
+import { BulkStatementSplitsDialog } from './statement-splits';
 
 import type { Table } from '@tanstack/react-table';
 

@@ -4,16 +4,16 @@ import { type UseFormReturn } from 'react-hook-form';
 
 import DynamicForm from '@/components/dynamic-form/dynamic-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { emiCalculatorFormSchema, type EMICalculatorFormValues } from '@/types';
+import { emiCalculatorFormSchema, type EmiCalculatorFormValues } from '@/types';
 import { emiCalculationFormFields } from '@/types/emi';
 
 interface LoanDetailsFormProps {
-  onFormChange: (values: Partial<EMICalculatorFormValues>) => void;
-  defaultValues: EMICalculatorFormValues;
+  onFormChange: (values: Partial<EmiCalculatorFormValues>) => void;
+  defaultValues: EmiCalculatorFormValues;
 }
 
 export const LoanDetailsForm = ({ onFormChange, defaultValues }: LoanDetailsFormProps) => {
-  const formRef = useRef<UseFormReturn<EMICalculatorFormValues>>(null);
+  const formRef = useRef<UseFormReturn<EmiCalculatorFormValues>>(null);
 
   useEffect(() => {
     if (formRef.current === null) {

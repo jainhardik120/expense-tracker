@@ -14,13 +14,13 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import type { CreditCard } from '@/types/router-outputs';
 
-import EmiDetails from './EmiDetails';
-import { UpdateEmiForm } from './EmiForms';
-import { EmiSplitsDialog } from './EmiSplits';
+import EmiDetails from './emi-details';
+import { UpdateEmiForm } from './emi-forms';
+import { EmiSplitsDialog } from './emi-splits';
 
 type Emi = RouterOutput['emis']['getEmis']['emis'][number];
 
-const EMIDetailsDialog = ({ emi, trigger }: { emi: Emi; trigger: React.ReactNode }) => {
+const EmiDetailsDialog = ({ emi, trigger }: { emi: Emi; trigger: React.ReactNode }) => {
   const [open, setOpen] = useState(false);
   return (
     <Modal
@@ -60,9 +60,9 @@ export const createEmiColumns = (
     meta: { align: 'right' },
   },
   {
-    accessorKey: 'monthlyEMI',
+    accessorKey: 'monthlyEmi',
     header: 'Monthly EMI',
-    cell: ({ row }) => formatCurrency(row.original.monthlyEMI),
+    cell: ({ row }) => formatCurrency(row.original.monthlyEmi),
     meta: { align: 'right' },
   },
   {
@@ -120,7 +120,7 @@ export const createEmiColumns = (
             refresh={refresh}
             trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
           />
-          <EMIDetailsDialog
+          <EmiDetailsDialog
             emi={row.original}
             trigger={<RowActionTrigger icon={Info} label="Details" />}
           />

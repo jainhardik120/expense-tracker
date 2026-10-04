@@ -3,7 +3,7 @@ import { passkeyClient } from '@better-auth/passkey/client';
 import { apiKeyClient, twoFactorClient, adminClient } from 'better-auth/client/plugins';
 import { createAuthClient } from 'better-auth/react';
 
-import { getBaseUrl } from '@/lib/getBaseUrl';
+import { getBaseUrl } from '@/lib/get-base-url';
 
 export const authClient = createAuthClient({
   baseURL: getBaseUrl(),

@@ -12,7 +12,7 @@ import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { api } from '@/server/react';
 import type { Statement } from '@/types';
 
-import { TaxableIncomeLinkOption } from './TaxableIncomeLinkOption';
+import { TaxableIncomeLinkOption } from './taxable-income-link-option';
 
 type LinkType = 'recurring' | 'emi' | 'salary';
 
@@ -24,18 +24,18 @@ const isAlreadyLinked = (
   if (isRecurring) {
     return { isLinked: true, type: 'recurring' };
   }
-  const isEMI = attributes.emiId !== undefined;
-  if (isEMI) {
+  const isEmi = attributes.emiId !== undefined;
+  if (isEmi) {
     return { isLinked: true, type: 'emi' };
   }
-  const isSalary = attributes['salaryPaymentId'] !== undefined;
+  const isSalary = attributes.salaryPaymentId !== undefined;
   if (isSalary) {
     return { isLinked: true, type: 'salary' };
   }
   return { isLinked: false };
 };
 
-export const LinkToRecurringPaymentDialog = ({
+export const StatementLinkDialog = ({
   statement,
   onRefresh,
   trigger,
@@ -55,7 +55,7 @@ export const LinkToRecurringPaymentDialog = ({
   );
 };
 
-export const LinkDialog = ({
+const LinkDialog = ({
   statement,
   onRefresh,
   alreadyLinked,
@@ -113,11 +113,11 @@ const UnlinkContent = ({
   type: LinkType;
 }) => {
   const unlinkRecurringMutation = api.recurringPayments.unlinkStatement.useMutation();
-  const unlinkEMIMutation = api.emis.unlinkStatement.useMutation();
+  const unlinkEmiMutation = api.emis.unlinkStatement.useMutation();
   const unlinkSalaryMutation = api.salary.unlinkStatement.useMutation();
   const mutationByType = {
     recurring: unlinkRecurringMutation,
-    emi: unlinkEMIMutation,
+    emi: unlinkEmiMutation,
     salary: unlinkSalaryMutation,
   };
   const mutation = mutationByType[type];
@@ -158,7 +158,7 @@ const LinkToRecurringPaymentContent = ({
   });
 
   const linkRecurringMutation = api.recurringPayments.linkStatement.useMutation();
-  const linkEMIMutation = api.emis.linkStatement.useMutation();
+  const linkEmiMutation = api.emis.linkStatement.useMutation();
   const { data: salaryCandidates, isLoading: salaryLoading } =
     api.salary.getLinkCandidates.useQuery({ statementDate }, { enabled: canLinkSalary });
   const linkSalaryMutation = api.salary.linkStatement.useMutation();
@@ -235,10 +235,10 @@ const LinkToRecurringPaymentContent = ({
             </div>
           </div>
           <Button
-            disabled={linkEMIMutation.isPending}
+            disabled={linkEmiMutation.isPending}
             onClick={async () => {
               try {
-                await linkEMIMutation.mutateAsync({ emiId: candidate.id, statementId });
+                await linkEmiMutation.mutateAsync({ emiId: candidate.id, statementId });
                 toast.success('Statement linked successfully');
                 onSuccess();
               } catch (error) {

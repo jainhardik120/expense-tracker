@@ -6,14 +6,14 @@ import { useQueryStates } from 'nuqs';
 
 import { PaymentScheduleTable } from '@/components/payment-schedule-table';
 import { calculateSchedule } from '@/server/helpers/emi-calculations';
-import { type EMICalculationResult, emiCalculatorParser } from '@/types';
+import { type EmiCalculationResult, emiCalculatorParser } from '@/types';
 
 import { LoanDetailsForm } from './_components/loan-details-form';
 import { SummaryCard } from './_components/summary-card';
 
-export default function EMICalculatorPage() {
+export default function EmiCalculatorPage() {
   const [defaultValues, setDefaultValues] = useQueryStates(emiCalculatorParser);
-  const [result, setResult] = useState<EMICalculationResult>(calculateSchedule(defaultValues));
+  const [result, setResult] = useState<EmiCalculationResult>(calculateSchedule(defaultValues));
 
   return (
     <div className="flex flex-col gap-4">

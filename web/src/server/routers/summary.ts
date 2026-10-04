@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { getTimezone } from '@/lib/date';
 import { claimedStatementIds } from '@/server/helpers/chart-scope';
 import {
-  addAccountsSummary,
-  addFriendsSummary,
+  sumAccountSummaries,
+  sumFriendSummaries,
   getAccountsSummaryBetweenDates,
   getFriendsSummaryBetweenDates,
   getRawDataForAggregation,
@@ -51,8 +51,8 @@ export const summaryRouter = createTRPCRouter({
         input.start,
         input.end,
       );
-      const aggregatedAccountsSummaryData = addAccountsSummary(accountsSummaryData);
-      const aggregatedFriendsSummaryData = addFriendsSummary(friendsSummaryData);
+      const aggregatedAccountsSummaryData = sumAccountSummaries(accountsSummaryData);
+      const aggregatedFriendsSummaryData = sumFriendSummaries(friendsSummaryData);
       const myExpensesTotal =
         aggregatedAccountsSummaryData.expenses +
         aggregatedFriendsSummaryData.paidByFriend -
@@ -95,8 +95,8 @@ export const summaryRouter = createTRPCRouter({
         onlyStatementIds,
       );
       const processedAggregations = processAggregatedData(rawData);
-      const aggregatedAccountsSummaryData = addAccountsSummary(rawData.accountsSummary);
-      const aggregatedFriendsSummaryData = addFriendsSummary(rawData.friendsSummary);
+      const aggregatedAccountsSummaryData = sumAccountSummaries(rawData.accountsSummary);
+      const aggregatedFriendsSummaryData = sumFriendSummaries(rawData.friendsSummary);
       const myExpensesTotal =
         aggregatedAccountsSummaryData.expenses +
         aggregatedFriendsSummaryData.paidByFriend -

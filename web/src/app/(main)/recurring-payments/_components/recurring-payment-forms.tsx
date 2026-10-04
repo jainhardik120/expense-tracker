@@ -62,7 +62,7 @@ const recurringPaymentFormFields: FormField<z.input<typeof createRecurringPaymen
 ];
 
 export const CreateRecurringPaymentForm = () => {
-  const mutation = api.recurringPayments.addRecurringPayment.useMutation();
+  const mutation = api.recurringPayments.createRecurringPayment.useMutation();
   const router = useRouter();
   const currentDate = useMemo(() => new Date(), []);
 

@@ -104,7 +104,7 @@ export const CreateStatementForm = ({
     accountsData.findIndex((account) => account.id === searchParams.account[0]) >= 0
       ? searchParams.account[0]
       : '';
-  const mutation = api.statements.addStatement.useMutation();
+  const mutation = api.statements.createStatement.useMutation();
   const formFields = useMemo(
     () => statementFormFields(accountsData, friendsData, categories),
     [accountsData, friendsData, categories],

@@ -15,7 +15,7 @@ test('monthly EMI is what was asked for, in EMI mode', () => {
     processingFeesGst: '18',
   });
 
-  expect(summary.monthlyEMI).toBe(3000);
+  expect(summary.monthlyEmi).toBe(3000);
   expect(round(summary.effectivePrincipal)).toBe(17188.99);
   expect(round(summary.totalInterest)).toBe(811.01);
   expect(round(summary.totalAmount)).toBe(18380.8);
@@ -39,8 +39,8 @@ test('a processing fee does not hide the monthly EMI', () => {
 
   expect(withFee.schedule[0].installment).toBe(0);
   expect(withFee.schedule[0].emi).toBe(0);
-  expect(withFee.summary.monthlyEMI).toBe(withoutFee.summary.monthlyEMI);
-  expect(round(withFee.summary.monthlyEMI)).toBe(8884.88);
+  expect(withFee.summary.monthlyEmi).toBe(withoutFee.summary.monthlyEmi);
+  expect(round(withFee.summary.monthlyEmi)).toBe(8884.88);
 });
 
 test('total EMI mode splits the total across the tenure', () => {
@@ -51,8 +51,8 @@ test('total EMI mode splits the total across the tenure', () => {
     tenure: '6',
   });
 
-  expect(summary.monthlyEMI).toBe(4000);
-  expect(round(summary.totalEMI)).toBe(24000);
+  expect(summary.monthlyEmi).toBe(4000);
+  expect(round(summary.totalEmi)).toBe(24000);
 });
 
 test('an instalment keeps the time of day it was taken out at', () => {

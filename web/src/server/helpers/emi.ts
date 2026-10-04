@@ -62,8 +62,8 @@ const emiListFilter = (db: Database, userId: string, input: z.infer<typeof emiPa
   return { maxInstallmentSubquery, where: and(...conditions) };
 };
 
-export const getEMIs = instrumentedFunction(
-  'getEMIs',
+export const getEmis = instrumentedFunction(
+  'getEmis',
   async (db: Database, userId: string, input: z.infer<typeof emiParserSchema>) => {
     const { maxInstallmentSubquery, where } = emiListFilter(db, userId, input);
     return db
@@ -87,8 +87,8 @@ export const getEMIs = instrumentedFunction(
   },
 );
 
-export const countEMIs = instrumentedFunction(
-  'countEMIs',
+export const countEmis = instrumentedFunction(
+  'countEmis',
   async (db: Database, userId: string, input: z.infer<typeof emiParserSchema>) => {
     const { maxInstallmentSubquery, where } = emiListFilter(db, userId, input);
     const [{ total }] = await db
@@ -211,7 +211,7 @@ export const lockStatementAttributes = instrumentedFunction(
     requireStatement(await selectStatementAttributes(db, userId, statementId).for('update')),
 );
 
-const selectEMIData = (db: Database, userId: string, emiId: string) =>
+const selectEmiData = (db: Database, userId: string, emiId: string) =>
   db
     .select({
       accountId: creditCardAccounts.accountId,
@@ -223,21 +223,21 @@ const selectEMIData = (db: Database, userId: string, emiId: string) =>
     .limit(1)
     .$dynamic();
 
-const requireEMI = <T>(rows: T[]): T => {
+const requireEmi = <T>(rows: T[]): T => {
   if (rows.length === 0) {
     throw new Error('EMI not found or access denied');
   }
   return rows[0];
 };
 
-export const getEMIData = instrumentedFunction(
-  'getEMIData',
+export const getEmiData = instrumentedFunction(
+  'getEmiData',
   async (db: Database, userId: string, emiId: string) =>
-    requireEMI(await selectEMIData(db, userId, emiId)),
+    requireEmi(await selectEmiData(db, userId, emiId)),
 );
 
-export const lockEMIData = instrumentedFunction(
-  'lockEMIData',
+export const lockEmiData = instrumentedFunction(
+  'lockEmiData',
   async (db: Database, userId: string, emiId: string) =>
-    requireEMI(await selectEMIData(db, userId, emiId).for('update', { of: emis })),
+    requireEmi(await selectEmiData(db, userId, emiId).for('update', { of: emis })),
 );

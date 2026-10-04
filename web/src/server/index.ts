@@ -2,7 +2,7 @@ import { defaultShouldDehydrateQuery, QueryClient } from '@tanstack/react-query'
 import { loggerLink, httpBatchStreamLink } from '@trpc/client';
 import { SuperJSON } from 'superjson';
 
-import { getBaseUrl } from '@/lib/getBaseUrl';
+import { getBaseUrl } from '@/lib/get-base-url';
 import { MS_PER_SECOND } from '@/types';
 
 const STALE_TIME_SECONDS = 30;

@@ -26,10 +26,10 @@ import {
 } from '@/types';
 
 import { BulkImportDialog } from './bulk-import-dialog';
-import { CreateSelfTransferStatementForm } from './SelfTransferStatementForms';
+import { CreateSelfTransferStatementForm } from './self-transfer-statement-forms';
+import { createStatementColumns } from './statement-columns';
+import { CreateStatementForm } from './statement-forms';
 import StatementTableActionBar from './statement-table-action-bar';
-import { createStatementColumns } from './StatementColumns';
-import { CreateStatementForm } from './StatementForms';
 
 type StatementData = RouterOutput['statements']['getStatements'];
 type FacetCounts = RouterOutput['statements']['getFacetCounts'];

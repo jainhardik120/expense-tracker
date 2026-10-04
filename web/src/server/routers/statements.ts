@@ -128,7 +128,7 @@ export const statementsRouter = createTRPCRouter({
         rowsCount,
       };
     }),
-  addStatement: protectedProcedure
+  createStatement: protectedProcedure
     .meta({
       openapi: {
         method: 'POST',
@@ -258,7 +258,7 @@ export const statementsRouter = createTRPCRouter({
         .delete(statements)
         .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)));
     }),
-  addSelfTransferStatement: protectedProcedure
+  createSelfTransferStatement: protectedProcedure
     .meta({
       openapi: {
         method: 'POST',
@@ -350,7 +350,7 @@ export const statementsRouter = createTRPCRouter({
       return { tagged: updated.length };
     }),
 
-  addBulkStatementSplits: protectedProcedure
+  createBulkStatementSplits: protectedProcedure
     .input(
       z.object({
         statementIds: z.array(z.string()),
@@ -428,7 +428,7 @@ export const statementsRouter = createTRPCRouter({
         await db.insert(splits).values(inserts);
       }),
     ),
-  addStatementSplit: protectedProcedure
+  createStatementSplit: protectedProcedure
     .input(
       z.object({
         statementId: z.string(),

@@ -471,7 +471,7 @@ const defaultFriendSummary = {
   finalBalance: new Decimal(0),
 };
 
-export const addAccountsSummary = (data: AggregatedAccountTransferSummary[]) => {
+export const sumAccountSummaries = (data: AggregatedAccountTransferSummary[]) => {
   const val = data.reduce((acc, cur) => {
     return {
       startingBalance: acc.startingBalance.plus(cur.startingBalance),
@@ -494,7 +494,7 @@ export const addAccountsSummary = (data: AggregatedAccountTransferSummary[]) => 
   };
 };
 
-export const addFriendsSummary = (data: AggregatedFriendTransferSummary[]) => {
+export const sumFriendSummaries = (data: AggregatedFriendTransferSummary[]) => {
   const val = data.reduce((acc, cur) => {
     return {
       startingBalance: acc.startingBalance.plus(cur.startingBalance),
@@ -738,8 +738,8 @@ export const processAggregatedData = ({
         finalBalance,
       });
     }
-    const totalAccountsSummary = addAccountsSummary(processedAccountSummary);
-    const totalFriendsSummary = addFriendsSummary(processedFriendSummary);
+    const totalAccountsSummary = sumAccountSummaries(processedAccountSummary);
+    const totalFriendsSummary = sumFriendSummaries(processedFriendSummary);
     const categoryWiseSummary: Record<
       string,
       {

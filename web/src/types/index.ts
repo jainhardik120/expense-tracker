@@ -540,9 +540,9 @@ export const emiCalculatorParser = {
   processingFees: parseAsString.withDefault('199'),
   processingFeesGst: parseAsString.withDefault('18'),
 };
-export type EMICalculatorFormValues = z.infer<typeof emiCalculatorFormSchema>;
+export type EmiCalculatorFormValues = z.infer<typeof emiCalculatorFormSchema>;
 
-export interface EMIScheduleRow {
+export interface EmiScheduleRow {
   installment: number;
   emi: number;
   interest: number;
@@ -553,11 +553,11 @@ export interface EMIScheduleRow {
   date?: Date;
 }
 
-export interface EMICalculationResult {
-  schedule: EMIScheduleRow[];
+export interface EmiCalculationResult {
+  schedule: EmiScheduleRow[];
   summary: {
-    monthlyEMI: number;
-    totalEMI: number;
+    monthlyEmi: number;
+    totalEmi: number;
     totalInterest: number;
     totalGST: number;
     totalPrincipal: number;

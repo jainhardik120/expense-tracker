@@ -257,7 +257,7 @@ export const budgetRouter = createTRPCRouter({
       };
     }),
 
-  addLine: protectedProcedure
+  createLine: protectedProcedure
     .input(budgetLineSchema.extend({ budgetYearId: z.string() }))
     .mutation(({ ctx, input }) =>
       ctx.db.transaction(async (tx) => {
@@ -298,7 +298,7 @@ export const budgetRouter = createTRPCRouter({
       await reorderYearLines(ctx.db, budgetLines, input.budgetYearId, input.orderedIds);
     }),
 
-  addIncomeLine: protectedProcedure
+  createIncomeLine: protectedProcedure
     .input(budgetIncomeLineSchema.extend({ budgetYearId: z.string() }))
     .mutation(({ ctx, input }) =>
       ctx.db.transaction(async (tx) => {

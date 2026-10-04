@@ -1,9 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format';
-import { type EMICalculationResult } from '@/types';
+import { type EmiCalculationResult } from '@/types';
 
 interface SummaryCardProps {
-  result: EMICalculationResult;
+  result: EmiCalculationResult;
 }
 
 export const SummaryCard = ({ result }: SummaryCardProps) => {
@@ -22,7 +22,7 @@ export const SummaryCard = ({ result }: SummaryCardProps) => {
           </div>
           <div>
             <p className="text-muted-foreground text-sm">Monthly EMI</p>
-            <p className="text-2xl font-bold">{formatCurrency(result.summary.monthlyEMI)}</p>
+            <p className="text-2xl font-bold">{formatCurrency(result.summary.monthlyEmi)}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-sm">Total Interest</p>

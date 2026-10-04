@@ -12,8 +12,8 @@ import { formatCurrency } from '@/lib/format';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
-import { RecurringPaymentDetailsDialog } from './RecurringPaymentDetailsDialog';
-import { UpdateRecurringPaymentForm } from './RecurringPaymentForms';
+import { RecurringPaymentDetailsDialog } from './recurring-payment-details-dialog';
+import { UpdateRecurringPaymentForm } from './recurring-payment-forms';
 
 type RecurringPayment =
   RouterOutput['recurringPayments']['getRecurringPayments']['recurringPayments'][number];

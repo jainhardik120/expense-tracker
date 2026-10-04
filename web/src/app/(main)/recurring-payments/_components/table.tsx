@@ -7,8 +7,8 @@ import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { useDataTable } from '@/hooks/use-data-table';
 import type { RouterOutput } from '@/server/routers';
 
-import { createRecurringPaymentColumns } from './RecurringPaymentColumns';
-import { CreateRecurringPaymentForm } from './RecurringPaymentForms';
+import { createRecurringPaymentColumns } from './recurring-payment-columns';
+import { CreateRecurringPaymentForm } from './recurring-payment-forms';
 
 type RecurringPaymentsData = RouterOutput['recurringPayments']['getRecurringPayments'];
 type RecurringPaymentsTableProps = Readonly<{

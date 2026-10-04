@@ -31,9 +31,9 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { PERCENTAGE_DIVISOR } from '@/types';
 
-import { createInvestmentColumns, getSignedValueTone } from './InvestmentColumns';
-import { CreateInvestmentForm } from './InvestmentForms';
-import { InvestmentsOverview } from './InvestmentsOverview';
+import { createInvestmentColumns, getSignedValueTone } from './investment-columns';
+import { CreateInvestmentForm } from './investment-forms';
+import { InvestmentsOverview } from './investments-overview';
 
 type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialData'];
 type MarketDataResult = RouterOutput['investments']['getInvestmentsMarketDataByType'];

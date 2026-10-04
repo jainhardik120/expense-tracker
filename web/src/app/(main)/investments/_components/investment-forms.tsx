@@ -239,7 +239,7 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
 ];
 
 export const CreateInvestmentForm = () => {
-  const mutation = api.investments.addInvestment.useMutation();
+  const mutation = api.investments.createInvestment.useMutation();
   const router = useRouter();
 
   return (

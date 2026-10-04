@@ -8,7 +8,7 @@ import { treeifyError, ZodError } from 'zod';
 import { user } from '@/db/auth-schema';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { getBaseUrl } from '@/lib/getBaseUrl';
+import { getBaseUrl } from '@/lib/get-base-url';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import logger from '@/lib/logger';
 

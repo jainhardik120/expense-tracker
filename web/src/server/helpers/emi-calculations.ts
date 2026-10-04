@@ -5,14 +5,14 @@ import {
   type Emi,
   MONTHS_PER_YEAR,
   PERCENTAGE_DIVISOR,
-  type EMICalculationResult,
-  type EMICalculatorFormValues,
-  type EMIScheduleRow,
+  type EmiCalculationResult,
+  type EmiCalculatorFormValues,
+  type EmiScheduleRow,
   MS_PER_DAY,
   type PaymentStatus,
 } from '@/types';
 
-export const calculateEMI = (principal: number, monthlyRate: number, tenure: number): number => {
+export const calculateEmi = (principal: number, monthlyRate: number, tenure: number): number => {
   if (monthlyRate === 0) {
     return principal / tenure;
   }
@@ -22,7 +22,7 @@ export const calculateEMI = (principal: number, monthlyRate: number, tenure: num
   );
 };
 
-export const calculatePrincipalFromEMI = (
+export const calculatePrincipalFromEmi = (
   emi: number,
   monthlyRate: number,
   tenure: number,
@@ -46,8 +46,8 @@ export const parseFloatSafe = (value: string | undefined | number): number => {
   return Number.parseFloat(value);
 };
 
-export const calculateEMIAndPrincipal = (values: {
-  calculationMode?: EMICalculatorFormValues['calculationMode'];
+export const calculateEmiAndPrincipal = (values: {
+  calculationMode?: EmiCalculatorFormValues['calculationMode'];
   monthlyRate: number;
   tenure: number;
   principal: number;
@@ -59,20 +59,20 @@ export const calculateEMIAndPrincipal = (values: {
   if (values.calculationMode === 'totalEmi') {
     const totalEmi = values.totalEmiAmount;
     emi = totalEmi / values.tenure;
-    calculatedPrincipal = calculatePrincipalFromEMI(emi, values.monthlyRate, values.tenure);
+    calculatedPrincipal = calculatePrincipalFromEmi(emi, values.monthlyRate, values.tenure);
   } else if (values.calculationMode === 'emi') {
     emi = values.emiAmount;
-    calculatedPrincipal = calculatePrincipalFromEMI(emi, values.monthlyRate, values.tenure);
+    calculatedPrincipal = calculatePrincipalFromEmi(emi, values.monthlyRate, values.tenure);
   } else {
     calculatedPrincipal = values.principal;
-    emi = calculateEMI(calculatedPrincipal, values.monthlyRate, values.tenure);
+    emi = calculateEmi(calculatedPrincipal, values.monthlyRate, values.tenure);
   }
   return { emi, principal: calculatedPrincipal };
 };
 
 export const calculateSchedule = (
-  inputValues: Partial<EMICalculatorFormValues & Emi>,
-): EMICalculationResult => {
+  inputValues: Partial<EmiCalculatorFormValues & Emi>,
+): EmiCalculationResult => {
   const values = {
     ...inputValues,
     principal: parseFloatSafe(inputValues.principal),
@@ -87,9 +87,9 @@ export const calculateSchedule = (
   };
   const monthlyRate = values.annualInterestRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
 
-  const { emi, principal } = calculateEMIAndPrincipal({ ...values, monthlyRate });
+  const { emi, principal } = calculateEmiAndPrincipal({ ...values, monthlyRate });
 
-  const schedule: EMIScheduleRow[] = [];
+  const schedule: EmiScheduleRow[] = [];
   let balance = principal;
   let totalInterest = 0;
   let totalGST = 0;
@@ -143,8 +143,8 @@ export const calculateSchedule = (
   return {
     schedule,
     summary: {
-      monthlyEMI: emi,
-      totalEMI: emi * values.tenure,
+      monthlyEmi: emi,
+      totalEmi: emi * values.tenure,
       totalInterest,
       totalGST,
       totalPrincipal: principal,
@@ -157,13 +157,13 @@ export const calculateSchedule = (
   };
 };
 
-export const getEMIBalances = (
+export const getEmiBalances = (
   emi: Emi,
   installmentNo: number | null,
 ): {
   outstandingBalance: number;
   amountLeftToBePaid: number;
-  monthlyEMI: number;
+  monthlyEmi: number;
   nextPaymentOn: Date | null;
   nextPaymentAmount: number | null;
 } => {
@@ -174,7 +174,7 @@ export const getEMIBalances = (
     return {
       outstandingBalance: 0,
       amountLeftToBePaid: 0,
-      monthlyEMI: summary.monthlyEMI,
+      monthlyEmi: summary.monthlyEmi,
       nextPaymentOn: null,
       nextPaymentAmount: null,
     };
@@ -184,7 +184,7 @@ export const getEMIBalances = (
     return {
       outstandingBalance: processingFeesPart.balance,
       amountLeftToBePaid: summary.totalAmount,
-      monthlyEMI: summary.monthlyEMI,
+      monthlyEmi: summary.monthlyEmi,
       nextPaymentOn: processingFeesPart.date ?? null,
       nextPaymentAmount: processingFeesPart.totalPayment,
     };
@@ -195,7 +195,7 @@ export const getEMIBalances = (
       return {
         outstandingBalance: 0,
         amountLeftToBePaid: 0,
-        monthlyEMI: summary.monthlyEMI,
+        monthlyEmi: summary.monthlyEmi,
         nextPaymentOn: null,
         nextPaymentAmount: null,
       };
@@ -203,7 +203,7 @@ export const getEMIBalances = (
     return {
       outstandingBalance: summary.effectivePrincipal,
       amountLeftToBePaid: summary.totalAmount - summary.totalProcessingFees,
-      monthlyEMI: summary.monthlyEMI,
+      monthlyEmi: summary.monthlyEmi,
       nextPaymentOn: firstInstallment.date ?? null,
       nextPaymentAmount: firstInstallment.totalPayment,
     };
@@ -219,7 +219,7 @@ export const getEMIBalances = (
   return {
     outstandingBalance: lastPayment?.balance ?? 0,
     amountLeftToBePaid,
-    monthlyEMI: summary.monthlyEMI,
+    monthlyEmi: summary.monthlyEmi,
     nextPaymentOn: nextPayment?.date ?? null,
     nextPaymentAmount: nextPayment?.totalPayment ?? null,
   };
@@ -257,7 +257,7 @@ const isAmountWithinRange = (amount1: number, amount2: number, tolerance = 10): 
 };
 
 export const confirmMatch = (
-  payments: EMIScheduleRow[],
+  payments: EmiScheduleRow[],
   statementAmount: number,
   statementDate: Date,
   installment: number,
@@ -347,7 +347,7 @@ export const categorizePaymentsByTimeframe = (
 };
 
 export const calculateCardBalances = (
-  pendingEMIs: Array<Emi & { maxInstallmentNo: string | null }>,
+  pendingEmis: Array<Emi & { maxInstallmentNo: string | null }>,
   monthEnd: Date,
   timezone: string,
   cardName: string,
@@ -362,10 +362,10 @@ export const calculateCardBalances = (
   const allCurrentMonthPayments: PaymentWithLocation[] = [];
   const allFuturePayments: FuturePayment[] = [];
 
-  for (const emi of pendingEMIs) {
+  for (const emi of pendingEmis) {
     const installmentNo =
       emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
-    const { outstandingBalance: oB } = getEMIBalances(emi, installmentNo);
+    const { outstandingBalance: oB } = getEmiBalances(emi, installmentNo);
 
     outstandingBalance += oB;
 

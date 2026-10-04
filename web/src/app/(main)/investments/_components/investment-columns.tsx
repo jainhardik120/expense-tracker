@@ -20,7 +20,7 @@ import { FX_RATE_DECIMALS, investmentKindLabels } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
-import { CloseInvestmentForm, UpdateInvestmentForm } from './InvestmentForms';
+import { CloseInvestmentForm, UpdateInvestmentForm } from './investment-forms';
 
 type InvestmentRow =
   RouterOutput['investments']['getInvestmentsInitialData']['table']['investments'][number];

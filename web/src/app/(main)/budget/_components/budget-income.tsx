@@ -310,7 +310,7 @@ const incomeColumns = ({
 export const BudgetIncome = ({ detail }: { detail: YearDetail }) => {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const addIncome = api.budget.addIncomeLine.useMutation();
+  const addIncome = api.budget.createIncomeLine.useMutation();
   const reorderIncomeLines = api.budget.reorderIncomeLines.useMutation();
   const { year, incomeLines, lines, openingBalance } = detail;
   const lineOptions = lines.map((line) => ({ label: line.name, value: line.id }));

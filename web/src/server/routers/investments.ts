@@ -274,7 +274,7 @@ export const investmentsRouter = createTRPCRouter({
       return searchInvestmentInstruments(input.kind, input.query, input.stockMarket);
     }),
 
-  addInvestment: protectedProcedure
+  createInvestment: protectedProcedure
     .input(createInvestmentSchema)
     .mutation(async ({ ctx, input }) => {
       return ctx.db

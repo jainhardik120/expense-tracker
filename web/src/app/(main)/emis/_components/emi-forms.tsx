@@ -58,7 +58,7 @@ const createEmiFormFields = (
 ];
 
 export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) => {
-  const mutation = api.emis.addEmi.useMutation();
+  const mutation = api.emis.createEmi.useMutation();
   const router = useRouter();
   const currentDate = useMemo(() => new Date(), []);
 

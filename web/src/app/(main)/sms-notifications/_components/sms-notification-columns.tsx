@@ -16,8 +16,8 @@ import type { Account, Friend } from '@/types';
 
 import { SMS_COLUMN_SIZE } from './column-sizes';
 
-import { CreateSelfTransferStatementForm } from '../../statements/_components/SelfTransferStatementForms';
-import { CreateStatementForm } from '../../statements/_components/StatementForms';
+import { CreateSelfTransferStatementForm } from '../../statements/_components/self-transfer-statement-forms';
+import { CreateStatementForm } from '../../statements/_components/statement-forms';
 
 type SmsNotification = RouterOutput['smsNotifications']['list']['notifications'][number];
 

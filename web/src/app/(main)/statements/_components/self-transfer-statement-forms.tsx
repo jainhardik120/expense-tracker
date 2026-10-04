@@ -61,7 +61,7 @@ export const CreateSelfTransferStatementForm = ({
   defaultValues?: Partial<z.infer<typeof createSelfTransferSchema>>;
   onSuccess?: (id: string) => Promise<void> | void;
 }) => {
-  const mutation = api.statements.addSelfTransferStatement.useMutation();
+  const mutation = api.statements.createSelfTransferStatement.useMutation();
   const formFields = useMemo(() => statementFormFields(accountsData), [accountsData]);
   const router = useRouter();
   return (

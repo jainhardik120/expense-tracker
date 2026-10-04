@@ -30,15 +30,15 @@ import {
   SelectEditor,
   TagsEditor,
 } from './editable-cells';
-import { LinkToRecurringPaymentDialog } from './RecurringPaymentLink';
-import { UpdateSelfTransferStatementForm } from './SelfTransferStatementForms';
+import { UpdateSelfTransferStatementForm } from './self-transfer-statement-forms';
 import {
   hasSignedAmount,
   signedAmountClassName,
   statementKindClassName,
 } from './statement-appearance';
-import { UpdateStatementForm } from './StatementForms';
-import { StatementSplitsDialog } from './StatementSplits';
+import { UpdateStatementForm } from './statement-forms';
+import { StatementLinkDialog } from './statement-link-dialog';
+import { StatementSplitsDialog } from './statement-splits';
 
 const DeleteButton = ({
   mutation,
@@ -79,7 +79,7 @@ const StatementActions = ({
           trigger={<RowActionTrigger icon={SquareSlash} label="Splits" />}
         />
       ) : null}
-      <LinkToRecurringPaymentDialog
+      <StatementLinkDialog
         statement={statement}
         trigger={<RowActionTrigger icon={Link2} label="Links" />}
         onRefresh={onRefresh}

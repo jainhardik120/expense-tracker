@@ -9,15 +9,15 @@ import { PaymentStatusBadge } from '@/components/payment-status-badge';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat, type ZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency, DATE_FORMAT } from '@/lib/format';
-import { type EMICalculationResult, type LinkedStatement, type PaymentStatus } from '@/types';
+import { type EmiCalculationResult, type LinkedStatement, type PaymentStatus } from '@/types';
 
-type ScheduleRowWithPayment = EMICalculationResult['schedule'][number] & {
+type ScheduleRowWithPayment = EmiCalculationResult['schedule'][number] & {
   paymentStatus: PaymentStatus;
   linkedStatement?: LinkedStatement;
 };
 
 interface PaymentScheduleTableProps {
-  result: EMICalculationResult;
+  result: EmiCalculationResult;
   linkedStatements?: LinkedStatement[];
 }
 

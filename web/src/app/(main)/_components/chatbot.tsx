@@ -35,7 +35,7 @@ import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai
 
 const SOURCE_URL = 'source-url';
 
-const ChatBotDemo = () => {
+const Chatbot = () => {
   const [input, setInput] = useState('');
   const { messages, sendMessage, status, regenerate } = useChat();
   const handleSubmit = (message: PromptInputMessage) => {
@@ -156,4 +156,4 @@ const ChatBotDemo = () => {
     </div>
   );
 };
-export default ChatBotDemo;
+export default Chatbot;

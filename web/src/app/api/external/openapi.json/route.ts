@@ -1,6 +1,6 @@
 import { generateOpenApiDocument } from 'trpc-to-openapi';
 
-import { getBaseUrl } from '@/lib/getBaseUrl';
+import { getBaseUrl } from '@/lib/get-base-url';
 import { appRouter } from '@/server/routers';
 
 export const GET = async () => {

@@ -78,7 +78,7 @@ export const recurringPaymentsRouter = createTRPCRouter({
       };
     }),
 
-  addRecurringPayment: protectedProcedure
+  createRecurringPayment: protectedProcedure
     .input(createRecurringPaymentSchema)
     .mutation(async ({ ctx, input }) => {
       const timezone = await getTimezone();

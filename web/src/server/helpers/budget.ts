@@ -9,7 +9,7 @@ import {
 } from '@/lib/budget-rules';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { getEMIs } from '@/server/helpers/emi';
+import { getEmis } from '@/server/helpers/emi';
 import { getEmiPaymentsInRange } from '@/server/helpers/emi-calculations';
 import { type PendingIncome } from '@/server/helpers/pending-income';
 import { budgetRuleSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
@@ -285,7 +285,7 @@ export const getScheduledTotals = instrumentedFunction(
       return totals;
     }
 
-    const emis = await getEMIs(db, userId, {
+    const emis = await getEmis(db, userId, {
       completed: undefined,
       perPage: 100,
       page: 1,

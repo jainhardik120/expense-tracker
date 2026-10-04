@@ -8,8 +8,8 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { type RouterOutput } from '@/server/routers';
 import type { CreditCards } from '@/types/router-outputs';
 
-import { createEmiColumns } from './EmiColumns';
-import { CreateEmiForm } from './EmiForms';
+import { createEmiColumns } from './emi-columns';
+import { CreateEmiForm } from './emi-forms';
 
 type EmiData = RouterOutput['emis']['getEmis'];
 

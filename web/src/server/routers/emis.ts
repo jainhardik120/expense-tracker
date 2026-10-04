@@ -15,20 +15,20 @@ import { type Database } from '@/lib/db';
 import { getCreditCards } from '@/server/helpers/account';
 import {
   getRecurringLinkedStatements,
-  getEMIData,
-  countEMIs,
-  getEMIs,
+  getEmiData,
+  countEmis,
+  getEmis,
   getMaxInstallmentNoSubquery,
   getStatementAttributes,
-  lockEMIData,
+  lockEmiData,
   lockStatementAttributes,
   verifyCreditCardAccount,
 } from '@/server/helpers/emi';
 import {
-  calculateEMIAndPrincipal,
+  calculateEmiAndPrincipal,
   calculateSchedule,
   confirmMatch,
-  getEMIBalances,
+  getEmiBalances,
   parseFloatSafe,
   calculateCardBalances,
   groupPaymentsByMonth,
@@ -41,11 +41,11 @@ import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR }
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 const STATEMENT_NOT_LINKED = 'Statement is not linked to an EMI';
 
-const getEMIUpsertData = async (input: z.infer<typeof createEmiSchema>) => {
+const getEmiUpsertData = async (input: z.infer<typeof createEmiSchema>) => {
   const tenure = parseFloatSafe(input.tenure);
   const annualRate = parseFloatSafe(input.annualInterestRate);
   const monthlyRate = annualRate / (MONTHS_PER_YEAR * PERCENTAGE_DIVISOR);
-  const { principal } = calculateEMIAndPrincipal({
+  const { principal } = calculateEmiAndPrincipal({
     calculationMode: input.calculationMode,
     monthlyRate,
     tenure: tenure,
@@ -100,7 +100,7 @@ const changeEmiSplits = (
   change: (currentSplits: EmiSplit[]) => EmiSplit[],
 ) =>
   db.transaction(async (tx) => {
-    const attributes = (await lockEMIData(tx, userId, emiId)).additionalAttributes;
+    const attributes = (await lockEmiData(tx, userId, emiId)).additionalAttributes;
     await tx
       .update(emis)
       .set({ additionalAttributes: { ...attributes, splits: change(attributes.splits ?? []) } })
@@ -111,13 +111,13 @@ const changeEmiSplits = (
 export const emisRouter = createTRPCRouter({
   getEmis: protectedProcedure.input(emiParserSchema).query(async ({ ctx, input }) => {
     const [count, emisList] = await Promise.all([
-      countEMIs(ctx.db, ctx.user.id, input),
-      getEMIs(ctx.db, ctx.user.id, input),
+      countEmis(ctx.db, ctx.user.id, input),
+      getEmis(ctx.db, ctx.user.id, input),
     ]);
     const emisWithCalculations = emisList.map((emi) => {
       const installmentNo =
         emi.maxInstallmentNo === null ? null : parseFloatSafe(emi.maxInstallmentNo);
-      const balances = getEMIBalances(emi, installmentNo);
+      const balances = getEmiBalances(emi, installmentNo);
       return {
         ...emi,
         ...balances,
@@ -130,9 +130,9 @@ export const emisRouter = createTRPCRouter({
       rowsCount: count,
     };
   }),
-  addEmi: protectedProcedure.input(createEmiSchema).mutation(async ({ ctx, input }) => {
+  createEmi: protectedProcedure.input(createEmiSchema).mutation(async ({ ctx, input }) => {
     await verifyCreditCardAccount(ctx.db, ctx.user.id, input.creditId);
-    const data = await getEMIUpsertData(input);
+    const data = await getEmiUpsertData(input);
     return ctx.db
       .insert(emis)
       .values({
@@ -151,7 +151,7 @@ export const emisRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await verifyCreditCardAccount(ctx.db, ctx.user.id, input.creditId);
       const { id, ...inputData } = input;
-      const data = await getEMIUpsertData(inputData);
+      const data = await getEmiUpsertData(inputData);
       const result = await ctx.db
         .update(emis)
         .set(data)
@@ -188,7 +188,7 @@ export const emisRouter = createTRPCRouter({
       }
       const { emiId } = peeked;
       return ctx.db.transaction(async (tx) => {
-        await lockEMIData(tx, ctx.user.id, emiId);
+        await lockEmiData(tx, ctx.user.id, emiId);
         const { attributes } = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
         if (attributes.emiId !== emiId) {
           throw new Error(STATEMENT_NOT_LINKED);
@@ -229,7 +229,7 @@ export const emisRouter = createTRPCRouter({
     )
     .mutation(({ ctx, input }) =>
       ctx.db.transaction(async (tx) => {
-        const emi = await lockEMIData(tx, ctx.user.id, input.emiId);
+        const emi = await lockEmiData(tx, ctx.user.id, input.emiId);
         const statement = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
         const { attributes } = statement;
         if (attributes.emiId !== undefined) {
@@ -286,7 +286,7 @@ export const emisRouter = createTRPCRouter({
       if (statement.accountId === null) {
         return [];
       }
-      const pendingEMIs = await getEMIs(ctx.db, ctx.user.id, {
+      const pendingEmis = await getEmis(ctx.db, ctx.user.id, {
         page: 1,
         perPage: 100,
         creditId: [],
@@ -294,7 +294,7 @@ export const emisRouter = createTRPCRouter({
         completed: false,
       });
       const statementAmount = Math.abs(parseFloatSafe(statement.amount));
-      return pendingEMIs
+      return pendingEmis
         .map((emi) => {
           const { schedule } = calculateSchedule(emi);
           const lastInstallmentNo =
@@ -358,8 +358,8 @@ export const emisRouter = createTRPCRouter({
         accountId: [],
         creditId: [],
       };
-      const allEMIs = await getEMIs(ctx.db, ctx.user.id, { ...emiQuery, completed: undefined });
-      const pendingEMIs = allEMIs.filter(
+      const allEmis = await getEmis(ctx.db, ctx.user.id, { ...emiQuery, completed: undefined });
+      const pendingEmis = allEmis.filter(
         (emi) =>
           emi.maxInstallmentNo === null ||
           parseFloatSafe(emi.maxInstallmentNo) < parseFloatSafe(emi.tenure),
@@ -396,13 +396,13 @@ export const emisRouter = createTRPCRouter({
 
       for (const card of cards) {
         const cardId = card.id;
-        const pendingEMI = pendingEMIs.filter((emi) => emi.creditId === cardId);
+        const pendingEmi = pendingEmis.filter((emi) => emi.creditId === cardId);
         const {
           outstandingBalance,
           currentStatement,
           currentMonthPayments: cardCurrentPayments,
           futurePayments: cardFuturePayments,
-        } = calculateCardBalances(pendingEMI, monthEnd, timezone, card.accountName);
+        } = calculateCardBalances(pendingEmi, monthEnd, timezone, card.accountName);
         cardDetails[cardId] = {
           outstandingBalance,
           currentStatement,
@@ -558,7 +558,7 @@ export const emisRouter = createTRPCRouter({
         .orderBy(desc(recurringPayments.startDate));
       const linkedRecurringStatements = await getRecurringLinkedStatements(ctx.db, ctx.user.id);
 
-      const periodEmiPayments = allEMIs.flatMap((emi) =>
+      const periodEmiPayments = allEmis.flatMap((emi) =>
         getEmiPaymentsInRange(emi, emi.creditCardName, periodStart, periodEnd, now),
       );
       const periodRecurringPayments = activeRecurringPayments.flatMap((recurringPayment) =>
@@ -632,9 +632,9 @@ export const emisRouter = createTRPCRouter({
     .input(z.object({ emiId: z.string() }))
     .query(
       async ({ ctx, input }) =>
-        (await getEMIData(ctx.db, ctx.user.id, input.emiId)).additionalAttributes.splits ?? [],
+        (await getEmiData(ctx.db, ctx.user.id, input.emiId)).additionalAttributes.splits ?? [],
     ),
-  addEmiSplit: protectedProcedure
+  createEmiSplit: protectedProcedure
     .input(
       z.object({
         emiId: z.string(),

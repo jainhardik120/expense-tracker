@@ -11,7 +11,7 @@ import { db } from '@/lib/db';
 import { env } from '@/lib/env';
 import { sendSESEmail } from '@/lib/send-email';
 
-import { getBaseUrl } from './getBaseUrl';
+import { getBaseUrl } from './get-base-url';
 import { recoverRotatedRefreshToken } from './oauth-refresh-recovery';
 
 const COOKIE_CACHE_MAX_AGE_MINUTES = 5;

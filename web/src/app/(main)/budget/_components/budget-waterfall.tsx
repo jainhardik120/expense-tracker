@@ -297,7 +297,7 @@ const waterfallColumns = (
 export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const addLine = api.budget.addLine.useMutation();
+  const createLine = api.budget.createLine.useMutation();
   const reorderLines = api.budget.reorderLines.useMutation();
   const { year, lines, totals, projection } = detail;
 
@@ -373,7 +373,7 @@ export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
               budgetYearId: year.id,
             }}
             fields={lineFields}
-            mutation={addLine}
+            mutation={createLine}
             refresh={() => {
               router.refresh();
             }}
