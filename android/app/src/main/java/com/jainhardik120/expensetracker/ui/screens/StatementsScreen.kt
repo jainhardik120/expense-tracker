@@ -19,6 +19,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
@@ -28,6 +31,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -43,7 +47,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jainhardik120.expensetracker.data.entity.StatementItem
@@ -59,6 +67,7 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
     CollectUiEvents(viewModel)
     val listState = rememberLazyListState()
     var selectedStatement by remember { mutableStateOf<StatementItem?>(null) }
+    var showFilters by remember { mutableStateOf(false) }
 
     selectedStatement?.let { statement ->
         StatementActionsSheet(
@@ -83,6 +92,39 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
         }
     }
 
+    val shouldLoadNewer by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex <= 5 && viewModel.hasNewerPages && !viewModel.isLoadingNewer
+        }
+    }
+
+    LaunchedEffect(shouldLoadNewer) {
+        if (shouldLoadNewer) {
+            viewModel.loadNewerStatements()
+        }
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.scrollRequests.collect { index ->
+            listState.scrollToItem(index)
+        }
+    }
+
+    if (showFilters) {
+        StatementFiltersSheet(
+            initial = viewModel.filters,
+            accounts = viewModel.accounts,
+            friends = viewModel.friends,
+            categories = viewModel.categories,
+            tagSuggestions = viewModel.tags,
+            onApply = {
+                showFilters = false
+                viewModel.applyFilters(it)
+            },
+            onDismiss = { showFilters = false }
+        )
+    }
+
     if (viewModel.showCreateDialog) {
         CreateStatementDialog(
             accounts = viewModel.accounts,
@@ -102,8 +144,28 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.openCreateDialog() }) {
-                Icon(Icons.Default.Add, contentDescription = "Add")
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                FloatingActionButton(
+                    onClick = { showFilters = true },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    BadgedBox(
+                        badge = {
+                            val count = viewModel.filters.activeCount
+                            if (count > 0) {
+                                Badge { Text(count.toString()) }
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Default.FilterList, contentDescription = "Filter statements")
+                    }
+                }
+                FloatingActionButton(onClick = { viewModel.openCreateDialog() }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add")
+                }
             }
         }
     ) { scaffoldPadding ->
@@ -140,19 +202,26 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No statements found",
+                        text = if (viewModel.filters.isEmpty) {
+                            "No statements found"
+                        } else {
+                            "No statements match these filters"
+                        },
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
+                Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 16.dp,
-                        vertical = 8.dp
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = 160.dp
                     )
                 ) {
                     items(viewModel.statements, key = { it.id }) { statement ->
@@ -172,7 +241,36 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
                             }
                         }
+                    } else if (!viewModel.hasMorePages) {
+                        item {
+                            Text(
+                                text = "That's all · ${viewModel.statements.size} statements",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp)
+                            )
+                        }
                     }
+                }
+                DateFastScroller(
+                    listState = listState,
+                    timeline = viewModel.timeline,
+                    firstGlobalIndex = viewModel.firstGlobalIndex,
+                    onJump = viewModel::jumpTo,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = 8.dp, bottom = 176.dp)
+                )
+                if (viewModel.isLoading || viewModel.isLoadingNewer) {
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                    )
+                }
                 }
             }
         }
@@ -257,6 +355,33 @@ fun StatementActionsSheet(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
+    val isSelfTransfer = statement.type == "self_transfer"
+    val value = statement.amount.toDoubleOrNull() ?: 0.0
+    val isSplit = statement.statementKind == "expense" && statement.splitAmount > 0.0
+    val (amountText, amountColor) = when {
+        statement.statementKind == "expense" ->
+            formatAmount(-(kotlin.math.abs(value) - statement.splitAmount)) to MaterialTheme.colorScheme.error
+        isSelfTransfer -> formatAmount(value) to MaterialTheme.colorScheme.onSurface
+        value < 0 -> formatAmount(value) to MaterialTheme.colorScheme.error
+        else -> formatSignedAmount(value) to MaterialTheme.colorScheme.primary
+    }
+    val title = if (isSelfTransfer) "Self Transfer" else statement.category ?: "Uncategorized"
+    val subtitle = if (isSelfTransfer) {
+        "${statement.fromAccount ?: "Unknown"} → ${statement.toAccount ?: "Unknown"}"
+    } else {
+        buildString {
+            statement.accountName?.let { append(it) }
+            statement.friendName?.let {
+                if (isNotEmpty()) append(" • ")
+                append(it)
+            }
+            if (isSplit) {
+                if (isNotEmpty()) append(" • ")
+                append("split of ${formatAmount(kotlin.math.abs(value))}")
+            }
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -265,103 +390,83 @@ fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
             containerColor = MaterialTheme.colorScheme.surfaceContainer
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(24.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    if (statement.type == "self_transfer") {
-                        Text(
-                            text = "Self Transfer",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                        val from = statement.fromAccount ?: "Unknown"
-                        val to = statement.toAccount ?: "Unknown"
-                        Text(
-                            text = "$from → $to",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    } else {
-                        Text(
-                            text = statement.category ?: "Uncategorized",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                        val subtitle = buildString {
-                            statement.accountName?.let { append(it) }
-                            statement.friendName?.let {
-                                if (isNotEmpty()) append(" • ")
-                                append(it)
-                            }
-                        }
-                        if (subtitle.isNotEmpty()) {
-                            Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 160.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp)
+                        .clipToBounds(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    statement.tags.forEach { tag -> TagPill(tag) }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(horizontalAlignment = Alignment.End) {
-                    val value = statement.amount.toDoubleOrNull() ?: 0.0
-                    val isSplit = statement.statementKind == "expense" && statement.splitAmount > 0.0
-                    val (amountText, amountColor) = when {
-                        statement.statementKind == "expense" ->
-                            formatAmount(-(kotlin.math.abs(value) - statement.splitAmount)) to
-                                MaterialTheme.colorScheme.error
-                        statement.type == "self_transfer" ->
-                            formatAmount(value) to MaterialTheme.colorScheme.onSurface
-                        value < 0 -> formatAmount(value) to MaterialTheme.colorScheme.error
-                        else -> formatSignedAmount(value) to MaterialTheme.colorScheme.primary
-                    }
-                    Text(
-                        text = amountText,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = amountColor
-                    )
-                    if (isSplit) {
-                        Text(
-                            text = "of ${formatAmount(kotlin.math.abs(value))} · split ${formatAmount(statement.splitAmount)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text(
-                        text = formatDate(statement.createdAt),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = amountText,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = amountColor,
+                    maxLines = 1
+                )
             }
-            if (statement.tags.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    statement.tags.take(3).forEach { tag ->
-                        androidx.compose.material3.AssistChip(
-                            onClick = {},
-                            label = {
-                                Text(
-                                    text = tag,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            },
-                            modifier = Modifier.height(24.dp)
-                        )
-                    }
-                }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = formatDate(statement.createdAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun TagPill(tag: String) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Text(
+            text = tag,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }
 

@@ -12,18 +12,22 @@ import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
 import com.jainhardik120.expensetracker.data.entity.SmsInsertHints
 import com.jainhardik120.expensetracker.data.entity.SmsNotificationsResponse
 import com.jainhardik120.expensetracker.data.entity.UpdateSmsNotificationBody
+import com.jainhardik120.expensetracker.data.entity.StatementFilters
 import com.jainhardik120.expensetracker.data.entity.StatementsResponse
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
+import com.jainhardik120.expensetracker.data.entity.TimelineDay
 import com.jainhardik120.expensetracker.data.entity.WidgetSummary
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.parameter
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
+import java.time.ZoneId
 
 class ExpenseTrackerAPIImpl(
     private val client: HttpClient
@@ -72,12 +76,30 @@ class ExpenseTrackerAPIImpl(
         }
     }
 
-    override suspend fun getStatements(page: Int, perPage: Int): Result<StatementsResponse, MessageError> {
+    override suspend fun getStatements(
+        page: Int,
+        perPage: Int,
+        filters: StatementFilters
+    ): Result<StatementsResponse, MessageError> {
         return performApiRequest {
             client.request(APIRoutes.STATEMENTS) {
                 method = HttpMethod.Get
                 parameter("page", page)
                 parameter("perPage", perPage)
+                filterParameters(filters)
+            }.body()
+        }
+    }
+
+    override suspend fun getStatementTimeline(
+        filters: StatementFilters,
+        timezone: String
+    ): Result<List<TimelineDay>, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.TIMELINE) {
+                method = HttpMethod.Get
+                parameter("timezone", timezone)
+                filterParameters(filters)
             }.body()
         }
     }
@@ -230,5 +252,22 @@ class ExpenseTrackerAPIImpl(
                 url = APIRoutes.smsNotificationHints(id), method = HttpMethod.Get
             )
         }
+    }
+
+    private fun HttpRequestBuilder.filterParameters(filters: StatementFilters) {
+        val zone = ZoneId.systemDefault()
+        filters.from?.let { parameter("start", it.atStartOfDay(zone).toInstant().toString()) }
+        filters.to?.let {
+            parameter("end", it.plusDays(1).atStartOfDay(zone).toInstant().minusMillis(1).toString())
+        }
+        arrayParameter("statementKind", filters.kinds)
+        arrayParameter("account", filters.accounts)
+        arrayParameter("category", filters.categories)
+        arrayParameter("tags", filters.tags)
+    }
+
+    private fun HttpRequestBuilder.arrayParameter(name: String, values: Collection<String>) {
+        val repeated = if (values.size == 1) values + values else values
+        repeated.forEach { parameter(name, it) }
     }
 }

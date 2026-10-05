@@ -8,9 +8,13 @@ import com.jainhardik120.expensetracker.data.entity.AccountItem
 import com.jainhardik120.expensetracker.data.entity.CreateSelfTransferBody
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
+import com.jainhardik120.expensetracker.data.entity.StatementFilters
 import com.jainhardik120.expensetracker.data.entity.StatementItem
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
 import com.jainhardik120.expensetracker.ui.BaseViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
+import java.time.ZoneId
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -28,11 +32,31 @@ class StatementsViewModel @Inject constructor(
     var isLoadingMore by mutableStateOf(false)
         private set
 
+    var isLoadingNewer by mutableStateOf(false)
+        private set
+
     var hasMorePages by mutableStateOf(true)
         private set
 
-    private var currentPage by mutableIntStateOf(1)
-    private val perPage = 15
+    var firstPage by mutableIntStateOf(1)
+        private set
+
+    private var lastPage = 1
+    private var pageCount = 1
+    val perPage = 30
+
+    val hasNewerPages: Boolean get() = firstPage > 1
+
+    val firstGlobalIndex: Int get() = (firstPage - 1) * perPage
+
+    var totalCount by mutableIntStateOf(0)
+        private set
+
+    var timeline by mutableStateOf(StatementTimeline.EMPTY)
+        private set
+
+    private val _scrollRequests = Channel<Int>(Channel.CONFLATED)
+    val scrollRequests = _scrollRequests.receiveAsFlow()
 
     var errorMessage by mutableStateOf<String?>(null)
         private set
@@ -47,6 +71,9 @@ class StatementsViewModel @Inject constructor(
         private set
 
     var tags by mutableStateOf<List<String>>(emptyList())
+        private set
+
+    var filters by mutableStateOf(StatementFilters())
         private set
 
     var showCreateDialog by mutableStateOf(false)
@@ -65,37 +92,116 @@ class StatementsViewModel @Inject constructor(
         loadSuggestions()
     }
 
+    fun applyFilters(value: StatementFilters) {
+        if (value == filters) return
+        filters = value
+        statements = emptyList()
+        loadStatements()
+    }
+
     fun loadStatements() {
-        currentPage = 1
+        val requestedFilters = filters
+        firstPage = 1
+        lastPage = 1
         hasMorePages = true
         errorMessage = null
         makeApiCall(
-            call = { api.getStatements(page = 1, perPage = perPage) },
+            call = { api.getStatements(page = 1, perPage = perPage, filters = requestedFilters) },
             preExecuting = { isLoading = true },
             onDoneExecuting = { isLoading = false },
             onException = { msg ->
                 errorMessage = msg
             }
         ) { response ->
+            if (requestedFilters != filters) return@makeApiCall
             statements = response.statements
-            hasMorePages = currentPage < response.pageCount
+            updatePaging(response.pageCount, response.rowsCount.statementCount + response.rowsCount.selfTransferStatementCount)
+        }
+        loadTimeline()
+    }
+
+    private fun loadTimeline() {
+        val requestedFilters = filters
+        makeApiCall(
+            call = { api.getStatementTimeline(requestedFilters, ZoneId.systemDefault().id) },
+            preExecuting = null,
+            onDoneExecuting = null,
+            onException = { timeline = StatementTimeline.EMPTY }
+        ) { days ->
+            if (requestedFilters != filters) return@makeApiCall
+            timeline = StatementTimeline(days)
         }
     }
 
+    private fun updatePaging(count: Int, total: Int) {
+        pageCount = count
+        totalCount = total
+        hasMorePages = lastPage < pageCount
+    }
+
     fun loadMoreStatements() {
-        if (isLoadingMore || !hasMorePages) return
-        val nextPage = currentPage + 1
+        if (isLoading || isLoadingMore || !hasMorePages) return
+        val requestedFilters = filters
+        val nextPage = lastPage + 1
         makeApiCall(
-            call = { api.getStatements(page = nextPage, perPage = perPage) },
+            call = { api.getStatements(page = nextPage, perPage = perPage, filters = requestedFilters) },
             preExecuting = { isLoadingMore = true },
             onDoneExecuting = { isLoadingMore = false },
             onException = { msg ->
                 errorMessage = msg
             }
         ) { response ->
-            statements = statements + response.statements
-            currentPage = nextPage
-            hasMorePages = nextPage < response.pageCount
+            if (requestedFilters != filters || nextPage != lastPage + 1) return@makeApiCall
+            val known = statements.mapTo(HashSet()) { it.id }
+            statements = statements + response.statements.filterNot { it.id in known }
+            lastPage = nextPage
+            updatePaging(response.pageCount, response.rowsCount.statementCount + response.rowsCount.selfTransferStatementCount)
+        }
+    }
+
+    fun loadNewerStatements() {
+        if (isLoading || isLoadingNewer || !hasNewerPages) return
+        val requestedFilters = filters
+        val previousPage = firstPage - 1
+        makeApiCall(
+            call = { api.getStatements(page = previousPage, perPage = perPage, filters = requestedFilters) },
+            preExecuting = { isLoadingNewer = true },
+            onDoneExecuting = { isLoadingNewer = false },
+            onException = { msg ->
+                errorMessage = msg
+            }
+        ) { response ->
+            if (requestedFilters != filters || previousPage != firstPage - 1) return@makeApiCall
+            val known = statements.mapTo(HashSet()) { it.id }
+            statements = response.statements.filterNot { it.id in known } + statements
+            firstPage = previousPage
+            updatePaging(response.pageCount, response.rowsCount.statementCount + response.rowsCount.selfTransferStatementCount)
+        }
+    }
+
+    fun jumpTo(globalIndex: Int) {
+        if (isLoading) return
+        val requestedFilters = filters
+        val page = globalIndex / perPage + 1
+        val loadedRange = firstGlobalIndex until firstGlobalIndex + statements.size
+        if (globalIndex in loadedRange) {
+            _scrollRequests.trySend(globalIndex - firstGlobalIndex)
+            return
+        }
+        makeApiCall(
+            call = { api.getStatements(page = page, perPage = perPage, filters = requestedFilters) },
+            preExecuting = { isLoading = true },
+            onDoneExecuting = { isLoading = false },
+            onException = { msg ->
+                errorMessage = msg
+            }
+        ) { response ->
+            if (requestedFilters != filters) return@makeApiCall
+            statements = response.statements
+            firstPage = page
+            lastPage = page
+            updatePaging(response.pageCount, response.rowsCount.statementCount + response.rowsCount.selfTransferStatementCount)
+            _scrollRequests.trySend((globalIndex - (page - 1) * perPage).coerceIn(0, (statements.size - 1).coerceAtLeast(0)))
         }
     }
 
@@ -189,6 +295,8 @@ class StatementsViewModel @Inject constructor(
         }
         makeApiCall(call = apiCall) {
             statements = statements.filter { it.id != item.id }
+            totalCount = (totalCount - 1).coerceAtLeast(0)
+            loadTimeline()
         }
     }
 }

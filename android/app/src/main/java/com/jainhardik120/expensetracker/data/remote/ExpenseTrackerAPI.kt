@@ -12,13 +12,19 @@ import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
 import com.jainhardik120.expensetracker.data.entity.SmsInsertHints
 import com.jainhardik120.expensetracker.data.entity.SmsNotificationsResponse
 import com.jainhardik120.expensetracker.data.entity.UpdateSmsNotificationBody
+import com.jainhardik120.expensetracker.data.entity.StatementFilters
 import com.jainhardik120.expensetracker.data.entity.StatementsResponse
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
+import com.jainhardik120.expensetracker.data.entity.TimelineDay
 import com.jainhardik120.expensetracker.data.entity.WidgetSummary
 
 interface ExpenseTrackerAPI {
     suspend fun sendNotification(body: SMSNotificationBody): Result<IDResult, MessageError>
-    suspend fun getStatements(page: Int, perPage: Int): Result<StatementsResponse, MessageError>
+    suspend fun getStatements(
+        page: Int,
+        perPage: Int,
+        filters: StatementFilters = StatementFilters()
+    ): Result<StatementsResponse, MessageError>
     suspend fun getSummary(start: String? = null, end: String? = null): Result<SummaryResponse, MessageError>
     suspend fun createStatement(body: CreateStatementBody): Result<List<IDResult>, MessageError>
     suspend fun updateStatement(
@@ -43,6 +49,11 @@ interface ExpenseTrackerAPI {
 
     suspend fun getAccounts(): Result<List<AccountItem>, MessageError>
     suspend fun getFriends(): Result<List<FriendItem>, MessageError>
+    suspend fun getStatementTimeline(
+        filters: StatementFilters,
+        timezone: String
+    ): Result<List<TimelineDay>, MessageError>
+
     suspend fun getCategories(): Result<List<String>, MessageError>
     suspend fun getTags(): Result<List<String>, MessageError>
 

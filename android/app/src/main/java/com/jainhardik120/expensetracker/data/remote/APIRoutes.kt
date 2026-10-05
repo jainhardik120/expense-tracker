@@ -15,6 +15,7 @@ object APIRoutes {
     const val INVESTMENTS = "${BASE_URL}/investments"
     const val CATEGORIES = "${STATEMENTS}/categories"
     const val TAGS = "${STATEMENTS}/tags"
+    const val TIMELINE = "${BASE_URL}/statements/timeline"
 
     fun statement(id: String) = "${STATEMENTS}/$id"
     fun selfTransfer(id: String) = "${SELF_TRANSFER}/$id"

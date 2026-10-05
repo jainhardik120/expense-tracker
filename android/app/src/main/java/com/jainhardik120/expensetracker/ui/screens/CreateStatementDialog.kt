@@ -407,7 +407,7 @@ private fun DateTimeFields(value: ZonedDateTime, onChange: (ZonedDateTime) -> Un
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SuggestionTextField(
+internal fun SuggestionTextField(
     value: String,
     onValueChange: (String) -> Unit,
     suggestions: List<String>,
@@ -474,10 +474,11 @@ private fun SuggestionTextField(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TagsField(
+internal fun TagsField(
     tags: List<String>,
     suggestions: List<String>,
-    onChange: (List<String>) -> Unit
+    onChange: (List<String>) -> Unit,
+    label: String = "Add tag"
 ) {
     var draft by remember { mutableStateOf("") }
     val available = remember(tags, suggestions) { suggestions.filterNot { it in tags } }
@@ -495,7 +496,7 @@ private fun TagsField(
             value = draft,
             onValueChange = { draft = it },
             suggestions = available,
-            label = "Add tag",
+            label = label,
             showWhenEmpty = false,
             onSubmit = { addDraft() }
         )
