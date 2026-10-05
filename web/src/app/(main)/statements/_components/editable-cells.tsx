@@ -30,6 +30,8 @@ const CELL_SURFACE = 'absolute inset-0 flex items-center px-2';
 
 const CELL_ATTR = 'data-editable-cell';
 
+const FOCUS_RING = 'focus-visible:border-primary focus-visible:ring-0';
+
 const moveFocus = (from: HTMLElement, rowStep: number, columnStep: number) => {
   const cells = [...document.querySelectorAll<HTMLElement>(`[${CELL_ATTR}]`)];
 
@@ -163,7 +165,7 @@ export const AmountEditor = ({
       className={cn(
         CELL_SURFACE,
         'border-primary bg-background size-full rounded-none border-2 text-right tabular-nums shadow-none',
-        'focus-visible:border-primary focus-visible:ring-0',
+        FOCUS_RING,
       )}
       inputMode="decimal"
       type="text"
@@ -183,6 +185,12 @@ export const AmountEditor = ({
   );
 };
 
+export type EditorOption = string | { label: string; value: string };
+
+const optionValue = (option: EditorOption) => (typeof option === 'string' ? option : option.value);
+
+const optionLabel = (option: EditorOption) => (typeof option === 'string' ? option : option.label);
+
 export const SelectEditor = ({
   value,
   options,
@@ -190,7 +198,7 @@ export const SelectEditor = ({
   onSave,
 }: {
   value: string;
-  options: string[];
+  options: EditorOption[];
   stop: () => void;
   onSave: (next: string) => void;
 }) => (
@@ -213,7 +221,7 @@ export const SelectEditor = ({
       className={cn(
         CELL_SURFACE,
         'border-primary bg-background rounded-none border-2 shadow-none',
-        'focus-visible:border-primary focus-visible:ring-0',
+        FOCUS_RING,
         'h-auto! w-auto',
       )}
     >
@@ -221,13 +229,61 @@ export const SelectEditor = ({
     </SelectTrigger>
     <SelectContent>
       {options.map((option) => (
-        <SelectItem key={option} value={option}>
-          {option}
+        <SelectItem key={optionValue(option)} value={optionValue(option)}>
+          {optionLabel(option)}
         </SelectItem>
       ))}
     </SelectContent>
   </Select>
 );
+
+export const DateEditor = ({
+  value,
+  stop,
+  onSave,
+}: {
+  value: string;
+  stop: () => void;
+  onSave: (next: string) => void;
+}) => {
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const commit = () => {
+    if (draft !== value && draft !== '') {
+      onSave(draft);
+    }
+    stop();
+  };
+
+  return (
+    <Input
+      ref={inputRef}
+      className={cn(
+        CELL_SURFACE,
+        'border-primary bg-background size-full rounded-none border-2 shadow-none',
+        FOCUS_RING,
+      )}
+      type="date"
+      value={draft}
+      onBlur={commit}
+      onChange={(event) => {
+        setDraft(event.target.value);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          commit();
+        } else if (event.key === 'Escape') {
+          stop();
+        }
+      }}
+    />
+  );
+};
 
 export const TagsEditor = ({
   value,

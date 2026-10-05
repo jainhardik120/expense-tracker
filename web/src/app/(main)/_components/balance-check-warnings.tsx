@@ -36,7 +36,7 @@ export const BalanceCheckWarnings = ({ warnings }: { warnings: Warning[] }) => {
         </div>
       </div>
       <Button asChild size="sm" variant="outline">
-        <Link href="/balance-checks">Fix balances</Link>
+        <Link href="/inbox/balances">Fix balances</Link>
       </Button>
     </div>
   );

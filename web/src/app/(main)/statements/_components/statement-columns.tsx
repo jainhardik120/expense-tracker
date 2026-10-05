@@ -454,11 +454,6 @@ export const createStatementColumns = ({
         facetCounts.tags,
         { cascade: true, selected: activeFilters.tags },
       ),
-      cell: {
-        variant: 'multi-select',
-        creatable: true,
-        options: tags.map((tag) => ({ label: tag, value: tag })),
-      },
     },
     enableColumnFilter: true,
   },

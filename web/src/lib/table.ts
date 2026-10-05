@@ -26,14 +26,11 @@ import {
   sortFn_datetime,
   sortFn_text,
   tableFeatures,
-  type Cell as TanstackCell,
   type Column as TanstackColumn,
   type ColumnDef as TanstackColumnDef,
-  type Header as TanstackHeader,
   type Row as TanstackRow,
   type RowData,
   type TableOptions as TanstackTableOptions,
-  type Table as TanstackTable,
   type TableState as TanstackTableState,
   type ReactTable,
 } from '@tanstack/react-table';
@@ -71,7 +68,7 @@ export const appTableFeatures = tableFeatures({
   },
 });
 
-export type AppTableFeatures = typeof appTableFeatures;
+type AppTableFeatures = typeof appTableFeatures;
 
 export type ColumnDef<TData extends RowData, TValue = unknown> = TanstackColumnDef<
   AppTableFeatures,
@@ -79,19 +76,8 @@ export type ColumnDef<TData extends RowData, TValue = unknown> = TanstackColumnD
   TValue
 >;
 export type Table<TData extends RowData> = ReactTable<AppTableFeatures, TData>;
-export type CoreTable<TData extends RowData> = TanstackTable<AppTableFeatures, TData>;
 export type Row<TData extends RowData> = TanstackRow<AppTableFeatures, TData>;
 export type Column<TData extends RowData, TValue = unknown> = TanstackColumn<
-  AppTableFeatures,
-  TData,
-  TValue
->;
-export type Cell<TData extends RowData, TValue = unknown> = TanstackCell<
-  AppTableFeatures,
-  TData,
-  TValue
->;
-export type Header<TData extends RowData, TValue = unknown> = TanstackHeader<
   AppTableFeatures,
   TData,
   TValue

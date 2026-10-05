@@ -12,12 +12,10 @@ import {
   LineChart,
   RefreshCw,
   Sheet,
-  MessageSquareMore,
   FileBarChart,
   Banknote,
-  Scale,
+  Inbox,
   Target,
-  Mail,
 } from 'lucide-react';
 
 import {
@@ -58,11 +56,6 @@ const links = [
     icon: Banknote,
   },
   {
-    label: 'Balance checks',
-    href: '/balance-checks',
-    icon: Scale,
-  },
-  {
     label: 'Budget',
     href: '/budget',
     icon: Target,
@@ -78,14 +71,9 @@ const links = [
     icon: FileBarChart,
   },
   {
-    label: 'Email forwarding',
-    href: '/email-forwarding',
-    icon: Mail,
-  },
-  {
-    label: 'SMS Notifications',
-    href: '/sms-notifications',
-    icon: MessageSquareMore,
+    label: 'Inbox',
+    href: '/inbox',
+    icon: Inbox,
   },
   {
     label: 'Statements',
@@ -107,7 +95,9 @@ export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) =
                   <SidebarMenuButton
                     asChild
                     isActive={
-                      item.href === '/' ? pathname === item.href : pathname.includes(item.href)
+                      item.href === '/'
+                        ? pathname === item.href
+                        : pathname === item.href || pathname.startsWith(`${item.href}/`)
                     }
                   >
                     <Link href={item.href} prefetch={false}>
