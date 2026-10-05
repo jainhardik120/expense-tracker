@@ -13,6 +13,7 @@ import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
 import {
   getMergedStatements,
   getRowsCount,
+  getStatementTimeline,
   getStatementAmountAndSplits,
   splitTotalsByStatement,
   getStatementFacetCounts,
@@ -96,6 +97,27 @@ export const statementsRouter = createTRPCRouter({
         .where(and(...conditions))
         .orderBy(sql<string>`tag`);
       return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
+    }),
+  getTimeline: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/statements/timeline',
+      },
+    })
+    .input(
+      statementParserSchema.omit({ page: true, perPage: true, sort: true }).extend({
+        timezone: z
+          .string()
+          .regex(/^[A-Za-z0-9_+\-/]+$/)
+          .optional()
+          .default('Asia/Kolkata'),
+      }),
+    )
+    .output(z.array(z.object({ date: z.string(), count: z.number() })))
+    .query(async ({ ctx, input }) => {
+      const { timezone, ...filters } = input;
+      return getStatementTimeline(ctx.db, ctx.user.id, { ...filters, sort: '' }, timezone);
     }),
   getFacetCounts: protectedProcedure
     .input(statementParserSchema.omit({ page: true, perPage: true }))

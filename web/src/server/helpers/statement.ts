@@ -13,7 +13,7 @@ import {
   type SQL,
   count,
 } from 'drizzle-orm';
-import { unionAll, alias } from 'drizzle-orm/pg-core';
+import { unionAll, alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { type z } from 'zod';
 
 import type { StatementAttributes } from '@/db/attributes';
@@ -322,56 +322,64 @@ export const getMergedStatements = instrumentedFunction(
   },
 );
 
+type CountInput = Omit<z.infer<typeof statementParserSchema>, 'page' | 'perPage'>;
+
+const buildCountConditions = (db: Database, userId: string, input: CountInput) => {
+  const statementConditions = [];
+  const selfTransferStatementConditions = [];
+  statementConditions.push(...buildQueryConditions(statements, userId, input.start, input.end));
+  selfTransferStatementConditions.push(
+    ...buildQueryConditions(selfTransferStatements, userId, input.start, input.end),
+  );
+  if (input.account.length > 0) {
+    const statementIdsWithSplits = db
+      .select({ statementId: splits.statementId })
+      .from(splits)
+      .where(inArray(splits.friendId, input.account));
+    statementConditions.push(
+      or(
+        inArray(statements.accountId, input.account),
+        inArray(statements.friendId, input.account),
+        inArray(statements.id, statementIdsWithSplits),
+      ),
+    );
+    selfTransferStatementConditions.push(
+      or(
+        inArray(selfTransferStatements.fromAccountId, input.account),
+        inArray(selfTransferStatements.toAccountId, input.account),
+      ),
+    );
+  }
+  if (input.statementKind.length > 0) {
+    statementConditions.push(inArray(statements.statementKind, input.statementKind));
+    if (input.statementKind.findIndex((kind) => kind === 'self_transfer') === -1) {
+      selfTransferStatementConditions.push(sql`1 = 0`);
+    }
+  }
+  if (input.category.length > 0) {
+    statementConditions.push(inArray(statements.category, input.category));
+  }
+  if (input.tags.length > 0) {
+    statementConditions.push(arrayOverlaps(statements.tags, input.tags));
+  }
+  return {
+    statementConditions,
+    selfTransferStatementConditions,
+    includeSelfTransfers: input.category.length === 0 && input.tags.length === 0,
+  };
+};
+
 export const getRowsCount = instrumentedFunction(
   'getRowsCount',
-  async (
-    db: Database,
-    userId: string,
-    input: Omit<z.infer<typeof statementParserSchema>, 'page' | 'perPage'>,
-  ) => {
-    const statementConditions = [];
-    const selfTransferStatementConditions = [];
-    statementConditions.push(...buildQueryConditions(statements, userId, input.start, input.end));
-    selfTransferStatementConditions.push(
-      ...buildQueryConditions(selfTransferStatements, userId, input.start, input.end),
-    );
-    if (input.account.length > 0) {
-      const statementIdsWithSplits = db
-        .select({ statementId: splits.statementId })
-        .from(splits)
-        .where(inArray(splits.friendId, input.account));
-      statementConditions.push(
-        or(
-          inArray(statements.accountId, input.account),
-          inArray(statements.friendId, input.account),
-          inArray(statements.id, statementIdsWithSplits),
-        ),
-      );
-      selfTransferStatementConditions.push(
-        or(
-          inArray(selfTransferStatements.fromAccountId, input.account),
-          inArray(selfTransferStatements.toAccountId, input.account),
-        ),
-      );
-    }
-    if (input.statementKind.length > 0) {
-      statementConditions.push(inArray(statements.statementKind, input.statementKind));
-      if (input.statementKind.findIndex((kind) => kind === 'self_transfer') === -1) {
-        selfTransferStatementConditions.push(sql`1 = 0`);
-      }
-    }
-    if (input.category.length > 0) {
-      statementConditions.push(inArray(statements.category, input.category));
-    }
-    if (input.tags.length > 0) {
-      statementConditions.push(arrayOverlaps(statements.tags, input.tags));
-    }
+  async (db: Database, userId: string, input: CountInput) => {
+    const { statementConditions, selfTransferStatementConditions, includeSelfTransfers } =
+      buildCountConditions(db, userId, input);
     const [{ statementCount }] = await db
       .select({ statementCount: count() })
       .from(statements)
       .where(and(...statementConditions));
     let selfTransferStatementCount = 0;
-    if (input.category.length === 0 && input.tags.length === 0) {
+    if (includeSelfTransfers) {
       [{ selfTransferStatementCount }] = await db
         .select({ selfTransferStatementCount: count() })
         .from(selfTransferStatements)
@@ -381,6 +389,40 @@ export const getRowsCount = instrumentedFunction(
       statementCount,
       selfTransferStatementCount,
     };
+  },
+);
+
+const localDay = (column: AnyPgColumn, timezone: string) =>
+  sql<string>`to_char((${column} AT TIME ZONE 'UTC') AT TIME ZONE ${timezone}, 'YYYY-MM-DD')`;
+
+export const getStatementTimeline = instrumentedFunction(
+  'getStatementTimeline',
+  async (db: Database, userId: string, input: CountInput, timezone: string) => {
+    const { statementConditions, selfTransferStatementConditions, includeSelfTransfers } =
+      buildCountConditions(db, userId, input);
+    const statementDay = localDay(statements.createdAt, timezone);
+    const selfTransferDay = localDay(selfTransferStatements.createdAt, timezone);
+    const [statementDays, selfTransferDays] = await Promise.all([
+      db
+        .select({ date: statementDay, count: count() })
+        .from(statements)
+        .where(and(...statementConditions))
+        .groupBy(sql`1`),
+      includeSelfTransfers
+        ? db
+            .select({ date: selfTransferDay, count: count() })
+            .from(selfTransferStatements)
+            .where(and(...selfTransferStatementConditions))
+            .groupBy(sql`1`)
+        : Promise.resolve([]),
+    ]);
+    const counts = new Map<string, number>();
+    for (const row of [...statementDays, ...selfTransferDays]) {
+      counts.set(row.date, (counts.get(row.date) ?? 0) + row.count);
+    }
+    return [...counts.entries()]
+      .map(([date, total]) => ({ date, count: total }))
+      .sort((left, right) => right.date.localeCompare(left.date));
   },
 );
 
