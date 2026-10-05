@@ -65,6 +65,15 @@ export const createStatementSchema = z.object({
   createdAt: z.date(),
 });
 
+const BALANCE_CHECK_NOTE_MAX_LENGTH = 200;
+
+export const balanceCheckSchema = z.object({
+  accountId: z.uuid(),
+  checkedAt: z.date(),
+  balance: amount,
+  note: z.string().trim().max(BALANCE_CHECK_NOTE_MAX_LENGTH).optional(),
+});
+
 export const createFriendSchema = z.object({
   name: z.string(),
 });

@@ -9,6 +9,7 @@ import { api } from '@/server/server';
 import { aggregationParser } from '@/types';
 
 import AggregationTable from '../_components/aggregation-table';
+import { BalanceCheckWarnings } from '../_components/balance-check-warnings';
 import { CategoryExpensesPieChart, ExpensesLineChart, SummaryCard } from '../_components/charts';
 import { CreditCardsCard } from '../_components/credit-cards-card';
 import FilterPanel from '../_components/filter-panel';
@@ -58,6 +59,7 @@ export default async function Page({
     end: params.end ?? defaultEnd,
   };
 
+  const warningsPromise = api.balanceChecks.getWarnings();
   const aggregationPromise = api.summary.getAggregatedData({
     aggregateBy: params.period,
     ...dateParams,
@@ -84,6 +86,9 @@ export default async function Page({
 
   return (
     <div className="flex flex-col gap-4">
+      <AsyncComponent loadingFallbackClassName="hidden" promise={warningsPromise}>
+        {(warnings) => <BalanceCheckWarnings warnings={warnings} />}
+      </AsyncComponent>
       <FilterPanel />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <AsyncComponent promise={chartPromise}>

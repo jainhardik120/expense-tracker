@@ -414,6 +414,13 @@
       "when": 1791119639493,
       "tag": "0058_better_auth_1_7",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791174161435,
+      "tag": "0059_account_balance_checks",
+      "breakpoints": true
     }
   ]
 }

@@ -14,3 +14,5 @@ export const recurringPaymentFrequencies = [
 ] as const;
 
 export const smsTransactionStatuses = ['pending', 'inserted', 'junked'] as const;
+
+export const balanceCheckSources = ['manual', 'statement_import'] as const;

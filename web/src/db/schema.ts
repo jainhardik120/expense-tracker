@@ -18,7 +18,12 @@ import {
 import type { StoredBudgetRule } from '@/types/budget';
 
 import { user } from './auth-schema';
-import { recurringPaymentFrequencies, smsTransactionStatuses, statementKinds } from './enums';
+import {
+  balanceCheckSources,
+  recurringPaymentFrequencies,
+  smsTransactionStatuses,
+  statementKinds,
+} from './enums';
 
 import type { EmiAttributes, SmsAttributes, StatementAttributes } from './attributes';
 
@@ -122,6 +127,9 @@ export const statements = pgTable(
     index('statements_user_salary_payment_idx')
       .on(table.userId, sql`(${table.additionalAttributes}->>'salaryPaymentId')`)
       .where(sql`${table.additionalAttributes}->>'salaryPaymentId' IS NOT NULL`),
+    index('statements_account_created_idx')
+      .on(table.accountId, table.createdAt)
+      .where(sql`${table.accountId} IS NOT NULL`),
   ],
 );
 
@@ -580,3 +588,29 @@ export const budgetIncomeLines = pgTable('budget_income_lines', {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const balanceCheckSourceEnum = pgEnum('balance_check_source', balanceCheckSources);
+
+export const accountBalanceChecks = pgTable(
+  'account_balance_checks',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => bankAccount.id, { onDelete: 'cascade' }),
+    checkedAt: timestamp('checked_at').notNull(),
+    balance: numeric('balance').notNull(),
+    note: text('note'),
+    source: balanceCheckSourceEnum().notNull().default('manual'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('account_balance_checks_account_time_idx').on(table.accountId, table.checkedAt),
+    index('account_balance_checks_user_idx').on(table.userId),
+  ],
+);
