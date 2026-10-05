@@ -207,14 +207,18 @@ export const applyImport = instrumentedFunction(
     importId: string,
     decisions: ApplyDecision[],
     timeZone: string,
+    finish: boolean,
   ): Promise<ApplyResult> => {
     const review = await getImportReview(db, userId, importId, timeZone);
     if (review.import.status !== 'review') {
       throw new Error('This statement has already been handled');
     }
-    if (review.blockedBy !== null) {
+    if (!finish && decisions.length === 0) {
+      throw new Error('Select at least one change to apply');
+    }
+    if (finish && review.blockedBy !== null) {
       throw new Error(
-        `Apply the statement that ends on ${review.blockedBy.periodEnd} first, so rows are not counted twice`,
+        `Apply the earlier statements for this account first, starting with ${review.blockedBy.periodStart} to ${review.blockedBy.periodEnd}, so rows are not counted twice`,
       );
     }
     const suggestionById = new Map(
@@ -339,6 +343,15 @@ export const applyImport = instrumentedFunction(
         links.set(key, linkFor(key));
       }
 
+      const result = {
+        added,
+        adjusted: [...deltas.values()].filter((delta) => delta !== 0).length,
+        redated,
+      };
+      if (!finish) {
+        return result;
+      }
+
       if (links.size > 0) {
         await tx
           .insert(statementImportLinks)
@@ -352,18 +365,12 @@ export const applyImport = instrumentedFunction(
           appliedAt: new Date(),
           outcome: {
             matches: review.groups.map((group) => ({ rows: group.rows, ledger: group.ledger })),
-            added,
-            adjusted: [...deltas.values()].filter((delta) => delta !== 0).length,
-            redated,
+            ...result,
           },
         })
         .where(eq(statementImports.id, importId));
 
-      return {
-        added,
-        adjusted: [...deltas.values()].filter((delta) => delta !== 0).length,
-        redated,
-      };
+      return result;
     });
   },
 );

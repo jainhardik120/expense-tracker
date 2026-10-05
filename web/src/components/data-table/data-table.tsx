@@ -50,6 +50,7 @@ type DataTableProps<TData extends RowData> = React.ComponentProps<'div'> & {
   layout?: 'auto' | 'fixed';
   fill?: boolean;
   enableCellSelection?: boolean;
+  getRowClassName?: (item: TData) => string | undefined;
 };
 
 const SortableContentIf = ({
@@ -94,6 +95,7 @@ export const DataTable = <TData extends RowData>({
   layout = 'auto',
   fill = false,
   enableCellSelection = false,
+  getRowClassName,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -160,7 +162,8 @@ export const DataTable = <TData extends RowData>({
                         key={cell.id}
                         className={cn(
                           'relative h-10 py-1',
-                          background && 'bg-background',
+                          getRowClassName?.(row.original) ??
+                            (background ? 'bg-background' : undefined),
                           alignmentClass(cell.column),
                           enableCellSelection &&
                             cell.column.columnDef.meta?.selectable !== false &&

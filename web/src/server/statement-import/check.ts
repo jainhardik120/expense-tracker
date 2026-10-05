@@ -39,7 +39,7 @@ export const refreshAccountChecks = instrumentedFunction(
       return [
         {
           id: record.id,
-          check: checkOf(entry.result, record.rows, ledger, {
+          check: checkOf(entry.result, record, ledger, {
             elsewhere: new Set(explained.elsewhere.keys()),
             likelyNext: explained.likelyNext,
           }),

@@ -653,6 +653,18 @@ export const accountRange = (records: ImportRecord[]) => {
   };
 };
 
+const neighboursOf = (records: ImportRecord[], recordId: string) => {
+  const position = records.findIndex((record) => record.id === recordId);
+  const link = (record: ImportRecord | undefined) =>
+    record === undefined
+      ? null
+      : { id: record.id, periodStart: record.periodStart, periodEnd: record.periodEnd };
+  return {
+    previous: position > 0 ? link(records.at(position - 1)) : null,
+    next: link(records.at(position + 1)),
+  };
+};
+
 export const getImportReview = instrumentedFunction(
   'getImportReview',
   async (db: Database, userId: string, importId: string, timeZone: string) => {
@@ -804,12 +816,14 @@ export const getImportReview = instrumentedFunction(
     await db
       .update(statementImports)
       .set({
-        check: checkOf(result, record.rows, ledger, {
+        check: checkOf(result, record, ledger, {
           elsewhere: new Set(elsewhere.keys()),
           likelyNext: explained.likelyNext,
         }),
       })
       .where(eq(statementImports.id, record.id));
+
+    const gap = periodGap(record, ledger, claimed, result);
 
     return {
       import: {
@@ -843,21 +857,136 @@ export const getImportReview = instrumentedFunction(
       })),
       suggestions,
       residual: rupees(result.residual),
-      periodGap: periodGap(record, ledger, claimed, result),
+      periodGap: gap,
       balance: {
         ...statementBalance,
         appOpening,
         appClosing,
       },
       blockedBy:
-        earlier.length === 0
+        earlier.length === 0 ||
+        openingAgrees(
+          statementBalance.statementOpening,
+          appOpening - carriedIn(record, result, ledgerByKey),
+        ) ||
+        rowsExplainMovement({
+          record,
+          result,
+          ledgerByKey,
+          gap,
+          explained: { elsewhere: new Set(elsewhere.keys()), likelyNext: explained.likelyNext },
+          balance: { ...statementBalance, appOpening, appClosing },
+        })
           ? null
-          : { id: earlier[0]?.id ?? '', periodEnd: earlier[0]?.periodEnd ?? '' },
+          : {
+              id: earlier[0]?.id ?? '',
+              periodStart: earlier[0]?.periodStart ?? '',
+              periodEnd: earlier[0]?.periodEnd ?? '',
+              waiting: earlier.length,
+            },
+      neighbours: neighboursOf(records, record.id),
     };
   },
 );
 
 const ROUNDING_SLACK = 1;
+
+const carriedIn = (
+  record: ImportRecord,
+  result: Reconciliation,
+  ledgerByKey: Map<string, ReviewLedgerRow>,
+) =>
+  rupees(
+    result.groups
+      .flatMap((group) => group.ledger)
+      .reduce((sum, key) => {
+        const row = ledgerByKey.get(key);
+        if (row === undefined || row.date >= record.periodStart) {
+          return sum;
+        }
+        return sum + paise(row.direction === 'debit' ? -row.amount : row.amount);
+      }, 0),
+  );
+
+const withSign = (value: number, direction: Direction) => (direction === 'debit' ? -value : value);
+
+const signedValue = (row: ReviewLedgerRow) => withSign(paise(row.amount), row.direction);
+
+const suggestedEffect = (
+  record: ImportRecord,
+  result: Reconciliation,
+  ledgerByKey: Map<string, ReviewLedgerRow>,
+) => {
+  let effect = 0;
+  let redated = 0;
+  for (const suggestion of result.suggestions) {
+    if (suggestion.type === 'add') {
+      const row = record.rows.at(suggestion.statement);
+      effect += row === undefined ? 0 : withSign(paise(row.amount), row.direction);
+    } else if (suggestion.type === 'add_difference') {
+      effect += withSign(suggestion.amount, suggestion.direction);
+    } else if (suggestion.type === 'adjust') {
+      const row = ledgerByKey.get(suggestion.ledger);
+      effect += row === undefined ? 0 : withSign(suggestion.to - suggestion.from, row.direction);
+    } else if (suggestion.type === 'redate') {
+      const row = ledgerByKey.get(suggestion.ledger);
+      if (row !== undefined && row.date > record.periodEnd && suggestion.to <= record.periodEnd) {
+        effect += signedValue(row);
+        redated += signedValue(row);
+      }
+    }
+  }
+  return { effect, redated };
+};
+
+const rowsExplainMovement = ({
+  record,
+  result,
+  ledgerByKey,
+  gap,
+  explained,
+  balance,
+}: {
+  record: ImportRecord;
+  result: Reconciliation;
+  ledgerByKey: Map<string, ReviewLedgerRow>;
+  gap: ReturnType<typeof periodGap>;
+  explained: { elsewhere: Set<string>; likelyNext: Set<string> };
+  balance: {
+    statementOpening: number | null;
+    statementClosing: number | null;
+    appOpening: number;
+    appClosing: number;
+  };
+}) => {
+  if (balance.statementOpening === null || balance.statementClosing === null) {
+    return false;
+  }
+  let accountedElsewhere = 0;
+  for (const suggestion of result.suggestions) {
+    if (suggestion.type !== 'not_on_statement') {
+      continue;
+    }
+    const row = ledgerByKey.get(suggestion.ledger);
+    if (
+      row !== undefined &&
+      (explained.elsewhere.has(suggestion.ledger) || explained.likelyNext.has(suggestion.ledger))
+    ) {
+      accountedElsewhere += signedValue(row);
+    }
+  }
+  const notOnStatement = paise(gap.notOnStatement);
+  if (notOnStatement !== accountedElsewhere) {
+    return false;
+  }
+  const { effect, redated } = suggestedEffect(record, result, ledgerByKey);
+  const movement = paise(balance.statementClosing) - paise(balance.statementOpening);
+  const total = paise(balance.appClosing) + effect - paise(balance.appOpening) - movement;
+  return total === notOnStatement + paise(gap.countedElsewhere) + paise(gap.datedOutside) + redated;
+};
+
+const openingAgrees = (statementOpening: number | null, appOpening: number) =>
+  statementOpening !== null && paise(statementOpening) === paise(appOpening);
 
 const periodGap = (
   record: ImportRecord,
@@ -934,10 +1063,11 @@ const chainedBalance = async (db: Database, record: ImportRecord) => {
 
 export const checkOf = (
   result: Reconciliation,
-  rows: StatementImportRow[],
+  record: ImportRecord,
   ledger: ReviewLedgerRow[],
   explained: { elsewhere: Set<string>; likelyNext: Set<string> },
 ): StatementImportCheck => {
+  const { rows } = record;
   const ledgerByKey = new Map(ledger.map((row) => [row.key, row]));
   const signedPaise = (amount: number, direction: Direction) =>
     direction === 'debit' ? -amount : amount;
@@ -972,7 +1102,27 @@ export const checkOf = (
       counts.redate += 1;
     }
   }
-  return { computedAt: new Date().toISOString(), gap: rupees(difference), ...counts };
+  const redated = new Set(
+    result.suggestions.flatMap((suggestion) =>
+      suggestion.type === 'redate' ? [suggestion.ledger] : [],
+    ),
+  );
+  const outside = result.groups
+    .flatMap((group) => group.ledger)
+    .filter((key) => {
+      const date = ledgerByKey.get(key)?.date;
+      return (
+        !redated.has(key) &&
+        date !== undefined &&
+        (date < record.periodStart || date > record.periodEnd)
+      );
+    }).length;
+  return {
+    computedAt: new Date().toISOString(),
+    gap: rupees(difference),
+    ...counts,
+    outside,
+  };
 };
 
 export const explainedRows = (

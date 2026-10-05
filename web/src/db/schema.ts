@@ -712,6 +712,7 @@ export type StatementImportCheck = {
   add: number;
   adjust: number;
   redate: number;
+  outside?: number;
   notOnStatement: number;
   elsewhere: number;
   likelyNext: number;

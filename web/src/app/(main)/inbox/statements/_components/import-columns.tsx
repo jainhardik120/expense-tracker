@@ -104,7 +104,9 @@ const matchDetails = (check: NonNullable<Imports[number]['check']>) =>
     check.notOnStatement > 0 ? plural(check.notOnStatement, 'not on statement') : null,
     check.elsewhere > 0 ? plural(check.elsewhere, 'on another statement') : null,
     check.likelyNext > 0 ? plural(check.likelyNext, 'likely on next statement') : null,
-    check.redate > 0 ? plural(check.redate, 'dated outside') : null,
+    check.redate + (check.outside ?? 0) > 0
+      ? plural(check.redate + (check.outside ?? 0), 'dated outside')
+      : null,
   ].filter((part) => part !== null);
 
 const MatchCell = ({ row, checking }: { row: Imports[number]; checking: boolean }) => {

@@ -195,10 +195,23 @@ export const statementImportsRouter = createTRPCRouter({
       getImportReview(ctx.db, ctx.user.id, input.id, await getTimezone()),
     ),
   applyChanges: protectedProcedure
-    .input(z.object({ id: z.uuid(), decisions: z.array(decisionSchema) }))
+    .input(
+      z.object({
+        id: z.uuid(),
+        decisions: z.array(decisionSchema),
+        finish: z.boolean().default(true),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const timeZone = await getTimezone();
-      const result = await applyImport(ctx.db, ctx.user.id, input.id, input.decisions, timeZone);
+      const result = await applyImport(
+        ctx.db,
+        ctx.user.id,
+        input.id,
+        input.decisions,
+        timeZone,
+        input.finish,
+      );
       await refreshChecksForImports(ctx.db, ctx.user.id, [input.id], timeZone);
       return result;
     }),
