@@ -2,6 +2,8 @@ import { type PdfCell, type PdfLine } from './extract';
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const NUMERIC_DATE = /^(\d{2})[/-](\d{2})[/-](\d{4})/;
+const DAY_MONTH_YEAR = /^(\d{1,2}) ([A-Za-z]{3}) (\d{4}|\d{2})\b/;
+const CENTURY = 2000;
 const LONG_DATE = /^([A-Za-z]{3,9})\s+(\d{1,2}),\s*(\d{4})/;
 const AMOUNT_BODY = /^-?[\d,]+\.\d{2}$/;
 const CURRENCY_PREFIXES = ['rs.', 'rs', 'inr', '`', '₹'];
@@ -16,6 +18,12 @@ export const parseDate = (text: string): string | null => {
   if (numeric !== null) {
     return `${numeric[3]}-${numeric[2]}-${numeric[1]}`;
   }
+  const dayMonth = DAY_MONTH_YEAR.exec(trimmed);
+  if (dayMonth !== null) {
+    const month = MONTHS.indexOf(dayMonth[2].toLowerCase());
+    const year = dayMonth[3].length === 2 ? CENTURY + Number(dayMonth[3]) : Number(dayMonth[3]);
+    return month < 0 ? null : `${String(year)}-${pad(month + 1)}-${pad(Number(dayMonth[1]))}`;
+  }
   const long = LONG_DATE.exec(trimmed);
   if (long !== null) {
     const month = MONTHS.indexOf(long[1].slice(0, MONTH_PREFIX).toLowerCase());
@@ -25,10 +33,12 @@ export const parseDate = (text: string): string | null => {
 };
 
 export const leadingDate = (text: string) => {
-  const match = NUMERIC_DATE.exec(text.trim());
-  return match === null
+  const trimmed = text.trim();
+  const match = NUMERIC_DATE.exec(trimmed) ?? DAY_MONTH_YEAR.exec(trimmed);
+  const date = match === null ? null : parseDate(match[0]);
+  return match === null || date === null
     ? null
-    : { date: parseDate(match[0]) ?? '', rest: text.trim().slice(match[0].length).trim() };
+    : { date, rest: trimmed.slice(match[0].length).trim() };
 };
 
 export const parseAmount = (text: string): { value: number; marker: 'cr' | 'dr' | null } | null => {

@@ -1,6 +1,7 @@
 import { extractPdfLines, type PdfLine } from './extract';
 import { matchesIcici, parseIcici } from './issuers/icici';
 import { matchesIndusind, parseIndusind } from './issuers/indusind';
+import { matchesSbi, parseSbi } from './issuers/sbi';
 import { matchesYes, parseYes } from './issuers/yes';
 import { type ParsedCardStatement } from './types';
 import { roundMoney } from './values';
@@ -12,6 +13,7 @@ const issuers = [
   { matches: matchesIcici, parse: parseIcici },
   { matches: matchesYes, parse: parseYes },
   { matches: matchesIndusind, parse: parseIndusind },
+  { matches: matchesSbi, parse: parseSbi },
 ];
 
 export class UnsupportedStatementError extends Error {
@@ -30,15 +32,12 @@ export const parseStatementLines = (lines: PdfLine[]): ParsedCardStatement => {
     throw new UnsupportedStatementError();
   }
   const statement = issuer.parse(lines);
+  const billed = statement.transactions.filter((row) => row.emi === null);
   const debits = roundMoney(
-    statement.transactions
-      .filter((row) => row.direction === 'debit')
-      .reduce((sum, row) => sum + row.amount, 0),
+    billed.filter((row) => row.direction === 'debit').reduce((sum, row) => sum + row.amount, 0),
   );
   const credits = roundMoney(
-    statement.transactions
-      .filter((row) => row.direction === 'credit')
-      .reduce((sum, row) => sum + row.amount, 0),
+    billed.filter((row) => row.direction === 'credit').reduce((sum, row) => sum + row.amount, 0),
   );
   const reconciliation =
     statement.declared === null

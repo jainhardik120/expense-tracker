@@ -120,6 +120,7 @@ describe('ICICI credit card', () => {
         category: null,
         amount: 1400,
         direction: 'debit',
+        emi: null,
       },
       {
         date: '2026-08-25',
@@ -127,6 +128,7 @@ describe('ICICI credit card', () => {
         category: null,
         amount: 1500,
         direction: 'credit',
+        emi: null,
       },
     ]);
     expect(isReconciled(statement)).toBe(true);
@@ -343,6 +345,7 @@ describe('IndusInd credit card', () => {
         category: null,
         amount: 255,
         direction: 'credit',
+        emi: null,
       },
       {
         date: '2026-09-09',
@@ -350,8 +353,179 @@ describe('IndusInd credit card', () => {
         category: 'GROCERY & SUPERMARKET',
         amount: 274,
         direction: 'debit',
+        emi: null,
       },
     ]);
+    expect(isReconciled(statement)).toBe(true);
+  });
+});
+
+describe('SBI credit card', () => {
+  const lines = page(1, [
+    [800, [[19, 'GSTIN of SBI Card : 06TEST']]],
+    [
+      790,
+      [
+        [47, 'TEST USER'],
+        [323, 'Credit Card Number'],
+      ],
+    ],
+    [785, [[317, 'XXXX XXXX XXXX XX80']]],
+    [780, [[322, '*Total Amount Due ( ` )']]],
+    [775, [[336, '1,700.00']]],
+    [770, [[314, '**Minimum Amount Due ( ` )']]],
+    [760, [[343, '600.00']]],
+    [
+      750,
+      [
+        [43, 'Credit Limit ( ` ) (including cash)'],
+        [331, 'Statement Date'],
+      ],
+    ],
+    [
+      745,
+      [
+        [66, '97,000.00'],
+        [334, '17 Oct 2025'],
+      ],
+    ],
+    [740, [[328, 'Payment Due Date']]],
+    [735, [[333, '06 Nov 2025']]],
+    [730, [[124, 'Payments,']]],
+    [
+      725,
+      [
+        [30, 'Previous Balance'],
+        [357, 'Total Outstanding'],
+      ],
+    ],
+    [
+      720,
+      [
+        [112, 'Reversals & other'],
+        [191, 'Purchases & Other'],
+        [279, 'Fee, Taxes &'],
+      ],
+    ],
+    [
+      715,
+      [
+        [51, '( ` )'],
+        [130, 'Credits ( ` )'],
+        [212, 'Debits'],
+        [274, 'Interest Charges ( ` )'],
+      ],
+    ],
+    [
+      710,
+      [
+        [46, '500.00'],
+        [128, '500.00'],
+        [208, '7,000.00'],
+        [285, '118.00'],
+        [370, '6,118.00'],
+      ],
+    ],
+    [
+      600,
+      [
+        [33, 'Date'],
+        [176, 'Transaction Details'],
+        [369, 'Amount ( ` )'],
+      ],
+    ],
+    [595, [[155, 'for Statement Period: 18 Sep 25 to 17 Oct 25']]],
+    [
+      590,
+      [
+        [18, '21 Sep 25'],
+        [66, 'PAYMENT RECEIVED 0001'],
+        [378, '500.00'],
+        [418, 'C'],
+      ],
+    ],
+    [
+      580,
+      [
+        [18, '17 Oct 25'],
+        [66, 'FP EMI 01/06(EXCL TAX'],
+        [157, '18.00)'],
+        [371, '1,000.00'],
+        [416, 'M'],
+      ],
+    ],
+    [
+      570,
+      [
+        [18, '17 Oct 25'],
+        [66, 'INTEREST ON EMI'],
+        [378, '100.00'],
+        [418, 'D'],
+      ],
+    ],
+    [
+      560,
+      [
+        [66, 'IGST DB @ 18.00%'],
+        [382, '18.00'],
+        [418, 'D'],
+      ],
+    ],
+    [550, [[66, 'TRANSACTIONS FOR TEST USER']]],
+    [
+      540,
+      [
+        [18, '23 Sep 25'],
+        [66, '#ONLINE STORE (Pay in EMIs)'],
+        [366, '6,000.00'],
+        [418, 'D'],
+      ],
+    ],
+    [
+      530,
+      [
+        [18, '25 Sep 25'],
+        [66, 'TRANSFER TO MERCHANT EMI'],
+        [366, '6,000.00'],
+      ],
+    ],
+    [
+      520,
+      [
+        [18, '09 Oct 25'],
+        [66, 'GROCERY STORE'],
+        [378, '1,000.00'],
+        [418, 'D'],
+      ],
+    ],
+  ]);
+
+  test('keeps EMI instalments and conversions out of the billed totals', () => {
+    const statement = parseStatementLines(lines);
+    expect(statement).toMatchObject({
+      issuer: 'sbi',
+      statementDate: '2025-10-17',
+      dueDate: '2025-11-06',
+      periodStart: '2025-09-18',
+      periodEnd: '2025-10-17',
+      previousBalance: 500,
+      totalDue: 1700,
+      minimumDue: 600,
+      creditLimit: 97000,
+      declared: { debits: 7118, credits: 500 },
+    });
+    expect(
+      statement.transactions.map((row) => [row.date, row.description, row.direction, row.emi]),
+    ).toEqual([
+      ['2025-09-21', 'PAYMENT RECEIVED 0001', 'credit', null],
+      ['2025-10-17', 'FP EMI 01/06(EXCL TAX 18.00)', 'debit', 'installment'],
+      ['2025-10-17', 'INTEREST ON EMI', 'debit', null],
+      ['2025-10-17', 'IGST DB @ 18.00%', 'debit', null],
+      ['2025-09-23', '#ONLINE STORE (Pay in EMIs)', 'debit', null],
+      ['2025-09-25', 'TRANSFER TO MERCHANT EMI', 'credit', 'conversion'],
+      ['2025-10-09', 'GROCERY STORE', 'debit', null],
+    ]);
+    expect(statement.totals).toEqual({ debits: 7118, credits: 500 });
     expect(isReconciled(statement)).toBe(true);
   });
 });

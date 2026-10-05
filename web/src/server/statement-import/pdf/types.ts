@@ -1,4 +1,4 @@
-type CardIssuer = 'icici' | 'yes' | 'indusind';
+type CardIssuer = 'icici' | 'yes' | 'indusind' | 'sbi';
 
 export type ParsedTransaction = {
   date: string;
@@ -6,6 +6,7 @@ export type ParsedTransaction = {
   category: string | null;
   amount: number;
   direction: 'debit' | 'credit';
+  emi: 'installment' | 'conversion' | null;
 };
 
 export type ParsedCardStatement = {

@@ -7,6 +7,11 @@ export type TableLayout = {
   minHeaderCells: number;
   rightEdge?: number;
   columnSlack?: number;
+  descriptionOffset?: number;
+  undatedRowsInheritDate?: boolean;
+  ignoreLines?: RegExp[];
+  emiInstallmentMarker?: string;
+  emiConversion?: RegExp;
   creditWhen: (marker: 'cr' | 'dr' | null, value: number) => boolean;
 };
 
@@ -25,6 +30,8 @@ type Continuation = { page: number; y: number; description: string[]; category: 
 
 const DEFAULT_SLACK = 12;
 const CONTINUATION_DISTANCE = 13;
+
+const MARKER = /^(?:cr?|dr?|m)$/i;
 
 const joinText = (parts: string[]) => parts.join(' ').replace(/\s+/g, ' ').trim();
 
@@ -52,14 +59,23 @@ const headerColumns = (line: PdfLine, layout: TableLayout, slack: number): Colum
     return null;
   }
   const category = layout.headers.category === undefined ? null : column(layout.headers.category);
-  return { date, description, amount: { start: amount.start, end: Infinity }, category };
+  const offset = layout.descriptionOffset;
+  return {
+    date: offset === undefined ? date : { start: date.start, end: date.start + offset },
+    description:
+      offset === undefined ? description : { start: date.start + offset, end: description.end },
+    amount: { start: amount.start, end: Infinity },
+    category,
+  };
 };
 
 const continuationOf = (line: PdfLine, cells: PdfCell[], columns: Columns): Continuation | null => {
   if (cells.length === 0 || cells.some((cell) => parseAmount(cell.text) !== null)) {
     return null;
   }
-  const description = cells.filter((cell) => inRange(cell, columns.description));
+  const description = cells.filter(
+    (cell) => inRange(cell, columns.description) && cell.x < columns.amount.start,
+  );
   const category =
     columns.category === null
       ? []
@@ -75,28 +91,50 @@ const continuationOf = (line: PdfLine, cells: PdfCell[], columns: Columns): Cont
   };
 };
 
+const markerAfter = (cells: PdfCell[], amountCell: PdfCell) => {
+  const next = cells.find((cell) => cell.x > amountCell.x);
+  return next === undefined || !MARKER.test(next.text) ? null : next.text.toLowerCase();
+};
+
+const emiKind = (layout: TableLayout, description: string, marker: string | null) => {
+  if (layout.emiInstallmentMarker !== undefined && marker === layout.emiInstallmentMarker) {
+    return 'installment' as const;
+  }
+  if (layout.emiConversion?.test(description) === true) {
+    return 'conversion' as const;
+  }
+  return null;
+};
+
 const rowOf = (
   line: PdfLine,
   cells: PdfCell[],
   columns: Columns,
   layout: TableLayout,
+  previousDate: string | null,
 ): Row | null => {
   const first = cells.at(0);
-  if (first === undefined || !inRange(first, columns.date)) {
+  if (first === undefined) {
     return null;
   }
-  const dated = leadingDate(first.text);
+  const dated = inRange(first, columns.date) ? leadingDate(first.text) : null;
+  const inherited =
+    dated === null && layout.undatedRowsInheritDate === true && previousDate !== null
+      ? inRange(first, columns.description)
+      : false;
   const amountCell = cells.findLast(
     (cell) => inRange(cell, columns.amount) && parseAmount(cell.text) !== null,
   );
   const amount = amountCell === undefined ? null : parseAmount(amountCell.text);
-  if (dated === null || amount === null) {
+  if ((dated === null && !inherited) || amount === null || amountCell === undefined) {
     return null;
   }
-  const rest = cells.slice(1);
+  const rest = dated === null ? cells : cells.slice(1);
   const description = joinText([
-    dated.rest,
-    ...rest.filter((cell) => inRange(cell, columns.description)).map((cell) => cell.text),
+    dated?.rest ?? '',
+    ...rest
+      .filter((cell) => inRange(cell, columns.description) && cell.x < columns.amount.start)
+      .map((cell) => cell.text),
   ]);
   const category =
     columns.category === null
@@ -104,15 +142,24 @@ const rowOf = (
       : rest
           .filter((cell) => inRange(cell, columns.category ?? columns.amount))
           .map((cell) => cell.text);
+  const rawMarker = amount.marker ?? markerAfter(cells, amountCell);
+  const emi = emiKind(layout, description, rawMarker);
+  let marker: 'cr' | 'dr' | null = null;
+  if (rawMarker?.startsWith('c') === true || emi === 'conversion') {
+    marker = 'cr';
+  } else if (rawMarker !== null) {
+    marker = 'dr';
+  }
   return {
     page: line.page,
     y: line.y,
     transaction: {
-      date: dated.date,
+      date: dated?.date ?? previousDate ?? '',
       description,
       category: category.length === 0 ? null : joinText(category),
       amount: Math.abs(amount.value),
-      direction: layout.creditWhen(amount.marker, amount.value) ? 'credit' : 'debit',
+      direction: layout.creditWhen(marker, amount.value) ? 'credit' : 'debit',
+      emi,
     },
     above: { description: [], category: [] },
     below: { description: [], category: [] },
@@ -156,13 +203,16 @@ export const readTransactions = (lines: PdfLine[], layout: TableLayout): ParsedT
     if (columns === null) {
       continue;
     }
+    if (layout.ignoreLines?.some((pattern) => pattern.test(line.text)) === true) {
+      continue;
+    }
     const current = columns;
     const cells = line.cells.filter(
       (cell) =>
         cell.x >= current.date.start &&
         (layout.rightEdge === undefined || cell.x < layout.rightEdge),
     );
-    const row = rowOf(line, cells, columns, layout);
+    const row = rowOf(line, cells, columns, layout, rows.at(-1)?.transaction.date ?? null);
     if (row !== null) {
       rows.push(row);
       continue;
