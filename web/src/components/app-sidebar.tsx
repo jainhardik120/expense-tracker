@@ -17,6 +17,7 @@ import {
   Banknote,
   Scale,
   Target,
+  Mail,
 } from 'lucide-react';
 
 import {
@@ -75,6 +76,11 @@ const links = [
     label: 'Reports',
     href: '/reports',
     icon: FileBarChart,
+  },
+  {
+    label: 'Email forwarding',
+    href: '/email-forwarding',
+    icon: Mail,
   },
   {
     label: 'SMS Notifications',

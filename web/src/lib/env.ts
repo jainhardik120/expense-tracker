@@ -16,6 +16,9 @@ export const env = createEnv({
     GITHUB_CLIENT_SECRET: z.string(),
     COINGECKO_API_KEY: z.string(),
     AI_ASSISTANT_ENABLED: z.string().optional(),
+    INBOUND_EMAIL_DOMAIN: z.string().optional(),
+    INBOUND_EMAIL_BUCKET: z.string().optional(),
+    INBOUND_EMAIL_TOPIC_ARN: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
@@ -42,6 +45,9 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_KEY: process.env['NEXT_PUBLIC_POSTHOG_KEY'],
     COINGECKO_API_KEY: process.env['COINGECKO_API_KEY'],
     AI_ASSISTANT_ENABLED: process.env['AI_ASSISTANT_ENABLED'],
+    INBOUND_EMAIL_DOMAIN: process.env['INBOUND_EMAIL_DOMAIN'],
+    INBOUND_EMAIL_BUCKET: process.env['INBOUND_EMAIL_BUCKET'],
+    INBOUND_EMAIL_TOPIC_ARN: process.env['INBOUND_EMAIL_TOPIC_ARN'],
   },
   skipValidation:
     process.env['SKIP_ENV_VALIDATION'] !== undefined &&

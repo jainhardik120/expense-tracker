@@ -20,6 +20,7 @@ import type { StoredBudgetRule } from '@/types/budget';
 import { user } from './auth-schema';
 import {
   balanceCheckSources,
+  inboundEmailStatuses,
   recurringPaymentFrequencies,
   smsTransactionStatuses,
   statementKinds,
@@ -612,5 +613,63 @@ export const accountBalanceChecks = pgTable(
   (table) => [
     uniqueIndex('account_balance_checks_account_time_idx').on(table.accountId, table.checkedAt),
     index('account_balance_checks_user_idx').on(table.userId),
+  ],
+);
+
+export const emailInboxes = pgTable(
+  'email_inboxes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    token: text('token').notNull(),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+    revokedAt: timestamp('revoked_at'),
+    confirmationCode: text('confirmation_code'),
+    confirmationUrl: text('confirmation_url'),
+    confirmationReceivedAt: timestamp('confirmation_received_at'),
+  },
+  (table) => [
+    uniqueIndex('email_inboxes_token_idx').on(table.token),
+    uniqueIndex('email_inboxes_active_user_idx')
+      .on(table.userId)
+      .where(sql`${table.revokedAt} is null`),
+  ],
+);
+
+export const inboundEmailStatusEnum = pgEnum('inbound_email_status', inboundEmailStatuses);
+
+export type InboundEmailAttachment = { filename: string; mimeType: string; size: number };
+
+export const inboundEmails = pgTable(
+  'inbound_emails',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    inboxId: uuid('inbox_id')
+      .notNull()
+      .references(() => emailInboxes.id, { onDelete: 'cascade' }),
+    sesMessageId: text('ses_message_id').notNull(),
+    receivedAt: timestamp('received_at').notNull(),
+    fromAddress: text('from_address').notNull(),
+    fromDomain: text('from_domain').notNull(),
+    subject: text('subject').notNull(),
+    dkimVerdict: text('dkim_verdict').notNull(),
+    dmarcVerdict: text('dmarc_verdict').notNull(),
+    spamVerdict: text('spam_verdict').notNull(),
+    virusVerdict: text('virus_verdict').notNull(),
+    status: inboundEmailStatusEnum().notNull(),
+    rejectReason: text('reject_reason'),
+    attachments: jsonb('attachments').$type<InboundEmailAttachment[]>().notNull().default([]),
+    objectKey: text('object_key'),
+  },
+  (table) => [
+    uniqueIndex('inbound_emails_ses_message_idx').on(table.sesMessageId),
+    index('inbound_emails_user_received_idx').on(table.userId, desc(table.receivedAt)),
   ],
 );

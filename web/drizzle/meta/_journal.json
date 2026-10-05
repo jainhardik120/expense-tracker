@@ -421,6 +421,13 @@
       "when": 1791174161435,
       "tag": "0059_account_balance_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1791190016184,
+      "tag": "0060_email_forwarding",
+      "breakpoints": true
     }
   ]
 }

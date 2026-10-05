@@ -19,6 +19,7 @@ const publicPaths: Array<RegExp> = [
   /^\/api\/external(\/|$)/,
   /^\/api\/pdf-report(\/|$)/,
   /^\/api\/reports(\/|$)/,
+  /^\/api\/inbound\/ses$/,
   /^\/.well-known(\/|$)/,
   /^\/public\//,
   /^\/favicon.ico$/,

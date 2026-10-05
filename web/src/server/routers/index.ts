@@ -5,6 +5,7 @@ import { adminRouter } from './admin';
 import { balanceChecksRouter } from './balance-checks';
 import { budgetRouter } from './budget';
 import { bulkImportRouter } from './bulk-import';
+import { emailForwardingRouter } from './email-forwarding';
 import { emisRouter } from './emis';
 import { friendsRouter } from './friends';
 import { investmentsRouter } from './investments';
@@ -27,6 +28,7 @@ export const appRouter = createTRPCRouter({
   summary: summaryRouter,
   widget: widgetRouter,
   budget: budgetRouter,
+  emailForwarding: emailForwardingRouter,
   bulkImport: bulkImportRouter,
   investments: investmentsRouter,
   emis: emisRouter,
