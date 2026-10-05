@@ -333,7 +333,9 @@ type CountInput = Omit<z.infer<typeof statementParserSchema>, 'page' | 'perPage'
 const buildCountConditions = (db: Database, userId: string, input: CountInput) => {
   const statementConditions = [];
   const selfTransferStatementConditions = [];
-  statementConditions.push(...buildQueryConditions(visibleStatements, userId, input.start, input.end));
+  statementConditions.push(
+    ...buildQueryConditions(visibleStatements, userId, input.start, input.end),
+  );
   selfTransferStatementConditions.push(
     ...buildQueryConditions(selfTransferStatements, userId, input.start, input.end),
   );

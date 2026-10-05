@@ -12,7 +12,7 @@ const movementsUntil = (accountColumn: string, timeExpression: string) =>
   sql.raw(`(
     COALESCE((
       SELECT SUM(CASE WHEN s."statementKind" = 'expense' THEN -s.amount ELSE s.amount END)
-      FROM statements s
+      FROM visible_statements s
       WHERE s.account_id = ${accountColumn} AND s.created_at <= ${timeExpression}
     ), 0)
     + COALESCE((

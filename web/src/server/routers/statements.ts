@@ -53,7 +53,12 @@ export const statementsRouter = createTRPCRouter({
     )
     .output(z.array(z.string()))
     .query(async ({ ctx, input }) => {
-      const conditions = buildQueryConditions(visibleStatements, ctx.user.id, input.start, input.end);
+      const conditions = buildQueryConditions(
+        visibleStatements,
+        ctx.user.id,
+        input.start,
+        input.end,
+      );
       const statementKind = input.statementKind ?? [];
       if (statementKind.length > 0) {
         conditions.push(inArray(visibleStatements.statementKind, statementKind));
@@ -83,7 +88,12 @@ export const statementsRouter = createTRPCRouter({
     )
     .output(z.array(z.string()))
     .query(async ({ ctx, input }) => {
-      const conditions = buildQueryConditions(visibleStatements, ctx.user.id, input.start, input.end);
+      const conditions = buildQueryConditions(
+        visibleStatements,
+        ctx.user.id,
+        input.start,
+        input.end,
+      );
       const statementKind = input.statementKind ?? [];
       const category = input.category ?? [];
       if (statementKind.length > 0) {
