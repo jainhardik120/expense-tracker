@@ -29,6 +29,8 @@ import { assertOwnsAccountsAndFriends, getFriends } from '@/server/helpers/accou
 import {
   acceptFriendInvitation,
   answerReviewEntries,
+  findStatementMatches,
+  mergeStatementMatches,
   needsAnAnswer,
   reopenReviewEntries,
   updateSharedStatement,
@@ -300,13 +302,33 @@ export const friendsRouter = createTRPCRouter({
         .limit(input.perPage)
         .offset((input.page - 1) * input.perPage),
     ]);
+    const matches = await findStatementMatches(
+      ctx.db,
+      ctx.user.id,
+      rows.filter((row) => row.status === null).map((row) => row.id),
+    );
+    const matchByTheirs = new Map(matches.map((match) => [match.theirs.id, match.mine]));
     return {
-      entries: rows.map(({ originKind, status, ...row }) => ({
-        ...row,
-        status: status ?? ('pending' as const),
-        kind: originKind === 'expense' ? ('paid' as const) : ('transfer' as const),
-        amount: (-Number(row.amount)).toString(),
-      })),
+      entries: rows.map(({ originKind, status, ...row }) => {
+        const match = matchByTheirs.get(row.id);
+        return {
+          ...row,
+          status: status ?? ('pending' as const),
+          kind: originKind === 'expense' ? ('paid' as const) : ('transfer' as const),
+          amount: (-Number(row.amount)).toString(),
+          match:
+            match === undefined
+              ? null
+              : {
+                  id: match.id,
+                  amount: match.amount,
+                  occurredAt: match.createdAt,
+                  category: match.category,
+                  statementKind: match.statementKind,
+                  accountName: match.accountName,
+                },
+        };
+      }),
       pageCount: Math.ceil(count / input.perPage),
       rowsCount: count,
     };
@@ -327,6 +349,15 @@ export const friendsRouter = createTRPCRouter({
         answerReviewEntries(tx, ctx.user.id, input.ids, resolution),
       );
     }),
+  mergeMatches: protectedProcedure
+    .input(
+      z.object({
+        pairs: z.array(z.object({ mine: z.uuid(), theirs: z.uuid() })).min(1),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction((tx) => mergeStatementMatches(tx, ctx.user.id, input.pairs)),
+    ),
   updateSharedStatement: protectedProcedure
     .input(sharedStatementUpdateSchema)
     .mutation(async ({ ctx, input }) => {

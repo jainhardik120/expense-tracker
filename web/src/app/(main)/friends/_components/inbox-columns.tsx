@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 
-import { CheckCheck, RotateCcw } from 'lucide-react';
+import { CheckCheck, Merge, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header';
@@ -17,6 +17,7 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { type Account, type Friend } from '@/types';
 
+import { MergeMatchesDialog } from './merge-matches-dialog';
 import { ResolveInboxDialog } from './resolve-inbox-dialog';
 
 import { signedAmountClassName } from '../../statements/_components/statement-appearance';
@@ -207,6 +208,32 @@ export const createInboxColumns = ({
     enableColumnFilter: true,
   },
   {
+    id: 'match',
+    header: 'Already in your statements',
+    enableSorting: false,
+    cell: ({ row }) => {
+      const { match, amount } = row.original;
+      if (match === null) {
+        return <span className="text-muted-foreground">-</span>;
+      }
+      const gap = Math.abs(Number(match.amount) - Number(amount));
+      return (
+        <div className="flex flex-col">
+          <span>
+            <ZonedDate value={match.occurredAt} /> · {formatCurrency(match.amount)}
+          </span>
+          <span className="text-muted-foreground text-xs">
+            {match.statementKind === 'expense'
+              ? `Expense paid by ${row.original.friendName}`
+              : (match.accountName ?? 'No account')}{' '}
+            · {match.category}
+            {gap > 0 ? ` · ${formatCurrency(gap)} apart` : ''}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
     id: 'became',
     header: 'Became',
     enableSorting: false,
@@ -244,6 +271,12 @@ export const createInboxColumns = ({
       }
       return (
         <RowActions collapse="always">
+          {entry.match === null ? null : (
+            <MergeMatchesDialog
+              entries={[entry]}
+              trigger={<RowActionTrigger icon={Merge} label="Merge, keep mine" />}
+            />
+          )}
           <ResolveInboxDialog
             accountsData={accountsData}
             categories={categories}

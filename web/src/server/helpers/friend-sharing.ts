@@ -11,7 +11,7 @@ import {
 } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { type InboxResolution, type SharedStatementUpdate } from '@/types';
+import { type InboxResolution, MS_PER_DAY, type SharedStatementUpdate } from '@/types';
 
 export const needsAnAnswer = sql`((${statements.statementKind} = 'friend_transaction' AND ${statements.accountId} IS NOT NULL) OR (${statements.statementKind} = 'expense' AND ${statements.accountId} IS NULL))`;
 
@@ -351,5 +351,228 @@ export const updateSharedStatement = instrumentedFunction(
       })
       .where(eq(sharedAnswers.id, answer.id));
     return { id: update.sourceId };
+  },
+);
+
+const MATCH_WINDOW_DAYS = 3;
+const MATCH_WINDOW_MS = MATCH_WINDOW_DAYS * MS_PER_DAY;
+const MATCH_AMOUNT_TOLERANCE = 1;
+const MATCH_RELATIVE_TOLERANCE = 0.005;
+
+type MatchSide = {
+  id: string;
+  amount: string;
+  category: string;
+  tags: string[];
+  statementKind: string;
+  accountId: string | null;
+  createdAt: Date;
+  accountName: string | null;
+  blocked: boolean;
+};
+
+const matchStatementFields = {
+  id: statements.id,
+  amount: statements.amount,
+  category: statements.category,
+  tags: statements.tags,
+  statementKind: statements.statementKind,
+  accountId: statements.accountId,
+  createdAt: statements.createdAt,
+  accountName: sql<
+    string | null
+  >`(SELECT account_name FROM bank_account WHERE id = ${statements.accountId})`,
+  blocked: sql<boolean>`(
+    ${statements.taxableAmount} IS NOT NULL
+    OR ${statements.additionalAttributes} ?| ARRAY['emiId', 'recurringPaymentId', 'salaryPaymentId']
+    OR EXISTS (SELECT 1 FROM splits WHERE splits.statement_id = ${statements.id})
+  )`,
+};
+
+const friendStatement = sql`(${statements.statementKind} = 'friend_transaction' OR (${statements.statementKind} = 'expense' AND ${statements.accountId} IS NULL))`;
+
+const sharesDirectly = (side: MatchSide) =>
+  side.statementKind === 'friend_transaction' && side.accountId === null;
+
+const answerFrom = (kept: MatchSide, removed: MatchSide) => {
+  const category = removed.category === kept.category ? null : removed.category;
+  const tags = sameTags(removed.tags, kept.tags) ? null : removed.tags;
+  if (sharesDirectly(kept)) {
+    if (!sharesDirectly(removed)) {
+      return null;
+    }
+    return { status: null, accountId: null, asKind: null, category, tags };
+  }
+  if (removed.statementKind === 'expense') {
+    if (kept.statementKind !== 'friend_transaction' || Number(kept.amount) >= 0) {
+      return null;
+    }
+    return {
+      status: 'accepted' as const,
+      accountId: null,
+      asKind: 'expense' as const,
+      category,
+      tags,
+    };
+  }
+  return {
+    status: 'accepted' as const,
+    accountId: removed.accountId,
+    asKind: 'friend_transaction' as const,
+    category,
+    tags,
+  };
+};
+
+const isPair = (mine: MatchSide, theirs: MatchSide) => {
+  const gap = Math.abs(Number(mine.amount) + Number(theirs.amount));
+  const size = Math.max(Math.abs(Number(mine.amount)), Math.abs(Number(theirs.amount)));
+  return (
+    gap <= Math.max(MATCH_AMOUNT_TOLERANCE, size * MATCH_RELATIVE_TOLERANCE) &&
+    Math.abs(mine.createdAt.getTime() - theirs.createdAt.getTime()) <= MATCH_WINDOW_MS
+  );
+};
+
+export type StatementMatch = { mine: MatchSide; theirs: MatchSide; friendUserId: string };
+
+export const findStatementMatches = instrumentedFunction(
+  'findStatementMatches',
+  async (db: Database, userId: string, onlyTheirIds?: string[]): Promise<StatementMatch[]> => {
+    const links = await db
+      .select({
+        myProfileId: friendsProfiles.id,
+        friendUserId: friendsProfiles.linkedUserId,
+        theirProfileId: friendsProfiles.linkedProfileId,
+      })
+      .from(friendsProfiles)
+      .where(
+        and(
+          eq(friendsProfiles.userId, userId),
+          sql`${friendsProfiles.linkedUserId} IS NOT NULL`,
+          sql`${friendsProfiles.linkedProfileId} IS NOT NULL`,
+        ),
+      );
+    const matches: StatementMatch[] = [];
+    for (const link of links) {
+      if (link.friendUserId === null || link.theirProfileId === null) {
+        continue;
+      }
+      const [mineRows, theirRows] = await Promise.all([
+        db
+          .select(matchStatementFields)
+          .from(statements)
+          .where(
+            and(
+              eq(statements.userId, userId),
+              eq(statements.friendId, link.myProfileId),
+              friendStatement,
+            ),
+          ),
+        db
+          .select(matchStatementFields)
+          .from(statements)
+          .leftJoin(
+            sharedAnswers,
+            and(
+              eq(sharedAnswers.statementId, statements.id),
+              eq(sharedAnswers.viewerUserId, userId),
+            ),
+          )
+          .where(
+            and(
+              eq(statements.userId, link.friendUserId),
+              eq(statements.friendId, link.theirProfileId),
+              needsAnAnswer,
+              sql`${sharedAnswers.status} IS NULL`,
+            ),
+          ),
+      ]);
+      const candidates = mineRows
+        .flatMap((mine) =>
+          theirRows
+            .filter(
+              (theirs) =>
+                !theirs.blocked && isPair(mine, theirs) && answerFrom(mine, theirs) !== null,
+            )
+            .map((theirs) => ({
+              mine,
+              theirs,
+              gap: Math.abs(Number(mine.amount) + Number(theirs.amount)),
+              days: Math.abs(mine.createdAt.getTime() - theirs.createdAt.getTime()),
+            })),
+        )
+        .toSorted((left, right) =>
+          left.gap === right.gap ? left.days - right.days : left.gap - right.gap,
+        );
+      const usedMine = new Set<string>();
+      const usedTheirs = new Set<string>();
+      for (const candidate of candidates) {
+        if (usedMine.has(candidate.mine.id) || usedTheirs.has(candidate.theirs.id)) {
+          continue;
+        }
+        usedMine.add(candidate.mine.id);
+        usedTheirs.add(candidate.theirs.id);
+        if (onlyTheirIds === undefined || onlyTheirIds.includes(candidate.theirs.id)) {
+          matches.push({
+            mine: candidate.mine,
+            theirs: candidate.theirs,
+            friendUserId: link.friendUserId,
+          });
+        }
+      }
+    }
+    return matches;
+  },
+);
+
+export const mergeStatementMatches = instrumentedFunction(
+  'mergeStatementMatches',
+  async (db: Database, userId: string, pairs: { mine: string; theirs: string }[]) => {
+    const theirIds = pairs.map((pair) => pair.theirs);
+    await db
+      .select({ id: statements.id })
+      .from(statements)
+      .where(inArray(statements.id, [...theirIds, ...pairs.map((pair) => pair.mine)]))
+      .for('update');
+    const matches = await findStatementMatches(db, userId, theirIds);
+    const confirmed = pairs.map((pair) => {
+      const match = matches.find(
+        (candidate) => candidate.theirs.id === pair.theirs && candidate.mine.id === pair.mine,
+      );
+      if (match === undefined) {
+        throw new Error('Some of these are no longer a match');
+      }
+      return match;
+    });
+    for (const match of confirmed) {
+      const answer = answerFrom(match.mine, match.theirs);
+      if (answer === null) {
+        throw new Error('Some of these are no longer a match');
+      }
+      await db
+        .insert(sharedAnswers)
+        .values({
+          viewerUserId: match.friendUserId,
+          statementId: match.mine.id,
+          ...answer,
+          answeredAt: answer.status === null ? null : new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [sharedAnswers.statementId, sharedAnswers.viewerUserId],
+          targetWhere: sql`${sharedAnswers.statementId} IS NOT NULL`,
+          set: {
+            status: sql`excluded.status`,
+            accountId: sql`excluded.account_id`,
+            asKind: sql`excluded.as_kind`,
+            category: sql`excluded.category`,
+            tags: sql`excluded.tags`,
+            answeredAt: sql`excluded.answered_at`,
+          },
+        });
+      await db
+        .delete(statements)
+        .where(and(eq(statements.id, match.theirs.id), eq(statements.userId, match.friendUserId)));
+    }
+    return { merged: confirmed.length };
   },
 );

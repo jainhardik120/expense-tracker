@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCheck } from 'lucide-react';
+import { CheckCheck, Merge } from 'lucide-react';
 
 import { DataTable } from '@/components/data-table/data-table';
 import {
@@ -16,6 +16,7 @@ import { type Account, type Friend } from '@/types';
 
 import { FriendsDialog } from './friends-dialog';
 import { createInboxColumns } from './inbox-columns';
+import { MergeMatchesDialog } from './merge-matches-dialog';
 import { ResolveInboxDialog } from './resolve-inbox-dialog';
 
 type InboxData = RouterOutput['friends']['getInbox'];
@@ -52,6 +53,16 @@ const InboxTable = ({
             className="hidden data-[orientation=vertical]:h-5 sm:block"
             orientation="vertical"
           />
+          {selected.some((entry) => entry.match !== null) ? (
+            <MergeMatchesDialog
+              entries={selected}
+              trigger={
+                <DataTableActionBarAction size="icon" tooltip="Merge matches, keep mine">
+                  <Merge />
+                </DataTableActionBarAction>
+              }
+            />
+          ) : null}
           <ResolveInboxDialog
             accountsData={accountsData}
             categories={categories}
