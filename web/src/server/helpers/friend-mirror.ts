@@ -10,7 +10,7 @@ import {
 } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { type InboxResolution } from '@/types';
+import { type InboxResolution, isMirroredStatement } from '@/types';
 
 type FriendLink = {
   targetUserId: string;
@@ -58,6 +58,7 @@ export const syncSplitMirrors = instrumentedFunction(
         occurredAt: statements.createdAt,
         category: statements.category,
         tags: statements.tags,
+        statementIsCopy: sql<boolean>`${statements.mirrorOfSplitId} IS NOT NULL OR ${statements.mirrorOfStatementId} IS NOT NULL`,
       })
       .from(splits)
       .innerJoin(statements, eq(statements.id, splits.statementId))
@@ -68,9 +69,11 @@ export const syncSplitMirrors = instrumentedFunction(
       .where(inArray(splits.id, splitIds));
     const linked = sources.filter(
       (row): row is typeof row & { targetUserId: string; targetProfileId: string } =>
-        row.targetUserId !== null && row.targetProfileId !== null,
+        !row.statementIsCopy && row.targetUserId !== null && row.targetProfileId !== null,
     );
-    const unlinked = sources.filter((row) => row.targetUserId === null).map((row) => row.splitId);
+    const unlinked = sources
+      .filter((row) => row.statementIsCopy || row.targetUserId === null)
+      .map((row) => row.splitId);
     if (unlinked.length > 0) {
       await db.delete(statements).where(inArray(statements.mirrorOfSplitId, unlinked));
     }
@@ -213,12 +216,14 @@ export const reconcileStatement = instrumentedFunction(
           category: statements.category,
           tags: statements.tags,
           occurredAt: statements.createdAt,
+          mirrorOfSplitId: statements.mirrorOfSplitId,
+          mirrorOfStatementId: statements.mirrorOfStatementId,
         })
         .from(statements)
         .where(eq(statements.id, statementId))
         .limit(1)
     ).at(0);
-    if (source === undefined) {
+    if (source === undefined || isMirroredStatement(source)) {
       return;
     }
     const link =
@@ -257,6 +262,8 @@ const projectOneDirection = async (db: Database, friendId: string, ownerUserId: 
     JOIN statements st ON st.id = sp.statement_id
     WHERE sp.user_id = ${ownerUserId}
       AND sp.friend_id = ${friendId}::uuid
+      AND st.mirror_of_split_id IS NULL
+      AND st.mirror_of_statement_id IS NULL
     ON CONFLICT (mirror_of_split_id) WHERE mirror_of_split_id IS NOT NULL
     DO UPDATE SET
       user_id = excluded.user_id,
@@ -278,6 +285,8 @@ const projectOneDirection = async (db: Database, friendId: string, ownerUserId: 
     WHERE st.user_id = ${ownerUserId}
       AND st.friend_id = ${friendId}::uuid
       AND st."statementKind" = 'friend_transaction'
+      AND st.mirror_of_split_id IS NULL
+      AND st.mirror_of_statement_id IS NULL
     ON CONFLICT (origin_statement_id, user_id)
     DO UPDATE SET
       amount = excluded.amount,
