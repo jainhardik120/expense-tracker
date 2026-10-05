@@ -171,10 +171,79 @@ const nearest = (anchor: Item, pool: Item[], days: number, limit: number) =>
 const PAYMENT_PATTERN = /\b(?:payment|bbps|autopay)\b/i;
 const EMI_PATTERN = /\bEMI\b/i;
 
+const TOKEN_MIN_LENGTH = 4;
+const GENERIC_TOKENS = new Set([
+  'upi',
+  'imps',
+  'neft',
+  'rtgs',
+  'bank',
+  'payment',
+  'transfer',
+  'paid',
+  'sent',
+  'using',
+  'from',
+  'limited',
+  'private',
+  'india',
+  'state',
+  'icici',
+  'axis',
+  'hdfc',
+  'kotak',
+  'yesbank',
+  'mutual',
+  'iccl',
+  'refund',
+  'refunds',
+  'scan',
+  'online',
+]);
+
+const tokensOf = (description: string) =>
+  new Set(
+    description
+      .toLowerCase()
+      .split(/[^a-z]+/)
+      .filter((token) => token.length >= TOKEN_MIN_LENGTH && !GENERIC_TOKENS.has(token)),
+  );
+
+const shareCounterparty = (first: Item, second: Item) => {
+  const tokens = tokensOf(first.description);
+  return [...tokensOf(second.description)].some((token) => tokens.has(token));
+};
+
+const directions = (items: Item[]) => new Set(items.map((item) => item.direction)).size;
+
+const plausibleWindow = (members: Item[]) =>
+  directions(members) === 1 || spreadOf(members) <= CLUB_DAYS;
+
 const isEmiFamily = (item: Item) =>
   item.side === 'statement' && (item.emi === 'installment' || EMI_PATTERN.test(item.description));
 
 const hasInstallment = (items: Item[]) => items.some(isEmiFamily);
+
+const INSTALLMENT_PATTERN = /\b(\d{1,3})\s*\/\s*(\d{1,3})\b/;
+const REFERENCE_PATTERN = /ref(?:#|\s*no:?)\s*(\d{6,})/i;
+const REFERENCE_PREFIX = 8;
+
+const installmentKey = (item: Item) => {
+  if (!isEmiFamily(item)) {
+    return null;
+  }
+  const installment = INSTALLMENT_PATTERN.exec(item.description);
+  if (installment === null) {
+    return null;
+  }
+  const reference = REFERENCE_PATTERN.exec(item.description)?.[1] ?? '';
+  return `${installment[1]}/${installment[2]}:${reference.slice(0, REFERENCE_PREFIX)}`;
+};
+
+const splitsInstallment = (statementSide: Item[], pool: Item[]) => {
+  const keys = new Set(statementSide.map(installmentKey).filter((key) => key !== null));
+  return pool.some((item) => !statementSide.includes(item) && keys.has(installmentKey(item) ?? ''));
+};
 
 class Matcher {
   private readonly items: Item[];
@@ -327,7 +396,13 @@ class Matcher {
             continue;
           }
           const allowed = conversion ? EMI_TOLERANCE : 0;
+          const related =
+            conversion ||
+            side === 'ledger' ||
+            gap(first, second) <= EXACT_DAYS ||
+            shareCounterparty(first, second);
           if (
+            related &&
             first.direction !== second.direction &&
             Math.abs(first.amount - second.amount) <= allowed &&
             gap(first, second) <= REVERSAL_DAYS
@@ -393,8 +468,10 @@ class Matcher {
               const members = [...statementSide, ...ledgerSide];
               candidates.push({
                 rank: [
-                  -statementSide.filter(isEmiFamily).length,
+                  Number(splitsInstallment(statementSide, statementPool)),
                   Math.abs(offset),
+                  ledgerSide.length,
+                  -statementSide.filter(isEmiFamily).length,
                   members.length,
                   spreadOf(members),
                   member.day,
@@ -444,6 +521,9 @@ class Matcher {
                   continue;
                 }
                 const members = [...statementSide, ...ledgerSide];
+                if (!plausibleWindow(members)) {
+                  continue;
+                }
                 candidates.push({
                   rank: [Math.abs(offset), members.length, spreadOf(members), anchor.day],
                   kind: approximate ? 'emi_rounding' : 'window',
