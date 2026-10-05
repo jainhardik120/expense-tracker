@@ -8,10 +8,15 @@ import com.jainhardik120.expensetracker.data.entity.AccountItem
 import com.jainhardik120.expensetracker.data.entity.CreateSelfTransferBody
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
+import com.jainhardik120.expensetracker.data.entity.BulkSplitBody
+import com.jainhardik120.expensetracker.data.entity.BulkSplitFields
+import com.jainhardik120.expensetracker.data.entity.SplitFields
+import com.jainhardik120.expensetracker.data.entity.SplitItem
 import com.jainhardik120.expensetracker.data.entity.StatementFilters
 import com.jainhardik120.expensetracker.data.entity.StatementItem
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
 import com.jainhardik120.expensetracker.ui.BaseViewModel
+import com.jainhardik120.expensetracker.ui.UiEvent
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import java.time.ZoneId
@@ -95,6 +100,7 @@ class StatementsViewModel @Inject constructor(
     fun applyFilters(value: StatementFilters) {
         if (value == filters) return
         filters = value
+        selectedIds = emptySet()
         statements = emptyList()
         loadStatements()
     }
@@ -297,6 +303,133 @@ class StatementsViewModel @Inject constructor(
             statements = statements.filter { it.id != item.id }
             totalCount = (totalCount - 1).coerceAtLeast(0)
             loadTimeline()
+        }
+    }
+
+    var splitsFor by mutableStateOf<StatementItem?>(null)
+        private set
+
+    var splits by mutableStateOf<List<SplitItem>>(emptyList())
+        private set
+
+    var isLoadingSplits by mutableStateOf(false)
+        private set
+
+    var isSavingSplit by mutableStateOf(false)
+        private set
+
+    fun openSplits(item: StatementItem) {
+        splitsFor = item
+        splits = emptyList()
+        loadSplits(item.id)
+    }
+
+    fun closeSplits() {
+        splitsFor = null
+        splits = emptyList()
+    }
+
+    private fun loadSplits(statementId: String) {
+        makeApiCall(
+            call = { api.getSplits(statementId) },
+            preExecuting = { isLoadingSplits = true },
+            onDoneExecuting = { isLoadingSplits = false }
+        ) { response ->
+            if (splitsFor?.id != statementId) return@makeApiCall
+            splits = response
+            val total = response.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
+            statements = statements.map { if (it.id == statementId) it.copy(splitAmount = total) else it }
+            splitsFor = splitsFor?.copy(splitAmount = total)
+        }
+    }
+
+    fun saveSplit(splitId: String?, friendId: String, amount: String, onDone: () -> Unit) {
+        val statementId = splitsFor?.id ?: return
+        val fields = SplitFields(friendId = friendId, amount = amount)
+        makeApiCall(
+            call = {
+                if (splitId == null) {
+                    api.createSplit(statementId, fields)
+                } else {
+                    api.updateSplit(splitId, fields)
+                }
+            },
+            preExecuting = { isSavingSplit = true },
+            onDoneExecuting = { isSavingSplit = false }
+        ) {
+            onDone()
+            loadSplits(statementId)
+            sendUiEvent(UiEvent.ShowSnackBar(if (splitId == null) "Split added" else "Split updated"))
+        }
+    }
+
+    fun deleteSplit(splitId: String) {
+        val statementId = splitsFor?.id ?: return
+        makeApiCall(
+            call = { api.deleteSplit(splitId) },
+            preExecuting = { isSavingSplit = true },
+            onDoneExecuting = { isSavingSplit = false }
+        ) {
+            loadSplits(statementId)
+            sendUiEvent(UiEvent.ShowSnackBar("Split deleted"))
+        }
+    }
+
+    var selectedIds by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    val isSelecting: Boolean get() = selectedIds.isNotEmpty()
+
+    val selectedStatements: List<StatementItem>
+        get() = statements.filter { it.id in selectedIds }
+
+    fun toggleSelection(item: StatementItem) {
+        selectedIds = if (item.id in selectedIds) selectedIds - item.id else selectedIds + item.id
+    }
+
+    private fun refreshSplitTotal(statementId: String) {
+        makeApiCall(call = { api.getSplits(statementId) }, preExecuting = null, onDoneExecuting = null) { response ->
+            val total = response.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
+            statements = statements.map { if (it.id == statementId) it.copy(splitAmount = total) else it }
+        }
+    }
+
+    fun clearSelection() {
+        selectedIds = emptySet()
+    }
+
+    var bulkSplitError by mutableStateOf<String?>(null)
+        private set
+
+    fun clearBulkSplitError() {
+        bulkSplitError = null
+    }
+
+    fun bulkSplit(friendId: String, percentage: String, onDone: () -> Unit) {
+        val targets = selectedStatements
+        if (targets.isEmpty()) return
+        makeApiCall(
+            call = {
+                api.bulkSplit(
+                    BulkSplitBody(
+                        statementIds = targets.map { it.id },
+                        bulkSplitSchema = BulkSplitFields(friendId = friendId, percentage = percentage)
+                    )
+                )
+            },
+            preExecuting = {
+                isSavingSplit = true
+                bulkSplitError = null
+            },
+            onDoneExecuting = { isSavingSplit = false },
+            onException = { bulkSplitError = it },
+            onError = { bulkSplitError = it.message }
+        ) {
+            val ids = targets.map { it.id }.toSet()
+            ids.forEach(::refreshSplitTotal)
+            clearSelection()
+            onDone()
+            sendUiEvent(UiEvent.ShowSnackBar(if (ids.size == 1) "Split 1 statement" else "Split ${ids.size} statements"))
         }
     }
 }

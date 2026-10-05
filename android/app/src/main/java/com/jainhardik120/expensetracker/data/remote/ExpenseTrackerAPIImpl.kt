@@ -12,6 +12,10 @@ import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
 import com.jainhardik120.expensetracker.data.entity.SmsInsertHints
 import com.jainhardik120.expensetracker.data.entity.SmsNotificationsResponse
 import com.jainhardik120.expensetracker.data.entity.UpdateSmsNotificationBody
+import com.jainhardik120.expensetracker.data.entity.BulkSplitBody
+import com.jainhardik120.expensetracker.data.entity.SplitBody
+import com.jainhardik120.expensetracker.data.entity.SplitFields
+import com.jainhardik120.expensetracker.data.entity.SplitItem
 import com.jainhardik120.expensetracker.data.entity.StatementFilters
 import com.jainhardik120.expensetracker.data.entity.StatementsResponse
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
@@ -19,7 +23,7 @@ import com.jainhardik120.expensetracker.data.entity.TimelineDay
 import com.jainhardik120.expensetracker.data.entity.WidgetSummary
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.parameter
 import io.ktor.client.request.request
@@ -38,7 +42,7 @@ class ExpenseTrackerAPIImpl(
         return try {
             val response = call.invoke()
             Result.Success(response)
-        } catch (e: ClientRequestException) {
+        } catch (e: ResponseException) {
             try {
                 val errorBody: R = e.response.body()
                 Result.ClientException(errorBody, e.response.status)
@@ -205,6 +209,52 @@ class ExpenseTrackerAPIImpl(
             requestBuilder<List<FriendItem>>(
                 url = APIRoutes.FRIENDS, method = HttpMethod.Get
             )
+        }
+    }
+
+    override suspend fun getSplits(statementId: String): Result<List<SplitItem>, MessageError> {
+        return performApiRequest {
+            requestBuilder<List<SplitItem>>(url = APIRoutes.statementSplits(statementId), method = HttpMethod.Get)
+        }
+    }
+
+    override suspend fun createSplit(
+        statementId: String,
+        fields: SplitFields
+    ): Result<List<IDResult>, MessageError> {
+        return performApiRequest {
+            requestBuilder<SplitBody, List<IDResult>>(
+                url = APIRoutes.statementSplits(statementId), method = HttpMethod.Post, body = SplitBody(fields)
+            )
+        }
+    }
+
+    override suspend fun updateSplit(
+        splitId: String,
+        fields: SplitFields
+    ): Result<List<IDResult>, MessageError> {
+        return performApiRequest {
+            requestBuilder<SplitBody, List<IDResult>>(
+                url = APIRoutes.split(splitId), method = HttpMethod.Put, body = SplitBody(fields)
+            )
+        }
+    }
+
+    override suspend fun deleteSplit(splitId: String): Result<Unit, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.split(splitId)) {
+                method = HttpMethod.Delete
+            }.body()
+        }
+    }
+
+    override suspend fun bulkSplit(body: BulkSplitBody): Result<Unit, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.BULK_SPLIT) {
+                method = HttpMethod.Post
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }.body()
         }
     }
 

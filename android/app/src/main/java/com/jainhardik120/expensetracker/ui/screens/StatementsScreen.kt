@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.CallSplit
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -47,6 +48,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.Surface
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.widthIn
@@ -68,13 +77,47 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
     val listState = rememberLazyListState()
     var selectedStatement by remember { mutableStateOf<StatementItem?>(null) }
     var showFilters by remember { mutableStateOf(false) }
+    var showBulkSplit by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = viewModel.isSelecting) { viewModel.clearSelection() }
+
+    if (showBulkSplit && viewModel.isSelecting) {
+        BulkSplitSheet(
+            statements = viewModel.selectedStatements,
+            friends = viewModel.friends,
+            isSaving = viewModel.isSavingSplit,
+            serverError = viewModel.bulkSplitError,
+            onSplit = { friendId, percentage ->
+                viewModel.bulkSplit(friendId, percentage) { showBulkSplit = false }
+            },
+            onDismiss = {
+                showBulkSplit = false
+                viewModel.clearBulkSplitError()
+            }
+        )
+    }
 
     selectedStatement?.let { statement ->
         StatementActionsSheet(
             statement = statement,
             onDismiss = { selectedStatement = null },
             onEdit = { viewModel.openEditDialog(statement) },
-            onDelete = { viewModel.deleteStatement(statement) }
+            onDelete = { viewModel.deleteStatement(statement) },
+            onSplits = { viewModel.openSplits(statement) },
+            onSelect = { viewModel.toggleSelection(statement) }
+        )
+    }
+
+    viewModel.splitsFor?.let { statement ->
+        SplitsSheet(
+            statement = statement,
+            splits = viewModel.splits,
+            friends = viewModel.friends,
+            isLoading = viewModel.isLoadingSplits,
+            isSaving = viewModel.isSavingSplit,
+            onSave = viewModel::saveSplit,
+            onDelete = viewModel::deleteSplit,
+            onDismiss = viewModel::closeSplits
         )
     }
 
@@ -144,7 +187,13 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
-            Column(
+            if (viewModel.isSelecting) {
+                ExtendedFloatingActionButton(
+                    onClick = { showBulkSplit = true },
+                    icon = { Icon(Icons.AutoMirrored.Filled.CallSplit, contentDescription = null) },
+                    text = { Text("Split ${viewModel.selectedIds.size}") }
+                )
+            } else Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -212,6 +261,34 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
                     )
                 }
             } else {
+                if (viewModel.isSelecting) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { viewModel.clearSelection() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Cancel selection")
+                        }
+                        Text(
+                            text = "${viewModel.selectedIds.size} selected",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = formatAmount(
+                                viewModel.selectedStatements.sumOf {
+                                    kotlin.math.abs(it.amount.toDoubleOrNull() ?: 0.0)
+                                }
+                            ),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 16.dp)
+                        )
+                    }
+                }
                 Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = listState,
@@ -227,7 +304,10 @@ fun StatementsScreen(viewModel: StatementsViewModel) {
                     items(viewModel.statements, key = { it.id }) { statement ->
                         StatementCard(
                             statement = statement,
-                            onLongPress = { selectedStatement = statement }
+                            onLongPress = { selectedStatement = statement },
+                            selecting = viewModel.isSelecting,
+                            selected = statement.id in viewModel.selectedIds,
+                            onToggle = { viewModel.toggleSelection(statement) }
                         )
                     }
                     if (viewModel.isLoadingMore) {
@@ -283,7 +363,9 @@ fun StatementActionsSheet(
     statement: StatementItem,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onSplits: () -> Unit = {},
+    onSelect: () -> Unit = {}
 ) {
     var confirmingDelete by remember { mutableStateOf(false) }
 
@@ -330,6 +412,17 @@ fun StatementActionsSheet(
             } else {
                 TextButton(
                     onClick = {
+                        onSelect()
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Select", modifier = Modifier.weight(1f))
+                }
+                TextButton(
+                    onClick = {
                         onEdit()
                         onDismiss()
                     },
@@ -338,6 +431,22 @@ fun StatementActionsSheet(
                     Icon(Icons.Default.Edit, contentDescription = null)
                     Spacer(modifier = Modifier.width(12.dp))
                     Text("Edit", modifier = Modifier.weight(1f))
+                }
+                if (statement.type != "self_transfer" && statement.statementKind == "expense") {
+                    TextButton(
+                        onClick = {
+                            onSplits()
+                            onDismiss()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.CallSplit, contentDescription = null)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            if (statement.splitAmount > 0.0) "Splits" else "Split with friends",
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
                 TextButton(
                     onClick = { confirmingDelete = true },
@@ -354,7 +463,13 @@ fun StatementActionsSheet(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
+fun StatementCard(
+    statement: StatementItem,
+    onLongPress: () -> Unit = {},
+    selecting: Boolean = false,
+    selected: Boolean = false,
+    onToggle: () -> Unit = {}
+) {
     val isSelfTransfer = statement.type == "self_transfer"
     val value = statement.amount.toDoubleOrNull() ?: 0.0
     val isSplit = statement.statementKind == "expense" && statement.splitAmount > 0.0
@@ -385,13 +500,32 @@ fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .combinedClickable(onClick = {}, onLongClick = onLongPress),
+            .combinedClickable(
+                onClick = { if (selecting) onToggle() },
+                onLongClick = { if (selecting) onToggle() else onLongPress() }
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainer
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.surfaceContainerHighest
+            } else {
+                MaterialTheme.colorScheme.surfaceContainer
+            }
         )
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+        if (selecting) {
+            CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onToggle() },
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+            }
+        }
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
@@ -449,6 +583,7 @@ fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
                     maxLines = 1
                 )
             }
+        }
         }
     }
 }

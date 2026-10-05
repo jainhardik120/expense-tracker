@@ -16,9 +16,12 @@ object APIRoutes {
     const val CATEGORIES = "${STATEMENTS}/categories"
     const val TAGS = "${STATEMENTS}/tags"
     const val TIMELINE = "${BASE_URL}/statements/timeline"
+    const val BULK_SPLIT = "${BASE_URL}/statements/splits/bulk"
 
     fun statement(id: String) = "${STATEMENTS}/$id"
     fun selfTransfer(id: String) = "${SELF_TRANSFER}/$id"
+    fun statementSplits(id: String) = "${BASE_URL}/statements/$id/splits"
+    fun split(id: String) = "${BASE_URL}/statements/splits/$id"
     fun smsNotification(id: String) = "${SEND_NOTIFICATION}/$id"
     fun smsNotificationHints(id: String) = "${SEND_NOTIFICATION}/$id/hints"
 }

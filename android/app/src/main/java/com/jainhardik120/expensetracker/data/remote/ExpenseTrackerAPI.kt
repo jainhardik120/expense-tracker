@@ -12,6 +12,9 @@ import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
 import com.jainhardik120.expensetracker.data.entity.SmsInsertHints
 import com.jainhardik120.expensetracker.data.entity.SmsNotificationsResponse
 import com.jainhardik120.expensetracker.data.entity.UpdateSmsNotificationBody
+import com.jainhardik120.expensetracker.data.entity.BulkSplitBody
+import com.jainhardik120.expensetracker.data.entity.SplitFields
+import com.jainhardik120.expensetracker.data.entity.SplitItem
 import com.jainhardik120.expensetracker.data.entity.StatementFilters
 import com.jainhardik120.expensetracker.data.entity.StatementsResponse
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
@@ -53,6 +56,12 @@ interface ExpenseTrackerAPI {
         filters: StatementFilters,
         timezone: String
     ): Result<List<TimelineDay>, MessageError>
+
+    suspend fun getSplits(statementId: String): Result<List<SplitItem>, MessageError>
+    suspend fun createSplit(statementId: String, fields: SplitFields): Result<List<IDResult>, MessageError>
+    suspend fun updateSplit(splitId: String, fields: SplitFields): Result<List<IDResult>, MessageError>
+    suspend fun deleteSplit(splitId: String): Result<Unit, MessageError>
+    suspend fun bulkSplit(body: BulkSplitBody): Result<Unit, MessageError>
 
     suspend fun getCategories(): Result<List<String>, MessageError>
     suspend fun getTags(): Result<List<String>, MessageError>
