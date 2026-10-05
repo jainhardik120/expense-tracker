@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
 
 import { type PdfLine } from './extract';
-import { isReconciled, parseStatementLines, UnsupportedStatementError } from './parse';
+import { parseStatementLines, UnsupportedStatementError } from './parse';
 import { parseAmount, parseDate } from './values';
+
+import { isReconciled } from '../finalize';
 
 type Cells = Array<[number, string]>;
 
@@ -102,13 +104,13 @@ describe('ICICI credit card', () => {
     const statement = parseStatementLines(lines);
     expect(statement).toMatchObject({
       issuer: 'icici',
-      cardLast4: '5678',
+      accountLast4: '5678',
       statementDate: '2026-09-12',
       dueDate: '2026-09-30',
       periodStart: '2026-08-13',
       periodEnd: '2026-09-12',
-      previousBalance: 1000,
-      totalDue: 900,
+      openingBalance: 1000,
+      closingBalance: 900,
       minimumDue: 100,
       creditLimit: 50000,
       declared: { debits: 1400, credits: 1500 },
@@ -230,13 +232,13 @@ describe('YES BANK credit card', () => {
     const statement = parseStatementLines(lines);
     expect(statement).toMatchObject({
       issuer: 'yes',
-      cardLast4: '4321',
+      accountLast4: '4321',
       statementDate: '2026-09-14',
       dueDate: '2026-10-04',
       periodStart: '2026-08-15',
       periodEnd: '2026-09-14',
-      previousBalance: 100,
-      totalDue: 470,
+      openingBalance: 100,
+      closingBalance: 470,
       minimumDue: 50,
       creditLimit: 50000,
     });
@@ -329,13 +331,13 @@ describe('IndusInd credit card', () => {
     const statement = parseStatementLines(lines);
     expect(statement).toMatchObject({
       issuer: 'indusind',
-      cardLast4: '8744',
+      accountLast4: '8744',
       statementDate: '2026-09-22',
       dueDate: '2026-10-12',
       periodStart: '2026-08-23',
       periodEnd: '2026-09-22',
-      previousBalance: 255,
-      totalDue: 274,
+      openingBalance: 255,
+      closingBalance: 274,
       creditLimit: 50000,
     });
     expect(statement.transactions).toEqual([
@@ -508,8 +510,8 @@ describe('SBI credit card', () => {
       dueDate: '2025-11-06',
       periodStart: '2025-09-18',
       periodEnd: '2025-10-17',
-      previousBalance: 500,
-      totalDue: 1700,
+      openingBalance: 500,
+      closingBalance: 1700,
       minimumDue: 600,
       creditLimit: 97000,
       declared: { debits: 7118, credits: 500 },
@@ -642,11 +644,11 @@ describe('Axis Bank credit card', () => {
   test('derives the cycle from the due date and reads Debit/Credit columns', () => {
     const statement = parseStatementLines(lines);
     expect(statement.issuer).toBe('axis');
-    expect(statement.cardLast4).toBe('0121');
+    expect(statement.accountLast4).toBe('0121');
     expect(statement.periodStart).toBe('2026-05-23');
     expect(statement.periodEnd).toBe('2026-06-22');
-    expect(statement.previousBalance).toBe(1000);
-    expect(statement.totalDue).toBe(1700);
+    expect(statement.openingBalance).toBe(1000);
+    expect(statement.closingBalance).toBe(1700);
     expect(statement.transactions.map((row) => [row.amount, row.direction, row.emi])).toEqual([
       [500, 'debit', null],
       [1200, 'credit', 'conversion'],
@@ -657,6 +659,152 @@ describe('Axis Bank credit card', () => {
     expect(statement.transactions[0]?.description).toBe(
       'UPI/Swiggy Limited/swiggy@okaxis/ user@okaxis',
     );
+    expect(statement.balanceCheck?.difference).toBe(0);
+  });
+});
+
+describe('Axis Bank account statement', () => {
+  const lines = page(1, [
+    [
+      511,
+      [
+        [
+          25,
+          'Statement for Account No. 92401XXXXX07792 for the period from 01-01-2026 to 31-01-2026',
+        ],
+      ],
+    ],
+    [
+      449,
+      [
+        [25, 'Date'],
+        [78, 'Transaction Details'],
+        [412, 'Withdrawal'],
+        [481, 'Deposits'],
+        [539, 'Balance'],
+      ],
+    ],
+    [
+      422,
+      [
+        [192, 'Opening Balance'],
+        [536, '1,000.00'],
+      ],
+    ],
+    [
+      406,
+      [
+        [25, '03-01-2026 UPI TO MERCHANT : GOOGLE'],
+        [439, '11.39'],
+        [536, '988.61'],
+      ],
+    ],
+    [
+      390,
+      [
+        [25, '23-01-2026'],
+        [82, 'NEFT TRANSFER FROM SALARY'],
+        [467, '1,26,229.00 1,27,217.61'],
+      ],
+    ],
+    [380, [[78, 'BANK) (CHASH)']]],
+    [
+      221,
+      [
+        [194, 'Closing Balance'],
+        [544, '1,27,217.61'],
+      ],
+    ],
+  ]);
+
+  test('follows the running balance and keeps wrapped narration', () => {
+    const statement = parseStatementLines(lines);
+    expect(statement.kind).toBe('bank_account');
+    expect(statement.accountLast4).toBe('7792');
+    expect(statement.periodStart).toBe('2026-01-01');
+    expect(statement.transactions.map((row) => [row.amount, row.direction])).toEqual([
+      [11.39, 'debit'],
+      [126_229, 'credit'],
+    ]);
+    expect(statement.transactions[1]?.description).toBe('NEFT TRANSFER FROM SALARY BANK) (CHASH)');
+    expect(statement.balanceCheck?.difference).toBe(0);
+  });
+});
+
+describe('ICICI Bank account statement', () => {
+  const lines = page(1, [
+    [
+      737,
+      [
+        [
+          60,
+          'Statement of Transactions in Saving Account no. 123456780991 in INR for the period October 6, 2025 - October 5, 2026',
+        ],
+      ],
+    ],
+    [
+      619,
+      [
+        [60, 'Transaction'],
+        [399, 'Withdrawal'],
+        [474, 'Deposit'],
+        [532, 'Balance'],
+      ],
+    ],
+    [
+      614,
+      [
+        [24, 'S No.'],
+        [122, 'Cheque Number'],
+        [247, 'Transaction Remarks'],
+      ],
+    ],
+    [
+      609,
+      [
+        [74, 'Date'],
+        [396, 'Amount (INR)'],
+        [462, 'Amount (INR)'],
+        [538, '(INR)'],
+      ],
+    ],
+    [594, [[192, 'BLINKIT CO']]],
+    [
+      589,
+      [
+        [30, '1'],
+        [61, '08.10.2025'],
+        [437, '216.00'],
+        [540, '784.00'],
+      ],
+    ],
+    [584, [[192, 'UPI/BLINKIT CO/grofers1paytm@/HDFC']]],
+    [574, [[192, 'BANK/AXI4128/']]],
+    [554, [[192, 'SALARY']]],
+    [
+      549,
+      [
+        [30, '2'],
+        [61, '09.10.2025'],
+        [484, '5000.00'],
+        [540, '5784.00'],
+      ],
+    ],
+    [544, [[192, 'NEFT/SALARY OCT']]],
+  ]);
+
+  test('reads right-aligned amounts by column and joins the remarks', () => {
+    const statement = parseStatementLines(lines);
+    expect(statement.issuer).toBe('icici_account');
+    expect(statement.accountLast4).toBe('0991');
+    expect(statement.periodStart).toBe('2025-10-06');
+    expect(statement.openingBalance).toBe(1000);
+    expect(
+      statement.transactions.map((row) => [row.amount, row.direction, row.description]),
+    ).toEqual([
+      [216, 'debit', 'UPI/BLINKIT CO/grofers1paytm@/HDFC BANK/AXI4128/'],
+      [5000, 'credit', 'NEFT/SALARY OCT'],
+    ]);
     expect(statement.balanceCheck?.difference).toBe(0);
   });
 });

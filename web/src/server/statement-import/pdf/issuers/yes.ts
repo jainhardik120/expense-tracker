@@ -1,6 +1,6 @@
+import { type IssuerStatement } from '../../types';
 import { type PdfLine } from '../extract';
 import { readTransactions } from '../table';
-import { type IssuerStatement } from '../types';
 import {
   amountCell,
   declaredTotals,
@@ -35,13 +35,13 @@ export const parseYes = (lines: PdfLine[]): IssuerStatement => {
   return {
     kind: 'credit_card',
     issuer: 'yes',
-    cardLast4: maskedCardLast4(lines),
+    accountLast4: maskedCardLast4(lines),
     statementDate: statementDate === null ? null : parseDate(statementDate),
     periodStart: range.start,
     periodEnd: range.end,
     dueDate: dueDate === null ? null : parseDate(dueDate),
-    previousBalance: signedBalance(lines, 'Previous Balance'),
-    totalDue: amount(lines, 'Total Amount Due'),
+    openingBalance: signedBalance(lines, 'Previous Balance'),
+    closingBalance: amount(lines, 'Total Amount Due'),
     minimumDue: amount(lines, 'Minimum Amount Due'),
     creditLimit: amount(lines, 'Credit Limit'),
     declared: declaredTotals(

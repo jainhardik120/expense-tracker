@@ -1,6 +1,6 @@
+import { type IssuerStatement } from '../../types';
 import { type PdfLine } from '../extract';
 import { readTransactions } from '../table';
-import { type IssuerStatement } from '../types';
 import { amountCell, dateCell, maskedCardLast4, valueNear } from '../values';
 
 const DAY_MS = 86_400_000;
@@ -43,13 +43,13 @@ export const parseAxis = (lines: PdfLine[]): IssuerStatement => {
   return {
     kind: 'credit_card',
     issuer: 'axis',
-    cardLast4: maskedCardLast4(lines),
+    accountLast4: maskedCardLast4(lines),
     statementDate: periodEnd,
     periodStart: periodEnd === null ? null : previousCycleStart(periodEnd),
     periodEnd,
     dueDate,
-    previousBalance: amount(lines, 'Opening Balance'),
-    totalDue: amount(lines, 'Total Payment Due'),
+    openingBalance: amount(lines, 'Opening Balance'),
+    closingBalance: amount(lines, 'Total Payment Due'),
     minimumDue: amount(lines, 'Minimum Payment Due'),
     creditLimit: amount(lines, 'Credit Limit'),
     declared: null,

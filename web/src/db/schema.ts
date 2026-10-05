@@ -690,6 +690,7 @@ export type StatementImportRow = {
 };
 
 export type StatementImportSummary = {
+  kind?: 'credit_card' | 'bank_account';
   dueDate: string | null;
   minimumDue: number | null;
   creditLimit: number | null;

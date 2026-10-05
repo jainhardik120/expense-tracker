@@ -1,6 +1,7 @@
 import { type PdfCell, type PdfLine } from './extract';
-import { type ParsedTransaction } from './types';
 import { leadingDate, parseAmount } from './values';
+
+import { type ParsedTransaction } from '../types';
 
 export type TableLayout = {
   headers: { date: string; description: string; amount: string; category?: string };

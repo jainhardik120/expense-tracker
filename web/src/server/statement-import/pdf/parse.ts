@@ -1,13 +1,15 @@
 import { type PdfLine } from './extract';
 import { matchesAxis, parseAxis } from './issuers/axis';
+import { matchesAxisAccount, parseAxisAccount } from './issuers/axis-account';
 import { matchesIcici, parseIcici } from './issuers/icici';
+import { matchesIciciAccount, parseIciciAccount } from './issuers/icici-account';
 import { matchesIndusind, parseIndusind } from './issuers/indusind';
 import { matchesSbi, parseSbi } from './issuers/sbi';
 import { matchesYes, parseYes } from './issuers/yes';
-import { type ParsedCardStatement } from './types';
-import { roundMoney } from './values';
 
-const RECONCILE_TOLERANCE = 0.01;
+import { finalizeStatement } from '../finalize';
+import { type ParsedStatement } from '../types';
+
 const DETECTION_LINES = 80;
 
 const issuers = [
@@ -16,6 +18,8 @@ const issuers = [
   { matches: matchesIndusind, parse: parseIndusind },
   { matches: matchesSbi, parse: parseSbi },
   { matches: matchesAxis, parse: parseAxis },
+  { matches: matchesAxisAccount, parse: parseAxisAccount },
+  { matches: matchesIciciAccount, parse: parseIciciAccount },
 ];
 
 export class UnsupportedStatementError extends Error {
@@ -24,7 +28,7 @@ export class UnsupportedStatementError extends Error {
   }
 }
 
-export const parseStatementLines = (lines: PdfLine[]): ParsedCardStatement => {
+export const parseStatementLines = (lines: PdfLine[]): ParsedStatement => {
   const text = lines
     .slice(0, DETECTION_LINES)
     .map((line) => line.text)
@@ -33,38 +37,5 @@ export const parseStatementLines = (lines: PdfLine[]): ParsedCardStatement => {
   if (issuer === undefined) {
     throw new UnsupportedStatementError();
   }
-  const statement = issuer.parse(lines);
-  const billed =
-    statement.declared === null
-      ? statement.transactions
-      : statement.transactions.filter((row) => row.emi === null);
-  const debits = roundMoney(
-    billed.filter((row) => row.direction === 'debit').reduce((sum, row) => sum + row.amount, 0),
-  );
-  const credits = roundMoney(
-    billed.filter((row) => row.direction === 'credit').reduce((sum, row) => sum + row.amount, 0),
-  );
-  const reconciliation =
-    statement.declared === null
-      ? null
-      : {
-          debitsDifference: roundMoney(debits - statement.declared.debits),
-          creditsDifference: roundMoney(credits - statement.declared.credits),
-        };
-  const balanceCheck =
-    statement.previousBalance === null || statement.totalDue === null
-      ? null
-      : {
-          expected: roundMoney(statement.previousBalance + debits - credits),
-          actual: statement.totalDue,
-          difference: roundMoney(
-            statement.totalDue - (statement.previousBalance + debits - credits),
-          ),
-        };
-  return { ...statement, totals: { debits, credits }, reconciliation, balanceCheck };
+  return finalizeStatement(issuer.parse(lines));
 };
-
-export const isReconciled = (statement: ParsedCardStatement) =>
-  statement.reconciliation !== null &&
-  Math.abs(statement.reconciliation.debitsDifference) < RECONCILE_TOLERANCE &&
-  Math.abs(statement.reconciliation.creditsDifference) < RECONCILE_TOLERANCE;

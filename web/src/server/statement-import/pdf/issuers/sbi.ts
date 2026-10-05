@@ -1,6 +1,6 @@
+import { type IssuerStatement } from '../../types';
 import { type PdfLine } from '../extract';
 import { readTransactions } from '../table';
-import { type IssuerStatement } from '../types';
 import { amountCell, dateCell, declaredTotals, sum, textAfterLabel, valueNear } from '../values';
 
 const SUMMARY_LINES = 6;
@@ -30,13 +30,13 @@ export const parseSbi = (lines: PdfLine[]): IssuerStatement => {
   return {
     kind: 'credit_card',
     issuer: 'sbi',
-    cardLast4: null,
+    accountLast4: null,
     statementDate: valueNear(lines, 'Statement Date', dateCell, { tolerance: 25 }),
     periodStart: periodPart(period, 0),
     periodEnd: periodPart(period, 1),
     dueDate: valueNear(lines, 'Payment Due Date', dateCell, { tolerance: 25 }),
-    previousBalance: signed(lines, 'Previous Balance'),
-    totalDue: amount(lines, '*Total Amount Due'),
+    openingBalance: signed(lines, 'Previous Balance'),
+    closingBalance: amount(lines, '*Total Amount Due'),
     minimumDue: valueNear(lines, '**Minimum Amount Due', amountCell)?.value ?? null,
     creditLimit: valueNear(lines, 'Credit Limit', amountCell)?.value ?? null,
     declared: declaredTotals(

@@ -7,7 +7,7 @@ import { env } from '@/lib/env';
 import logger from '@/lib/logger';
 import { readObject } from '@/server/helpers/inbound-email/storage';
 
-import { ingestStatementPdf, type IngestInput } from './ingest';
+import { ingestStatementFile, type IngestInput } from './ingest';
 
 const isPdf = (attachment: { filename: string | null; mimeType: string }) =>
   attachment.mimeType === 'application/pdf' ||
@@ -28,7 +28,7 @@ export const autoImportStatements = async (
     isPdf({ filename: candidate.filename, mimeType: candidate.mimeType }),
   )) {
     try {
-      await ingestStatementPdf(db, userId, {
+      await ingestStatementFile(db, userId, {
         data: bytesOf(attachment),
         fileName: attachment.filename ?? 'statement.pdf',
         rememberPassword: false,
@@ -67,7 +67,7 @@ export const importEmailAttachment = async (
   if (attachment === undefined || !isPdf(attachment)) {
     throw new Error('That attachment is not a PDF');
   }
-  return ingestStatementPdf(db, userId, {
+  return ingestStatementFile(db, userId, {
     data: bytesOf(attachment),
     fileName: attachment.filename ?? 'statement.pdf',
     password: input.password,

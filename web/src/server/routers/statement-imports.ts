@@ -20,13 +20,14 @@ import {
 } from '@/server/statement-import/check';
 import { importEmailAttachment } from '@/server/statement-import/email';
 import {
-  ingestStatementPdf,
+  ingestStatementFile,
   type IngestResult,
   StatementAccountRequiredError,
 } from '@/server/statement-import/ingest';
 import { PdfPasswordError } from '@/server/statement-import/pdf/extract';
 import { UnsupportedStatementError } from '@/server/statement-import/pdf/parse';
 import { getImportReview } from '@/server/statement-import/review';
+import { SheetLayoutError } from '@/server/statement-import/sheet/parse';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
 const KIB = 1024;
@@ -62,10 +63,10 @@ const outcomeOf = async (run: () => Promise<IngestResult>) => {
       return {
         status: 'account' as const,
         issuer: ISSUER_NAMES[error.issuer] ?? error.issuer,
-        cardLast4: error.cardLast4,
+        cardLast4: error.accountLast4,
       };
     }
-    if (error instanceof UnsupportedStatementError) {
+    if (error instanceof UnsupportedStatementError || error instanceof SheetLayoutError) {
       return { status: 'unsupported' as const };
     }
     throw error;
@@ -134,6 +135,9 @@ export const statementImportsRouter = createTRPCRouter({
         periodStart: statementImports.periodStart,
         periodEnd: statementImports.periodEnd,
         totalDue: statementImports.totalDue,
+        kind: sql<
+          'credit_card' | 'bank_account'
+        >`COALESCE(${statementImports.summary}->>'kind', 'credit_card')`,
         status: statementImports.status,
         rowCount: sql<number>`jsonb_array_length(${statementImports.rows})`,
         outcome: statementImports.outcome,
@@ -160,7 +164,7 @@ export const statementImportsRouter = createTRPCRouter({
         ctx.db,
         ctx.user.id,
         await outcomeOf(() =>
-          ingestStatementPdf(ctx.db, ctx.user.id, {
+          ingestStatementFile(ctx.db, ctx.user.id, {
             data: new Uint8Array(Buffer.from(input.data, 'base64')),
             fileName: input.fileName,
             password: input.password,

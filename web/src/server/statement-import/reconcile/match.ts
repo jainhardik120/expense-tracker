@@ -648,6 +648,16 @@ const redatesFor = (
   });
 };
 
+export const inPeriodLedgerMatches = (input: ReconcileInput) => {
+  const matcher = new Matcher(input);
+  matcher.wide = false;
+  matcher.reversals(true);
+  matcher.emiFirst();
+  matcher.exactPairs();
+  matcher.clubs(false);
+  return matcher.groups.flatMap((group) => group.ledger);
+};
+
 export const reconcile = (input: ReconcileInput): Reconciliation => {
   const matcher = new Matcher(input);
   for (const wide of [false, true]) {

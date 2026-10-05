@@ -1,6 +1,6 @@
+import { type IssuerStatement } from '../../types';
 import { type PdfLine } from '../extract';
 import { readTransactions } from '../table';
-import { type IssuerStatement } from '../types';
 import {
   amountCell,
   dateCell,
@@ -35,13 +35,13 @@ export const parseIndusind = (lines: PdfLine[]): IssuerStatement => {
   return {
     kind: 'credit_card',
     issuer: 'indusind',
-    cardLast4: maskedCardLast4(lines),
+    accountLast4: maskedCardLast4(lines),
     statementDate: valueNear(lines, 'Statement Date', dateCell, { tolerance: 35 }),
     periodStart: range.start,
     periodEnd: range.end,
     dueDate: valueNear(lines, 'Payment Due Date', dateCell, { tolerance: 35 }),
-    previousBalance: signedBalance(lines, 'Previous Balance'),
-    totalDue: amount(lines, 'Total Amount Due'),
+    openingBalance: signedBalance(lines, 'Previous Balance'),
+    closingBalance: amount(lines, 'Total Amount Due'),
     minimumDue: amount(lines, 'Minimum Amount Due'),
     creditLimit: amount(lines, 'Credit Limit'),
     declared: declaredTotals(

@@ -4,6 +4,7 @@ import { and, asc, desc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
 import { type statementKinds } from '@/db/enums';
 import {
   bankAccount,
+  creditCardAccounts,
   selfTransferStatements,
   smsNotifications,
   statementImportLinks,
@@ -18,11 +19,13 @@ import { instrumentedFunction } from '@/lib/instrumentation';
 import { addDays } from './ingest';
 import {
   type Direction,
+  inPeriodLedgerMatches,
   type LedgerEntry,
   type MatchGroup,
   reconcile,
   type Reconciliation,
 } from './reconcile/match';
+import { type StatementKind } from './types';
 
 const LOOKBACK_DAYS = 35;
 const LOOKAHEAD_DAYS = 35;
@@ -109,6 +112,9 @@ const localMidnight = (date: string, timeZone: string) =>
 
 const PAYMENT = /\b(?:payment|bbps|autopay|auto debit|neft|imps|rtgs)\b/i;
 const FEE = /\b(?:fee|gst|igst|cgst|sgst|tax|surcharge|charges?|interest|markup)\b/i;
+const CARD_PAYMENT = /credit\s*card|creditcard|cred club|card payment|cc payment|bbps/i;
+const SALARY = /\bsalary\b|\bsal\b/i;
+const INTEREST = /\bint\.?\s*pd\b|interest/i;
 const CASHBACK = /\b(?:cashback|refund|reversal|reversed)\b/i;
 const REFERENCE = /REF\s*NO/g;
 const LINE_BREAK = /[\n\r\u2028\u2029]/;
@@ -369,20 +375,44 @@ const categoryHistory = async (
   };
 };
 
-const usualPaymentSource = async (db: Database, userId: string, accountId: string) => {
-  const sources = await db
-    .select({ fromAccountId: selfTransferStatements.fromAccountId, uses: sql<number>`count(*)` })
+const usualCounterparty = async (
+  db: Database,
+  userId: string,
+  accountId: string,
+  kind: StatementKind,
+) => {
+  if (kind === 'credit_card') {
+    const sources = await db
+      .select({ accountId: selfTransferStatements.fromAccountId })
+      .from(selfTransferStatements)
+      .where(
+        and(
+          eq(selfTransferStatements.userId, userId),
+          eq(selfTransferStatements.toAccountId, accountId),
+        ),
+      )
+      .groupBy(selfTransferStatements.fromAccountId)
+      .orderBy(desc(sql`count(*)`))
+      .limit(1);
+    return sources.at(0)?.accountId ?? null;
+  }
+  const cards = await db
+    .select({ accountId: selfTransferStatements.toAccountId })
     .from(selfTransferStatements)
+    .innerJoin(
+      creditCardAccounts,
+      eq(creditCardAccounts.accountId, selfTransferStatements.toAccountId),
+    )
     .where(
       and(
         eq(selfTransferStatements.userId, userId),
-        eq(selfTransferStatements.toAccountId, accountId),
+        eq(selfTransferStatements.fromAccountId, accountId),
       ),
     )
-    .groupBy(selfTransferStatements.fromAccountId)
+    .groupBy(selfTransferStatements.toAccountId)
     .orderBy(desc(sql`count(*)`))
     .limit(1);
-  return sources.at(0)?.fromAccountId ?? null;
+  return cards.at(0)?.accountId ?? null;
 };
 
 const pendingSmsNear = async (
@@ -416,8 +446,34 @@ const defaultsFor = (
   direction: Direction,
   hint: CategoryHint | null,
   paymentSource: string | null,
+  kind: StatementKind,
 ): AddDefaults => {
-  if (direction === 'credit' && PAYMENT.test(description)) {
+  if (kind === 'bank_account') {
+    if (direction === 'debit' && CARD_PAYMENT.test(description)) {
+      return {
+        statementKind: 'self_transfer',
+        category: '',
+        tags: [],
+        counterpartyAccountId: paymentSource,
+      };
+    }
+    if (hint === null && direction === 'credit' && SALARY.test(description)) {
+      return {
+        statementKind: 'outside_transaction',
+        category: 'Salary',
+        tags: ['Salary'],
+        counterpartyAccountId: null,
+      };
+    }
+    if (hint === null && direction === 'credit' && INTEREST.test(description)) {
+      return {
+        statementKind: 'outside_transaction',
+        category: 'Interest',
+        tags: [],
+        counterpartyAccountId: null,
+      };
+    }
+  } else if (direction === 'credit' && PAYMENT.test(description)) {
     return {
       statementKind: 'self_transfer',
       category: '',
@@ -489,21 +545,27 @@ export const reconcileChain = (
     ownClaims.set(link.importId, own);
   }
   const counterparts = new Map(
-    records.map((record) => [
-      record.id,
-      new Set(
-        ledger
-          .filter((row) =>
-            record.rows.some(
-              (entry) =>
-                entry.direction === row.direction &&
-                paise(entry.amount) === paise(row.amount) &&
-                dayGap(entry.date, row.date) <= EXACT_COUNTERPART_DAYS,
-            ),
-          )
-          .map((row) => row.key),
-      ),
-    ]),
+    records.map((record) => {
+      const exactRows = ledger
+        .filter((row) =>
+          record.rows.some(
+            (entry) =>
+              entry.direction === row.direction &&
+              paise(entry.amount) === paise(row.amount) &&
+              dayGap(entry.date, row.date) <= EXACT_COUNTERPART_DAYS,
+          ),
+        )
+        .map((row) => row.key);
+      const own = ownClaims.get(record.id) ?? new Set<string>();
+      const inPeriod = inPeriodLedgerMatches({
+        statement: toEntries(record.rows),
+        ledger: toLedgerEntries(
+          ledger.filter((row) => !appliedClaims.has(row.key) || own.has(row.key)),
+        ),
+        period: { start: record.periodStart, end: record.periodEnd },
+      });
+      return [record.id, new Set([...exactRows, ...inPeriod])];
+    }),
   );
   const reviewClaims = new Set<string>();
   const entries = new Map<string, ChainEntry>();
@@ -605,6 +667,7 @@ export const getImportReview = instrumentedFunction(
       throw new Error('Statement import not found');
     }
     const { record, accountName } = current;
+    const kind: StatementKind = record.summary.kind ?? 'credit_card';
 
     const siblings = await accountRecords(db, record.accountId);
     const records = siblings.some((sibling) => sibling.id === record.id)
@@ -635,7 +698,7 @@ export const getImportReview = instrumentedFunction(
     const [hintFor, paymentSource, sms, appOpening, appClosing, statementBalance] =
       await Promise.all([
         categoryHistory(db, userId, { rows: record.rows, ledger, result }),
-        usualPaymentSource(db, userId, record.accountId),
+        usualCounterparty(db, userId, record.accountId, kind),
         pendingSmsNear(db, userId, { start: record.periodStart, end: record.periodEnd }, timeZone),
         appBalanceBefore(db, record.accountId, localMidnight(record.periodStart, timeZone)),
         appBalanceBefore(
@@ -684,6 +747,7 @@ export const getImportReview = instrumentedFunction(
               row.direction,
               hintFor(row.description),
               paymentSource,
+              kind,
             ),
             smsId: smsFor(row.amount, row.date),
           };
@@ -703,7 +767,7 @@ export const getImportReview = instrumentedFunction(
               suggestion.date,
               suggestion.direction,
             ),
-            defaults: defaultsFor('charges', suggestion.direction, null, paymentSource),
+            defaults: defaultsFor('charges', suggestion.direction, null, paymentSource, kind),
             smsId: null,
           };
         case 'adjust':
@@ -761,6 +825,7 @@ export const getImportReview = instrumentedFunction(
         statementDate: record.statementDate,
         totalDue: record.totalDue === null ? null : Number(record.totalDue),
         summary: record.summary,
+        kind,
         appliedAt: record.appliedAt,
       },
       rows: record.rows,

@@ -1,4 +1,7 @@
-type CardIssuer = 'icici' | 'yes' | 'indusind' | 'sbi' | 'axis';
+export type StatementKind = 'credit_card' | 'bank_account';
+
+type StatementIssuer =
+  'icici' | 'yes' | 'indusind' | 'sbi' | 'axis' | 'axis_account' | 'icici_account' | 'sheet';
 
 export type ParsedTransaction = {
   date: string;
@@ -9,16 +12,16 @@ export type ParsedTransaction = {
   emi: 'installment' | 'conversion' | null;
 };
 
-export type ParsedCardStatement = {
-  kind: 'credit_card';
-  issuer: CardIssuer;
-  cardLast4: string | null;
+export type ParsedStatement = {
+  kind: StatementKind;
+  issuer: StatementIssuer;
+  accountLast4: string | null;
   statementDate: string | null;
   periodStart: string | null;
   periodEnd: string | null;
   dueDate: string | null;
-  previousBalance: number | null;
-  totalDue: number | null;
+  openingBalance: number | null;
+  closingBalance: number | null;
   minimumDue: number | null;
   creditLimit: number | null;
   declared: { debits: number; credits: number } | null;
@@ -28,7 +31,4 @@ export type ParsedCardStatement = {
   balanceCheck: { expected: number; actual: number; difference: number } | null;
 };
 
-export type IssuerStatement = Omit<
-  ParsedCardStatement,
-  'totals' | 'reconciliation' | 'balanceCheck'
->;
+export type IssuerStatement = Omit<ParsedStatement, 'totals' | 'reconciliation' | 'balanceCheck'>;

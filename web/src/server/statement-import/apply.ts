@@ -30,6 +30,9 @@ export const ISSUER_NAMES: Record<string, string> = {
   indusind: 'IndusInd',
   sbi: 'SBI Card',
   axis: 'Axis Bank',
+  axis_account: 'Axis Bank account',
+  icici_account: 'ICICI Bank account',
+  sheet: 'Spreadsheet',
 };
 
 export type ApplyDecision = {

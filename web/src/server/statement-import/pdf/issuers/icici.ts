@@ -1,6 +1,6 @@
+import { type IssuerStatement } from '../../types';
 import { type PdfLine } from '../extract';
 import { readTransactions } from '../table';
-import { type IssuerStatement } from '../types';
 import {
   amountCell,
   dateCell,
@@ -23,13 +23,13 @@ export const parseIcici = (lines: PdfLine[]): IssuerStatement => {
   return {
     kind: 'credit_card',
     issuer: 'icici',
-    cardLast4: maskedCardLast4(lines),
+    accountLast4: maskedCardLast4(lines),
     statementDate: valueNear(lines, 'STATEMENT DATE', dateCell),
     periodStart: period.start,
     periodEnd: period.end,
     dueDate: valueNear(lines, 'PAYMENT DUE DATE', dateCell),
-    previousBalance: amount(lines, 'Previous Balance'),
-    totalDue: amount(lines, 'Total Amount due'),
+    openingBalance: amount(lines, 'Previous Balance'),
+    closingBalance: amount(lines, 'Total Amount due'),
     minimumDue: amount(lines, 'Minimum Amount due'),
     creditLimit: amount(lines, 'Credit Limit'),
     declared: declaredTotals(
