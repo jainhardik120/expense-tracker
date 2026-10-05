@@ -119,11 +119,13 @@ const ItemRow = ({
     {item.state === 'needs_account' ? (
       <div className="flex flex-col gap-2">
         <span className="text-muted-foreground text-xs">
-          This is a {item.issuer} statement
+          {item.issuer === 'Spreadsheet'
+            ? 'This spreadsheet'
+            : `This is a ${item.issuer ?? ''} statement`}
           {item.cardLast4 === null || item.cardLast4 === undefined
             ? ''
-            : ` for the card ending ${item.cardLast4}`}
-          . Which account is it? The app remembers your answer.
+            : ` for the account ending ${item.cardLast4}`}
+          . Which account is it? The app remembers your answer when it can.
         </span>
         <div className="flex gap-2">
           <Select
@@ -258,16 +260,16 @@ export const StatementImporter = ({
         <DialogHeader>
           <DialogTitle>Import statements</DialogTitle>
           <DialogDescription>
-            Credit card statement PDFs from ICICI, YES BANK, IndusInd and SBI Card. Each one is
-            checked against your ledger before anything changes.
+            Card and bank statements as PDF, Excel or CSV. Each one is checked against your ledger
+            before anything changes.
           </DialogDescription>
         </DialogHeader>
         {initialSources.length === 0 ? (
           <Label className="hover:bg-muted/50 flex cursor-pointer flex-col items-center gap-2 rounded-md border border-dashed p-6 text-sm">
             <FileUp className="size-6" />
-            Choose PDF files
+            Choose statement files
             <input
-              accept="application/pdf,.pdf"
+              accept=".pdf,.xlsx,.xls,.csv,application/pdf"
               className="hidden"
               multiple
               type="file"

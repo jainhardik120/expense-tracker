@@ -1,11 +1,16 @@
 import { format, parseISO } from 'date-fns';
 
+import { formatCurrency } from '@/lib/format';
+
 const ISSUER_LABELS: Record<string, string> = {
   icici: 'ICICI',
   yes: 'YES BANK',
   indusind: 'IndusInd',
   sbi: 'SBI Card',
   axis: 'Axis Bank',
+  axis_account: 'Axis Bank account',
+  icici_account: 'ICICI Bank account',
+  sheet: 'Spreadsheet',
 };
 
 export const issuerLabel = (issuer: string) => ISSUER_LABELS[issuer] ?? issuer;
@@ -15,7 +20,7 @@ export const formatDay = (date: string) => format(parseISO(date), 'dd MMM yyyy')
 export const formatShortDay = (date: string) => format(parseISO(date), 'dd MMM');
 
 export const formatPeriod = (start: string, end: string) =>
-  `${formatShortDay(start)} – ${formatDay(end)}`;
+  `${formatDay(start)} – ${formatDay(end)}`;
 
 const REF_NO = /Ref No/gi;
 const WHITESPACE = /\s/;
@@ -59,3 +64,6 @@ const removeReferences = (text: string) => {
 
 export const cleanDescription = (description: string) =>
   removeReferences(description).replace(/\s+/g, ' ').trim();
+
+export const signedCurrency = (value: number) =>
+  `${value > 0 ? '+' : '−'}${formatCurrency(Math.abs(value))}`;

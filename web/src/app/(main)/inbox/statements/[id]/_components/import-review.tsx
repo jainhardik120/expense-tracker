@@ -27,6 +27,7 @@ import {
   cleanDescription,
   formatShortDay,
   issuerLabel,
+  signedCurrency,
 } from '../../../_components/statement-labels';
 
 type Review = RouterOutput['statementImports']['getReview'];
@@ -169,7 +170,7 @@ const BalancePanel = ({
           )}
           {gap === 0
             ? 'This period matches the bank to the paise'
-            : `This period is off by ${formatCurrency((gap ?? 0) / PAISE)}`}
+            : `This period is off by ${signedCurrency((gap ?? 0) / PAISE)}`}
         </CardTitle>
         <CardDescription>
           Balances as the app shows them for this account, so money owed on a card is negative.
@@ -448,6 +449,7 @@ export const ImportReview = ({
   };
 
   const info = review.import;
+  const totalLabel = info.kind === 'bank_account' ? 'closing balance' : 'amount due';
   return (
     <div className="flex flex-col gap-4 pb-20">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -458,7 +460,7 @@ export const ImportReview = ({
           </h3>
           <span className="text-muted-foreground text-sm">
             {formatPeriod(info.periodStart, info.periodEnd)} · {review.rows.length} rows
-            {info.totalDue === null ? '' : ` · amount due ${formatCurrency(info.totalDue)}`}
+            {info.totalDue === null ? '' : ` · ${totalLabel} ${formatCurrency(info.totalDue)}`}
             {info.summary.dueDate === null ? '' : ` by ${formatDay(info.summary.dueDate)}`}
           </span>
         </div>

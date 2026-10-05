@@ -17,7 +17,7 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
 import { ImportStatusBadge } from '../../_components/import-status-badge';
-import { formatPeriod, issuerLabel } from '../../_components/statement-labels';
+import { formatPeriod, issuerLabel, signedCurrency } from '../../_components/statement-labels';
 
 type Imports = RouterOutput['statementImports']['list'];
 
@@ -87,7 +87,25 @@ const DeleteImport = ({ row }: { row: Imports[number] }) => {
   );
 };
 
+const ledgerDirection = (value: number) => {
+  const side = value > 0 ? 'higher' : 'lower';
+  return `Your ledger is ${formatCurrency(Math.abs(value))} ${side} than the bank for this statement. `;
+};
+
 const plural = (count: number, word: string) => `${String(count)} ${word}`;
+
+const matchesOf = (check: NonNullable<Imports[number]['check']>) =>
+  check.add === 0 && check.adjust === 0 && check.notOnStatement === 0;
+
+const matchDetails = (check: NonNullable<Imports[number]['check']>) =>
+  [
+    check.add > 0 ? plural(check.add, 'to add') : null,
+    check.adjust > 0 ? plural(check.adjust, 'to fix') : null,
+    check.notOnStatement > 0 ? plural(check.notOnStatement, 'not on statement') : null,
+    check.elsewhere > 0 ? plural(check.elsewhere, 'on another statement') : null,
+    check.likelyNext > 0 ? plural(check.likelyNext, 'likely on next statement') : null,
+    check.redate > 0 ? plural(check.redate, 'dated outside') : null,
+  ].filter((part) => part !== null);
 
 const MatchCell = ({ row, checking }: { row: Imports[number]; checking: boolean }) => {
   const { check } = row;
@@ -103,46 +121,37 @@ const MatchCell = ({ row, checking }: { row: Imports[number]; checking: boolean 
     );
   }
   const checkedAgo = `Checked ${formatDistanceToNow(new Date(check.computedAt), { addSuffix: true })}`;
-  const matches = check.add === 0 && check.adjust === 0 && check.notOnStatement === 0;
-  const notes = [
-    check.elsewhere > 0 ? plural(check.elsewhere, 'on another statement') : null,
-    check.likelyNext > 0 ? plural(check.likelyNext, 'likely on next statement') : null,
-    check.redate > 0 ? plural(check.redate, 'dated outside') : null,
-  ].filter((part) => part !== null);
-  if (matches) {
+  if (matchesOf(check)) {
     return (
-      <div
-        className="flex flex-col items-start gap-0.5"
+      <Badge
+        className="bg-emerald-600 text-white hover:bg-emerald-600"
         suppressHydrationWarning
         title={checkedAgo}
       >
-        <Badge className="bg-emerald-600 text-white hover:bg-emerald-600">
-          <CircleCheck className="size-3" />
-          Matches
-        </Badge>
-        {notes.length === 0 ? null : (
-          <span className="text-muted-foreground text-xs">{notes.join(' · ')}</span>
-        )}
-      </div>
+        <CircleCheck className="size-3" />
+        Matches
+      </Badge>
     );
   }
-  const details = [
-    check.add > 0 ? plural(check.add, 'to add') : null,
-    check.adjust > 0 ? plural(check.adjust, 'to fix') : null,
-    check.notOnStatement > 0 ? plural(check.notOnStatement, 'not on statement') : null,
-    ...notes,
-  ].filter((part) => part !== null);
+  const ledgerMinusBank = check.gap === null ? null : -check.gap;
+  const direction =
+    ledgerMinusBank === null || ledgerMinusBank === 0 ? '' : ledgerDirection(ledgerMinusBank);
   return (
-    <div className="flex flex-col items-start gap-0.5" suppressHydrationWarning title={checkedAgo}>
-      <Badge variant="destructive">
-        {check.gap === null || check.gap === 0
-          ? plural(check.add + check.adjust + check.notOnStatement, 'changes')
-          : `Off by ${formatCurrency(Math.abs(check.gap))}`}
-      </Badge>
-      {details.length === 0 ? null : (
-        <span className="text-muted-foreground text-xs">{details.join(' · ')}</span>
-      )}
-    </div>
+    <Badge suppressHydrationWarning title={`${direction}${checkedAgo}`} variant="destructive">
+      {ledgerMinusBank === null || ledgerMinusBank === 0
+        ? plural(check.add + check.adjust + check.notOnStatement, 'changes')
+        : `Off by ${signedCurrency(ledgerMinusBank)}`}
+    </Badge>
+  );
+};
+
+const DetailsCell = ({ row }: { row: Imports[number] }) => {
+  if (row.status === 'discarded' || row.check === null) {
+    return null;
+  }
+  const details = matchDetails(row.check);
+  return details.length === 0 ? null : (
+    <span className="text-muted-foreground text-xs">{details.join(' · ')}</span>
   );
 };
 
@@ -165,10 +174,7 @@ export const importColumns = (
     accessorFn: (row) => row.accountId,
     header: 'Account',
     cell: ({ row }) => (
-      <span>
-        {row.original.accountName}
-        <span className="text-muted-foreground"> · {issuerLabel(row.original.issuer)}</span>
-      </span>
+      <span title={issuerLabel(row.original.issuer)}>{row.original.accountName}</span>
     ),
     filterFn: (row, _columnId, filterValue: unknown) =>
       !Array.isArray(filterValue) ||
@@ -188,23 +194,35 @@ export const importColumns = (
     meta: { label: 'From' },
   },
   {
-    id: 'totalDue',
-    header: 'Amount due',
-    cell: ({ row }) =>
-      row.original.totalDue === null ? '-' : formatCurrency(row.original.totalDue),
-    meta: { align: 'right', label: 'Amount due' },
-  },
-  {
     id: 'result',
     header: 'Result',
     cell: ({ row }) => <span className="text-muted-foreground">{outcomeText(row.original)}</span>,
     meta: { label: 'Result' },
   },
   {
+    id: 'totalDue',
+    header: 'Due or closing',
+    cell: ({ row }) =>
+      row.original.totalDue === null ? (
+        '-'
+      ) : (
+        <span title={row.original.kind === 'bank_account' ? 'Closing balance' : 'Amount due'}>
+          {formatCurrency(row.original.totalDue)}
+        </span>
+      ),
+    meta: { align: 'right', label: 'Due or closing' },
+  },
+  {
     id: 'match',
     header: 'Match',
     cell: ({ row }) => <MatchCell checking={checking} row={row.original} />,
     meta: { label: 'Match' },
+  },
+  {
+    id: 'details',
+    header: 'Details',
+    cell: ({ row }) => <DetailsCell row={row.original} />,
+    meta: { label: 'Details' },
   },
   {
     id: 'status',
