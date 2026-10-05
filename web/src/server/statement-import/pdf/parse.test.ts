@@ -535,3 +535,128 @@ test('rejects statements from unknown issuers', () => {
     UnsupportedStatementError,
   );
 });
+
+describe('Axis Bank credit card', () => {
+  const lines = [
+    ...page(1, [
+      [782, [[327, 'Neo Rupay Credit card Monthly Statement']]],
+      [
+        704,
+        [
+          [48, 'TEST CITY 100001'],
+          [369, 'Credit Card Number: 6530XXXXXXXX0121'],
+        ],
+      ],
+      [
+        659,
+        [
+          [55, 'Total Payment Due'],
+          [222, 'Minimum Payment Due'],
+          [388, 'Payment Due Date'],
+        ],
+      ],
+      [
+        642,
+        [
+          [55, '₹ 1,700.00'],
+          [222, '₹ 200.00'],
+          [388, "12 Jul '26"],
+        ],
+      ],
+      [
+        612,
+        [
+          [55, 'Selected Statement Month'],
+          [222, 'Credit Limit'],
+          [388, 'Opening Balance'],
+        ],
+      ],
+      [
+        596,
+        [
+          [55, 'Jun 2026'],
+          [222, '₹ 50,000.00'],
+          [388, '₹ 1,000.00'],
+        ],
+      ],
+      [
+        552,
+        [
+          [52, 'Date'],
+          [141, 'Transaction Details'],
+          [366, 'Amount (INR)'],
+          [458, 'Debit/Credit'],
+        ],
+      ],
+      [480, [[141, 'UPI/Swiggy']]],
+      [
+        464,
+        [
+          [52, "09 Jun '26"],
+          [141, 'Limited/swiggy@okaxis/'],
+          [366, '₹ 500.00'],
+          [458, 'Debit'],
+        ],
+      ],
+      [447, [[141, 'user@okaxis']]],
+      [
+        423,
+        [
+          [52, "08 Jun '26"],
+          [141, 'Transaction conversion into EMI'],
+          [366, '₹ 1,200.00'],
+          [458, 'Credit'],
+        ],
+      ],
+      [
+        399,
+        [
+          [52, "07 Jun '26"],
+          [141, 'FlipkartInternetPvtL'],
+          [366, '₹ 1,200.00'],
+          [458, 'Debit'],
+        ],
+      ],
+      [
+        375,
+        [
+          [52, "28 May '26"],
+          [141, 'BBPS Payment Received'],
+          [366, '₹ 1,000.00'],
+          [458, 'Credit'],
+        ],
+      ],
+      [
+        351,
+        [
+          [52, "26 May '26"],
+          [141, 'EMI Principal - 3/24'],
+          [366, '₹ 1,200.00'],
+          [458, 'Debit'],
+        ],
+      ],
+      [168, [[240, '**End of Transaction Summary**']]],
+    ]),
+  ];
+
+  test('derives the cycle from the due date and reads Debit/Credit columns', () => {
+    const statement = parseStatementLines(lines);
+    expect(statement.issuer).toBe('axis');
+    expect(statement.cardLast4).toBe('0121');
+    expect(statement.periodStart).toBe('2026-05-23');
+    expect(statement.periodEnd).toBe('2026-06-22');
+    expect(statement.previousBalance).toBe(1000);
+    expect(statement.totalDue).toBe(1700);
+    expect(statement.transactions.map((row) => [row.amount, row.direction, row.emi])).toEqual([
+      [500, 'debit', null],
+      [1200, 'credit', 'conversion'],
+      [1200, 'debit', null],
+      [1000, 'credit', null],
+      [1200, 'debit', null],
+    ]);
+    expect(statement.transactions[0]?.description).toBe(
+      'UPI/Swiggy Limited/swiggy@okaxis/ user@okaxis',
+    );
+    expect(statement.balanceCheck?.difference).toBe(0);
+  });
+});

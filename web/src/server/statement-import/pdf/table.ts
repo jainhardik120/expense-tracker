@@ -10,6 +10,7 @@ export type TableLayout = {
   descriptionOffset?: number;
   undatedRowsInheritDate?: boolean;
   ignoreLines?: RegExp[];
+  continuationDistance?: number;
   emiInstallmentMarker?: string;
   emiConversion?: RegExp;
   creditWhen: (marker: 'cr' | 'dr' | null, value: number) => boolean;
@@ -31,7 +32,7 @@ type Continuation = { page: number; y: number; description: string[]; category: 
 const DEFAULT_SLACK = 12;
 const CONTINUATION_DISTANCE = 13;
 
-const MARKER = /^(?:cr?|dr?|m)$/i;
+const MARKER = /^(?:cr?|dr?|m|credit|debit)$/i;
 
 const joinText = (parts: string[]) => parts.join(' ').replace(/\s+/g, ' ').trim();
 
@@ -166,7 +167,7 @@ const rowOf = (
   };
 };
 
-const attach = (rows: Row[], continuation: Continuation) => {
+const attach = (rows: Row[], continuation: Continuation, maxDistance: number) => {
   let nearest: Row | null = null;
   for (const row of rows) {
     if (row.page !== continuation.page) {
@@ -174,7 +175,7 @@ const attach = (rows: Row[], continuation: Continuation) => {
     }
     const distance = Math.abs(row.y - continuation.y);
     if (
-      distance <= CONTINUATION_DISTANCE &&
+      distance <= maxDistance &&
       (nearest === null || distance < Math.abs(nearest.y - continuation.y))
     ) {
       nearest = row;
@@ -224,7 +225,7 @@ export const readTransactions = (lines: PdfLine[], layout: TableLayout): ParsedT
   }
 
   for (const continuation of continuations) {
-    attach(rows, continuation);
+    attach(rows, continuation, layout.continuationDistance ?? CONTINUATION_DISTANCE);
   }
 
   return rows.map(({ transaction, above, below }) => {

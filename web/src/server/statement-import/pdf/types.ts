@@ -1,4 +1,4 @@
-type CardIssuer = 'icici' | 'yes' | 'indusind' | 'sbi';
+type CardIssuer = 'icici' | 'yes' | 'indusind' | 'sbi' | 'axis';
 
 export type ParsedTransaction = {
   date: string;

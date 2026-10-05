@@ -1,4 +1,5 @@
-import { extractPdfLines, type PdfLine } from './extract';
+import { type PdfLine } from './extract';
+import { matchesAxis, parseAxis } from './issuers/axis';
 import { matchesIcici, parseIcici } from './issuers/icici';
 import { matchesIndusind, parseIndusind } from './issuers/indusind';
 import { matchesSbi, parseSbi } from './issuers/sbi';
@@ -14,6 +15,7 @@ const issuers = [
   { matches: matchesYes, parse: parseYes },
   { matches: matchesIndusind, parse: parseIndusind },
   { matches: matchesSbi, parse: parseSbi },
+  { matches: matchesAxis, parse: parseAxis },
 ];
 
 export class UnsupportedStatementError extends Error {
@@ -32,7 +34,10 @@ export const parseStatementLines = (lines: PdfLine[]): ParsedCardStatement => {
     throw new UnsupportedStatementError();
   }
   const statement = issuer.parse(lines);
-  const billed = statement.transactions.filter((row) => row.emi === null);
+  const billed =
+    statement.declared === null
+      ? statement.transactions
+      : statement.transactions.filter((row) => row.emi === null);
   const debits = roundMoney(
     billed.filter((row) => row.direction === 'debit').reduce((sum, row) => sum + row.amount, 0),
   );
@@ -63,6 +68,3 @@ export const isReconciled = (statement: ParsedCardStatement) =>
   statement.reconciliation !== null &&
   Math.abs(statement.reconciliation.debitsDifference) < RECONCILE_TOLERANCE &&
   Math.abs(statement.reconciliation.creditsDifference) < RECONCILE_TOLERANCE;
-
-export const parseStatementPdf = async (data: Uint8Array, password?: string) =>
-  parseStatementLines(await extractPdfLines(data, password));
