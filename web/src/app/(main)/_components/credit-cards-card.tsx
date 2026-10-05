@@ -61,9 +61,10 @@ export const CreditCardsCard = ({
             );
             const currentBalance = accountSummary?.finalBalance ?? 0;
 
-            const limitUtilized = Math.abs(currentBalance) + details.outstandingBalance;
+            const owed = -currentBalance;
             const totalLimit = parseFloat(card.cardLimit);
-            const availableLimit = totalLimit - limitUtilized;
+            const availableLimit = totalLimit - owed - details.outstandingBalance;
+            const limitUtilized = Math.max(0, owed + details.outstandingBalance);
 
             return [
               <HoverCard key={card.id} closeDelay={100} openDelay={150}>
@@ -108,7 +109,9 @@ export const CreditCardsCard = ({
                     <div className="space-y-1 text-sm">
                       <LimitRow
                         label="Current Balance:"
-                        value={formatCurrency(Math.abs(currentBalance))}
+                        value={
+                          owed < 0 ? `${formatCurrency(-owed)} in credit` : formatCurrency(owed)
+                        }
                       />
                       <LimitRow
                         label="EMI Outstanding:"
