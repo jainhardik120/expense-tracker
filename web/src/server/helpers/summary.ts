@@ -1,7 +1,7 @@
 import { fromZonedTime } from 'date-fns-tz';
 import { Decimal } from 'decimal.js';
 import { and, eq, sql, inArray, isNotNull, type SQL, gte, lt, type Subquery } from 'drizzle-orm';
-import { alias, type PgTable, unionAll } from 'drizzle-orm/pg-core';
+import { type PgTable, QueryBuilder, unionAll } from 'drizzle-orm/pg-core';
 import { type PgViewBase } from 'drizzle-orm/pg-core/view-base';
 
 import {
@@ -158,7 +158,7 @@ const selfTransfersUnionQuery = (db: Pick<Database, 'select'>, conditions: SQL[]
       .where(and(...conditions)),
   ).as('union_query');
 
-const statements = alias(visibleStatements, 'statements');
+const statements = new QueryBuilder().select().from(visibleStatements).as('statements');
 
 const aggregatedStatementsSummary = (aggregationArguments: AggregationArguments) => {
   const {
