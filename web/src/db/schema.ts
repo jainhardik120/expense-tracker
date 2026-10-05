@@ -13,6 +13,7 @@ import {
   boolean,
   primaryKey,
   uniqueIndex,
+  date,
 } from 'drizzle-orm/pg-core';
 
 import type { StoredBudgetRule } from '@/types/budget';
@@ -23,6 +24,8 @@ import {
   inboundEmailStatuses,
   recurringPaymentFrequencies,
   smsTransactionStatuses,
+  statementImportSources,
+  statementImportStatuses,
   statementKinds,
 } from './enums';
 
@@ -673,3 +676,120 @@ export const inboundEmails = pgTable(
     index('inbound_emails_user_received_idx').on(table.userId, desc(table.receivedAt)),
   ],
 );
+
+export const statementImportSourceEnum = pgEnum('statement_import_source', statementImportSources);
+
+export const statementImportStatusEnum = pgEnum('statement_import_status', statementImportStatuses);
+
+export type StatementImportRow = {
+  date: string;
+  description: string;
+  amount: number;
+  direction: 'debit' | 'credit';
+  emi: 'installment' | 'conversion' | null;
+};
+
+export type StatementImportSummary = {
+  dueDate: string | null;
+  minimumDue: number | null;
+  creditLimit: number | null;
+  cardLast4: string | null;
+  declared: { debits: number; credits: number } | null;
+  totals: { debits: number; credits: number };
+};
+
+export type StatementImportOutcome = {
+  matches: Array<{ rows: number[]; ledger: string[] }>;
+  added: number;
+  adjusted: number;
+  redated: number;
+};
+
+export type StatementImportCheck = {
+  computedAt: string;
+  gap: number | null;
+  add: number;
+  adjust: number;
+  redate: number;
+  notOnStatement: number;
+  elsewhere: number;
+  likelyNext: number;
+};
+
+export const statementImports = pgTable(
+  'statement_imports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => bankAccount.id, { onDelete: 'cascade' }),
+    source: statementImportSourceEnum().notNull(),
+    inboundEmailId: uuid('inbound_email_id').references(() => inboundEmails.id, {
+      onDelete: 'set null',
+    }),
+    fileName: text('file_name').notNull(),
+    fileHash: text('file_hash').notNull(),
+    issuer: text('issuer').notNull(),
+    periodStart: date('period_start', { mode: 'string' }).notNull(),
+    periodEnd: date('period_end', { mode: 'string' }).notNull(),
+    statementDate: date('statement_date', { mode: 'string' }),
+    openingBalance: numeric('opening_balance'),
+    closingBalance: numeric('closing_balance'),
+    totalDue: numeric('total_due'),
+    rows: jsonb('rows').$type<StatementImportRow[]>().notNull(),
+    summary: jsonb('summary').$type<StatementImportSummary>().notNull(),
+    outcome: jsonb('outcome').$type<StatementImportOutcome>(),
+    check: jsonb('check').$type<StatementImportCheck>(),
+    status: statementImportStatusEnum().notNull().default('review'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+    appliedAt: timestamp('applied_at'),
+  },
+  (table) => [
+    uniqueIndex('statement_imports_user_file_idx').on(table.userId, table.fileHash),
+    index('statement_imports_account_period_idx').on(table.accountId, table.periodStart),
+    index('statement_imports_user_status_idx').on(table.userId, table.status),
+  ],
+);
+
+export const statementImportLinks = pgTable(
+  'statement_import_links',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    importId: uuid('import_id')
+      .notNull()
+      .references(() => statementImports.id, { onDelete: 'cascade' }),
+    statementId: uuid('statement_id').references(() => statements.id, { onDelete: 'cascade' }),
+    selfTransferId: uuid('self_transfer_id').references(() => selfTransferStatements.id, {
+      onDelete: 'cascade',
+    }),
+  },
+  (table) => [
+    index('statement_import_links_import_idx').on(table.importId),
+    index('statement_import_links_statement_idx').on(table.statementId),
+    index('statement_import_links_self_transfer_idx').on(table.selfTransferId),
+    check(
+      'statement_import_links_one_target',
+      sql`num_nonnulls(${table.statementId}, ${table.selfTransferId}) = 1`,
+    ),
+  ],
+);
+
+export const statementSources = pgTable('statement_sources', {
+  accountId: uuid('account_id')
+    .primaryKey()
+    .references(() => bankAccount.id, { onDelete: 'cascade' }),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  issuer: text('issuer').notNull(),
+  cardLast4: text('card_last4'),
+  password: text('password'),
+  updatedAt: timestamp('updated_at')
+    .notNull()
+    .$defaultFn(() => new Date()),
+});

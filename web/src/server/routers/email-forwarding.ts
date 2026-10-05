@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, sql, isNull } from 'drizzle-orm';
 
 import { emailInboxes, inboundEmails } from '@/db/schema';
 import { type Database, lockUser } from '@/lib/db';
@@ -85,6 +85,13 @@ export const emailForwardingRouter = createTRPCRouter({
         dkimVerdict: inboundEmails.dkimVerdict,
         dmarcVerdict: inboundEmails.dmarcVerdict,
         attachments: inboundEmails.attachments,
+        storedRaw: sql<boolean>`${inboundEmails.objectKey} IS NOT NULL`,
+        statementImports: sql<
+          Array<{ id: string; status: 'review' | 'applied' | 'discarded' }>
+        >`COALESCE((
+          SELECT json_agg(json_build_object('id', i.id, 'status', i.status))
+          FROM statement_imports i WHERE i.inbound_email_id = ${inboundEmails.id}
+        ), '[]'::json)`,
       })
       .from(inboundEmails)
       .where(eq(inboundEmails.userId, ctx.user.id))

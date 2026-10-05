@@ -1,0 +1,1 @@
+ALTER TABLE "statement_imports" ADD COLUMN "check" jsonb;

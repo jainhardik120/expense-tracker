@@ -1,6 +1,8 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
+const MIN_AUTH_SECRET_LENGTH = 16;
+
 export const env = createEnv({
   server: {
     AWS_REGION: z.string(),
@@ -19,6 +21,7 @@ export const env = createEnv({
     INBOUND_EMAIL_DOMAIN: z.string().optional(),
     INBOUND_EMAIL_BUCKET: z.string().optional(),
     INBOUND_EMAIL_TOPIC_ARN: z.string().optional(),
+    BETTER_AUTH_SECRET: z.string().min(MIN_AUTH_SECRET_LENGTH),
   },
   client: {
     NEXT_PUBLIC_BASE_URL: z.string().optional(),
@@ -48,6 +51,7 @@ export const env = createEnv({
     INBOUND_EMAIL_DOMAIN: process.env['INBOUND_EMAIL_DOMAIN'],
     INBOUND_EMAIL_BUCKET: process.env['INBOUND_EMAIL_BUCKET'],
     INBOUND_EMAIL_TOPIC_ARN: process.env['INBOUND_EMAIL_TOPIC_ARN'],
+    BETTER_AUTH_SECRET: process.env['BETTER_AUTH_SECRET'],
   },
   skipValidation:
     process.env['SKIP_ENV_VALIDATION'] !== undefined &&

@@ -13,6 +13,7 @@ import { recurringPaymentsRouter } from './recurring-payments';
 import { reportsRouter } from './reports';
 import { salaryRouter } from './salary';
 import { smsNotificationsRouter } from './sms-notifications';
+import { statementImportsRouter } from './statement-imports';
 import { statementsRouter } from './statements';
 import { summaryRouter } from './summary';
 import { widgetRouter } from './widget';
@@ -36,6 +37,7 @@ export const appRouter = createTRPCRouter({
   reports: reportsRouter,
   salary: salaryRouter,
   smsNotifications: smsNotificationsRouter,
+  statementImports: statementImportsRouter,
 });
 
 export type AppRouter = typeof appRouter;

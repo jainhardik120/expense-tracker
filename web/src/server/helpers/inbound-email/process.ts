@@ -1,14 +1,14 @@
-import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { eq } from 'drizzle-orm';
 import PostalMime from 'postal-mime';
 import { z } from 'zod';
 
 import { emailInboxes, type InboundEmailAttachment, inboundEmails } from '@/db/schema';
-import { config } from '@/lib/aws-config';
 import { type Database } from '@/lib/db';
 import logger from '@/lib/logger';
+import { autoImportStatements } from '@/server/statement-import/email';
 
 import { findInboxByToken, tokenFromRecipient } from './inbox';
+import { deleteObject, readObject } from './storage';
 
 const verdictSchema = z.object({ status: z.string() });
 
@@ -40,19 +40,6 @@ type SesNotification = z.infer<typeof sesNotificationSchema>;
 const GMAIL_FORWARDING_SENDER = 'forwarding-noreply@google.com';
 const CONFIRMATION_CODE = /confirmation code:\s*(\d{6,12})/i;
 const CONFIRMATION_URL = /https:\/\/mail(?:-settings)?\.google\.com\/mail\/[^\s<>"]*vf-[^\s<>"]+/i;
-
-const s3 = new S3Client(config);
-
-const readObject = async (bucket: string, key: string) => {
-  const object = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
-  if (object.Body === undefined) {
-    throw new Error(`Inbound email ${key} has no body`);
-  }
-  return object.Body.transformToByteArray();
-};
-
-const deleteObject = (bucket: string, key: string) =>
-  s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 
 const domainOf = (address: string) => address.split('@').at(1)?.toLowerCase() ?? '';
 
@@ -117,7 +104,7 @@ export const processInboundEmail = async (db: Database, notification: SesNotific
   }
   const keepRaw = !isGmailConfirmation && rejectReason === null;
 
-  await db
+  const inserted = await db
     .insert(inboundEmails)
     .values({
       userId: inbox.userId,
@@ -136,9 +123,15 @@ export const processInboundEmail = async (db: Database, notification: SesNotific
       attachments,
       objectKey: keepRaw ? objectKey : null,
     })
-    .onConflictDoNothing({ target: inboundEmails.sesMessageId });
+    .onConflictDoNothing({ target: inboundEmails.sesMessageId })
+    .returning({ id: inboundEmails.id });
 
   if (!keepRaw) {
     await deleteObject(bucketName, objectKey);
+    return;
+  }
+  const emailId = inserted.at(0)?.id;
+  if (emailId !== undefined) {
+    await autoImportStatements(db, inbox.userId, emailId, parsed.attachments);
   }
 };
