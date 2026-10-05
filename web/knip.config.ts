@@ -10,6 +10,7 @@ const config: KnipConfig = {
     'scripts/*.ts',
   ],
   project: ['src/**/*.{ts,tsx,css}', 'scripts/**/*.ts', '*.{ts,mjs,cjs}'],
+  ignoreDependencies: ['@helix-hq/design-system'],
   drizzle: false,
 };
 

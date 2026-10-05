@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 
 import { toast } from 'sonner';
 
@@ -45,7 +45,7 @@ export const TaxableIncomeLinkOption = ({
     partialAmountNumber > 0 &&
     partialAmountNumber <= statementAmount;
 
-  const submit = async (event: FormEvent) => {
+  const submit = async (event: SubmitEvent) => {
     event.preventDefault();
     let taxableAmount: string | null = null;
     if (included) {
