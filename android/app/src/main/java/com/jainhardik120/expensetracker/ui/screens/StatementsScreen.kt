@@ -314,9 +314,11 @@ fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.End) {
                     val value = statement.amount.toDoubleOrNull() ?: 0.0
+                    val isSplit = statement.statementKind == "expense" && statement.splitAmount > 0.0
                     val (amountText, amountColor) = when {
                         statement.statementKind == "expense" ->
-                            formatAmount(-kotlin.math.abs(value)) to MaterialTheme.colorScheme.error
+                            formatAmount(-(kotlin.math.abs(value) - statement.splitAmount)) to
+                                MaterialTheme.colorScheme.error
                         statement.type == "self_transfer" ->
                             formatAmount(value) to MaterialTheme.colorScheme.onSurface
                         value < 0 -> formatAmount(value) to MaterialTheme.colorScheme.error
@@ -328,6 +330,13 @@ fun StatementCard(statement: StatementItem, onLongPress: () -> Unit = {}) {
                         fontWeight = FontWeight.SemiBold,
                         color = amountColor
                     )
+                    if (isSplit) {
+                        Text(
+                            text = "of ${formatAmount(kotlin.math.abs(value))} · split ${formatAmount(statement.splitAmount)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Text(
                         text = formatDate(statement.createdAt),
                         style = MaterialTheme.typography.labelSmall,
