@@ -91,6 +91,7 @@ const inboxCategory = {
 export const inboxResolutionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('account'), accountId: z.uuid(), ...inboxCategory }),
   z.object({ type: z.literal('expense'), ...inboxCategory }),
+  z.object({ type: z.literal('cash'), ...inboxCategory }),
   z.object({ type: z.literal('dismiss') }),
 ]);
 
@@ -186,6 +187,7 @@ export type Statement = Omit<
   statementKind: 'expense' | 'outside_transaction' | 'friend_transaction';
   additionalAttributes: Record<string, unknown>;
   splitAmount: number;
+  answeredCopy: boolean;
   accountName: string | null;
   friendName: string | null;
   fromAccountId: null;
@@ -200,6 +202,7 @@ export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect &
   mirrorOfSplitId: null;
   mirrorOfStatementId: null;
   categoryOverridden: boolean;
+  answeredCopy: boolean;
   accountId: null;
   friendId: null;
   category: null;
@@ -238,6 +241,7 @@ const statementSchema = z.object({
   mirrorOfSplitId: z.string().nullable(),
   mirrorOfStatementId: z.string().nullable(),
   categoryOverridden: z.boolean(),
+  answeredCopy: z.boolean(),
   finalBalance: z.number().optional(),
 });
 
@@ -271,6 +275,7 @@ const selfTransferStatementSchema = z.object({
   mirrorOfSplitId: z.null(),
   mirrorOfStatementId: z.null(),
   categoryOverridden: z.boolean(),
+  answeredCopy: z.boolean(),
   finalBalance: z.number().optional(),
 });
 const rowsCountSchema = z.object({

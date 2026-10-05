@@ -45,7 +45,7 @@ const becameLabel = (entry: InboxEntry) => {
   if (entry.resolvedKind === 'expense') {
     return `Expense paid by ${entry.friendName}`;
   }
-  return entry.resolvedAccountName ?? '-';
+  return entry.resolvedAccountName ?? 'Not through an account';
 };
 
 const ReopenAction = ({ id }: { id: string }) => {
@@ -131,6 +131,18 @@ export const createInboxColumns = ({
         .map((friend) => ({ label: friend.name, value: friend.id })),
     },
     enableColumnFilter: true,
+  },
+  {
+    id: 'kind',
+    accessorKey: 'kind',
+    header: 'What',
+    enableSorting: false,
+    cell: ({ row }) =>
+      row.original.kind === 'paid' ? (
+        <span>You paid for {row.original.friendName}</span>
+      ) : (
+        <span>Transfer</span>
+      ),
   },
   {
     id: 'from',

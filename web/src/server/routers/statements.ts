@@ -11,7 +11,7 @@ import {
 } from '@/db/schema';
 import { buildQueryConditions } from '@/server/helpers';
 import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
-import { reconcileStatement, syncSplitMirrors } from '@/server/helpers/friend-mirror';
+import { answeredCopy, reconcileStatement, syncSplitMirrors } from '@/server/helpers/friend-mirror';
 import {
   getMergedStatements,
   getRowsCount,
@@ -249,6 +249,7 @@ export const statementsRouter = createTRPCRouter({
             tags: statements.tags,
             mirrorOfSplitId: statements.mirrorOfSplitId,
             mirrorOfStatementId: statements.mirrorOfStatementId,
+            answeredCopy: sql<boolean>`${answeredCopy}`,
           })
           .from(statements)
           .where(and(eq(statements.id, id), eq(statements.userId, ctx.user.id)))
@@ -265,9 +266,7 @@ export const statementsRouter = createTRPCRouter({
       });
       if (isMirroredStatement(currentStatement)) {
         const accountChosenHere =
-          currentStatement.mirrorOfStatementId !== null &&
-          currentStatement.statementKind === 'friend_transaction' &&
-          accountId !== null;
+          currentStatement.answeredCopy && currentStatement.statementKind === 'friend_transaction';
         assertOnlyCategoryChanged(currentStatement, {
           ...fields,
           accountId: accountChosenHere ? currentStatement.accountId : accountId,
@@ -369,17 +368,20 @@ export const statementsRouter = createTRPCRouter({
             .select({
               mirrorOfSplitId: statements.mirrorOfSplitId,
               mirrorOfStatementId: statements.mirrorOfStatementId,
+              answeredCopy: sql<boolean>`${answeredCopy}`,
             })
             .from(statements)
             .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)))
             .limit(1)
         ).at(0);
-        if (current?.mirrorOfSplitId != null) {
-          throw new Error(
-            "This statement is a friend's split; ask them to remove it, or remove the split",
-          );
+        if (
+          current !== undefined &&
+          isMirroredStatement(current) &&
+          (current.mirrorOfSplitId !== null || !current.answeredCopy)
+        ) {
+          throw new Error('Only the friend who recorded this can remove it');
         }
-        if (current?.mirrorOfStatementId != null) {
+        if (current?.answeredCopy === true) {
           await tx
             .update(friendStatementInbox)
             .set({ status: 'pending', resolvedStatementId: null, resolvedAt: null })

@@ -26,6 +26,7 @@ import {
 } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
+import { answeredCopy } from '@/server/helpers/friend-mirror';
 import {
   type StatementSort,
   type StatementKind,
@@ -127,6 +128,10 @@ const generateStatementUnionDetailedQuery = (
       mirrorOfSplitId: statements.mirrorOfSplitId,
       mirrorOfStatementId: statements.mirrorOfStatementId,
       categoryOverridden: statements.categoryOverridden,
+      answeredCopy:
+        sql<boolean>`(${statements.mirrorOfStatementId} IS NOT NULL AND ${answeredCopy})`.as(
+          'answered_copy',
+        ),
       tag: sql<string | null>`tag`.as('tag'),
     })
     .from(statements)
@@ -164,6 +169,7 @@ const generateStatementUnionDetailedQuery = (
         mirrorOfSplitId: sql<string | null>`NULL::uuid`.as('mirror_of_split_id'),
         mirrorOfStatementId: sql<string | null>`NULL::uuid`.as('mirror_of_statement_id'),
         categoryOverridden: sql<boolean>`FALSE`.as('category_overridden'),
+        answeredCopy: sql<boolean>`FALSE`.as('answered_copy'),
         tag: sql<string | null>`NULL`.as('tag'),
       })
       .from(selfTransferStatements)
@@ -296,6 +302,7 @@ export const getMergedStatements = instrumentedFunction(
             mirrorOfSplitId: row.mirrorOfSplitId,
             mirrorOfStatementId: row.mirrorOfStatementId,
             categoryOverridden: row.categoryOverridden,
+            answeredCopy: row.answeredCopy,
             fromAccountId: null,
             toAccountId: null,
             fromAccount: null,
@@ -319,6 +326,7 @@ export const getMergedStatements = instrumentedFunction(
             mirrorOfSplitId: null,
             mirrorOfStatementId: null,
             categoryOverridden: false,
+            answeredCopy: false,
             accountName: null,
             friendName: null,
             additionalAttributes: {},

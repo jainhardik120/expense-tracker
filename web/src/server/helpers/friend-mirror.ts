@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm';
 
 import { user } from '@/db/auth-schema';
 import {
@@ -143,7 +143,7 @@ const resolvedAmount = (statementKind: string, originAmount: string) =>
     ? Math.abs(Number(originAmount)).toString()
     : (-Number(originAmount)).toString();
 
-const syncFriendTransactionInbox = async (
+const syncInboxEntry = async (
   db: Database,
   statementId: string,
   link: FriendLink,
@@ -203,6 +203,64 @@ const syncFriendTransactionInbox = async (
     .where(eq(statements.id, resolvedStatementId));
 };
 
+type CrossMode = 'none' | 'direct' | 'question';
+
+const crossMode = (statement: {
+  statementKind: string;
+  accountId: string | null;
+  friendId: string | null;
+}): CrossMode => {
+  if (statement.friendId === null) {
+    return 'none';
+  }
+  if (statement.statementKind === 'friend_transaction') {
+    return statement.accountId === null ? 'direct' : 'question';
+  }
+  if (statement.statementKind === 'expense' && statement.accountId === null) {
+    return 'question';
+  }
+  return 'none';
+};
+
+const upsertDirectCopy = async (
+  db: Database,
+  statementId: string,
+  link: FriendLink,
+  source: { amount: string; category: string; tags: string[]; occurredAt: Date },
+) => {
+  await db
+    .insert(statements)
+    .values({
+      userId: link.targetUserId,
+      accountId: null,
+      friendId: link.targetProfileId,
+      statementKind: 'friend_transaction',
+      amount: (-Number(source.amount)).toString(),
+      category: source.category,
+      tags: source.tags,
+      createdAt: source.occurredAt,
+      mirrorOfStatementId: statementId,
+    })
+    .onConflictDoUpdate({
+      target: statements.mirrorOfStatementId,
+      targetWhere: isNotNull(statements.mirrorOfStatementId),
+      set: {
+        userId: sql`excluded.user_id`,
+        accountId: sql`NULL`,
+        statementKind: sql`excluded."statementKind"`,
+        friendId: sql`excluded.friend_id`,
+        amount: sql`excluded.amount`,
+        createdAt: sql`excluded.created_at`,
+        ...keepOverriddenCategory,
+      },
+    });
+};
+
+const answeredCopy = sql`EXISTS (
+  SELECT 1 FROM ${friendStatementInbox}
+  WHERE ${friendStatementInbox.resolvedStatementId} = ${statements.id}
+)`;
+
 export const reconcileStatement = instrumentedFunction(
   'reconcileStatement',
   async (db: Database, statementId: string) => {
@@ -211,6 +269,7 @@ export const reconcileStatement = instrumentedFunction(
         .select({
           ownerUserId: statements.userId,
           friendId: statements.friendId,
+          accountId: statements.accountId,
           statementKind: statements.statementKind,
           amount: statements.amount,
           category: statements.category,
@@ -226,32 +285,55 @@ export const reconcileStatement = instrumentedFunction(
     if (source === undefined || isMirroredStatement(source)) {
       return;
     }
+    const mode = crossMode(source);
     const link =
-      source.statementKind === 'friend_transaction' && source.friendId !== null
-        ? await getFriendLink(db, source.friendId, source.ownerUserId)
-        : null;
+      mode === 'none' || source.friendId === null
+        ? null
+        : await getFriendLink(db, source.friendId, source.ownerUserId);
+    const keepEntry = link !== null && mode === 'question';
+    const keepCopy = link !== null && mode === 'direct';
     await db
       .delete(friendStatementInbox)
       .where(
         and(
           eq(friendStatementInbox.originStatementId, statementId),
-          isNull(friendStatementInbox.resolvedStatementId),
-          link === null ? undefined : sql`${friendStatementInbox.userId} <> ${link.targetUserId}`,
+          keepEntry ? ne(friendStatementInbox.userId, link.targetUserId) : undefined,
         ),
       );
-    if (link !== null) {
-      await syncFriendTransactionInbox(db, statementId, link, source);
+    let staleCopies = sql`TRUE`;
+    if (keepCopy) {
+      staleCopies = sql`${statements.userId} <> ${link.targetUserId}`;
+    } else if (keepEntry) {
+      staleCopies = sql`(${statements.userId} <> ${link.targetUserId} OR NOT ${answeredCopy})`;
+    }
+    await db
+      .delete(statements)
+      .where(and(eq(statements.mirrorOfStatementId, statementId), staleCopies));
+    if (keepCopy) {
+      await upsertDirectCopy(db, statementId, link, source);
+    }
+    if (keepEntry) {
+      await syncInboxEntry(db, statementId, link, source);
     }
     await syncSplitMirrorsForStatements(db, [statementId]);
   },
 );
 
+const ORIGINAL = sql.raw('st.mirror_of_split_id IS NULL AND st.mirror_of_statement_id IS NULL');
+const CROSSES_DIRECTLY = sql.raw(
+  `st."statementKind" = 'friend_transaction' AND st.account_id IS NULL`,
+);
+const NEEDS_AN_ANSWER = sql.raw(
+  `((st."statementKind" = 'friend_transaction' AND st.account_id IS NOT NULL) OR (st."statementKind" = 'expense' AND st.account_id IS NULL))`,
+);
+
 const projectOneDirection = async (db: Database, friendId: string, ownerUserId: string) => {
   const link = await getFriendLink(db, friendId, ownerUserId);
   if (link === null) {
-    return { splitsMirrored: 0, transactionsQueued: 0 };
+    return { splitsMirrored: 0, balanceMirrored: 0, transactionsQueued: 0 };
   }
   const { targetUserId, targetProfileId } = link;
+  const fromThisFriend = sql`st.user_id = ${ownerUserId} AND st.friend_id = ${friendId}::uuid AND ${ORIGINAL}`;
   const mirrored = await db.execute(sql`
     INSERT INTO statements
       (user_id, account_id, friend_id, "statementKind", amount, category, tags, created_at,
@@ -262,14 +344,54 @@ const projectOneDirection = async (db: Database, friendId: string, ownerUserId: 
     JOIN statements st ON st.id = sp.statement_id
     WHERE sp.user_id = ${ownerUserId}
       AND sp.friend_id = ${friendId}::uuid
-      AND st.mirror_of_split_id IS NULL
-      AND st.mirror_of_statement_id IS NULL
+      AND ${ORIGINAL}
     ON CONFLICT (mirror_of_split_id) WHERE mirror_of_split_id IS NOT NULL
     DO UPDATE SET
       user_id = excluded.user_id,
       amount = excluded.amount,
       created_at = excluded.created_at,
       friend_id = excluded.friend_id,
+      category = CASE WHEN statements.category_overridden AND statements.user_id = excluded.user_id
+                      THEN statements.category ELSE excluded.category END,
+      tags = CASE WHEN statements.category_overridden AND statements.user_id = excluded.user_id
+                  THEN statements.tags ELSE excluded.tags END
+  `);
+  await db.execute(sql`
+    DELETE FROM friend_statement_inbox i
+    USING statements st
+    WHERE i.origin_statement_id = st.id
+      AND i.user_id = ${targetUserId}
+      AND ${fromThisFriend}
+      AND NOT ${NEEDS_AN_ANSWER}
+  `);
+  await db.execute(sql`
+    DELETE FROM statements c
+    USING statements st
+    WHERE c.mirror_of_statement_id = st.id
+      AND c.user_id = ${targetUserId}
+      AND ${fromThisFriend}
+      AND ${NEEDS_AN_ANSWER}
+      AND NOT EXISTS (
+        SELECT 1 FROM friend_statement_inbox i WHERE i.resolved_statement_id = c.id
+      )
+  `);
+  const balance = await db.execute(sql`
+    INSERT INTO statements
+      (user_id, account_id, friend_id, "statementKind", amount, category, tags, created_at,
+       mirror_of_statement_id)
+    SELECT ${targetUserId}, NULL, ${targetProfileId}::uuid, 'friend_transaction', -st.amount,
+           st.category, st.tags, st.created_at, st.id
+    FROM statements st
+    WHERE ${fromThisFriend}
+      AND ${CROSSES_DIRECTLY}
+    ON CONFLICT (mirror_of_statement_id) WHERE mirror_of_statement_id IS NOT NULL
+    DO UPDATE SET
+      user_id = excluded.user_id,
+      account_id = NULL,
+      "statementKind" = excluded."statementKind",
+      friend_id = excluded.friend_id,
+      amount = excluded.amount,
+      created_at = excluded.created_at,
       category = CASE WHEN statements.category_overridden AND statements.user_id = excluded.user_id
                       THEN statements.category ELSE excluded.category END,
       tags = CASE WHEN statements.category_overridden AND statements.user_id = excluded.user_id
@@ -282,18 +404,19 @@ const projectOneDirection = async (db: Database, friendId: string, ownerUserId: 
     SELECT st.id, ${ownerUserId}, ${targetUserId}, ${targetProfileId}::uuid, st.amount,
            st.category, st.tags, st.created_at, now()
     FROM statements st
-    WHERE st.user_id = ${ownerUserId}
-      AND st.friend_id = ${friendId}::uuid
-      AND st."statementKind" = 'friend_transaction'
-      AND st.mirror_of_split_id IS NULL
-      AND st.mirror_of_statement_id IS NULL
+    WHERE ${fromThisFriend}
+      AND ${NEEDS_AN_ANSWER}
     ON CONFLICT (origin_statement_id, user_id)
     DO UPDATE SET
       amount = excluded.amount,
       occurred_at = excluded.occurred_at,
       friend_id = excluded.friend_id
   `);
-  return { splitsMirrored: mirrored.rowCount ?? 0, transactionsQueued: queued.rowCount ?? 0 };
+  return {
+    splitsMirrored: mirrored.rowCount ?? 0,
+    balanceMirrored: balance.rowCount ?? 0,
+    transactionsQueued: queued.rowCount ?? 0,
+  };
 };
 
 const linkFriendProfiles = async (
@@ -405,12 +528,16 @@ export const acceptFriendInvitation = instrumentedFunction(
     return {
       friendId: myProfileId,
       splitsReceived: projected.left.splitsMirrored,
+      balanceReceived: projected.left.balanceMirrored,
       transactionsToReview: projected.left.transactionsQueued,
       splitsSent: projected.right.splitsMirrored,
+      balanceSent: projected.right.balanceMirrored,
       transactionsSent: projected.right.transactionsQueued,
     };
   },
 );
+
+export { answeredCopy };
 
 export const resolveInboxEntry = instrumentedFunction(
   'resolveInboxEntry',

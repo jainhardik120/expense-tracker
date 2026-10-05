@@ -94,7 +94,7 @@ const StatementActions = ({
         statementId={id}
         trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
       />
-      {statement.mirrorOfSplitId === null ? (
+      {!isMirroredStatement(statement) || statement.answeredCopy ? (
         <DeleteButton id={id} mutation={mutation} onRefresh={onRefresh} />
       ) : null}
     </RowActions>

@@ -158,7 +158,7 @@ const statementLock = (statement: Statement): Lock => {
   if (!isMirroredStatement(statement)) {
     return 'none';
   }
-  return statement.mirrorOfStatementId !== null && statement.statementKind === 'friend_transaction'
+  return statement.answeredCopy && statement.statementKind === 'friend_transaction'
     ? 'allButAccount'
     : 'all';
 };

@@ -206,6 +206,7 @@ export const friendsRouter = createTRPCRouter({
     }),
   getInbox: protectedProcedure.input(friendInboxListSchema).query(async ({ ctx, input }) => {
     const resolved = alias(statements, 'resolved');
+    const origin = alias(statements, 'origin');
     const conditions = [eq(friendStatementInbox.userId, ctx.user.id)];
     if (input.status.length > 0) {
       conditions.push(inArray(friendStatementInbox.status, input.status));
@@ -242,6 +243,7 @@ export const friendsRouter = createTRPCRouter({
           tags: friendStatementInbox.tags,
           occurredAt: friendStatementInbox.occurredAt,
           receivedAt: friendStatementInbox.createdAt,
+          originKind: origin.statementKind,
           status: friendStatementInbox.status,
           resolvedAt: friendStatementInbox.resolvedAt,
           resolvedKind: resolved.statementKind,
@@ -250,6 +252,7 @@ export const friendsRouter = createTRPCRouter({
         })
         .from(friendStatementInbox)
         .innerJoin(friendsProfiles, eq(friendsProfiles.id, friendStatementInbox.friendId))
+        .innerJoin(origin, eq(origin.id, friendStatementInbox.originStatementId))
         .leftJoin(resolved, eq(resolved.id, friendStatementInbox.resolvedStatementId))
         .leftJoin(bankAccount, eq(bankAccount.id, resolved.accountId))
         .where(and(...conditions))
@@ -261,7 +264,11 @@ export const friendsRouter = createTRPCRouter({
         .offset((input.page - 1) * input.perPage),
     ]);
     return {
-      entries: rows.map((row) => ({ ...row, amount: (-Number(row.amount)).toString() })),
+      entries: rows.map(({ originKind, ...row }) => ({
+        ...row,
+        kind: originKind === 'expense' ? ('paid' as const) : ('transfer' as const),
+        amount: (-Number(row.amount)).toString(),
+      })),
       pageCount: Math.ceil(count / input.perPage),
       rowsCount: count,
     };

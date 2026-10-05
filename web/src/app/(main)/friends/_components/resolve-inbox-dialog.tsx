@@ -13,7 +13,7 @@ import { type InboxEntry } from './inbox-columns';
 
 const resolveFormSchema = z
   .object({
-    type: z.enum(['account', 'expense', 'dismiss']),
+    type: z.enum(['account', 'expense', 'cash', 'dismiss']),
     accountId: z.string(),
     category: z.string(),
     tags: z.string().array(),
@@ -35,6 +35,9 @@ const toResolution = (values: ResolveFormValues, single: boolean): InboxResoluti
   }
   if (values.type === 'expense') {
     return { type: 'expense', ...category };
+  }
+  if (values.type === 'cash') {
+    return { type: 'cash', ...category };
   }
   return { type: 'dismiss' };
 };
@@ -62,8 +65,9 @@ export const ResolveInboxDialog = ({
       label: 'What was it on your side?',
       type: 'select',
       options: [
-        { label: 'It touched one of my accounts', value: 'account' },
+        { label: 'Through one of my accounts', value: 'account' },
         ...(allIncoming ? [{ label: 'They paid for something of mine', value: 'expense' }] : []),
+        { label: 'Not through an account (cash)', value: 'cash' },
         { label: 'Ignore it', value: 'dismiss' },
       ],
     },
