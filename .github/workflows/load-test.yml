@@ -45,6 +45,7 @@ jobs:
       BASE: http://localhost:3000
       DATABASE_URL: postgres://expense:expense@localhost:5432/expense_tracker
       NEXT_PUBLIC_BASE_URL: http://localhost:3000
+      BETTER_AUTH_URL: http://localhost:3000
       NEXT_PUBLIC_POSTHOG_KEY: loadtest
       NEXT_PUBLIC_POSTHOG_HOST: http://localhost:9
       USERS_FILE: ${{ github.workspace }}/loadtest/users.json
@@ -106,7 +107,8 @@ jobs:
             -e WEB_WORKERS \
             -e DATABASE_URL=postgres://expense:expense@localhost:5432/expense_tracker \
             -e DATABASE_POOL_MAX=10 -e LOG_LEVEL=warn -e OTEL_SDK_DISABLED=true \
-            -e BETTER_AUTH_SECRET -e NEXT_PUBLIC_BASE_URL -e AUTH_TRUSTED_ORIGINS="$NEXT_PUBLIC_BASE_URL" \
+            -e BETTER_AUTH_SECRET -e BETTER_AUTH_URL -e NEXT_PUBLIC_BASE_URL \
+            -e AUTH_TRUSTED_ORIGINS="$NEXT_PUBLIC_BASE_URL" \
             -e NEXT_PUBLIC_POSTHOG_KEY -e NEXT_PUBLIC_POSTHOG_HOST \
             -e AWS_REGION=us-east-1 -e AWS_ACCESS_KEY_ID=loadtest -e AWS_SECRET_ACCESS_KEY=loadtest \
             -e EMAIL_SENDER_ADDRESS=loadtest@example.invalid \
@@ -149,7 +151,25 @@ jobs:
           docker logs --tail 100 "$CONTAINER"
           exit 1
 
+      - name: Check a seeded user can load their dashboard
+        run: |
+          read -r email cookie < <(node -e '
+            const [first] = require(process.env.USERS_FILE);
+            console.log(first.email, first.cookie);
+          ')
+          status=$(curl -s -o "$RUNNER_TEMP/sanity.html" -w '%{http_code}' \
+            -H "Cookie: __Secure-better-auth.session_token=$cookie; better-auth.session_token=$cookie; timezone=Asia/Calcutta" \
+            "$BASE/")
+          if [ "$status" = "200" ] && grep -q "$email" "$RUNNER_TEMP/sanity.html"; then
+            echo "Dashboard loads for $email"
+            exit 0
+          fi
+          echo "::error::Dashboard returned $status, or not as $email"
+          docker logs --tail 60 "$CONTAINER"
+          exit 1
+
       - name: Run the load test
+        timeout-minutes: 120
         run: loadtest/run.sh
 
       - name: Build the report
@@ -192,3 +212,26 @@ jobs:
           name: load-test-${{ github.run_number }}
           path: loadtest/results
           retention-days: 30
+
+      - name: Fail if a page is broken at its lightest load
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const dir = process.env.OUT;
+            const broken = [];
+            for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".meta.json"))) {
+              const meta = JSON.parse(fs.readFileSync(dir + "/" + file, "utf8"));
+              const lightest = process.env.LEVELS.trim().split(/\s+/)[0];
+              if (String(meta.vus) !== lightest) continue;
+              const summary = dir + "/" + meta.page + "-" + meta.vus + ".json";
+              if (!fs.existsSync(summary)) { broken.push(meta.page + ": no k6 summary"); continue; }
+              const checks = JSON.parse(fs.readFileSync(summary, "utf8")).metrics.checks;
+              const failed = checks.fails / Math.max(checks.passes + checks.fails, 1);
+              if (failed > 0.5) broken.push(meta.page + ": " + (100 * failed).toFixed(0) + "% of checks failed at " + meta.vus + " users");
+            }
+            if (broken.length > 0) {
+              for (const line of broken) console.log("::error::" + line);
+              process.exit(1);
+            }
+            console.log("Every page served its lightest load");
+          '

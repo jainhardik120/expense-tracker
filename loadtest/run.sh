@@ -30,24 +30,41 @@ restarts() {
   docker logs "$CONTAINER" 2>&1 | grep -c 'exited'
 }
 
+sample_stats() {
+  while true; do
+    docker stats --no-stream --format '{{.MemUsage}}|{{.CPUPerc}}' "$CONTAINER"
+    sleep 1
+  done
+}
+
+k6_limit() {
+  local seconds
+  case "$1" in
+    *m) seconds=$((${1%m} * 60)) ;;
+    *s) seconds=${1%s} ;;
+    *) seconds=$1 ;;
+  esac
+  echo $((seconds + 120))
+}
+
 for page in $PAGES; do
   path=$(path_for "$page")
   first_level=${LEVELS%% *}
-  k6 run -q --no-color -e USERS_FILE="$USERS_FILE" -e BASE="$BASE" -e PAGE_PATH="$path" \
-    -e VUS="$first_level" -e DURATION="$WARMUP" page.js > /dev/null 2>&1 || true
+  timeout "$(k6_limit "$WARMUP")" k6 run -q --no-color -e USERS_FILE="$USERS_FILE" -e BASE="$BASE" \
+    -e PAGE_PATH="$path" -e VUS="$first_level" -e DURATION="$WARMUP" page.js > /dev/null 2>&1 || true
   psql_exec -tAc "select pg_stat_statements_reset()" > /dev/null
   for vus in $LEVELS; do
     label="$page-$vus"
     restarts_before=$(restarts)
-    docker stats --format '{{.MemUsage}}|{{.CPUPerc}}' "$CONTAINER" > "$OUT/$label.stats" &
+    sample_stats > "$OUT/$label.stats" 2> /dev/null &
     stats=$!
     cpu_before=$(cpu_usec)
-    k6 run -q --no-color -e USERS_FILE="$USERS_FILE" -e BASE="$BASE" -e PAGE_PATH="$path" \
-      -e VUS="$vus" -e DURATION="$DURATION" --summary-export "$OUT/$label.json" page.js \
-      > "$OUT/$label.log" 2>&1 || true
+    timeout "$(k6_limit "$DURATION")" k6 run -q --no-color -e USERS_FILE="$USERS_FILE" -e BASE="$BASE" \
+      -e PAGE_PATH="$path" -e VUS="$vus" -e DURATION="$DURATION" --summary-export "$OUT/$label.json" \
+      page.js > "$OUT/$label.log" 2>&1 || true
     cpu_after=$(cpu_usec)
-    kill "$stats" 2> /dev/null
-    wait "$stats" 2> /dev/null
+    kill "$stats" 2> /dev/null || true
+    wait "$stats" 2> /dev/null || true
     oom=$(docker inspect "$CONTAINER" --format '{{.State.OOMKilled}}')
     printf '{"page":"%s","path":"%s","vus":%s,"cpuUsec":%s,"restarts":%s,"oomKilled":%s}\n' \
       "$page" "$path" "$vus" "$((cpu_after - cpu_before))" "$(( $(restarts) - restarts_before ))" "$oom" \
