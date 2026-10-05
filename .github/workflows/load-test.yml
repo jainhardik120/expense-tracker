@@ -1,0 +1,194 @@
+name: Load test
+
+on:
+  workflow_dispatch:
+    inputs:
+      users:
+        description: Synthetic users to seed
+        default: '200'
+      years:
+        description: Years of history per user
+        default: '5'
+      pages:
+        description: Pages to test (dashboard, budget, statements, reports, investments, emis, salary, recurring-payments, inbox-sms, inbox-statements, ...)
+        default: dashboard budget statements reports investments emis salary recurring-payments inbox-sms inbox-statements
+      levels:
+        description: Concurrent users per step
+        default: 10 25 50 100
+      duration:
+        description: Duration of each step
+        default: 45s
+      cpus:
+        description: CPUs for the app and database together
+        default: '2'
+      memory:
+        description: Memory for the app and database together
+        default: 1g
+      web_workers:
+        description: Next.js worker processes
+        default: '1'
+      pg_shared_buffers:
+        description: Postgres shared_buffers
+        default: 128MB
+
+concurrency:
+  group: load-test
+  cancel-in-progress: false
+
+jobs:
+  load-test:
+    name: Load test
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      CONTAINER: et-loadtest
+      BASE: http://localhost:3000
+      DATABASE_URL: postgres://expense:expense@localhost:5432/expense_tracker
+      NEXT_PUBLIC_BASE_URL: http://localhost:3000
+      NEXT_PUBLIC_POSTHOG_KEY: loadtest
+      NEXT_PUBLIC_POSTHOG_HOST: http://localhost:9
+      USERS_FILE: ${{ github.workspace }}/loadtest/users.json
+      OUT: ${{ github.workspace }}/loadtest/results
+      PAGES: ${{ inputs.pages }}
+      LEVELS: ${{ inputs.levels }}
+      DURATION: ${{ inputs.duration }}
+      SEED_USERS: ${{ inputs.users }}
+      SEED_YEARS: ${{ inputs.years }}
+      BOX_CPUS: ${{ inputs.cpus }}
+      BOX_MEMORY: ${{ inputs.memory }}
+      WEB_WORKERS: ${{ inputs.web_workers }}
+      PG_SHARED_BUFFERS: ${{ inputs.pg_shared_buffers }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - uses: grafana/setup-k6-action@v1
+
+      - name: Generate a throwaway auth secret
+        id: secret
+        run: |
+          secret=$(openssl rand -hex 32)
+          echo "::add-mask::$secret"
+          echo "value=$secret" >> "$GITHUB_OUTPUT"
+
+      - name: Install
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the app
+        working-directory: web
+        env:
+          SKIP_ENV_VALIDATION: 'true'
+        run: pnpm run build
+
+      - name: Build the load test image
+        run: docker build -t et-loadtest loadtest/
+
+      - name: Start Postgres and the app, capped together
+        env:
+          BETTER_AUTH_SECRET: ${{ steps.secret.outputs.value }}
+        run: |
+          docker run -d --name "$CONTAINER" \
+            --memory="$BOX_MEMORY" --memory-swap="$BOX_MEMORY" --cpus="$BOX_CPUS" \
+            -p 3000:3000 -p 5432:5432 \
+            -e POSTGRES_USER=expense -e POSTGRES_PASSWORD=expense -e POSTGRES_DB=expense_tracker \
+            -e TZ=GMT -e PGTZ=GMT \
+            -e APP_DIR="$GITHUB_WORKSPACE/web" -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -e WEB_WORKERS \
+            -e DATABASE_URL=postgres://expense:expense@localhost:5432/expense_tracker \
+            -e DATABASE_POOL_MAX=10 -e LOG_LEVEL=warn -e OTEL_SDK_DISABLED=true \
+            -e BETTER_AUTH_SECRET -e NEXT_PUBLIC_BASE_URL -e AUTH_TRUSTED_ORIGINS="$NEXT_PUBLIC_BASE_URL" \
+            -e NEXT_PUBLIC_POSTHOG_KEY -e NEXT_PUBLIC_POSTHOG_HOST \
+            -e AWS_REGION=us-east-1 -e AWS_ACCESS_KEY_ID=loadtest -e AWS_SECRET_ACCESS_KEY=loadtest \
+            -e EMAIL_SENDER_ADDRESS=loadtest@example.invalid \
+            -e GITHUB_CLIENT_ID=loadtest -e GITHUB_CLIENT_SECRET=loadtest -e COINGECKO_API_KEY=loadtest \
+            -v "$GITHUB_WORKSPACE:$GITHUB_WORKSPACE" \
+            et-loadtest \
+            -c shared_preload_libraries=pg_stat_statements \
+            -c pg_stat_statements.track=all \
+            -c pg_stat_statements.track_planning=on \
+            -c shared_buffers="$PG_SHARED_BUFFERS"
+          until docker exec "$CONTAINER" pg_isready -q -U expense -d expense_tracker; do sleep 1; done
+          docker exec "$CONTAINER" psql -U expense -d expense_tracker -c "create extension if not exists pg_stat_statements"
+
+      - name: Migrate
+        working-directory: web
+        env:
+          NODE_ENV: production
+          SKIP_ENV_VALIDATION: 'true'
+        run: pnpm run db:migrate
+
+      - name: Seed synthetic users
+        working-directory: web
+        env:
+          BETTER_AUTH_SECRET: ${{ steps.secret.outputs.value }}
+        run: |
+          export LOAD_TEST_USERS="$SEED_USERS" LOAD_TEST_YEARS="$SEED_YEARS" LOAD_TEST_OUT="$USERS_FILE"
+          pnpm exec tsx scripts/load-test-seed.ts | tee "$RUNNER_TEMP/seed.log"
+          tail -n 2 "$RUNNER_TEMP/seed.log" | head -n 1 > "$RUNNER_TEMP/seed.json"
+          docker exec "$CONTAINER" psql -U expense -d expense_tracker -tAc "select pg_size_pretty(pg_database_size(current_database()))" > "$RUNNER_TEMP/db-size.txt"
+
+      - name: Restart the app on the seeded database
+        run: |
+          docker exec "$CONTAINER" pkill -f next-server || true
+          for _ in $(seq 1 120); do
+            if curl -s -o /dev/null http://localhost:3000/privacy; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs --tail 100 "$CONTAINER"
+          exit 1
+
+      - name: Run the load test
+        run: loadtest/run.sh
+
+      - name: Build the report
+        if: always()
+        run: |
+          mkdir -p "$OUT"
+          node -e '
+            const fs = require("node:fs");
+            const read = (path, fallback) => (fs.existsSync(path) ? fs.readFileSync(path, "utf8").trim() : fallback);
+            let seed = {};
+            try { seed = JSON.parse(read(process.env.RUNNER_TEMP + "/seed.json", "{}")); } catch {}
+            fs.writeFileSync(process.env.OUT + "/context.json", JSON.stringify({
+              sha: process.env.GITHUB_SHA.slice(0, 7),
+              ref: process.env.GITHUB_REF_NAME,
+              date: new Date().toISOString(),
+              settings: {
+                users: process.env.SEED_USERS,
+                years: process.env.SEED_YEARS,
+                "cpus (app + db)": process.env.BOX_CPUS,
+                "memory (app + db)": process.env.BOX_MEMORY,
+                "web workers": process.env.WEB_WORKERS,
+                "postgres shared_buffers": process.env.PG_SHARED_BUFFERS,
+                "step duration": process.env.DURATION,
+                "database size": read(process.env.RUNNER_TEMP + "/db-size.txt", "unknown"),
+                runner: process.env.RUNNER_OS + " " + require("node:os").cpus().length + " CPUs",
+              },
+              seed,
+            }));
+          '
+          node loadtest/report.mjs "$OUT" "$OUT/report.md"
+          cat "$OUT/report.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save container logs
+        if: always()
+        run: docker logs "$CONTAINER" > "$OUT/container.log" 2>&1 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: load-test-${{ github.run_number }}
+          path: loadtest/results
+          retention-days: 30

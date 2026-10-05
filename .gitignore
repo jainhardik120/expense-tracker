@@ -3,3 +3,6 @@
 
 # Playwright MCP snapshots, screenshots and console logs
 .playwright-mcp/
+
+loadtest/results/
+loadtest/users.json
