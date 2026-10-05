@@ -5190,8 +5190,8 @@ packages:
   fecha@4.2.3:
     resolution: {integrity: sha512-OP2IUU6HeYKJi3i0z4A19kHMQoLVs4Hc+DPqqxI2h/DPZHTm/vjsfC6P0b4jCMy14XizLBqvndQ+UilD7707Jw==}
 
-  fflate@0.4.8:
-    resolution: {integrity: sha512-FJqqoDBR00Mdj9ppamLa/Y7vxm+PRmNWA67N846RvsoYVMKB4q3y/de5PA7gUmRMYK/8CMz2GDZQmCRN1wBcWA==}
+  fflate@0.4.9:
+    resolution: {integrity: sha512-zdxgIEddhfsyCaWpJ2SdXEP8ZMrKJ6+5jl4OupODcywU0IhRk6gdXuVGcPICyfx2H97hVK7xmJtRLPjkxAX8Vw==}
 
   fflate@0.8.3:
     resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
@@ -12167,7 +12167,7 @@ snapshots:
 
   fecha@4.2.3: {}
 
-  fflate@0.4.8: {}
+  fflate@0.4.9: {}
 
   fflate@0.8.3: {}
 
@@ -13765,7 +13765,7 @@ snapshots:
       '@posthog/types': 1.413.0
       core-js: 3.50.0
       dompurify: 3.4.16
-      fflate: 0.4.8
+      fflate: 0.4.9
       preact: 10.29.8
       query-selector-shadow-dom: 1.0.1
       web-vitals: 6.2.2
