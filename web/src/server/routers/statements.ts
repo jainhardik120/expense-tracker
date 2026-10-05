@@ -2,16 +2,15 @@ import { and, asc, eq, inArray, sql, arrayContains, not } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
-  friendStatementInbox,
   salaryPayments,
   selfTransferStatements,
   splits,
   statementKindEnum,
   statements,
+  visibleStatements,
 } from '@/db/schema';
 import { buildQueryConditions } from '@/server/helpers';
 import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
-import { answeredCopy, reconcileStatement, syncSplitMirrors } from '@/server/helpers/friend-mirror';
 import {
   getMergedStatements,
   getRowsCount,
@@ -28,7 +27,6 @@ import {
   createSplitSchema,
   createStatementSchema,
   dateSchema,
-  isMirroredStatement,
   ONE_HUNDRED_PERCENTAGE,
   parseStatementSort,
   statementParserSchema,
@@ -38,29 +36,6 @@ import {
 
 const asOptionalId = (value: string | null | undefined) =>
   value === undefined || value === null || value === '' ? null : value;
-
-const assertOnlyCategoryChanged = (
-  current: {
-    amount: string;
-    statementKind: string;
-    accountId: string | null;
-    friendId: string | null;
-    createdAt: Date;
-  },
-  next: z.infer<typeof createStatementSchema>,
-) => {
-  const lockedChanged =
-    Number(next.amount) !== Number(current.amount) ||
-    next.statementKind !== current.statementKind ||
-    next.accountId !== current.accountId ||
-    asOptionalId(next.friendId) !== current.friendId ||
-    next.createdAt.getTime() !== current.createdAt.getTime();
-  if (lockedChanged) {
-    throw new Error(
-      'This statement was recorded by a friend; only its category and tags can be changed here',
-    );
-  }
-};
 
 export const statementsRouter = createTRPCRouter({
   getCategories: protectedProcedure
@@ -78,15 +53,15 @@ export const statementsRouter = createTRPCRouter({
     )
     .output(z.array(z.string()))
     .query(async ({ ctx, input }) => {
-      const conditions = buildQueryConditions(statements, ctx.user.id, input.start, input.end);
+      const conditions = buildQueryConditions(visibleStatements, ctx.user.id, input.start, input.end);
       const statementKind = input.statementKind ?? [];
       if (statementKind.length > 0) {
-        conditions.push(inArray(statements.statementKind, statementKind));
+        conditions.push(inArray(visibleStatements.statementKind, statementKind));
       }
       return (
         await ctx.db
-          .selectDistinct({ category: statements.category })
-          .from(statements)
+          .selectDistinct({ category: visibleStatements.category })
+          .from(visibleStatements)
           .where(and(...conditions))
       )
         .map((c) => c.category)
@@ -108,18 +83,18 @@ export const statementsRouter = createTRPCRouter({
     )
     .output(z.array(z.string()))
     .query(async ({ ctx, input }) => {
-      const conditions = buildQueryConditions(statements, ctx.user.id, input.start, input.end);
+      const conditions = buildQueryConditions(visibleStatements, ctx.user.id, input.start, input.end);
       const statementKind = input.statementKind ?? [];
       const category = input.category ?? [];
       if (statementKind.length > 0) {
-        conditions.push(inArray(statements.statementKind, statementKind));
+        conditions.push(inArray(visibleStatements.statementKind, statementKind));
       }
       if (category.length > 0) {
-        conditions.push(inArray(statements.category, category));
+        conditions.push(inArray(visibleStatements.category, category));
       }
       const result = await ctx.db
-        .selectDistinct({ tag: sql<string>`unnest(${statements.tags})`.as('tag') })
-        .from(statements)
+        .selectDistinct({ tag: sql<string>`unnest(${visibleStatements.tags})`.as('tag') })
+        .from(visibleStatements)
         .where(and(...conditions))
         .orderBy(sql<string>`tag`);
       return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));
@@ -209,21 +184,15 @@ export const statementsRouter = createTRPCRouter({
         accountIds: [accountId],
         friendIds: [friendId],
       });
-      return ctx.db.transaction(async (tx) => {
-        const inserted = await tx
-          .insert(statements)
-          .values({
-            userId: ctx.user.id,
-            ...input,
-            accountId,
-            friendId,
-          })
-          .returning({ id: statements.id });
-        for (const row of inserted) {
-          await reconcileStatement(tx, row.id);
-        }
-        return inserted;
-      });
+      return ctx.db
+        .insert(statements)
+        .values({
+          userId: ctx.user.id,
+          ...input,
+          accountId,
+          friendId,
+        })
+        .returning({ id: statements.id });
     }),
   updateStatement: protectedProcedure
     .meta({
@@ -238,19 +207,7 @@ export const statementsRouter = createTRPCRouter({
       const { id, ...fields } = input;
       const currentStatement = (
         await ctx.db
-          .select({
-            amount: statements.amount,
-            taxableAmount: statements.taxableAmount,
-            statementKind: statements.statementKind,
-            accountId: statements.accountId,
-            friendId: statements.friendId,
-            createdAt: statements.createdAt,
-            category: statements.category,
-            tags: statements.tags,
-            mirrorOfSplitId: statements.mirrorOfSplitId,
-            mirrorOfStatementId: statements.mirrorOfStatementId,
-            answeredCopy: sql<boolean>`${answeredCopy}`,
-          })
+          .select({ amount: statements.amount, taxableAmount: statements.taxableAmount })
           .from(statements)
           .where(and(eq(statements.id, id), eq(statements.userId, ctx.user.id)))
           .limit(1)
@@ -264,27 +221,6 @@ export const statementsRouter = createTRPCRouter({
         accountIds: [accountId],
         friendIds: [friendId],
       });
-      if (isMirroredStatement(currentStatement)) {
-        const accountChosenHere =
-          currentStatement.answeredCopy && currentStatement.statementKind === 'friend_transaction';
-        assertOnlyCategoryChanged(currentStatement, {
-          ...fields,
-          accountId: accountChosenHere ? currentStatement.accountId : accountId,
-        });
-        const categoryChanged =
-          fields.category !== currentStatement.category ||
-          fields.tags.join('\u0000') !== currentStatement.tags.join('\u0000');
-        return ctx.db
-          .update(statements)
-          .set({
-            category: fields.category,
-            tags: fields.tags,
-            ...(accountChosenHere ? { accountId } : {}),
-            ...(categoryChanged ? { categoryOverridden: true } : {}),
-          })
-          .where(and(eq(statements.id, id), eq(statements.userId, ctx.user.id)))
-          .returning({ id: statements.id });
-      }
       const nextAmount = Number(fields.amount);
       const remainsTaxableCandidate =
         fields.statementKind === 'outside_transaction' && nextAmount > 0;
@@ -300,20 +236,16 @@ export const statementsRouter = createTRPCRouter({
           taxableAmount = null;
         }
       }
-      return ctx.db.transaction(async (tx) => {
-        const updated = await tx
-          .update(statements)
-          .set({
-            ...fields,
-            taxableAmount,
-            accountId,
-            friendId,
-          })
-          .where(and(eq(statements.id, id), eq(statements.userId, ctx.user.id)))
-          .returning({ id: statements.id });
-        await reconcileStatement(tx, id);
-        return updated;
-      });
+      return ctx.db
+        .update(statements)
+        .set({
+          ...fields,
+          taxableAmount,
+          accountId,
+          friendId,
+        })
+        .where(and(eq(statements.id, id), eq(statements.userId, ctx.user.id)))
+        .returning({ id: statements.id });
     }),
   updateTaxableIncome: protectedProcedure
     .input(updateStatementTaxableIncomeSchema)
@@ -362,40 +294,9 @@ export const statementsRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .output(z.void())
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.transaction(async (tx) => {
-        const current = (
-          await tx
-            .select({
-              mirrorOfSplitId: statements.mirrorOfSplitId,
-              mirrorOfStatementId: statements.mirrorOfStatementId,
-              answeredCopy: sql<boolean>`${answeredCopy}`,
-            })
-            .from(statements)
-            .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)))
-            .limit(1)
-        ).at(0);
-        if (
-          current !== undefined &&
-          isMirroredStatement(current) &&
-          (current.mirrorOfSplitId !== null || !current.answeredCopy)
-        ) {
-          throw new Error('Only the friend who recorded this can remove it');
-        }
-        if (current?.answeredCopy === true) {
-          await tx
-            .update(friendStatementInbox)
-            .set({ status: 'pending', resolvedStatementId: null, resolvedAt: null })
-            .where(
-              and(
-                eq(friendStatementInbox.userId, ctx.user.id),
-                eq(friendStatementInbox.resolvedStatementId, input.id),
-              ),
-            );
-        }
-        await tx
-          .delete(statements)
-          .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)));
-      });
+      await ctx.db
+        .delete(statements)
+        .where(and(eq(statements.id, input.id), eq(statements.userId, ctx.user.id)));
     }),
   createSelfTransferStatement: protectedProcedure
     .meta({
@@ -498,10 +399,7 @@ export const statementsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const updated = await ctx.db
         .update(statements)
-        .set({
-          tags: sql`array_append(${statements.tags}, ${input.tag})`,
-          categoryOverridden: sql`${statements.categoryOverridden} OR ${statements.mirrorOfSplitId} IS NOT NULL OR ${statements.mirrorOfStatementId} IS NOT NULL`,
-        })
+        .set({ tags: sql`array_append(${statements.tags}, ${input.tag})` })
         .where(
           and(
             eq(statements.userId, ctx.user.id),
@@ -595,11 +493,7 @@ export const statementsRouter = createTRPCRouter({
             amount: splitAmount,
           };
         });
-        const created = await db.insert(splits).values(inserts).returning({ id: splits.id });
-        await syncSplitMirrors(
-          db,
-          created.map((row) => row.id),
-        );
+        await db.insert(splits).values(inserts);
       }),
     ),
   createStatementSplit: protectedProcedure
@@ -635,7 +529,7 @@ export const statementsRouter = createTRPCRouter({
             `Cannot add split. Total allocated amount (${totalAllocated + newSplitAmount}) would exceed statement amount (${statementAmount}).`,
           );
         }
-        const created = await tx
+        return tx
           .insert(splits)
           .values({
             userId: ctx.user.id,
@@ -643,11 +537,6 @@ export const statementsRouter = createTRPCRouter({
             ...input.createSplitSchema,
           })
           .returning({ id: splits.id });
-        await syncSplitMirrors(
-          tx,
-          created.map((row) => row.id),
-        );
-        return created;
       });
     }),
   deleteStatementSplit: protectedProcedure
@@ -707,15 +596,13 @@ export const statementsRouter = createTRPCRouter({
             `Cannot update split. Total allocated amount (${newTotal}) would exceed statement amount (${statementAmount}).`,
           );
         }
-        const result = await tx
+        return tx
           .update(splits)
           .set({
             ...input.createSplitSchema,
           })
           .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)))
           .returning({ id: splits.id });
-        await syncSplitMirrors(tx, [input.splitId]);
-        return result;
       });
     }),
 });

@@ -58,7 +58,7 @@ const InvitationRow = ({
       .mutateAsync({ id: invitation.id, friendId: choice === NEW_FRIEND ? null : choice })
       .then((result) => {
         toast.success(
-          `Connected with ${invitation.inviterName}: ${result.splitsReceived + result.balanceReceived} statements added, ${result.transactionsToReview} to review`,
+          `Connected with ${invitation.inviterName}: ${result.sharedStatements} shared statements, ${result.toReview} to review`,
         );
         return refresh();
       })

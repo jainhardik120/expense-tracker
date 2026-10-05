@@ -15,7 +15,7 @@ import {
   type Account,
   createStatementSchema,
   type Friend,
-  isMirroredStatement,
+  isSharedStatement,
   type Statement,
   statementKindMap,
   statementParser,
@@ -154,14 +154,71 @@ export const CreateStatementForm = ({
   );
 };
 
-const statementLock = (statement: Statement): Lock => {
-  if (!isMirroredStatement(statement)) {
-    return 'none';
+const UpdateSharedStatementForm = ({
+  refresh,
+  initialData,
+  accountsData,
+  friendsData,
+  categories,
+  trigger,
+}: {
+  refresh?: () => void;
+  initialData: Statement;
+  accountsData: Account[];
+  friendsData: Friend[];
+  categories: string[];
+  trigger: React.ReactNode;
+}) => {
+  const mutation = api.friends.updateSharedStatement.useMutation();
+  const accountEditable =
+    initialData.shareKind === 'answer' && initialData.statementKind === 'friend_transaction';
+  const formFields = useMemo(
+    () =>
+      statementFormFields(
+        accountsData,
+        friendsData,
+        categories,
+        accountEditable ? 'allButAccount' : 'all',
+      ),
+    [accountsData, friendsData, categories, accountEditable],
+  );
+  const { shareKind } = initialData;
+  if (shareKind === 'own') {
+    return null;
   }
-  return statement.answeredCopy && statement.statementKind === 'friend_transaction'
-    ? 'allButAccount'
-    : 'all';
+  return (
+    <MutationModal
+      button={trigger}
+      customDescription={
+        <p className="text-muted-foreground text-sm">
+          {initialData.friendName ?? 'Your friend'} recorded this, so its amount and date come from
+          their statement. The category and tags are yours.
+        </p>
+      }
+      defaultValues={{
+        ...initialData,
+        accountId: initialData.accountId ?? undefined,
+        friendId: initialData.friendId ?? undefined,
+      }}
+      fields={formFields}
+      mapInput={(values) => ({
+        shareKind,
+        sourceId: initialData.id,
+        category: values.category,
+        tags: values.tags,
+        ...(accountEditable ? { accountId: asOptionalAccount(values.accountId) } : {}),
+      })}
+      mutation={mutation}
+      refresh={refresh}
+      schema={createStatementSchema}
+      successToast={() => 'Statement updated'}
+      titleText="Update Statement"
+    />
+  );
 };
+
+const asOptionalAccount = (value: string | null | undefined) =>
+  value === undefined || value === null || value === '' ? null : value;
 
 export const UpdateStatementForm = ({
   refresh,
@@ -181,22 +238,25 @@ export const UpdateStatementForm = ({
   trigger: React.ReactNode;
 }) => {
   const mutation = api.statements.updateStatement.useMutation();
-  const lock = statementLock(initialData);
   const formFields = useMemo(
-    () => statementFormFields(accountsData, friendsData, categories, lock),
-    [accountsData, friendsData, categories, lock],
+    () => statementFormFields(accountsData, friendsData, categories),
+    [accountsData, friendsData, categories],
   );
+  if (isSharedStatement(initialData)) {
+    return (
+      <UpdateSharedStatementForm
+        accountsData={accountsData}
+        categories={categories}
+        friendsData={friendsData}
+        initialData={initialData}
+        refresh={refresh}
+        trigger={trigger}
+      />
+    );
+  }
   return (
     <MutationModal
       button={trigger}
-      customDescription={
-        lock === 'none' ? undefined : (
-          <p className="text-muted-foreground text-sm">
-            {initialData.friendName ?? 'Your friend'} recorded this, so its amount and date follow
-            their copy. The category and tags are yours.
-          </p>
-        )
-      }
       defaultValues={{
         ...initialData,
         accountId: initialData.accountId ?? undefined,

@@ -82,10 +82,23 @@ const Table = ({
   const [searchParams] = useQueryStates(statementParser);
   const router = useRouter();
   const updateStatement = api.statements.updateStatement.useMutation();
+  const updateSharedStatement = api.friends.updateSharedStatement.useMutation();
   const updateSelfTransferStatement = api.statements.updateSelfTransferStatement.useMutation();
 
   const onCellSave = (statement: Statement, patch: Partial<Statement>) => {
     startTransition(async () => {
+      const { shareKind } = statement;
+      if (shareKind !== 'own') {
+        await updateSharedStatement.mutateAsync({
+          shareKind,
+          sourceId: statement.id,
+          category: patch.category ?? statement.category,
+          tags: patch.tags ?? statement.tags,
+        });
+        toast.success('Statement updated');
+        router.refresh();
+        return;
+      }
       await updateStatement.mutateAsync({
         id: statement.id,
         amount: statement.amount,

@@ -39,9 +39,6 @@ const becameLabel = (entry: InboxEntry) => {
   if (entry.status !== 'accepted') {
     return '-';
   }
-  if (entry.resolvedKind === null) {
-    return 'Deleted';
-  }
   if (entry.resolvedKind === 'expense') {
     return `Expense paid by ${entry.friendName}`;
   }
@@ -224,13 +221,6 @@ export const createInboxColumns = ({
     ),
   },
   {
-    id: 'receivedAt',
-    accessorKey: 'receivedAt',
-    header: 'Arrived',
-    enableSorting: false,
-    cell: ({ row }) => <ZonedDate value={row.original.receivedAt} />,
-  },
-  {
     id: 'resolvedAt',
     accessorKey: 'resolvedAt',
     header: 'Answered',
@@ -245,15 +235,12 @@ export const createInboxColumns = ({
     meta: { label: 'Actions', selectable: false },
     cell: ({ row }) => {
       const entry = row.original;
-      if (entry.status === 'dismissed') {
+      if (entry.status !== 'pending') {
         return (
           <RowActions>
             <ReopenAction id={entry.id} />
           </RowActions>
         );
-      }
-      if (entry.status !== 'pending') {
-        return null;
       }
       return (
         <RowActions collapse="always">

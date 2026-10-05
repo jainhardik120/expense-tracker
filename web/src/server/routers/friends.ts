@@ -1,22 +1,45 @@
-import { and, asc, count as countRows, desc, eq, gte, inArray, lte, ne } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import {
+  and,
+  asc,
+  count as countRows,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lte,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
+import { alias, type PgSelect } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 
 import { user } from '@/db/auth-schema';
 import {
   bankAccount,
   friendInvitations,
-  friendStatementInbox,
   friendsProfiles,
+  sharedAnswers,
   statements,
 } from '@/db/schema';
 import FriendInvitationEmail from '@/emails/friend-invitation';
 import { getBaseUrl } from '@/lib/get-base-url';
 import { sendSESEmail } from '@/lib/send-email';
 import { assertOwnsAccountsAndFriends, getFriends } from '@/server/helpers/account';
-import { acceptFriendInvitation, resolveInboxEntry } from '@/server/helpers/friend-mirror';
+import {
+  acceptFriendInvitation,
+  answerReviewEntries,
+  needsAnAnswer,
+  reopenReviewEntries,
+  updateSharedStatement,
+} from '@/server/helpers/friend-sharing';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createFriendSchema, friendInboxListSchema, inboxResolutionSchema } from '@/types';
+import {
+  createFriendSchema,
+  friendInboxListSchema,
+  inboxResolutionSchema,
+  sharedStatementUpdateSchema,
+} from '@/types';
 
 export const friendsRouter = createTRPCRouter({
   getFriends: protectedProcedure
@@ -55,7 +78,17 @@ export const friendsRouter = createTRPCRouter({
   }),
   deleteFriend: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const friend = (
+        await ctx.db
+          .select({ linkedUserId: friendsProfiles.linkedUserId })
+          .from(friendsProfiles)
+          .where(and(eq(friendsProfiles.id, input.id), eq(friendsProfiles.userId, ctx.user.id)))
+          .limit(1)
+      ).at(0);
+      if (friend?.linkedUserId != null) {
+        throw new Error('A friend connected to an account cannot be removed');
+      }
       return ctx.db
         .delete(friendsProfiles)
         .where(and(eq(friendsProfiles.id, input.id), eq(friendsProfiles.userId, ctx.user.id)));
@@ -205,67 +238,72 @@ export const friendsRouter = createTRPCRouter({
       );
     }),
   getInbox: protectedProcedure.input(friendInboxListSchema).query(async ({ ctx, input }) => {
-    const resolved = alias(statements, 'resolved');
-    const origin = alias(statements, 'origin');
-    const conditions = [eq(friendStatementInbox.userId, ctx.user.id)];
-    if (input.status.length > 0) {
-      conditions.push(inArray(friendStatementInbox.status, input.status));
-    }
-    if (input.friend.length > 0) {
-      conditions.push(inArray(friendStatementInbox.friendId, input.friend));
-    }
-    if (input.start !== undefined) {
-      conditions.push(gte(friendStatementInbox.occurredAt, input.start));
-    }
-    if (input.end !== undefined) {
-      conditions.push(lte(friendStatementInbox.occurredAt, input.end));
-    }
+    const mine = alias(friendsProfiles, 'mine');
+    const statusConditions = input.status.map((status) =>
+      status === 'pending'
+        ? sql`${sharedAnswers.status} IS NULL`
+        : eq(sharedAnswers.status, status),
+    );
+    const conditions = [
+      eq(friendsProfiles.linkedUserId, ctx.user.id),
+      needsAnAnswer,
+      statusConditions.length > 0 ? or(...statusConditions) : undefined,
+      input.friend.length > 0 ? inArray(mine.id, input.friend) : undefined,
+      input.start === undefined ? undefined : gte(statements.createdAt, input.start),
+      input.end === undefined ? undefined : lte(statements.createdAt, input.end),
+    ];
     const ordering = input.sort.map(({ id, desc: descending }) => {
       if (id === 'amount') {
-        return descending ? asc(friendStatementInbox.amount) : desc(friendStatementInbox.amount);
+        return descending ? asc(statements.amount) : desc(statements.amount);
       }
-      return descending
-        ? desc(friendStatementInbox.occurredAt)
-        : asc(friendStatementInbox.occurredAt);
+      return descending ? desc(statements.createdAt) : asc(statements.createdAt);
     });
+    const fromReview = <T extends PgSelect>(query: T) =>
+      query
+        .innerJoin(friendsProfiles, eq(friendsProfiles.id, statements.friendId))
+        .innerJoin(mine, eq(mine.id, friendsProfiles.linkedProfileId))
+        .leftJoin(
+          sharedAnswers,
+          and(
+            eq(sharedAnswers.statementId, statements.id),
+            eq(sharedAnswers.viewerUserId, ctx.user.id),
+          ),
+        )
+        .leftJoin(bankAccount, eq(bankAccount.id, sharedAnswers.accountId))
+        .where(and(...conditions));
     const [[{ count }], rows] = await Promise.all([
-      ctx.db
-        .select({ count: countRows() })
-        .from(friendStatementInbox)
-        .where(and(...conditions)),
-      ctx.db
-        .select({
-          id: friendStatementInbox.id,
-          friendId: friendStatementInbox.friendId,
-          friendName: friendsProfiles.name,
-          amount: friendStatementInbox.amount,
-          category: friendStatementInbox.category,
-          tags: friendStatementInbox.tags,
-          occurredAt: friendStatementInbox.occurredAt,
-          receivedAt: friendStatementInbox.createdAt,
-          originKind: origin.statementKind,
-          status: friendStatementInbox.status,
-          resolvedAt: friendStatementInbox.resolvedAt,
-          resolvedKind: resolved.statementKind,
-          resolvedCategory: resolved.category,
-          resolvedAccountName: bankAccount.accountName,
-        })
-        .from(friendStatementInbox)
-        .innerJoin(friendsProfiles, eq(friendsProfiles.id, friendStatementInbox.friendId))
-        .innerJoin(origin, eq(origin.id, friendStatementInbox.originStatementId))
-        .leftJoin(resolved, eq(resolved.id, friendStatementInbox.resolvedStatementId))
-        .leftJoin(bankAccount, eq(bankAccount.id, resolved.accountId))
-        .where(and(...conditions))
+      fromReview(ctx.db.select({ count: countRows() }).from(statements).$dynamic()),
+      fromReview(
+        ctx.db
+          .select({
+            id: statements.id,
+            friendId: mine.id,
+            friendName: mine.name,
+            amount: statements.amount,
+            category: statements.category,
+            tags: statements.tags,
+            occurredAt: statements.createdAt,
+            originKind: statements.statementKind,
+            status: sharedAnswers.status,
+            resolvedAt: sharedAnswers.answeredAt,
+            resolvedKind: sharedAnswers.asKind,
+            resolvedCategory: sharedAnswers.category,
+            resolvedAccountName: bankAccount.accountName,
+          })
+          .from(statements)
+          .$dynamic(),
+      )
         .orderBy(
-          ...(ordering.length > 0 ? ordering : [desc(friendStatementInbox.occurredAt)]),
-          asc(friendStatementInbox.id),
+          ...(ordering.length > 0 ? ordering : [desc(statements.createdAt)]),
+          asc(statements.id),
         )
         .limit(input.perPage)
         .offset((input.page - 1) * input.perPage),
     ]);
     return {
-      entries: rows.map(({ originKind, ...row }) => ({
+      entries: rows.map(({ originKind, status, ...row }) => ({
         ...row,
+        status: status ?? ('pending' as const),
         kind: originKind === 'expense' ? ('paid' as const) : ('transfer' as const),
         amount: (-Number(row.amount)).toString(),
       })),
@@ -275,20 +313,7 @@ export const friendsRouter = createTRPCRouter({
   }),
   reopenInboxEntries: protectedProcedure
     .input(z.object({ ids: z.array(z.uuid()).min(1) }))
-    .mutation(async ({ ctx, input }) => {
-      const reopened = await ctx.db
-        .update(friendStatementInbox)
-        .set({ status: 'pending', resolvedAt: null })
-        .where(
-          and(
-            eq(friendStatementInbox.userId, ctx.user.id),
-            inArray(friendStatementInbox.id, input.ids),
-            eq(friendStatementInbox.status, 'dismissed'),
-          ),
-        )
-        .returning({ id: friendStatementInbox.id });
-      return { reopened: reopened.length };
-    }),
+    .mutation(({ ctx, input }) => reopenReviewEntries(ctx.db, ctx.user.id, input.ids)),
   resolveInboxEntries: protectedProcedure
     .input(z.object({ ids: z.array(z.uuid()).min(1), resolution: inboxResolutionSchema }))
     .mutation(async ({ ctx, input }) => {
@@ -298,11 +323,16 @@ export const friendsRouter = createTRPCRouter({
           accountIds: [resolution.accountId],
         });
       }
-      return ctx.db.transaction(async (tx) => {
-        for (const id of input.ids) {
-          await resolveInboxEntry(tx, ctx.user.id, id, resolution);
-        }
-        return { resolved: input.ids.length };
-      });
+      return ctx.db.transaction((tx) =>
+        answerReviewEntries(tx, ctx.user.id, input.ids, resolution),
+      );
+    }),
+  updateSharedStatement: protectedProcedure
+    .input(sharedStatementUpdateSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (input.accountId !== undefined && input.accountId !== null) {
+        await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, { accountIds: [input.accountId] });
+      }
+      return updateSharedStatement(ctx.db, ctx.user.id, input);
     }),
 });

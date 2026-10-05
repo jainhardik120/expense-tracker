@@ -75,7 +75,7 @@ export const getStatementsInWindow = instrumentedFunction(
       select s.id, (extract(epoch from s.created_at) * 1000)::bigint as created_ms, s.category,
              s.tags, s."statementKind" as kind, s.account_id, s.friend_id, s.amount,
              s.additional_attributes->>'emiId' as emi_id, o.owed
-      from statements s
+      from visible_statements s
       left join (
         select statement_id, sum(amount) as owed from splits
         where user_id = ${userId} group by statement_id

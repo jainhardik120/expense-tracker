@@ -1,5 +1,5 @@
 {
-  "id": "c9bdcdc9-39b1-44fc-b260-0b9ae7ab409d",
+  "id": "39fbe329-e4bd-48e6-9446-3c6cbe8d4af3",
   "prevId": "9ca65191-ac39-4919-9c29-d70c40aa72b4",
   "version": "7",
   "dialect": "postgresql",
@@ -960,226 +960,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.friend_statement_inbox": {
-      "name": "friend_statement_inbox",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "origin_statement_id": {
-          "name": "origin_statement_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "origin_user_id": {
-          "name": "origin_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "friend_id": {
-          "name": "friend_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "amount": {
-          "name": "amount",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "category": {
-          "name": "category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "tags": {
-          "name": "tags",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
-        },
-        "occurred_at": {
-          "name": "occurred_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "friend_statement_inbox_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "resolved_statement_id": {
-          "name": "resolved_statement_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "resolved_at": {
-          "name": "resolved_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "friend_statement_inbox_origin_idx": {
-          "name": "friend_statement_inbox_origin_idx",
-          "columns": [
-            {
-              "expression": "origin_statement_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "friend_statement_inbox_user_status_idx": {
-          "name": "friend_statement_inbox_user_status_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "friend_statement_inbox_resolved_idx": {
-          "name": "friend_statement_inbox_resolved_idx",
-          "columns": [
-            {
-              "expression": "resolved_statement_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "where": "\"friend_statement_inbox\".\"resolved_statement_id\" IS NOT NULL",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "friend_statement_inbox_origin_statement_id_statements_id_fk": {
-          "name": "friend_statement_inbox_origin_statement_id_statements_id_fk",
-          "tableFrom": "friend_statement_inbox",
-          "tableTo": "statements",
-          "columnsFrom": [
-            "origin_statement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "friend_statement_inbox_origin_user_id_user_id_fk": {
-          "name": "friend_statement_inbox_origin_user_id_user_id_fk",
-          "tableFrom": "friend_statement_inbox",
-          "tableTo": "user",
-          "columnsFrom": [
-            "origin_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "friend_statement_inbox_user_id_user_id_fk": {
-          "name": "friend_statement_inbox_user_id_user_id_fk",
-          "tableFrom": "friend_statement_inbox",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "friend_statement_inbox_friend_id_friends_profiles_id_fk": {
-          "name": "friend_statement_inbox_friend_id_friends_profiles_id_fk",
-          "tableFrom": "friend_statement_inbox",
-          "tableTo": "friends_profiles",
-          "columnsFrom": [
-            "friend_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "friend_statement_inbox_resolved_statement_id_statements_id_fk": {
-          "name": "friend_statement_inbox_resolved_statement_id_statements_id_fk",
-          "tableFrom": "friend_statement_inbox",
-          "tableTo": "statements",
-          "columnsFrom": [
-            "resolved_statement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -2788,6 +2568,222 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.shared_answers": {
+      "name": "shared_answers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "viewer_user_id": {
+          "name": "viewer_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "split_id": {
+          "name": "split_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "statement_id": {
+          "name": "statement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "shared_answer_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "as_kind": {
+          "name": "as_kind",
+          "type": "statement_kinds",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tags": {
+          "name": "tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "answered_at": {
+          "name": "answered_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "shared_answers_split_idx": {
+          "name": "shared_answers_split_idx",
+          "columns": [
+            {
+              "expression": "split_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "viewer_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"shared_answers\".\"split_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shared_answers_statement_idx": {
+          "name": "shared_answers_statement_idx",
+          "columns": [
+            {
+              "expression": "statement_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "viewer_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"shared_answers\".\"statement_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shared_answers_viewer_idx": {
+          "name": "shared_answers_viewer_idx",
+          "columns": [
+            {
+              "expression": "viewer_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "shared_answers_account_idx": {
+          "name": "shared_answers_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"shared_answers\".\"account_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shared_answers_viewer_user_id_user_id_fk": {
+          "name": "shared_answers_viewer_user_id_user_id_fk",
+          "tableFrom": "shared_answers",
+          "tableTo": "user",
+          "columnsFrom": [
+            "viewer_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "shared_answers_split_id_splits_id_fk": {
+          "name": "shared_answers_split_id_splits_id_fk",
+          "tableFrom": "shared_answers",
+          "tableTo": "splits",
+          "columnsFrom": [
+            "split_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "shared_answers_statement_id_statements_id_fk": {
+          "name": "shared_answers_statement_id_statements_id_fk",
+          "tableFrom": "shared_answers",
+          "tableTo": "statements",
+          "columnsFrom": [
+            "statement_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "shared_answers_account_id_bank_account_id_fk": {
+          "name": "shared_answers_account_id_bank_account_id_fk",
+          "tableFrom": "shared_answers",
+          "tableTo": "bank_account",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "shared_answers_one_source": {
+          "name": "shared_answers_one_source",
+          "value": "num_nonnulls(\"shared_answers\".\"split_id\", \"shared_answers\".\"statement_id\") = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.sms_notifications": {
       "name": "sms_notifications",
       "schema": "",
@@ -3009,6 +3005,21 @@
             },
             {
               "expression": "statement_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "splits_friend_idx": {
+          "name": "splits_friend_idx",
+          "columns": [
+            {
+              "expression": "friend_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -3593,25 +3604,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'::jsonb"
-        },
-        "mirror_of_split_id": {
-          "name": "mirror_of_split_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mirror_of_statement_id": {
-          "name": "mirror_of_statement_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "category_overridden": {
-          "name": "category_overridden",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         }
       },
       "indexes": {
@@ -3739,34 +3731,18 @@
           "method": "btree",
           "with": {}
         },
-        "statements_mirror_of_split_idx": {
-          "name": "statements_mirror_of_split_idx",
+        "statements_friend_idx": {
+          "name": "statements_friend_idx",
           "columns": [
             {
-              "expression": "mirror_of_split_id",
+              "expression": "friend_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
-          "where": "\"statements\".\"mirror_of_split_id\" IS NOT NULL",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "statements_mirror_of_statement_idx": {
-          "name": "statements_mirror_of_statement_idx",
-          "columns": [
-            {
-              "expression": "mirror_of_statement_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"statements\".\"mirror_of_statement_id\" IS NOT NULL",
+          "isUnique": false,
+          "where": "\"statements\".\"friend_id\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3810,32 +3786,6 @@
             "id"
           ],
           "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "statements_mirror_of_split_id_splits_id_fk": {
-          "name": "statements_mirror_of_split_id_splits_id_fk",
-          "tableFrom": "statements",
-          "tableTo": "splits",
-          "columnsFrom": [
-            "mirror_of_split_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "statements_mirror_of_statement_id_statements_id_fk": {
-          "name": "statements_mirror_of_statement_id_statements_id_fk",
-          "tableFrom": "statements",
-          "tableTo": "statements",
-          "columnsFrom": [
-            "mirror_of_statement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -5908,15 +5858,6 @@
         "revoked"
       ]
     },
-    "public.friend_statement_inbox_status": {
-      "name": "friend_statement_inbox_status",
-      "schema": "public",
-      "values": [
-        "pending",
-        "accepted",
-        "dismissed"
-      ]
-    },
     "public.inbound_email_status": {
       "name": "inbound_email_status",
       "schema": "public",
@@ -5971,6 +5912,14 @@
         "previous_weekday"
       ]
     },
+    "public.shared_answer_status": {
+      "name": "shared_answer_status",
+      "schema": "public",
+      "values": [
+        "accepted",
+        "dismissed"
+      ]
+    },
     "public.sms_transaction_status": {
       "name": "sms_transaction_status",
       "schema": "public",
@@ -6023,7 +5972,89 @@
   "sequences": {},
   "roles": {},
   "policies": {},
-  "views": {},
+  "views": {
+    "public.visible_statements": {
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "friend_id": {
+          "name": "friend_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tags": {
+          "name": "tags",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "statementKind": {
+          "name": "statementKind",
+          "type": "statement_kinds",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "taxable_amount": {
+          "name": "taxable_amount",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "additional_attributes": {
+          "name": "additional_attributes",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "share_kind": {
+          "name": "share_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "name": "visible_statements",
+      "schema": "public",
+      "isExisting": true,
+      "materialized": false
+    }
+  },
   "_meta": {
     "columns": {},
     "schemas": {},

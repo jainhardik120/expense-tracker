@@ -5,7 +5,6 @@ import { z } from 'zod';
 
 import { bankAccount, friendsProfiles, statements } from '@/db/schema';
 import { getTimezone } from '@/lib/date';
-import { reconcileStatement } from '@/server/helpers/friend-mirror';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
 const csvRowSchema = z.object({
@@ -272,15 +271,7 @@ export const bulkImportRouter = createTRPCRouter({
       );
     }
 
-    const result = await ctx.db.transaction(async (tx) => {
-      const inserted = await tx.insert(statements).values(statementsToInsert).returning();
-      for (const row of inserted) {
-        if (row.statementKind === 'friend_transaction') {
-          await reconcileStatement(tx, row.id);
-        }
-      }
-      return inserted;
-    });
+    const result = await ctx.db.insert(statements).values(statementsToInsert).returning();
 
     return {
       imported: result.length,

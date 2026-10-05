@@ -9,8 +9,10 @@ import {
 import { z } from 'zod';
 
 import {
-  friendStatementInboxStatuses,
+  reviewStatuses,
   recurringPaymentFrequencies,
+  type ShareKind,
+  shareKinds,
   smsTransactionStatuses,
   statementKinds,
 } from '@/db/enums';
@@ -96,6 +98,16 @@ export const inboxResolutionSchema = z.discriminatedUnion('type', [
 ]);
 
 export type InboxResolution = z.infer<typeof inboxResolutionSchema>;
+
+export const sharedStatementUpdateSchema = z.object({
+  shareKind: z.enum(['split', 'balance', 'answer']),
+  sourceId: z.uuid(),
+  category: z.string().trim().min(1),
+  tags: z.string().array(),
+  accountId: z.uuid().nullable().optional(),
+});
+
+export type SharedStatementUpdate = z.infer<typeof sharedStatementUpdateSchema>;
 
 export const createSplitSchema = z.object({
   friendId: z.uuidv4(),
@@ -187,7 +199,7 @@ export type Statement = Omit<
   statementKind: 'expense' | 'outside_transaction' | 'friend_transaction';
   additionalAttributes: Record<string, unknown>;
   splitAmount: number;
-  answeredCopy: boolean;
+  shareKind: ShareKind;
   accountName: string | null;
   friendName: string | null;
   fromAccountId: null;
@@ -199,10 +211,7 @@ export type Statement = Omit<
 export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect & {
   type: 'self_transfer';
   statementKind: 'self_transfer';
-  mirrorOfSplitId: null;
-  mirrorOfStatementId: null;
-  categoryOverridden: boolean;
-  answeredCopy: boolean;
+  shareKind: 'own';
   accountId: null;
   friendId: null;
   category: null;
@@ -238,10 +247,7 @@ const statementSchema = z.object({
   fromAccount: z.null(),
   toAccount: z.null(),
   additionalAttributes: z.record(z.string(), z.unknown()),
-  mirrorOfSplitId: z.string().nullable(),
-  mirrorOfStatementId: z.string().nullable(),
-  categoryOverridden: z.boolean(),
-  answeredCopy: z.boolean(),
+  shareKind: z.enum(shareKinds),
   finalBalance: z.number().optional(),
 });
 
@@ -272,10 +278,7 @@ const selfTransferStatementSchema = z.object({
   fromAccount: z.string().nullable(),
   toAccount: z.string().nullable(),
   additionalAttributes: z.record(z.string(), z.unknown()).optional(),
-  mirrorOfSplitId: z.null(),
-  mirrorOfStatementId: z.null(),
-  categoryOverridden: z.boolean(),
-  answeredCopy: z.boolean(),
+  shareKind: z.literal('own'),
   finalBalance: z.number().optional(),
 });
 const rowsCountSchema = z.object({
@@ -514,9 +517,7 @@ export const friendInboxParser = {
   sort: sortStateParser(FRIEND_INBOX_SORTABLE_COLUMNS).withDefault([]),
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
   friend: parseAsArrayOf(parseAsString, ',').withDefault([]),
-  status: parseAsArrayOf(parseAsStringEnum([...friendStatementInboxStatuses]), ',').withDefault([
-    'pending',
-  ]),
+  status: parseAsArrayOf(parseAsStringEnum([...reviewStatuses]), ',').withDefault(['pending']),
 };
 
 export const friendInboxListSchema = z.object({
@@ -527,7 +528,7 @@ export const friendInboxListSchema = z.object({
     .optional()
     .default([]),
   friend: z.string().array().optional().default([]),
-  status: z.array(z.enum(friendStatementInboxStatuses)).optional().default(['pending']),
+  status: z.array(z.enum(reviewStatuses)).optional().default(['pending']),
 });
 
 export const statementParserSchema = z.object({
@@ -559,10 +560,8 @@ export const accountFriendStatementsParserSchema = z.object({
   account: z.string(),
 });
 
-export const isMirroredStatement = (statement: {
-  mirrorOfSplitId: string | null;
-  mirrorOfStatementId: string | null;
-}) => statement.mirrorOfSplitId !== null || statement.mirrorOfStatementId !== null;
+export const isSharedStatement = (statement: { shareKind: ShareKind }) =>
+  statement.shareKind !== 'own';
 
 export const isSelfTransfer = (
   statement: Statement | SelfTransferStatement,

@@ -1,10 +1,16 @@
 import { fromZonedTime } from 'date-fns-tz';
 import { Decimal } from 'decimal.js';
 import { and, eq, sql, inArray, isNotNull, type SQL, gte, lt, type Subquery } from 'drizzle-orm';
-import { type PgTable, unionAll } from 'drizzle-orm/pg-core';
+import { alias, type PgTable, unionAll } from 'drizzle-orm/pg-core';
 import { type PgViewBase } from 'drizzle-orm/pg-core/view-base';
 
-import { reportBoundaries, selfTransferStatements, splits, statements } from '@/db/schema';
+import {
+  reportBoundaries,
+  selfTransferStatements,
+  splits,
+  statements as ownStatements,
+  visibleStatements,
+} from '@/db/schema';
 import { isValidTimeZone } from '@/lib/date';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
@@ -152,6 +158,8 @@ const selfTransfersUnionQuery = (db: Pick<Database, 'select'>, conditions: SQL[]
       .where(and(...conditions)),
   ).as('union_query');
 
+const statements = alias(visibleStatements, 'statements');
+
 const aggregatedStatementsSummary = (aggregationArguments: AggregationArguments) => {
   const {
     db,
@@ -231,7 +239,7 @@ const aggregatedSplitsData = (aggregationArguments: AggregationArguments) => {
   } = aggregationArguments;
   const conditions = [
     eq(splits.userId, userId),
-    ...buildQueryConditions(statements, userId, start, end),
+    ...buildQueryConditions(ownStatements, userId, start, end),
     ...extraConditions,
   ];
   const query = db
@@ -241,7 +249,7 @@ const aggregatedSplitsData = (aggregationArguments: AggregationArguments) => {
       totalAmount: sql<number>`COALESCE(SUM(${splits.amount}), 0)`.mapWith(Number),
     })
     .from(splits)
-    .innerJoin(statements, eq(splits.statementId, statements.id))
+    .innerJoin(ownStatements, eq(splits.statementId, ownStatements.id))
     .$dynamic();
   if (extraJoin !== undefined) {
     query.innerJoin(extraJoin.table, extraJoin.on);

@@ -17,16 +17,17 @@ import { unionAll, alias, type AnyPgColumn } from 'drizzle-orm/pg-core';
 import { type z } from 'zod';
 
 import type { StatementAttributes } from '@/db/attributes';
+import { type ShareKind } from '@/db/enums';
 import {
   bankAccount,
   friendsProfiles,
   selfTransferStatements,
   splits,
   statements,
+  visibleStatements,
 } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { answeredCopy } from '@/server/helpers/friend-mirror';
 import {
   type StatementSort,
   type StatementKind,
@@ -104,47 +105,41 @@ const generateStatementUnionDetailedQuery = (
   let statementQuery = db
     .with(splitTotals)
     .select({
-      id: statements.id,
-      createdAt: statements.createdAt,
-      amount: statements.amount,
-      taxableAmount: statements.taxableAmount,
+      id: visibleStatements.id,
+      createdAt: visibleStatements.createdAt,
+      amount: visibleStatements.amount,
+      taxableAmount: visibleStatements.taxableAmount,
       accountName: bankAccount.accountName,
       friendName: friendsProfiles.name,
-      userId: statements.userId,
+      userId: visibleStatements.userId,
       splitAmount: sql<number>`COALESCE(${splitTotals.total}, 0)`
         .mapWith(Number)
         .as('split_amount'),
-      accountId: statements.accountId,
-      friendId: statements.friendId,
-      category: statements.category,
-      tags: statements.tags,
-      statementKind: statements.statementKind,
-      additionalAttributes: statements.additionalAttributes,
+      accountId: visibleStatements.accountId,
+      friendId: visibleStatements.friendId,
+      category: visibleStatements.category,
+      tags: visibleStatements.tags,
+      statementKind: visibleStatements.statementKind,
+      additionalAttributes: visibleStatements.additionalAttributes,
       type: sql<string>`'statement'`.as('type'),
       fromAccount: sql<string | null>`NULL`.as('from_account'),
       toAccount: sql<string | null>`NULL`.as('to_account'),
       fromAccountId: sql<string | null>`NULL::uuid`.as('from_account_id'),
       toAccountId: sql<string | null>`NULL::uuid`.as('to_account_id'),
-      mirrorOfSplitId: statements.mirrorOfSplitId,
-      mirrorOfStatementId: statements.mirrorOfStatementId,
-      categoryOverridden: statements.categoryOverridden,
-      answeredCopy:
-        sql<boolean>`(${statements.mirrorOfStatementId} IS NOT NULL AND ${answeredCopy})`.as(
-          'answered_copy',
-        ),
+      shareKind: visibleStatements.shareKind,
       tag: sql<string | null>`tag`.as('tag'),
     })
-    .from(statements)
-    .leftJoin(bankAccount, eq(bankAccount.id, statements.accountId))
-    .leftJoin(friendsProfiles, eq(friendsProfiles.id, statements.friendId))
-    .leftJoin(splitTotals, eq(splitTotals.statementId, statements.id));
+    .from(visibleStatements)
+    .leftJoin(bankAccount, eq(bankAccount.id, visibleStatements.accountId))
+    .leftJoin(friendsProfiles, eq(friendsProfiles.id, visibleStatements.friendId))
+    .leftJoin(splitTotals, eq(splitTotals.statementId, visibleStatements.id));
   if (unnestTags === true) {
-    statementQuery = statementQuery.crossJoin(sql`unnest(${statements.tags}) as tag`);
+    statementQuery = statementQuery.crossJoin(sql`unnest(${visibleStatements.tags}) as tag`);
   } else {
     statementQuery = statementQuery.crossJoin(sql`(SELECT NULL::text AS tag)`);
   }
   return unionAll(
-    statementQuery.where(eq(statements.userId, userId)),
+    statementQuery.where(eq(visibleStatements.userId, userId)),
     db
       .select({
         id: selfTransferStatements.id,
@@ -166,10 +161,7 @@ const generateStatementUnionDetailedQuery = (
         toAccount: toAccount.accountName,
         fromAccountId: selfTransferStatements.fromAccountId,
         toAccountId: selfTransferStatements.toAccountId,
-        mirrorOfSplitId: sql<string | null>`NULL::uuid`.as('mirror_of_split_id'),
-        mirrorOfStatementId: sql<string | null>`NULL::uuid`.as('mirror_of_statement_id'),
-        categoryOverridden: sql<boolean>`FALSE`.as('category_overridden'),
-        answeredCopy: sql<boolean>`FALSE`.as('answered_copy'),
+        shareKind: sql<ShareKind>`'own'`.as('share_kind'),
         tag: sql<string | null>`NULL`.as('tag'),
       })
       .from(selfTransferStatements)
@@ -183,15 +175,15 @@ const generateStatementUnionOverviewQuery = (db: Database, userId: string) => {
   return unionAll(
     db
       .select({
-        id: statements.id,
-        createdAt: statements.createdAt,
-        userId: statements.userId,
-        friendId: statements.friendId,
-        statementKind: statements.statementKind,
+        id: visibleStatements.id,
+        createdAt: visibleStatements.createdAt,
+        userId: visibleStatements.userId,
+        friendId: visibleStatements.friendId,
+        statementKind: visibleStatements.statementKind,
         type: sql<string>`'statement'`.as('type'),
       })
-      .from(statements)
-      .where(eq(statements.userId, userId)),
+      .from(visibleStatements)
+      .where(eq(visibleStatements.userId, userId)),
     db
       .select({
         id: selfTransferStatements.id,
@@ -299,10 +291,7 @@ export const getMergedStatements = instrumentedFunction(
             accountName: row.accountName,
             friendName: row.friendName,
             additionalAttributes: row.additionalAttributes,
-            mirrorOfSplitId: row.mirrorOfSplitId,
-            mirrorOfStatementId: row.mirrorOfStatementId,
-            categoryOverridden: row.categoryOverridden,
-            answeredCopy: row.answeredCopy,
+            shareKind: row.shareKind,
             fromAccountId: null,
             toAccountId: null,
             fromAccount: null,
@@ -323,10 +312,7 @@ export const getMergedStatements = instrumentedFunction(
             category: null,
             tags: [],
             splitAmount: 0,
-            mirrorOfSplitId: null,
-            mirrorOfStatementId: null,
-            categoryOverridden: false,
-            answeredCopy: false,
+            shareKind: 'own',
             accountName: null,
             friendName: null,
             additionalAttributes: {},
@@ -347,7 +333,7 @@ type CountInput = Omit<z.infer<typeof statementParserSchema>, 'page' | 'perPage'
 const buildCountConditions = (db: Database, userId: string, input: CountInput) => {
   const statementConditions = [];
   const selfTransferStatementConditions = [];
-  statementConditions.push(...buildQueryConditions(statements, userId, input.start, input.end));
+  statementConditions.push(...buildQueryConditions(visibleStatements, userId, input.start, input.end));
   selfTransferStatementConditions.push(
     ...buildQueryConditions(selfTransferStatements, userId, input.start, input.end),
   );
@@ -358,9 +344,9 @@ const buildCountConditions = (db: Database, userId: string, input: CountInput) =
       .where(inArray(splits.friendId, input.account));
     statementConditions.push(
       or(
-        inArray(statements.accountId, input.account),
-        inArray(statements.friendId, input.account),
-        inArray(statements.id, statementIdsWithSplits),
+        inArray(visibleStatements.accountId, input.account),
+        inArray(visibleStatements.friendId, input.account),
+        inArray(visibleStatements.id, statementIdsWithSplits),
       ),
     );
     selfTransferStatementConditions.push(
@@ -371,16 +357,16 @@ const buildCountConditions = (db: Database, userId: string, input: CountInput) =
     );
   }
   if (input.statementKind.length > 0) {
-    statementConditions.push(inArray(statements.statementKind, input.statementKind));
+    statementConditions.push(inArray(visibleStatements.statementKind, input.statementKind));
     if (input.statementKind.findIndex((kind) => kind === 'self_transfer') === -1) {
       selfTransferStatementConditions.push(sql`1 = 0`);
     }
   }
   if (input.category.length > 0) {
-    statementConditions.push(inArray(statements.category, input.category));
+    statementConditions.push(inArray(visibleStatements.category, input.category));
   }
   if (input.tags.length > 0) {
-    statementConditions.push(arrayOverlaps(statements.tags, input.tags));
+    statementConditions.push(arrayOverlaps(visibleStatements.tags, input.tags));
   }
   return {
     statementConditions,
@@ -396,7 +382,7 @@ export const getRowsCount = instrumentedFunction(
       buildCountConditions(db, userId, input);
     const [{ statementCount }] = await db
       .select({ statementCount: count() })
-      .from(statements)
+      .from(visibleStatements)
       .where(and(...statementConditions));
     let selfTransferStatementCount = 0;
     if (includeSelfTransfers) {
@@ -420,12 +406,12 @@ export const getStatementTimeline = instrumentedFunction(
   async (db: Database, userId: string, input: CountInput, timezone: string) => {
     const { statementConditions, selfTransferStatementConditions, includeSelfTransfers } =
       buildCountConditions(db, userId, input);
-    const statementDay = localDay(statements.createdAt, timezone);
+    const statementDay = localDay(visibleStatements.createdAt, timezone);
     const selfTransferDay = localDay(selfTransferStatements.createdAt, timezone);
     const [statementDays, selfTransferDays] = await Promise.all([
       db
         .select({ date: statementDay, count: count() })
-        .from(statements)
+        .from(visibleStatements)
         .where(and(...statementConditions))
         .groupBy(sql`1`),
       includeSelfTransfers

@@ -9,7 +9,12 @@ import { DataTableActionBarAction } from '@/components/data-table/data-table-act
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
 import MutationModal from '@/components/mutation-modal';
 import { api } from '@/server/react';
-import { isSelfTransfer, type SelfTransferStatement, type Statement } from '@/types';
+import {
+  isSelfTransfer,
+  isSharedStatement,
+  type SelfTransferStatement,
+  type Statement,
+} from '@/types';
 
 const bulkTagSchema = z.object({
   tag: z.string().trim().min(1, 'Enter a tag'),
@@ -26,14 +31,14 @@ export const BulkStatementTagDialog = ({
   const mutation = api.statements.addBulkStatementTag.useMutation();
   const { data: tags = [] } = api.statements.getTags.useQuery({});
 
-  const taggable = selectedRows.filter((row) => !isSelfTransfer(row));
+  const taggable = selectedRows.filter((row) => !isSelfTransfer(row) && !isSharedStatement(row));
   const skipped = selectedRows.length - taggable.length;
 
   const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
   const skippedNote =
     skipped === 0
       ? ''
-      : ` ${plural(skipped, 'self transfer')} cannot be tagged and will be skipped.`;
+      : ` ${plural(skipped, 'self transfer or shared statement')} cannot be tagged here and will be skipped.`;
   const description = `Adds the tag to ${plural(taggable.length, 'statement')}. Any that already carry it are left alone.${skippedNote}`;
 
   const fields: FormField<BulkTagValues>[] = [
