@@ -6,6 +6,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -132,179 +139,192 @@ fun CreateStatementDialog(
     var categoryError by remember(formKey) { mutableStateOf(false) }
     var accountsError by remember(formKey) { mutableStateOf(false) }
 
-    AlertDialog(
-        onDismissRequest = { if (!isSaving) onDismiss() },
-        title = {
-            Text(title ?: if (existing == null) "Add Transaction" else "Edit Transaction")
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (existing == null) {
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        statementKinds.forEach { kind ->
-                            FilterChip(
-                                selected = selectedKind == kind,
-                                onClick = { selectedKind = kind },
-                                label = { Text(kindLabels[kind] ?: kind) }
-                            )
-                        }
-                    }
-                } else {
-                    Text(
-                        text = kindLabels[selectedKind] ?: selectedKind,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { !isSaving }
+    )
 
-                OutlinedTextField(
-                    value = amount,
-                    onValueChange = { amount = it; amountError = false },
-                    label = { Text("Amount") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    isError = amountError,
-                    supportingText = if (amountError) {
-                        { Text("Enter a valid amount") }
-                    } else if (selectedKind == "outside_transaction" || selectedKind == "friend_transaction") {
-                        { Text("Negative for money going out") }
-                    } else {
-                        null
-                    }
-                )
-
-                DateTimeFields(value = occurredAt, onChange = { occurredAt = it })
-
-                if (selectedKind != "self_transfer") {
-                    SuggestionTextField(
-                        value = category,
-                        onValueChange = { category = it; categoryError = false },
-                        suggestions = categories,
-                        label = "Category",
-                        isError = categoryError,
-                        errorText = "Category is required"
-                    )
-
-                    TagsField(
-                        tags = tags,
-                        suggestions = tagSuggestions,
-                        onChange = { tags = it }
-                    )
-
-                    AccountDropdown(
-                        accounts = accounts,
-                        selectedId = selectedAccountId,
-                        onSelect = { selectedAccountId = it },
-                        label = "Account"
-                    )
-
-                    if (selectedKind == "expense" || selectedKind == "friend_transaction") {
-                        FriendDropdown(
-                            friends = friends,
-                            selectedId = selectedFriendId,
-                            onSelect = { selectedFriendId = it },
-                            label = if (selectedKind == "expense") "Paid by friend" else "Friend"
-                        )
-                    }
-                } else {
-                    AccountDropdown(
-                        accounts = accounts,
-                        selectedId = selectedFromAccountId,
-                        onSelect = { selectedFromAccountId = it; accountsError = false },
-                        label = "From Account",
-                        allowNone = false
-                    )
-                    AccountDropdown(
-                        accounts = accounts,
-                        selectedId = selectedToAccountId,
-                        onSelect = { selectedToAccountId = it; accountsError = false },
-                        label = "To Account",
-                        allowNone = false
-                    )
-                    if (accountsError) {
-                        Text(
-                            text = "Pick two different accounts",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-
-                if (isSaving) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-                }
+    fun submit() {
+        val parsedAmount = amount.trim().toDoubleOrNull()
+        if (parsedAmount == null) {
+            amountError = true
+            return
+        }
+        val at = occurredAt.toInstant().toString()
+        if (selectedKind == "self_transfer") {
+            val fromId = selectedFromAccountId
+            val toId = selectedToAccountId
+            if (fromId == null || toId == null || fromId == toId) {
+                accountsError = true
+                return
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val parsedAmount = amount.trim().toDoubleOrNull()
-                    if (parsedAmount == null) {
-                        amountError = true
-                        return@TextButton
-                    }
-                    val at = occurredAt.toInstant().toString()
-                    if (selectedKind == "self_transfer") {
-                        val fromId = selectedFromAccountId
-                        val toId = selectedToAccountId
-                        if (fromId == null || toId == null || fromId == toId) {
-                            accountsError = true
-                            return@TextButton
-                        }
-                        val body = CreateSelfTransferBody(
-                            fromAccountId = fromId,
-                            toAccountId = toId,
-                            amount = amount.trim(),
-                            createdAt = at
-                        )
-                        if (existing == null) {
-                            onCreateSelfTransfer(body)
-                        } else {
-                            onUpdateSelfTransfer(existing.id, body)
-                        }
-                    } else {
-                        if (category.isBlank()) {
-                            categoryError = true
-                            return@TextButton
-                        }
-                        val body = CreateStatementBody(
-                            amount = amount.trim(),
-                            category = category.trim(),
-                            tags = tags,
-                            accountId = selectedAccountId,
-                            friendId = selectedFriendId.takeIf {
-                                selectedKind == "expense" || selectedKind == "friend_transaction"
-                            },
-                            statementKind = selectedKind,
-                            createdAt = at
-                        )
-                        if (existing == null) {
-                            onCreateStatement(body)
-                        } else {
-                            onUpdateStatement(existing.id, body)
-                        }
-                    }
+            val body = CreateSelfTransferBody(
+                fromAccountId = fromId,
+                toAccountId = toId,
+                amount = amount.trim(),
+                createdAt = at
+            )
+            if (existing == null) {
+                onCreateSelfTransfer(body)
+            } else {
+                onUpdateSelfTransfer(existing.id, body)
+            }
+        } else {
+            if (category.isBlank()) {
+                categoryError = true
+                return
+            }
+            val body = CreateStatementBody(
+                amount = amount.trim(),
+                category = category.trim(),
+                tags = tags,
+                accountId = selectedAccountId,
+                friendId = selectedFriendId.takeIf {
+                    selectedKind == "expense" || selectedKind == "friend_transaction"
                 },
-                enabled = !isSaving
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isSaving) {
-                Text("Cancel")
+                statementKind = selectedKind,
+                createdAt = at
+            )
+            if (existing == null) {
+                onCreateStatement(body)
+            } else {
+                onUpdateStatement(existing.id, body)
             }
         }
-    )
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = { if (!isSaving) onDismiss() },
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = title ?: if (existing == null) "Add Transaction" else "Edit Transaction",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (existing == null) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    statementKinds.forEach { kind ->
+                        FilterChip(
+                            selected = selectedKind == kind,
+                            onClick = { selectedKind = kind },
+                            label = { Text(kindLabels[kind] ?: kind) }
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    text = kindLabels[selectedKind] ?: selectedKind,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            OutlinedTextField(
+                value = amount,
+                onValueChange = { amount = it; amountError = false },
+                label = { Text("Amount") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                isError = amountError,
+                supportingText = if (amountError) {
+                    { Text("Enter a valid amount") }
+                } else if (selectedKind == "outside_transaction" || selectedKind == "friend_transaction") {
+                    { Text("Negative for money going out") }
+                } else {
+                    null
+                }
+            )
+
+            DateTimeFields(value = occurredAt, onChange = { occurredAt = it })
+
+            if (selectedKind != "self_transfer") {
+                SuggestionTextField(
+                    value = category,
+                    onValueChange = { category = it; categoryError = false },
+                    suggestions = categories,
+                    label = "Category",
+                    isError = categoryError,
+                    errorText = "Category is required"
+                )
+
+                TagsField(
+                    tags = tags,
+                    suggestions = tagSuggestions,
+                    onChange = { tags = it }
+                )
+
+                AccountDropdown(
+                    accounts = accounts,
+                    selectedId = selectedAccountId,
+                    onSelect = { selectedAccountId = it },
+                    label = "Account"
+                )
+
+                if (selectedKind == "expense" || selectedKind == "friend_transaction") {
+                    FriendDropdown(
+                        friends = friends,
+                        selectedId = selectedFriendId,
+                        onSelect = { selectedFriendId = it },
+                        label = if (selectedKind == "expense") "Paid by friend" else "Friend"
+                    )
+                }
+            } else {
+                AccountDropdown(
+                    accounts = accounts,
+                    selectedId = selectedFromAccountId,
+                    onSelect = { selectedFromAccountId = it; accountsError = false },
+                    label = "From Account",
+                    allowNone = false
+                )
+                AccountDropdown(
+                    accounts = accounts,
+                    selectedId = selectedToAccountId,
+                    onSelect = { selectedToAccountId = it; accountsError = false },
+                    label = "To Account",
+                    allowNone = false
+                )
+                if (accountsError) {
+                    Text(
+                        text = "Pick two different accounts",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            Button(
+                onClick = { submit() },
+                enabled = !isSaving,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .height(52.dp)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Text(if (existing == null) "Save" else "Save changes")
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
