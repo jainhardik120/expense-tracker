@@ -360,10 +360,31 @@ export const statementsRouter = createTRPCRouter({
         );
     }),
   getStatementSplits: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/statements/{id}/splits',
+      },
+    })
     .input(z.object({ id: z.string() }))
+    .output(
+      z.array(
+        z.object({
+          id: z.string(),
+          statementId: z.string(),
+          friendId: z.string(),
+          amount: z.string(),
+        }),
+      ),
+    )
     .query(({ ctx, input }) => {
       return ctx.db
-        .select()
+        .select({
+          id: splits.id,
+          statementId: splits.statementId,
+          friendId: splits.friendId,
+          amount: splits.amount,
+        })
         .from(splits)
         .where(and(eq(splits.statementId, input.id), eq(splits.userId, ctx.user.id)));
     }),
@@ -390,12 +411,19 @@ export const statementsRouter = createTRPCRouter({
     }),
 
   createBulkStatementSplits: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/statements/splits/bulk',
+      },
+    })
     .input(
       z.object({
         statementIds: z.array(z.string()),
         bulkSplitSchema: bulkSplitSchema,
       }),
     )
+    .output(z.void())
     .mutation(({ ctx, input }) =>
       ctx.db.transaction(async (db) => {
         await db
@@ -468,12 +496,19 @@ export const statementsRouter = createTRPCRouter({
       }),
     ),
   createStatementSplit: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/statements/{statementId}/splits',
+      },
+    })
     .input(
       z.object({
         statementId: z.string(),
         createSplitSchema,
       }),
     )
+    .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
       await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, {
         friendIds: [input.createSplitSchema.friendId],
@@ -504,23 +539,37 @@ export const statementsRouter = createTRPCRouter({
       });
     }),
   deleteStatementSplit: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/statements/splits/{splitId}',
+      },
+    })
     .input(
       z.object({
         splitId: z.string(),
       }),
     )
-    .mutation(({ ctx, input }) => {
-      return ctx.db
+    .output(z.void())
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
         .delete(splits)
         .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
     }),
   updateStatementSplit: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/statements/splits/{splitId}',
+      },
+    })
     .input(
       z.object({
         splitId: z.string(),
         createSplitSchema,
       }),
     )
+    .output(z.array(z.object({ id: z.string() })))
     .mutation(async ({ ctx, input }) => {
       return ctx.db.transaction(async (tx) => {
         const currentSplit = await tx
@@ -551,7 +600,8 @@ export const statementsRouter = createTRPCRouter({
           .set({
             ...input.createSplitSchema,
           })
-          .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)));
+          .where(and(eq(splits.id, input.splitId), eq(splits.userId, ctx.user.id)))
+          .returning({ id: splits.id });
       });
     }),
 });
