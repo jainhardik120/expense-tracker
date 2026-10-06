@@ -239,6 +239,15 @@ fun CreateStatementDialog(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 isError = amountError,
+                trailingIcon = if (selectedKind == "outside_transaction" || selectedKind == "friend_transaction") {
+                    {
+                        TextButton(onClick = { amount = flipSign(amount); amountError = false }) {
+                            Text("±", style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                } else {
+                    null
+                },
                 supportingText = if (amountError) {
                     { Text("Enter a valid amount") }
                 } else if (selectedKind == "outside_transaction" || selectedKind == "friend_transaction") {
@@ -637,3 +646,8 @@ private fun parseLocalDateTime(iso: String?): ZonedDateTime {
 
 private fun plainAmount(value: String): String =
     value.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: value
+
+private fun flipSign(amount: String): String {
+    val trimmed = amount.trim()
+    return if (trimmed.startsWith("-")) trimmed.drop(1) else "-$trimmed"
+}
