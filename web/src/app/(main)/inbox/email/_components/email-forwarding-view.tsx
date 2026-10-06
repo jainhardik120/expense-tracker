@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -340,7 +340,13 @@ const EmailStatement = ({
   );
 };
 
-const emailColumns = (accounts: AccountOption[]): Array<ColumnDef<InboundEmail>> => [
+const AccountsContext = createContext<AccountOption[]>([]);
+
+const StatementCell = ({ email }: { email: InboundEmail }) => (
+  <EmailStatement accounts={useContext(AccountsContext)} email={email} />
+);
+
+const EMAIL_COLUMNS: Array<ColumnDef<InboundEmail>> = [
   {
     id: 'receivedAt',
     header: 'Received',
@@ -389,7 +395,7 @@ const emailColumns = (accounts: AccountOption[]): Array<ColumnDef<InboundEmail>>
   {
     id: 'statement',
     header: 'Statement',
-    cell: ({ row }) => <EmailStatement accounts={accounts} email={row.original} />,
+    cell: ({ row }) => <StatementCell email={row.original} />,
     meta: { label: 'Statement' },
   },
 ];
@@ -405,21 +411,23 @@ const EmailForwardingView = ({
 }) => {
   const { table } = useDataTable({
     data: emails,
-    columns: emailColumns(accounts),
+    columns: EMAIL_COLUMNS,
     pageCount: -1,
   });
   return (
-    <DataTable enablePagination={false} getItemValue={(item) => item.id} table={table}>
-      <DataTableToolbar table={table}>
-        {inbox.configured ? (
-          <ForwardingSetup inbox={inbox.inbox} />
-        ) : (
-          <span className="text-muted-foreground text-sm">
-            Email forwarding is not configured on this server.
-          </span>
-        )}
-      </DataTableToolbar>
-    </DataTable>
+    <AccountsContext value={accounts}>
+      <DataTable enablePagination={false} getItemValue={(item) => item.id} table={table}>
+        <DataTableToolbar table={table}>
+          {inbox.configured ? (
+            <ForwardingSetup inbox={inbox.inbox} />
+          ) : (
+            <span className="text-muted-foreground text-sm">
+              Email forwarding is not configured on this server.
+            </span>
+          )}
+        </DataTableToolbar>
+      </DataTable>
+    </AccountsContext>
   );
 };
 

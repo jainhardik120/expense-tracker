@@ -114,7 +114,11 @@ export const importEmailAttachment = async (
   ) {
     throw new Error('The original email is no longer stored');
   }
-  const parsed = await PostalMime.parse(await readObject(bucket, objectKey));
+  const raw = await readObject(bucket, objectKey).catch(() => null);
+  if (raw === null) {
+    throw new Error('The original email is no longer stored');
+  }
+  const parsed = await PostalMime.parse(raw);
   const attachment = parsed.attachments.at(input.attachment);
   if (attachment === undefined || !isPdf(attachment)) {
     throw new Error('That attachment is not a PDF');

@@ -2,7 +2,13 @@ import { DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client
 
 import { config } from '@/lib/aws-config';
 
-const s3 = new S3Client(config);
+const CONNECTION_TIMEOUT_MS = 5000;
+const REQUEST_TIMEOUT_MS = 30_000;
+
+const s3 = new S3Client({
+  ...config,
+  requestHandler: { connectionTimeout: CONNECTION_TIMEOUT_MS, requestTimeout: REQUEST_TIMEOUT_MS },
+});
 
 export const readObject = async (bucket: string, key: string) => {
   const object = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
