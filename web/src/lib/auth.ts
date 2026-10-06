@@ -18,6 +18,36 @@ import { recoverRotatedRefreshToken } from './oauth-refresh-recovery';
 const COOKIE_CACHE_MAX_AGE_MINUTES = 5;
 const SECONDS_PER_MINUTE = 60;
 
+const oauthResources = [
+  `${getBaseUrl()}/api/external`,
+  getBaseUrl(),
+  ...(env.NODE_ENV === 'development'
+    ? [
+        'https://local-dev-mac.hardikja.in',
+        'https://local-dev-mac.hardikja.in/api/external',
+        'https://local-dev.hardikja.in',
+        'https://local-dev.hardikja.in/api/external',
+      ]
+    : []),
+];
+
+const oauthPlugin = oauthProvider({
+  loginPage: '/auth/login',
+  consentPage: '/auth/consent',
+  enforcePerClientResources: false,
+  resources: oauthResources,
+});
+
+const initOAuthProvider = oauthPlugin.init;
+oauthPlugin.init = async (ctx) => {
+  oauthPlugin.options.resources = [];
+  try {
+    return await initOAuthProvider(ctx);
+  } finally {
+    oauthPlugin.options.resources = oauthResources;
+  }
+};
+
 export const auth = betterAuth({
   appName: 'Expense Tracker',
   hooks: {
@@ -45,25 +75,7 @@ export const auth = betterAuth({
     }),
     apiKey(),
     admin(),
-    oauthProvider({
-      loginPage: '/auth/login',
-      consentPage: '/auth/consent',
-      enforcePerClientResources: false,
-      resources: [
-        `${getBaseUrl()}/api/external`,
-        `${getBaseUrl()}`,
-        ...[
-          env.NODE_ENV === 'development'
-            ? [
-                `https://local-dev-mac.hardikja.in`,
-                `https://local-dev-mac.hardikja.in/api/external`,
-                `https://local-dev.hardikja.in`,
-                `https://local-dev.hardikja.in/api/external`,
-              ]
-            : [],
-        ].flat(),
-      ],
-    }),
+    oauthPlugin,
   ],
   database: drizzleAdapter(db, {
     provider: 'pg',
