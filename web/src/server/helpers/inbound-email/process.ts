@@ -132,6 +132,6 @@ export const processInboundEmail = async (db: Database, notification: SesNotific
   }
   const emailId = inserted.at(0)?.id;
   if (emailId !== undefined) {
-    await autoImportStatements(db, inbox.userId, emailId, parsed.attachments);
+    await autoImportStatements(db, inbox.userId, emailId, parsed.attachments, attachments);
   }
 };

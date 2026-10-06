@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { errorMessage } from '@/lib/utils';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -17,6 +18,52 @@ import { issuerLabel } from '../../_components/statement-labels';
 
 type Sources = RouterOutput['statementImports']['listSources'];
 
+const SavePassword = ({ accountId }: { accountId: string }) => {
+  const router = useRouter();
+  const [password, setPassword] = useState('');
+  const save = api.statementImports.savePassword.useMutation();
+  return (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.mutate(
+          { accountId, password },
+          {
+            onSuccess: () => {
+              toast.success('Password saved');
+              setPassword('');
+              router.refresh();
+            },
+            onError: (error) => toast.error(errorMessage(error)),
+          },
+        );
+      }}
+    >
+      <Input
+        autoComplete="off"
+        className="h-8 w-40"
+        placeholder="Statement password"
+        type="password"
+        value={password}
+        onChange={(event) => {
+          setPassword(event.target.value);
+        }}
+      />
+      <Button disabled={save.isPending || password.trim() === ''} size="sm" type="submit">
+        Save
+      </Button>
+    </form>
+  );
+};
+
+const SavePasswordOrNote = ({ source }: { source: Sources[number] }) =>
+  source.issuer === 'sheet' ? (
+    <span className="text-muted-foreground text-xs">Spreadsheets need no password</span>
+  ) : (
+    <SavePassword accountId={source.accountId} />
+  );
+
 export const RecognisedCards = ({ sources }: { sources: Sources }) => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -24,7 +71,7 @@ export const RecognisedCards = ({ sources }: { sources: Sources }) => {
   return (
     <Modal
       className="sm:max-w-xl"
-      description="Statements from these cards are matched to the account automatically, including PDFs that arrive by email. Saved passwords are encrypted and only used to open your statements."
+      description="Statements from these cards are matched to the account automatically, including PDFs that arrive by email. Save each card's PDF password so emailed statements open on their own. Saved passwords are encrypted and only used to open your statements."
       open={open}
       setOpen={setOpen}
       title="Recognised cards"
@@ -72,7 +119,7 @@ export const RecognisedCards = ({ sources }: { sources: Sources }) => {
                   Forget password
                 </Button>
               ) : (
-                <span className="text-muted-foreground text-xs">No saved password</span>
+                <SavePasswordOrNote source={source} />
               )}
             </div>
           ))}

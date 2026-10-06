@@ -27,6 +27,7 @@ import {
 import { PdfPasswordError } from '@/server/statement-import/pdf/extract';
 import { UnsupportedStatementError } from '@/server/statement-import/pdf/parse';
 import { getImportReview } from '@/server/statement-import/review';
+import { sealPassword } from '@/server/statement-import/secrets';
 import { SheetLayoutError } from '@/server/statement-import/sheet/parse';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
@@ -34,6 +35,7 @@ const KIB = 1024;
 const MAX_FILE_MB = 15;
 const MAX_FILE_BYTES = MAX_FILE_MB * KIB * KIB;
 const MAX_FILE_NAME_LENGTH = 255;
+const MAX_PASSWORD_LENGTH = 128;
 const BASE64_CHARS_PER_CHUNK = 4;
 const BASE64_BYTES_PER_CHUNK = 3;
 
@@ -109,8 +111,8 @@ export const statementImportsRouter = createTRPCRouter({
           and(
             eq(inboundEmails.userId, ctx.user.id),
             eq(inboundEmails.status, 'received'),
-            sql`${inboundEmails.attachments} @> '[{"mimeType":"application/pdf"}]'::jsonb`,
-            sql`NOT EXISTS (SELECT 1 FROM statement_imports i WHERE i.inbound_email_id = ${inboundEmails.id})`,
+            sql`jsonb_path_exists(${inboundEmails.attachments}, '$[*] ? (@.mimeType == "application/pdf" && !exists(@.importId) && (!exists(@.importOutcome) || @.importOutcome != "not_statement"))')`,
+            sql`NOT EXISTS (SELECT 1 FROM statement_imports i WHERE i.inbound_email_id = "inbound_emails"."id")`,
           ),
         ),
       getBalanceChecks(ctx.db, ctx.user.id),
@@ -260,6 +262,25 @@ export const statementImportsRouter = createTRPCRouter({
       .where(eq(statementSources.userId, ctx.user.id))
       .orderBy(bankAccount.accountName),
   ),
+  savePassword: protectedProcedure
+    .input(
+      z.object({
+        accountId: z.uuid(),
+        password: z.string().trim().min(1).max(MAX_PASSWORD_LENGTH),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await assertOwnsAccountsAndFriends(ctx.db, ctx.user.id, { accountIds: [input.accountId] });
+      await ctx.db
+        .update(statementSources)
+        .set({ password: sealPassword(input.password), updatedAt: new Date() })
+        .where(
+          and(
+            eq(statementSources.accountId, input.accountId),
+            eq(statementSources.userId, ctx.user.id),
+          ),
+        );
+    }),
   forgetPassword: protectedProcedure
     .input(z.object({ accountId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {

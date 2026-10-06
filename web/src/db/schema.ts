@@ -645,7 +645,16 @@ export const emailInboxes = pgTable(
 
 export const inboundEmailStatusEnum = pgEnum('inbound_email_status', inboundEmailStatuses);
 
-export type InboundEmailAttachment = { filename: string; mimeType: string; size: number };
+export type EmailImportOutcome =
+  'imported' | 'duplicate' | 'password' | 'account' | 'not_statement' | 'failed';
+
+export type InboundEmailAttachment = {
+  filename: string;
+  mimeType: string;
+  size: number;
+  importOutcome?: EmailImportOutcome;
+  importId?: string;
+};
 
 export const inboundEmails = pgTable(
   'inbound_emails',

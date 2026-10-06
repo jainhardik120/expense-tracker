@@ -31,6 +31,18 @@ type InboundEmail = RouterOutput['emailForwarding']['listEmails'][number];
 const GMAIL_FORWARDING_SETTINGS = 'https://mail.google.com/mail/u/0/#settings/fwdandpop';
 const GMAIL_FILTER_SETTINGS = 'https://mail.google.com/mail/u/0/#settings/filters';
 
+const STATEMENT_SENDERS = [
+  'statements@axis.bank.in',
+  'statements@axisbank.com',
+  'credit_cards@icici.bank.in',
+  'credit_cards@icicibank.com',
+  'creditcard.estatements@indusind.com',
+  'statements@sbicard.com',
+  'estatement@yes.bank.in',
+];
+
+const GMAIL_FILTER_FROM = `{${STATEMENT_SENDERS.join(' ')}}`;
+
 const copy = async (value: string, label: string) => {
   await navigator.clipboard.writeText(value);
   toast.success(`${label} copied`);
@@ -174,8 +186,27 @@ const SetupSection = ({ inbox }: { inbox: ActiveInbox }) => {
         <Step number={3} title="Forward only your bank emails with a filter">
           <p>
             Leave &quot;Disable forwarding&quot; selected on the forwarding page. Instead, create a
-            filter whose From field lists your banks&apos; sender addresses, then choose
-            &quot;Forward it to&quot; this address. Only matching emails are forwarded.
+            filter, paste this into its From field, then choose &quot;Forward it to&quot; this
+            address. It covers every bank whose statements the app can read, and only matching
+            emails are forwarded.
+          </p>
+          <div className="flex flex-wrap items-start gap-2">
+            <code className="bg-muted rounded px-3 py-2 font-mono text-xs break-all">
+              {GMAIL_FILTER_FROM}
+            </code>
+            <Button
+              size="sm"
+              onClick={() => {
+                void copy(GMAIL_FILTER_FROM, 'Filter');
+              }}
+            >
+              <Copy />
+              Copy
+            </Button>
+          </div>
+          <p>
+            Filters only forward new mail. For statements you already have, download them and upload
+            them on the Statements tab.
           </p>
           <Button asChild className="self-start" size="sm" variant="outline">
             <a href={GMAIL_FILTER_SETTINGS} rel="noreferrer" target="_blank">
@@ -240,6 +271,12 @@ const ForwardingSetup = ({ inbox }: { inbox: ActiveInbox | null }) => {
 
 type AccountOption = { id: string; accountName: string };
 
+const OUTCOME_HINTS: Partial<Record<string, string>> = {
+  password: 'Needs the PDF password',
+  account: 'Choose the account',
+  failed: 'Could not be read',
+};
+
 const EmailStatement = ({
   email,
   accounts,
@@ -247,42 +284,59 @@ const EmailStatement = ({
   email: InboundEmail;
   accounts: AccountOption[];
 }) => {
-  const imported = email.statementImports.at(0);
-  if (imported !== undefined) {
+  const linked =
+    email.statementImports.at(0)?.id ??
+    email.attachments.find((attachment) => attachment.importId !== undefined)?.importId;
+  if (linked !== undefined) {
+    const review = email.statementImports.at(0)?.status === 'review';
     return (
       <Button asChild size="sm" variant="ghost">
-        <Link href={`/inbox/statements/${imported.id}`}>
-          {imported.status === 'review' ? 'Review' : 'Open'}
-        </Link>
+        <Link href={`/inbox/statements/${linked}`}>{review ? 'Review' : 'Open'}</Link>
       </Button>
     );
   }
   const pdfs = email.attachments.flatMap((attachment, index) =>
-    attachment.mimeType === 'application/pdf' || attachment.filename.toLowerCase().endsWith('.pdf')
+    (attachment.mimeType === 'application/pdf' ||
+      attachment.filename.toLowerCase().endsWith('.pdf')) &&
+    attachment.importOutcome !== 'not_statement'
       ? [
           {
             kind: 'email' as const,
             inboundEmailId: email.id,
             attachment: index,
             fileName: attachment.filename,
+            outcome: attachment.importOutcome,
           },
         ]
       : [],
   );
+  const notStatement = email.attachments.some(
+    (attachment) => attachment.importOutcome === 'not_statement',
+  );
   if (email.status !== 'received' || !email.storedRaw || pdfs.length === 0) {
-    return null;
+    return notStatement ? (
+      <span className="text-muted-foreground text-xs">Not a statement</span>
+    ) : null;
   }
+  const hint = pdfs
+    .map((pdf) => (pdf.outcome === undefined ? undefined : OUTCOME_HINTS[pdf.outcome]))
+    .find((value) => value !== undefined);
   return (
-    <StatementImporter
-      accounts={accounts}
-      initialSources={pdfs}
-      trigger={
-        <Button size="sm" variant="outline">
-          <FileUp className="size-4" />
-          Import PDF
-        </Button>
-      }
-    />
+    <div className="flex items-center gap-2">
+      <StatementImporter
+        accounts={accounts}
+        initialSources={pdfs.map(({ outcome: _outcome, ...source }) => source)}
+        trigger={
+          <Button size="sm" variant="outline">
+            <FileUp className="size-4" />
+            Import PDF
+          </Button>
+        }
+      />
+      {hint === undefined ? null : (
+        <span className="text-xs text-amber-600 dark:text-amber-500">{hint}</span>
+      )}
+    </div>
   );
 };
 

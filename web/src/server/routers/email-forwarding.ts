@@ -90,7 +90,7 @@ export const emailForwardingRouter = createTRPCRouter({
           Array<{ id: string; status: 'review' | 'applied' | 'discarded' }>
         >`COALESCE((
           SELECT json_agg(json_build_object('id', i.id, 'status', i.status))
-          FROM statement_imports i WHERE i.inbound_email_id = ${inboundEmails.id}
+          FROM statement_imports i WHERE i.inbound_email_id = "inbound_emails"."id"
         ), '[]'::json)`,
       })
       .from(inboundEmails)
