@@ -46,11 +46,18 @@ export const refreshAccountChecks = instrumentedFunction(
         },
       ];
     });
-    await db.transaction(async (tx) => {
-      for (const { id, check } of checks) {
-        await tx.update(statementImports).set({ check }).where(eq(statementImports.id, id));
-      }
-    });
+    if (checks.length > 0) {
+      const values = sql.join(
+        checks.map(({ id, check }) => sql`(${id}::uuid, ${JSON.stringify(check)}::jsonb)`),
+        sql`, `,
+      );
+      await db.execute(sql`
+        UPDATE ${statementImports}
+        SET "check" = updates.payload
+        FROM (VALUES ${values}) AS updates(id, payload)
+        WHERE ${statementImports.id} = updates.id
+      `);
+    }
     return checks.length;
   },
 );

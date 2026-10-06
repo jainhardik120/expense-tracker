@@ -219,8 +219,18 @@ const directions = (items: Item[]) => new Set(items.map((item) => item.direction
 const plausibleWindow = (members: Item[]) =>
   directions(members) === 1 || spreadOf(members) <= CLUB_DAYS;
 
-const isEmiFamily = (item: Item) =>
-  item.side === 'statement' && (item.emi === 'installment' || EMI_PATTERN.test(item.description));
+const emiFamilyCache = new WeakMap<Item, boolean>();
+
+const isEmiFamily = (item: Item) => {
+  const cached = emiFamilyCache.get(item);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const value =
+    item.side === 'statement' && (item.emi === 'installment' || EMI_PATTERN.test(item.description));
+  emiFamilyCache.set(item, value);
+  return value;
+};
 
 const hasInstallment = (items: Item[]) => items.some(isEmiFamily);
 
@@ -228,7 +238,7 @@ const INSTALLMENT_PATTERN = /\b(\d{1,3})\s*\/\s*(\d{1,3})\b/;
 const REFERENCE_PATTERN = /ref(?:#|\s*no:?)\s*(\d{6,})/i;
 const REFERENCE_PREFIX = 8;
 
-const installmentKey = (item: Item) => {
+const readInstallmentKey = (item: Item) => {
   if (!isEmiFamily(item)) {
     return null;
   }
@@ -238,6 +248,17 @@ const installmentKey = (item: Item) => {
   }
   const reference = REFERENCE_PATTERN.exec(item.description)?.[1] ?? '';
   return `${installment[1]}/${installment[2]}:${reference.slice(0, REFERENCE_PREFIX)}`;
+};
+
+const installmentKeyCache = new WeakMap<Item, string | null>();
+
+const installmentKey = (item: Item) => {
+  if (installmentKeyCache.has(item)) {
+    return installmentKeyCache.get(item) ?? null;
+  }
+  const value = readInstallmentKey(item);
+  installmentKeyCache.set(item, value);
+  return value;
 };
 
 const splitsInstallment = (statementSide: Item[], pool: Item[]) => {
@@ -450,12 +471,18 @@ class Matcher {
           )
           .slice(0, WINDOW_STATEMENT_POOL);
         const sums = subsetSums(statementNear);
+        const sortedSums = [...sums.keys()].sort((left, right) => left - right);
         const ledgerNear = nearest(member, ledgerPool, CLUB_DAYS, EMI_LEDGER_POOL);
         for (let size = 1; size <= WINDOW_LEDGER_MAX; size += 1) {
           for (const ledgerSide of combinations(ledgerNear, size)) {
             const target = total(ledgerSide);
-            for (let offset = -EMI_TOLERANCE; offset <= EMI_TOLERANCE; offset += 1) {
-              const mask = sums.get(target + offset);
+            for (const sum of sumsWithin(
+              sortedSums,
+              target - EMI_TOLERANCE,
+              target + EMI_TOLERANCE,
+            )) {
+              const offset = sum - target;
+              const mask = sums.get(sum);
               if (mask === undefined || mask === 0) {
                 continue;
               }
@@ -628,6 +655,28 @@ const subsetSums = (pool: Item[]) => {
     }
   }
   return sums;
+};
+
+const sumsWithin = (sorted: number[], low: number, high: number) => {
+  let start = 0;
+  let end = sorted.length;
+  while (start < end) {
+    const middle = (start + end) >> 1;
+    if ((sorted[middle] ?? 0) < low) {
+      start = middle + 1;
+    } else {
+      end = middle;
+    }
+  }
+  const found: number[] = [];
+  for (let position = start; position < sorted.length; position += 1) {
+    const value = sorted[position] ?? 0;
+    if (value > high) {
+      break;
+    }
+    found.push(value);
+  }
+  return found;
 };
 
 const isFeeLike = (item: Item) =>
