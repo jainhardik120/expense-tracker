@@ -696,47 +696,86 @@ const FACET_LEVEL: Record<FacetName, number> = {
   tags: 2,
 };
 
+const generateStatementFacetRows = (db: Database, userId: string, input: FacetInput) => {
+  const union = unionAll(
+    db
+      .select({
+        id: statements.id,
+        createdAt: statements.createdAt,
+        accountId: statements.accountId,
+        friendId: statements.friendId,
+        fromAccountId: sql<string | null>`NULL::uuid`.as('from_account_id'),
+        toAccountId: sql<string | null>`NULL::uuid`.as('to_account_id'),
+        category: sql<string | null>`${statements.category}`.as('category'),
+        tags: statements.tags,
+        statementKind: sql<string>`${statements.statementKind}::text`.as('statement_kind'),
+      })
+      .from(statements)
+      .where(eq(statements.userId, userId)),
+    db
+      .select({
+        id: selfTransferStatements.id,
+        createdAt: selfTransferStatements.createdAt,
+        accountId: sql<string | null>`NULL::uuid`.as('account_id'),
+        friendId: sql<string | null>`NULL::uuid`.as('friend_id'),
+        fromAccountId: selfTransferStatements.fromAccountId,
+        toAccountId: selfTransferStatements.toAccountId,
+        category: sql<string | null>`NULL`.as('category'),
+        tags: sql<string[]>`ARRAY[]::text[]`.as('tags'),
+        statementKind: sql<string>`'self_transfer'`.as('statement_kind'),
+      })
+      .from(selfTransferStatements)
+      .where(eq(selfTransferStatements.userId, userId)),
+  ).as('union_query');
+  return db.$with('facet_rows').as(
+    db
+      .select()
+      .from(union)
+      .where(
+        and(
+          input.start === undefined ? undefined : gte(union.createdAt, input.start),
+          input.end === undefined ? undefined : lt(union.createdAt, input.end),
+        ),
+      ),
+  );
+};
+
+type FacetRows = ReturnType<typeof generateStatementFacetRows>;
+
 const buildFacetConditions = (
   db: Database,
-  union: ReturnType<typeof generateStatementUnionDetailedQuery>,
-  userId: string,
+  rows: FacetRows,
   input: FacetInput,
   facet: FacetName,
 ) => {
   const applies = (other: FacetName) => FACET_LEVEL[other] < FACET_LEVEL[facet];
-  const conditions: SQL<unknown>[] = [eq(union.userId, userId)];
-  if (input.start !== undefined) {
-    conditions.push(gte(union.createdAt, input.start));
-  }
-  if (input.end !== undefined) {
-    conditions.push(lt(union.createdAt, input.end));
-  }
+  const conditions: SQL<unknown>[] = [];
   if (applies('account') && input.account.length > 0) {
     const statementIdsWithSplits = db
       .select({ statementId: splits.statementId })
       .from(splits)
       .where(inArray(splits.friendId, input.account));
     const accountMatch = or(
-      inArray(union.accountId, input.account),
-      inArray(union.fromAccountId, input.account),
-      inArray(union.toAccountId, input.account),
-      inArray(union.friendId, input.account),
-      inArray(union.id, statementIdsWithSplits),
+      inArray(rows.accountId, input.account),
+      inArray(rows.fromAccountId, input.account),
+      inArray(rows.toAccountId, input.account),
+      inArray(rows.friendId, input.account),
+      inArray(rows.id, statementIdsWithSplits),
     );
     if (accountMatch !== undefined) {
       conditions.push(accountMatch);
     }
   }
   if (applies('category') && input.category.length > 0) {
-    conditions.push(inArray(union.category, input.category));
+    conditions.push(inArray(rows.category, input.category));
   }
   if (applies('tags') && input.tags.length > 0) {
-    conditions.push(inArray(union.tag, input.tags));
+    conditions.push(arrayOverlaps(rows.tags, input.tags));
   }
   if (applies('statementKind') && input.statementKind.length > 0) {
-    conditions.push(inArray(union.statementKind, input.statementKind));
+    conditions.push(inArray(rows.statementKind, input.statementKind));
   }
-  return conditions;
+  return and(...conditions);
 };
 
 export const getStatementFacetCounts = instrumentedFunction(
@@ -746,52 +785,50 @@ export const getStatementFacetCounts = instrumentedFunction(
     userId: string,
     input: FacetInput,
   ): Promise<Record<FacetName, FacetCount[]>> => {
-    const countRows = async (
-      exclude: FacetName,
-      pick: (union: ReturnType<typeof generateStatementUnionDetailedQuery>) => {
-        value: ReturnType<typeof sql<string | null>>;
-      },
-      unnestTags: boolean,
-    ): Promise<FacetCount[]> => {
-      const union = generateStatementUnionDetailedQuery(db, userId, unnestTags);
-      const { value } = pick(union);
-      const rows = await db
-        .select({ value, count: sql<number>`count(distinct ${union.id})::int` })
-        .from(union)
-        .where(and(...buildFacetConditions(db, union, userId, input, exclude)))
+    const rows = generateStatementFacetRows(db, userId, input);
+    const facetQuery = (
+      facet: FacetName,
+      value: SQL,
+      from: SQL,
+      { unnested, extra }: { unnested: boolean; extra?: SQL },
+    ) =>
+      db
+        .select({
+          facet: sql<FacetName>`${facet}`.as('facet'),
+          value: sql<string | null>`${value}::text`.as('value'),
+          count: (unnested
+            ? sql<number>`count(distinct ${rows.id})::int`
+            : sql<number>`count(*)::int`
+          ).as('count'),
+        })
+        .from(sql`${from}`)
+        .where(and(buildFacetConditions(db, rows, input, facet), extra))
         .groupBy(value);
-      return rows
-        .filter((row): row is { value: string; count: number } => row.value !== null)
-        .map((row) => ({ value: row.value, count: Number(row.count) }));
-    };
-
-    const [statementKind, category, tags, account] = await Promise.all([
-      countRows(
-        'statementKind',
-        (union) => ({ value: sql<string>`${union.statementKind}` }),
-        false,
+    const facets = unionAll(
+      facetQuery('statementKind', sql`${rows.statementKind}`, sql`${rows}`, { unnested: false }),
+      facetQuery('category', sql`${rows.category}`, sql`${rows}`, { unnested: false }),
+      facetQuery('tags', sql`tag`, sql`${rows} cross join unnest(${rows.tags}) as tag`, {
+        unnested: true,
+      }),
+      facetQuery(
+        'account',
+        sql`account_ref`,
+        sql`${rows} cross join unnest(ARRAY[${rows.accountId}, ${rows.fromAccountId}, ${rows.toAccountId}, ${rows.friendId}]) as account_ref`,
+        { unnested: true, extra: sql`account_ref is not null` },
       ),
-      countRows('category', (union) => ({ value: sql<string | null>`${union.category}` }), false),
-      countRows('tags', (union) => ({ value: sql<string | null>`${union.tag}` }), true),
-      (async () => {
-        const union = generateStatementUnionDetailedQuery(db, userId, false);
-        const rows = await db
-          .select({
-            value: sql<string | null>`account_ref`,
-            count: sql<number>`count(distinct ${union.id})::int`,
-          })
-          .from(union)
-          .crossJoin(
-            sql`unnest(ARRAY[${union.accountId}, ${union.fromAccountId}, ${union.toAccountId}, ${union.friendId}]) AS account_ref`,
-          )
-          .where(and(...buildFacetConditions(db, union, userId, input, 'account')))
-          .groupBy(sql`account_ref`);
-        return rows
-          .filter((row): row is { value: string; count: number } => row.value !== null)
-          .map((row) => ({ value: row.value, count: Number(row.count) }));
-      })(),
-    ]);
-
-    return { statementKind, category, tags, account };
+    ).as('facets');
+    const counted = await db.with(rows).select().from(facets);
+    const result: Record<FacetName, FacetCount[]> = {
+      statementKind: [],
+      category: [],
+      tags: [],
+      account: [],
+    };
+    for (const row of counted) {
+      if (row.value !== null) {
+        result[row.facet].push({ value: row.value, count: Number(row.count) });
+      }
+    }
+    return result;
   },
 );
