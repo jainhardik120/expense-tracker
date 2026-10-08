@@ -25,6 +25,7 @@ import {
   type SelfTransferStatement,
   createSplitSchema,
   isSelfTransfer,
+  isSharedStatement,
   type Statement,
   bulkSplitSchema,
   PERCENTAGE_DIVISOR,
@@ -229,7 +230,7 @@ export const BulkStatementSplitsDialog = ({
   const bulkSplitConditions = useMemo(():
     { allowed: false } | { allowed: true; maxPercentage: number } => {
     const isAnyNotExpense = selectedRows.some(
-      (row) => isSelfTransfer(row) || row.statementKind !== 'expense',
+      (row) => isSelfTransfer(row) || row.statementKind !== 'expense' || isSharedStatement(row),
     );
     if (isAnyNotExpense) {
       return { allowed: false };

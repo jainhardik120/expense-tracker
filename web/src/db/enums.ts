@@ -22,3 +22,13 @@ export const inboundEmailStatuses = ['received', 'confirmation', 'rejected'] as 
 export const statementImportSources = ['upload', 'email'] as const;
 
 export const statementImportStatuses = ['review', 'applied', 'discarded'] as const;
+
+export const friendInvitationStatuses = ['pending', 'accepted', 'declined', 'revoked'] as const;
+
+export const reviewStatuses = ['pending', 'accepted', 'dismissed'] as const;
+
+export const sharedAnswerStatuses = ['accepted', 'dismissed'] as const;
+
+export const shareKinds = ['own', 'split', 'balance', 'answer'] as const;
+
+export type ShareKind = (typeof shareKinds)[number];

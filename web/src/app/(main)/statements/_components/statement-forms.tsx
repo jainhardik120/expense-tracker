@@ -15,21 +15,27 @@ import {
   type Account,
   createStatementSchema,
   type Friend,
+  isSharedStatement,
   type Statement,
   statementKindMap,
   statementParser,
 } from '@/types';
 
+type Lock = 'none' | 'all' | 'allButAccount';
+
 const statementFormFields = (
   accountsData: Account[],
   friendsData: Friend[],
   categories: string[],
+  lock: Lock = 'none',
 ): FormField<z.infer<typeof createStatementSchema>>[] => {
+  const unlocked = lock === 'none';
   return [
     {
       name: 'statementKind',
       label: 'Statement Kind',
       type: 'select',
+      displayCondition: unlocked,
       placeholder: 'Select Statement Kind',
       options: Object.entries(statementKindMap).map(([value, label]) => ({
         label,
@@ -40,6 +46,7 @@ const statementFormFields = (
       name: 'accountId',
       label: 'Account ID',
       type: 'select',
+      displayCondition: lock !== 'all',
       placeholder: 'Select Account',
       options: accountsData.map((account) => ({
         label: account.accountName,
@@ -50,6 +57,7 @@ const statementFormFields = (
       name: 'friendId',
       label: 'Friend ID',
       type: 'select',
+      displayCondition: unlocked,
       placeholder: 'Select Friend',
       options: friendsData.map((account) => ({
         label: account.name,
@@ -67,6 +75,7 @@ const statementFormFields = (
       name: 'amount',
       label: 'Amount',
       type: 'number',
+      displayCondition: unlocked,
       placeholder: 'Amount',
     },
     {
@@ -79,6 +88,7 @@ const statementFormFields = (
       name: 'createdAt',
       label: 'Datetime',
       type: 'datetime',
+      displayCondition: unlocked,
     },
   ];
 };
@@ -144,6 +154,72 @@ export const CreateStatementForm = ({
   );
 };
 
+const UpdateSharedStatementForm = ({
+  refresh,
+  initialData,
+  accountsData,
+  friendsData,
+  categories,
+  trigger,
+}: {
+  refresh?: () => void;
+  initialData: Statement;
+  accountsData: Account[];
+  friendsData: Friend[];
+  categories: string[];
+  trigger: React.ReactNode;
+}) => {
+  const mutation = api.friends.updateSharedStatement.useMutation();
+  const accountEditable =
+    initialData.shareKind === 'answer' && initialData.statementKind === 'friend_transaction';
+  const formFields = useMemo(
+    () =>
+      statementFormFields(
+        accountsData,
+        friendsData,
+        categories,
+        accountEditable ? 'allButAccount' : 'all',
+      ),
+    [accountsData, friendsData, categories, accountEditable],
+  );
+  const { shareKind } = initialData;
+  if (shareKind === 'own') {
+    return null;
+  }
+  return (
+    <MutationModal
+      button={trigger}
+      customDescription={
+        <p className="text-muted-foreground text-sm">
+          {initialData.friendName ?? 'Your friend'} recorded this, so its amount and date come from
+          their statement. The category and tags are yours.
+        </p>
+      }
+      defaultValues={{
+        ...initialData,
+        accountId: initialData.accountId ?? undefined,
+        friendId: initialData.friendId ?? undefined,
+      }}
+      fields={formFields}
+      mapInput={(values) => ({
+        shareKind,
+        sourceId: initialData.id,
+        category: values.category,
+        tags: values.tags,
+        ...(accountEditable ? { accountId: asOptionalAccount(values.accountId) } : {}),
+      })}
+      mutation={mutation}
+      refresh={refresh}
+      schema={createStatementSchema}
+      successToast={() => 'Statement updated'}
+      titleText="Update Statement"
+    />
+  );
+};
+
+const asOptionalAccount = (value: string | null | undefined) =>
+  value === undefined || value === null || value === '' ? null : value;
+
 export const UpdateStatementForm = ({
   refresh,
   statementId,
@@ -166,6 +242,18 @@ export const UpdateStatementForm = ({
     () => statementFormFields(accountsData, friendsData, categories),
     [accountsData, friendsData, categories],
   );
+  if (isSharedStatement(initialData)) {
+    return (
+      <UpdateSharedStatementForm
+        accountsData={accountsData}
+        categories={categories}
+        friendsData={friendsData}
+        initialData={initialData}
+        refresh={refresh}
+        trigger={trigger}
+      />
+    );
+  }
   return (
     <MutationModal
       button={trigger}

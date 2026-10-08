@@ -1,5 +1,6 @@
 import { desc, sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
   pgTable,
   text,
   timestamp,
@@ -14,6 +15,7 @@ import {
   primaryKey,
   uniqueIndex,
   date,
+  pgView,
 } from 'drizzle-orm/pg-core';
 
 import type { StoredBudgetRule } from '@/types/budget';
@@ -22,6 +24,9 @@ import { user } from './auth-schema';
 import {
   balanceCheckSources,
   inboundEmailStatuses,
+  friendInvitationStatuses,
+  type ShareKind,
+  sharedAnswerStatuses,
   recurringPaymentFrequencies,
   smsTransactionStatuses,
   statementImportSources,
@@ -57,9 +62,20 @@ export const friendsProfiles = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    email: text('email'),
+    linkedUserId: text('linked_user_id').references(() => user.id, { onDelete: 'set null' }),
+    linkedProfileId: uuid('linked_profile_id').references((): AnyPgColumn => friendsProfiles.id, {
+      onDelete: 'set null',
+    }),
+    linkedAt: timestamp('linked_at'),
     createdAt: timestamp('created_at').$defaultFn(() => new Date()),
   },
-  (table) => [index('friends_profiles_user_idx').on(table.userId)],
+  (table) => [
+    index('friends_profiles_user_idx').on(table.userId),
+    index('friends_profiles_linked_user_idx')
+      .on(table.linkedUserId)
+      .where(sql`${table.linkedUserId} IS NOT NULL`),
+  ],
 );
 
 export const statements = pgTable(
@@ -134,6 +150,9 @@ export const statements = pgTable(
     index('statements_account_created_idx')
       .on(table.accountId, table.createdAt)
       .where(sql`${table.accountId} IS NOT NULL`),
+    index('statements_friend_idx')
+      .on(table.friendId)
+      .where(sql`${table.friendId} IS NOT NULL`),
   ],
 );
 
@@ -184,8 +203,94 @@ export const splits = pgTable(
   (table) => [
     index('splits_statement_id_idx').on(table.statementId),
     index('splits_user_statement_idx').on(table.userId, table.statementId),
+    index('splits_friend_idx').on(table.friendId),
   ],
 );
+
+export const friendInvitationStatusEnum = pgEnum(
+  'friend_invitation_status',
+  friendInvitationStatuses,
+);
+
+export const friendInvitations = pgTable(
+  'friend_invitations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    inviterUserId: text('inviter_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    friendId: uuid('friend_id')
+      .notNull()
+      .references(() => friendsProfiles.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    status: friendInvitationStatusEnum().notNull().default('pending'),
+    respondedAt: timestamp('responded_at'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('friend_invitations_pending_friend_idx')
+      .on(table.friendId)
+      .where(sql`${table.status} = 'pending'`),
+    index('friend_invitations_email_status_idx').on(table.email, table.status),
+    index('friend_invitations_inviter_idx').on(table.inviterUserId),
+  ],
+);
+
+export const sharedAnswerStatusEnum = pgEnum('shared_answer_status', sharedAnswerStatuses);
+
+export const sharedAnswers = pgTable(
+  'shared_answers',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    viewerUserId: text('viewer_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    splitId: uuid('split_id').references(() => splits.id, { onDelete: 'cascade' }),
+    statementId: uuid('statement_id').references(() => statements.id, { onDelete: 'cascade' }),
+    status: sharedAnswerStatusEnum(),
+    accountId: uuid('account_id').references(() => bankAccount.id, { onDelete: 'no action' }),
+    asKind: statementKindEnum('as_kind'),
+    category: text('category'),
+    tags: text('tags').array(),
+    answeredAt: timestamp('answered_at'),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    check(
+      'shared_answers_one_source',
+      sql`num_nonnulls(${table.splitId}, ${table.statementId}) = 1`,
+    ),
+    uniqueIndex('shared_answers_split_idx')
+      .on(table.splitId, table.viewerUserId)
+      .where(sql`${table.splitId} IS NOT NULL`),
+    uniqueIndex('shared_answers_statement_idx')
+      .on(table.statementId, table.viewerUserId)
+      .where(sql`${table.statementId} IS NOT NULL`),
+    index('shared_answers_viewer_idx').on(table.viewerUserId),
+    index('shared_answers_account_idx')
+      .on(table.accountId)
+      .where(sql`${table.accountId} IS NOT NULL`),
+  ],
+);
+
+export const visibleStatements = pgView('visible_statements', {
+  id: uuid('id').notNull(),
+  userId: text('user_id').notNull(),
+  accountId: uuid('account_id'),
+  friendId: uuid('friend_id'),
+  amount: numeric('amount').notNull(),
+  category: text('category').notNull(),
+  tags: text('tags').array().notNull(),
+  statementKind: statementKindEnum().notNull(),
+  taxableAmount: numeric('taxable_amount'),
+  createdAt: timestamp('created_at').notNull(),
+  additionalAttributes: jsonb('additional_attributes').$type<StatementAttributes>().notNull(),
+  shareKind: text('share_kind').$type<ShareKind>().notNull(),
+}).existing();
 
 export const reportBoundaries = pgTable(
   'report_boundaries',

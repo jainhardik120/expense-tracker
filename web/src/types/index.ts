@@ -8,7 +8,14 @@ import {
 } from 'nuqs/server';
 import { z } from 'zod';
 
-import { recurringPaymentFrequencies, smsTransactionStatuses, statementKinds } from '@/db/enums';
+import {
+  reviewStatuses,
+  recurringPaymentFrequencies,
+  type ShareKind,
+  shareKinds,
+  smsTransactionStatuses,
+  statementKinds,
+} from '@/db/enums';
 import {
   type bankAccount,
   type emis,
@@ -77,6 +84,30 @@ export const balanceCheckSchema = z.object({
 export const createFriendSchema = z.object({
   name: z.string(),
 });
+
+const inboxCategory = {
+  category: z.string().trim().min(1).optional(),
+  tags: z.string().array().optional(),
+};
+
+export const inboxResolutionSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('account'), accountId: z.uuid(), ...inboxCategory }),
+  z.object({ type: z.literal('expense'), ...inboxCategory }),
+  z.object({ type: z.literal('cash'), ...inboxCategory }),
+  z.object({ type: z.literal('dismiss') }),
+]);
+
+export type InboxResolution = z.infer<typeof inboxResolutionSchema>;
+
+export const sharedStatementUpdateSchema = z.object({
+  shareKind: z.enum(['split', 'balance', 'answer']),
+  sourceId: z.uuid(),
+  category: z.string().trim().min(1),
+  tags: z.string().array(),
+  accountId: z.uuid().nullable().optional(),
+});
+
+export type SharedStatementUpdate = z.infer<typeof sharedStatementUpdateSchema>;
 
 export const createSplitSchema = z.object({
   friendId: z.uuidv4(),
@@ -168,6 +199,7 @@ export type Statement = Omit<
   statementKind: 'expense' | 'outside_transaction' | 'friend_transaction';
   additionalAttributes: Record<string, unknown>;
   splitAmount: number;
+  shareKind: ShareKind;
   accountName: string | null;
   friendName: string | null;
   fromAccountId: null;
@@ -179,6 +211,7 @@ export type Statement = Omit<
 export type SelfTransferStatement = typeof selfTransferStatements.$inferSelect & {
   type: 'self_transfer';
   statementKind: 'self_transfer';
+  shareKind: 'own';
   accountId: null;
   friendId: null;
   category: null;
@@ -214,6 +247,7 @@ const statementSchema = z.object({
   fromAccount: z.null(),
   toAccount: z.null(),
   additionalAttributes: z.record(z.string(), z.unknown()),
+  shareKind: z.enum(shareKinds),
   finalBalance: z.number().optional(),
 });
 
@@ -244,6 +278,7 @@ const selfTransferStatementSchema = z.object({
   fromAccount: z.string().nullable(),
   toAccount: z.string().nullable(),
   additionalAttributes: z.record(z.string(), z.unknown()).optional(),
+  shareKind: z.literal('own'),
   finalBalance: z.number().optional(),
 });
 const rowsCountSchema = z.object({
@@ -311,6 +346,10 @@ const friendSchema = z.object({
   userId: z.string(),
   createdAt: z.date().nullable(),
   name: z.string(),
+  email: z.string().nullable(),
+  linkedUserId: z.string().nullable(),
+  linkedProfileId: z.string().nullable(),
+  linkedAt: z.date().nullable(),
 });
 
 export const friendSummarySchema = z
@@ -471,6 +510,27 @@ export const smsNotificationParser = {
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
 };
 
+const FRIEND_INBOX_SORTABLE_COLUMNS = ['date', 'amount'] as const;
+
+export const friendInboxParser = {
+  ...pageParser,
+  sort: sortStateParser(FRIEND_INBOX_SORTABLE_COLUMNS).withDefault([]),
+  date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
+  friend: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  status: parseAsArrayOf(parseAsStringEnum([...reviewStatuses]), ',').withDefault(['pending']),
+};
+
+export const friendInboxListSchema = z.object({
+  ...dateSchema,
+  ...pageSchema,
+  sort: z
+    .array(z.object({ id: z.enum(FRIEND_INBOX_SORTABLE_COLUMNS), desc: z.boolean() }))
+    .optional()
+    .default([]),
+  friend: z.string().array().optional().default([]),
+  status: z.array(z.enum(reviewStatuses)).optional().default(['pending']),
+});
+
 export const statementParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
@@ -499,6 +559,9 @@ export const accountFriendStatementsParserSchema = z.object({
   ...pageSchema,
   account: z.string(),
 });
+
+export const isSharedStatement = (statement: { shareKind: ShareKind }) =>
+  statement.shareKind !== 'own';
 
 export const isSelfTransfer = (
   statement: Statement | SelfTransferStatement,

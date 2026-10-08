@@ -7,6 +7,7 @@ import {
   splits,
   statementKindEnum,
   statements,
+  visibleStatements,
 } from '@/db/schema';
 import { buildQueryConditions } from '@/server/helpers';
 import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
@@ -52,15 +53,20 @@ export const statementsRouter = createTRPCRouter({
     )
     .output(z.array(z.string()))
     .query(async ({ ctx, input }) => {
-      const conditions = buildQueryConditions(statements, ctx.user.id, input.start, input.end);
+      const conditions = buildQueryConditions(
+        visibleStatements,
+        ctx.user.id,
+        input.start,
+        input.end,
+      );
       const statementKind = input.statementKind ?? [];
       if (statementKind.length > 0) {
-        conditions.push(inArray(statements.statementKind, statementKind));
+        conditions.push(inArray(visibleStatements.statementKind, statementKind));
       }
       return (
         await ctx.db
-          .selectDistinct({ category: statements.category })
-          .from(statements)
+          .selectDistinct({ category: visibleStatements.category })
+          .from(visibleStatements)
           .where(and(...conditions))
       )
         .map((c) => c.category)
@@ -82,18 +88,23 @@ export const statementsRouter = createTRPCRouter({
     )
     .output(z.array(z.string()))
     .query(async ({ ctx, input }) => {
-      const conditions = buildQueryConditions(statements, ctx.user.id, input.start, input.end);
+      const conditions = buildQueryConditions(
+        visibleStatements,
+        ctx.user.id,
+        input.start,
+        input.end,
+      );
       const statementKind = input.statementKind ?? [];
       const category = input.category ?? [];
       if (statementKind.length > 0) {
-        conditions.push(inArray(statements.statementKind, statementKind));
+        conditions.push(inArray(visibleStatements.statementKind, statementKind));
       }
       if (category.length > 0) {
-        conditions.push(inArray(statements.category, category));
+        conditions.push(inArray(visibleStatements.category, category));
       }
       const result = await ctx.db
-        .selectDistinct({ tag: sql<string>`unnest(${statements.tags})`.as('tag') })
-        .from(statements)
+        .selectDistinct({ tag: sql<string>`unnest(${visibleStatements.tags})`.as('tag') })
+        .from(visibleStatements)
         .where(and(...conditions))
         .orderBy(sql<string>`tag`);
       return result.map((r) => r.tag).sort((a, b) => a.localeCompare(b));

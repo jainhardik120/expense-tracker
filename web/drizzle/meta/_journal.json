@@ -442,6 +442,13 @@
       "when": 1791200037827,
       "tag": "0062_statement_import_check",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1791225802199,
+      "tag": "0063_friend_account_linking",
+      "breakpoints": true
     }
   ]
 }

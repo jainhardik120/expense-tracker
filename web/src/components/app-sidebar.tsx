@@ -16,6 +16,7 @@ import {
   Banknote,
   Inbox,
   Target,
+  Users,
 } from 'lucide-react';
 
 import {
@@ -59,6 +60,11 @@ const links = [
     label: 'Budget',
     href: '/budget',
     icon: Target,
+  },
+  {
+    label: 'Friends',
+    href: '/friends',
+    icon: Users,
   },
   {
     label: 'Recurring Payments',

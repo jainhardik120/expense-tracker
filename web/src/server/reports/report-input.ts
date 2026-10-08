@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, getTableColumns, gte, lt, sql, sum } from 'drizzle-orm';
+import { and, asc, desc, eq, getViewSelectedFields, gte, lt, sql, sum } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -8,7 +8,7 @@ import {
   reportBoundaries,
   selfTransferStatements,
   splits,
-  statements,
+  visibleStatements,
 } from '@/db/schema';
 import { zonedFormat, localWallClock } from '@/lib/date';
 import type { Database } from '@/lib/db';
@@ -138,19 +138,19 @@ export const buildReportInput = instrumentedFunction(
         db.select().from(friendsProfiles).where(eq(friendsProfiles.userId, userId)),
         db
           .select({
-            ...getTableColumns(statements),
+            ...getViewSelectedFields(visibleStatements),
             owed: sql<string | null>`${owedByStatement.owed}`,
           })
-          .from(statements)
-          .leftJoin(owedByStatement, eq(owedByStatement.statementId, statements.id))
+          .from(visibleStatements)
+          .leftJoin(owedByStatement, eq(owedByStatement.statementId, visibleStatements.id))
           .where(
             and(
-              eq(statements.userId, userId),
-              gte(statements.createdAt, spanStart),
-              lt(statements.createdAt, spanEnd),
+              eq(visibleStatements.userId, userId),
+              gte(visibleStatements.createdAt, spanStart),
+              lt(visibleStatements.createdAt, spanEnd),
             ),
           )
-          .orderBy(asc(statements.createdAt), desc(statements.id)),
+          .orderBy(asc(visibleStatements.createdAt), desc(visibleStatements.id)),
         db
           .select()
           .from(selfTransferStatements)
@@ -175,15 +175,17 @@ export const buildReportInput = instrumentedFunction(
           .orderBy(asc(investments.investmentDate)),
         db
           .select({
-            accountSide: sql<string>`coalesce(sum(case when ${statements.accountId} is null then 0 when ${statements.statementKind} = 'expense' then -${statements.amount} else ${statements.amount} end), 0)`,
-            friendSide: sql<string>`coalesce(sum(case when ${statements.friendId} is null then 0 else ${statements.amount} end), 0)`,
+            accountSide: sql<string>`coalesce(sum(case when ${visibleStatements.accountId} is null then 0 when ${visibleStatements.statementKind} = 'expense' then -${visibleStatements.amount} else ${visibleStatements.amount} end), 0)`,
+            friendSide: sql<string>`coalesce(sum(case when ${visibleStatements.friendId} is null then 0 else ${visibleStatements.amount} end), 0)`,
             splitSide: sql<string>`coalesce((
             select sum(p.amount) from splits p join statements s on s.id = p.statement_id
             where p.user_id = ${userId} and s.user_id = ${userId} and s.created_at < ${spanStart}
           ), 0)`,
           })
-          .from(statements)
-          .where(and(eq(statements.userId, userId), lt(statements.createdAt, spanStart))),
+          .from(visibleStatements)
+          .where(
+            and(eq(visibleStatements.userId, userId), lt(visibleStatements.createdAt, spanStart)),
+          ),
       ]);
 
     const accountName = new Map(accountRows.map((row) => [row.id, row.accountName]));
