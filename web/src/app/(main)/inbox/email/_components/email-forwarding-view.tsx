@@ -5,11 +5,21 @@ import { createContext, useContext, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { Copy, ExternalLink, FileUp, Mail, Paperclip, RefreshCw, Unplug } from 'lucide-react';
+import {
+  Copy,
+  ExternalLink,
+  FileUp,
+  Mail,
+  Paperclip,
+  RefreshCw,
+  Trash,
+  Unplug,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
 import { Badge } from '@/components/ui/badge';
@@ -346,6 +356,27 @@ const StatementCell = ({ email }: { email: InboundEmail }) => (
   <EmailStatement accounts={useContext(AccountsContext)} email={email} />
 );
 
+const DeleteEmailButton = ({ email }: { email: InboundEmail }) => {
+  const router = useRouter();
+  const remove = api.emailForwarding.deleteEmails.useMutation();
+  return (
+    <DeleteConfirmationDialog
+      description={
+        email.statementImports.length > 0
+          ? 'The email and its stored copy are deleted. The statement imported from it stays.'
+          : 'The email and its stored copy are deleted from the app.'
+      }
+      mutation={remove}
+      mutationInput={{ ids: [email.id] }}
+      refresh={router.refresh}
+      successToast={() => 'Email deleted'}
+      title="Delete this email?"
+    >
+      <RowActionTrigger destructive icon={Trash} label="Delete" />
+    </DeleteConfirmationDialog>
+  );
+};
+
 const EMAIL_COLUMNS: Array<ColumnDef<InboundEmail>> = [
   {
     id: 'receivedAt',
@@ -397,6 +428,17 @@ const EMAIL_COLUMNS: Array<ColumnDef<InboundEmail>> = [
     header: 'Statement',
     cell: ({ row }) => <StatementCell email={row.original} />,
     meta: { label: 'Statement' },
+  },
+  {
+    id: 'actions',
+    header: '',
+    cell: ({ row }) => (
+      <RowActions collapse="always">
+        <DeleteEmailButton email={row.original} />
+      </RowActions>
+    ),
+    meta: { label: 'Actions' },
+    enableHiding: false,
   },
 ];
 

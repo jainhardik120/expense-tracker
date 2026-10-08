@@ -1,13 +1,17 @@
-import { and, desc, eq, sql, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { z } from 'zod';
 
 import { emailInboxes, inboundEmails } from '@/db/schema';
 import { type Database, lockUser } from '@/lib/db';
+import { env } from '@/lib/env';
+import logger from '@/lib/logger';
 import {
   generateInboxToken,
   getActiveInbox,
   inboundDomain,
   inboxAddress,
 } from '@/server/helpers/inbound-email/inbox';
+import { deleteObject } from '@/server/helpers/inbound-email/storage';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
 const RECENT_EMAILS = 100;
@@ -24,6 +28,23 @@ const revokeActive = (db: Database, userId: string) =>
     .update(emailInboxes)
     .set({ revokedAt: new Date() })
     .where(and(eq(emailInboxes.userId, userId), isNull(emailInboxes.revokedAt)));
+
+const removeStoredCopies = async (objectKeys: Array<string | null>) => {
+  const bucket = env.INBOUND_EMAIL_BUCKET;
+  if (bucket === undefined) {
+    return;
+  }
+  for (const objectKey of objectKeys) {
+    if (objectKey !== null) {
+      await deleteObject(bucket, objectKey).catch((error: unknown) => {
+        logger.warn('Could not delete a stored inbound email', {
+          objectKey,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+  }
+};
 
 const createInbox = (db: Database, userId: string) =>
   db.insert(emailInboxes).values({ userId, token: generateInboxToken() }).returning();
@@ -66,13 +87,27 @@ export const emailForwardingRouter = createTRPCRouter({
       return { id: created.id };
     });
   }),
-  disconnect: protectedProcedure.mutation(({ ctx }) =>
-    ctx.db.transaction(async (tx) => {
+  disconnect: protectedProcedure.mutation(async ({ ctx }) => {
+    const removed = await ctx.db.transaction(async (tx) => {
       await lockUser(tx, INBOX_LOCK, ctx.user.id);
       await revokeActive(tx, ctx.user.id);
-      await tx.delete(inboundEmails).where(eq(inboundEmails.userId, ctx.user.id));
+      return tx
+        .delete(inboundEmails)
+        .where(eq(inboundEmails.userId, ctx.user.id))
+        .returning({ objectKey: inboundEmails.objectKey });
+    });
+    await removeStoredCopies(removed.map((row) => row.objectKey));
+  }),
+  deleteEmails: protectedProcedure
+    .input(z.object({ ids: z.array(z.uuid()).min(1).max(RECENT_EMAILS) }))
+    .mutation(async ({ ctx, input }) => {
+      const removed = await ctx.db
+        .delete(inboundEmails)
+        .where(and(eq(inboundEmails.userId, ctx.user.id), inArray(inboundEmails.id, input.ids)))
+        .returning({ objectKey: inboundEmails.objectKey });
+      await removeStoredCopies(removed.map((row) => row.objectKey));
+      return removed.length;
     }),
-  ),
   listEmails: protectedProcedure.query(({ ctx }) =>
     ctx.db
       .select({
