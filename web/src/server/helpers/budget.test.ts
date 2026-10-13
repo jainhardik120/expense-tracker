@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { cycleKeyFor, spentOnDiscretionary, type BudgetLineRow } from './budget';
+import {
+  cycleKeyFor,
+  scheduleTotalsFrom,
+  spentOnDiscretionary,
+  type BudgetLineRow,
+} from './budget';
 
 const line = (
   name: string,
@@ -46,5 +51,18 @@ describe('spentOnDiscretionary', () => {
 
   it('is zero for a cycle with nothing in it', () => {
     expect(spentOnDiscretionary(undefined, lines)).toBe(0);
+  });
+});
+
+describe('scheduleTotalsFrom', () => {
+  it('keeps a missed instalment owed instead of dropping it from the year', () => {
+    const totals = scheduleTotalsFrom([
+      { status: 'paid', myShare: 3_030 },
+      { status: 'paid', myShare: 3_023 },
+      { status: 'missed', myShare: 3_016 },
+      { status: 'upcoming', myShare: 3_009 },
+    ]);
+    expect(totals).toEqual({ year: 12_078, toDate: 6_053, remaining: 6_025, overdue: 3_016 });
+    expect(totals.toDate + totals.remaining).toBe(totals.year);
   });
 });

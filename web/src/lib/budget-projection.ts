@@ -10,7 +10,7 @@ export type LineForProjection = {
   discretionary: boolean;
   actual: number;
   earmarkedIncome: number;
-  scheduled: { year: number; toDate: number; remaining: number };
+  scheduled: { year: number; toDate: number; remaining: number; overdue: number };
   pacePerMonth: number;
 };
 

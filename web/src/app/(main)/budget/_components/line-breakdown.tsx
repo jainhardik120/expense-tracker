@@ -120,7 +120,12 @@ const forecastWorking = (
   projection: Projection,
 ): { rows: CalcRow[]; note: string } => {
   const owed = line.scheduled.remaining;
-  const owedRow: CalcRow = { label: 'Instalments still to fall due', value: owed };
+  const { overdue } = line.scheduled;
+  const owedRow: CalcRow = {
+    label: 'Instalments not paid yet',
+    value: owed,
+    ...(overdue > 0 ? { note: `${formatCurrency(overdue)} already overdue` } : {}),
+  };
   const atLeastOwed = (expected: CalcRow): CalcRow[] =>
     owed > Number(expected.value)
       ? [
@@ -165,7 +170,7 @@ const forecastWorking = (
   }
   return {
     rows: [owedRow],
-    note: 'Only what the loan and recurring schedules say is still to be paid.',
+    note: 'Only what the loan and recurring schedules say is still to be paid, overdue instalments included.',
   };
 };
 
@@ -227,7 +232,11 @@ export const LineBreakdown = ({
           />
           <HelpNote>
             Loan instalments and recurring payments behind this line that fall due before the year
-            ends but have not been paid yet. Spoken for, so they come off what is left.
+            ends but have not been paid yet, including any whose due date has passed. Spoken for, so
+            they come off what is left.
+            {line.scheduled.overdue > 0
+              ? ` ${formatCurrency(line.scheduled.overdue)} of it is overdue: due already, with no payment linked to the loan.`
+              : ''}
           </HelpNote>
         </Step>
 

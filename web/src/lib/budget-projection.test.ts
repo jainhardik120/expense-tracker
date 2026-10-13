@@ -11,7 +11,7 @@ const line = (over = {}) => ({
   closed: false,
   actual: 0,
   earmarkedIncome: 0,
-  scheduled: { year: 0, toDate: 0, remaining: 0 },
+  scheduled: { year: 0, toDate: 0, remaining: 0, overdue: 0 },
   pacePerMonth: 0,
   ...over,
 });
@@ -170,7 +170,7 @@ test('a schedule line is budgeted from the instalments that fall inside the year
       line({
         allocationKind: 'schedule',
         allocationAmount: 0,
-        scheduled: { year: 36900, toDate: 24903, remaining: 11997 },
+        scheduled: { year: 36900, toDate: 24903, remaining: 11997, overdue: 0 },
         actual: 24903,
       }),
     ],
@@ -369,7 +369,7 @@ test('an envelope stops advertising money a booked instalment has already claime
         allocationKind: 'annual',
         allocationAmount: 60000,
         actual: 47180,
-        scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14 },
+        scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14, overdue: 0 },
       }),
     ],
     0,
@@ -388,7 +388,7 @@ test('a line whose budget is its own schedule has nothing left over', () => {
         allocationKind: 'schedule',
         allocationAmount: 0,
         actual: 24902.66,
-        scheduled: { year: 37080.17, toDate: 24902.66, remaining: 12177.51 },
+        scheduled: { year: 37080.17, toDate: 24902.66, remaining: 12177.51, overdue: 0 },
       }),
     ],
     0,
@@ -407,7 +407,7 @@ test('an envelope cannot forecast away instalments it has already signed for', (
         allocationKind: 'annual',
         allocationAmount: 60000,
         actual: 55000,
-        scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14 },
+        scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14, overdue: 0 },
       }),
     ],
     0,
@@ -424,7 +424,7 @@ test('closing an envelope turns its leftover from reserved into saved', () => {
     allocationKind: 'annual' as const,
     allocationAmount: 60000,
     actual: 47180,
-    scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14 },
+    scheduled: { year: 11717.14, toDate: 0, remaining: 11717.14, overdue: 0 },
   };
   const open = project([line({ ...booked })], 0, 9, 12).lines[0];
   expect(open.variance).toBeCloseTo(0, 2);

@@ -10,7 +10,7 @@ import {
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { getEmis } from '@/server/helpers/emi';
-import { getEmiPaymentsInRange } from '@/server/helpers/emi-calculations';
+import { getEmiPaymentsInRange, type ScheduledEmiPayment } from '@/server/helpers/emi-calculations';
 import { type PendingIncome } from '@/server/helpers/pending-income';
 import { budgetRuleSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
@@ -267,7 +267,22 @@ export const spentOnDiscretionary = (
   );
 };
 
-export type ScheduleTotals = { year: number; toDate: number; remaining: number };
+export type ScheduleTotals = { year: number; toDate: number; remaining: number; overdue: number };
+
+export const scheduleTotalsFrom = (
+  payments: Pick<ScheduledEmiPayment, 'status' | 'myShare'>[],
+): ScheduleTotals => {
+  const shareWhere = (keep: (status: ScheduledEmiPayment['status']) => boolean) =>
+    payments
+      .filter((payment) => keep(payment.status))
+      .reduce((sum, payment) => sum + payment.myShare, 0);
+  return {
+    year: shareWhere(() => true),
+    toDate: shareWhere((status) => status === 'paid'),
+    remaining: shareWhere((status) => status !== 'paid'),
+    overdue: shareWhere((status) => status === 'missed'),
+  };
+};
 
 export const getScheduledTotals = instrumentedFunction(
   'getScheduledTotals',
@@ -307,15 +322,7 @@ export const getScheduledTotals = instrumentedFunction(
       const payments = emis
         .filter((emi) => ownerByEmi.get(emi.id) === line.id)
         .flatMap((emi) => getEmiPaymentsInRange(emi, emi.creditCardName, from, to, now));
-      totals.set(line.id, {
-        year: payments.reduce((sum, payment) => sum + payment.myShare, 0),
-        toDate: payments
-          .filter((payment) => payment.date <= now)
-          .reduce((sum, payment) => sum + payment.myShare, 0),
-        remaining: payments
-          .filter((payment) => payment.date > now)
-          .reduce((sum, payment) => sum + payment.myShare, 0),
-      });
+      totals.set(line.id, scheduleTotalsFrom(payments));
     }
     return totals;
   },

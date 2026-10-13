@@ -181,7 +181,7 @@ export const budgetRouter = createTRPCRouter({
           closed: line.closed,
           actual: line.actual,
           earmarkedIncome: earmarkedIncome.get(line.lineId) ?? 0,
-          scheduled: scheduled.get(line.lineId) ?? { year: 0, toDate: 0, remaining: 0 },
+          scheduled: scheduled.get(line.lineId) ?? { year: 0, toDate: 0, remaining: 0, overdue: 0 },
           pacePerMonth: cyclesElapsed > 0 ? line.actual / cyclesElapsed : 0,
         })),
         income.waterfall,
