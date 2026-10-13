@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
     { source: '/balance-checks', destination: '/inbox/balances', permanent: false },
     { source: '/email-forwarding', destination: '/inbox/email', permanent: false },
   ],
+  headers: () =>
+    process.env.NODE_ENV === 'development'
+      ? [
+          {
+            source: '/_next/static/:path*',
+            headers: [{ key: 'Cache-Control', value: 'private, no-store' }],
+          },
+        ]
+      : [],
   experimental: {
     preloadEntriesOnStart: false,
   },
