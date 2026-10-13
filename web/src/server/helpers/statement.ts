@@ -34,9 +34,11 @@ import {
   type Statement,
   parseStatementSort,
   type statementParserSchema,
+  type createStatementSchema,
 } from '@/types';
 
 import { buildQueryConditions } from '.';
+import { assertOwnsAccountsAndFriends } from './account';
 import {
   getAccountsAndStartingBalances,
   getFinalBalanceFromStatements,
@@ -832,3 +834,25 @@ export const getStatementFacetCounts = instrumentedFunction(
     return result;
   },
 );
+
+export const asOptionalId = (value: string | null | undefined) =>
+  value === undefined || value === null || value === '' ? null : value;
+
+export const insertLinkedStatement = async (
+  db: Database,
+  userId: string,
+  input: z.infer<typeof createStatementSchema>,
+  link: StatementAttributes,
+) => {
+  const accountId = asOptionalId(input.accountId);
+  const friendId = asOptionalId(input.friendId);
+  await assertOwnsAccountsAndFriends(db, userId, {
+    accountIds: [accountId],
+    friendIds: [friendId],
+  });
+  const [created] = await db
+    .insert(statements)
+    .values({ userId, ...input, accountId, friendId, additionalAttributes: link })
+    .returning({ id: statements.id });
+  return created;
+};

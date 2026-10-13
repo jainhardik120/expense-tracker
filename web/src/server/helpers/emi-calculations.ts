@@ -242,7 +242,13 @@ const getRemainingPayments = (
   return remainingPayments;
 };
 
-const isDateWithinRange = (date1: Date, date2: Date, daysTolerance = 3): boolean => {
+export const INSTALMENT_WINDOW_DAYS = 3;
+
+const isDateWithinRange = (
+  date1: Date,
+  date2: Date,
+  daysTolerance = INSTALMENT_WINDOW_DAYS,
+): boolean => {
   const diffMs = Math.abs(date1.getTime() - date2.getTime());
   const diffDays = diffMs / MS_PER_DAY;
   return diffDays <= daysTolerance;
@@ -251,6 +257,9 @@ const isDateWithinRange = (date1: Date, date2: Date, daysTolerance = 3): boolean
 const isAmountWithinRange = (amount1: number, amount2: number, tolerance = 10): boolean => {
   return Math.abs(amount1 - amount2) <= tolerance;
 };
+
+export const isWithinInstalmentWindow = (payment: EmiScheduleRow, statementDate: Date) =>
+  payment.date === undefined || isDateWithinRange(statementDate, payment.date);
 
 export const confirmMatch = (
   payments: EmiScheduleRow[],

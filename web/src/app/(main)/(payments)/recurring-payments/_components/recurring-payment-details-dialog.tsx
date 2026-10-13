@@ -14,21 +14,24 @@ import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { api } from '@/server/react';
-import { type LinkedStatement, type PaymentStatus, type RecurringPayment } from '@/types';
+import { type RouterOutput } from '@/server/routers';
+import { type PaymentStatus, type RecurringPayment } from '@/types';
 
 type RecurringPaymentDetailsDialogProps = {
   recurringPayment: RecurringPayment;
 };
 
-type ScheduleEntry = {
-  scheduledDate: Date;
-  expectedAmount: number;
-  status: PaymentStatus;
-  linkedStatementDate: Date | null;
-  linkedStatementAmount: number | null;
-};
+type Details = RouterOutput['recurringPayments']['getRecurringPaymentDetails'];
 
-type DetailedLinkedStatement = LinkedStatement & { category: string; statementKind: string };
+type PaymentRow = {
+  key: string;
+  scheduledDate: Date | null;
+  expectedAmount: number | null;
+  status: PaymentStatus | 'unscheduled';
+  paidOn: Date | null;
+  paidAmount: number | null;
+  category: string | null;
+};
 
 const LoadingState = () => (
   <div className="text-muted-foreground py-8 text-center text-sm">Loading details...</div>
@@ -38,78 +41,82 @@ const ErrorState = ({ message }: { message: string }) => (
   <div className="py-8 text-center text-sm text-red-500">Error loading details: {message}</div>
 );
 
-const ScheduleTable = ({ schedule }: { schedule: ScheduleEntry[] }) => {
+const paymentRows = ({ schedule, linkedStatements }: Details): PaymentRow[] => {
+  const statementById = new Map(linkedStatements.map((statement) => [statement.id, statement]));
+  const scheduled = schedule.map((entry): PaymentRow => {
+    const statement =
+      entry.linkedStatementId === null ? undefined : statementById.get(entry.linkedStatementId);
+    return {
+      key: entry.scheduledDate.toISOString(),
+      scheduledDate: entry.scheduledDate,
+      expectedAmount: entry.expectedAmount,
+      status: entry.status,
+      paidOn: statement?.createdAt ?? null,
+      paidAmount: statement === undefined ? null : Number(statement.amount),
+      category: statement?.category ?? null,
+    };
+  });
+  const matched = new Set(schedule.map((entry) => entry.linkedStatementId));
+  const unscheduled = linkedStatements
+    .filter((statement) => !matched.has(statement.id))
+    .map((statement): PaymentRow => ({
+      key: statement.id,
+      scheduledDate: null,
+      expectedAmount: null,
+      status: 'unscheduled',
+      paidOn: statement.createdAt,
+      paidAmount: Number(statement.amount),
+      category: statement.category,
+    }));
+  return [...scheduled, ...unscheduled];
+};
+
+const PaymentsTable = ({ rows }: { rows: PaymentRow[] }) => {
   const zoned = useZonedFormat();
   const { table } = useDataTable({
-    data: schedule,
+    data: rows,
     columns: [
       {
         id: 'scheduledDate',
-        header: 'Scheduled Date',
-        accessorFn: (row: ScheduleEntry) => zoned(row.scheduledDate, DATE_FORMAT.date),
+        header: 'Due',
+        accessorFn: (row: PaymentRow) =>
+          row.scheduledDate === null ? '—' : zoned(row.scheduledDate, DATE_FORMAT.date),
       },
       {
         id: 'expectedAmount',
-        header: 'Expected Amount',
-        accessorFn: (row: ScheduleEntry) => formatCurrency(row.expectedAmount),
+        header: 'Expected',
+        accessorFn: (row: PaymentRow) =>
+          row.expectedAmount === null ? '—' : formatCurrency(row.expectedAmount),
+        meta: { align: 'right' as const },
       },
       {
         id: 'status',
         header: 'Status',
         // eslint-disable-next-line react/no-unstable-nested-components
-        cell: ({ row }) => <PaymentStatusBadge status={row.original.status} />,
+        cell: ({ row }) =>
+          row.original.status === 'unscheduled' ? (
+            <Badge variant="outline">Not on schedule</Badge>
+          ) : (
+            <PaymentStatusBadge status={row.original.status} />
+          ),
       },
       {
-        id: 'linkedStatementDate',
-        header: 'Actual Payment',
-        accessorFn: (row: ScheduleEntry) => zoned(row.linkedStatementDate, DATE_FORMAT.date),
+        id: 'paidOn',
+        header: 'Paid on',
+        accessorFn: (row: PaymentRow) =>
+          row.paidOn === null ? '—' : zoned(row.paidOn, DATE_FORMAT.date),
       },
       {
-        id: 'linkedStatementAmount',
-        header: 'Amount Paid',
-        accessorFn: (row: ScheduleEntry) =>
-          row.linkedStatementAmount !== null ? formatCurrency(row.linkedStatementAmount) : '-',
-      },
-    ],
-    pageCount: -1,
-  });
-
-  return (
-    <DataTable
-      background={false}
-      enablePagination={false}
-      getItemValue={(r) => r.scheduledDate.toISOString()}
-      showBorder={false}
-      table={table}
-    />
-  );
-};
-
-const LinkedStatementsTable = ({ statements }: { statements: DetailedLinkedStatement[] }) => {
-  const zoned = useZonedFormat();
-  const { table } = useDataTable({
-    data: statements,
-    columns: [
-      {
-        id: 'createdAt',
-        header: 'Date',
-        accessorFn: (row: DetailedLinkedStatement) => zoned(row.createdAt, DATE_FORMAT.date),
-      },
-      {
-        id: 'amount',
-        header: 'Amount',
-        accessorFn: (row: DetailedLinkedStatement) => formatCurrency(Number(row.amount)),
+        id: 'paidAmount',
+        header: 'Amount paid',
+        accessorFn: (row: PaymentRow) =>
+          row.paidAmount === null ? '—' : formatCurrency(row.paidAmount),
+        meta: { align: 'right' as const },
       },
       {
         id: 'category',
         header: 'Category',
-        accessorFn: (row: DetailedLinkedStatement) => row.category,
-      },
-      {
-        id: 'statementKind',
-        header: 'Type',
-        // eslint-disable-next-line react/no-unstable-nested-components
-        cell: ({ row }) => <Badge variant="secondary">{row.original.statementKind}</Badge>,
+        accessorFn: (row: PaymentRow) => row.category ?? '—',
       },
     ],
     pageCount: -1,
@@ -119,7 +126,7 @@ const LinkedStatementsTable = ({ statements }: { statements: DetailedLinkedState
     <DataTable
       background={false}
       enablePagination={false}
-      getItemValue={(r) => r.id}
+      getItemValue={(row) => row.key}
       showBorder={false}
       table={table}
     />
@@ -194,35 +201,20 @@ export const RecurringPaymentDetailsDialog = ({
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Payment Schedule (Current Year)</CardTitle>
+            <CardTitle className="text-lg">Payments</CardTitle>
             <CardDescription>
-              Scheduled payments and their status. Payments within ±25% of the period are matched
-              automatically.
+              Every due date from the start to the end of this year, with the statement that paid
+              it. A statement within ±25% of the period of a due date is matched to it; a linked
+              statement that matches no due date is listed at the end.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {data.schedule.length === 0 ? (
+            {data.schedule.length === 0 && data.linkedStatements.length === 0 ? (
               <p className="text-muted-foreground py-4 text-center text-sm">
-                No scheduled payments for the current year.
+                Nothing due and nothing paid yet.
               </p>
             ) : (
-              <ScheduleTable schedule={data.schedule} />
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Linked Statements</CardTitle>
-            <CardDescription>All statements linked to this recurring payment</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {data.linkedStatements.length === 0 ? (
-              <p className="text-muted-foreground py-4 text-center text-sm">
-                No statements linked yet. Link statements from the statements page.
-              </p>
-            ) : (
-              <LinkedStatementsTable statements={data.linkedStatements} />
+              <PaymentsTable rows={paymentRows(data)} />
             )}
           </CardContent>
         </Card>

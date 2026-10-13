@@ -6,11 +6,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import {
-  Calculator,
   CreditCard,
   DollarSign,
   LineChart,
-  RefreshCw,
   Sheet,
   FileBarChart,
   Banknote,
@@ -36,14 +34,10 @@ const links = [
     icon: LineChart,
   },
   {
-    label: 'EMI Calculator',
-    href: '/emi-calculator',
-    icon: Calculator,
-  },
-  {
-    label: 'EMIs',
+    label: 'EMIs & recurring',
     href: '/emis',
     icon: CreditCard,
+    also: ['/recurring-payments', '/emi-calculator'],
   },
   {
     label: 'Investments',
@@ -59,11 +53,6 @@ const links = [
     label: 'Budget',
     href: '/budget',
     icon: Target,
-  },
-  {
-    label: 'Recurring Payments',
-    href: '/recurring-payments',
-    icon: RefreshCw,
   },
   {
     label: 'Reports',
@@ -97,7 +86,9 @@ export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) =
                     isActive={
                       item.href === '/'
                         ? pathname === item.href
-                        : pathname === item.href || pathname.startsWith(`${item.href}/`)
+                        : [item.href, ...(item.also ?? [])].some(
+                            (href) => pathname === href || pathname.startsWith(`${href}/`),
+                          )
                     }
                   >
                     <Link href={item.href} prefetch={false}>

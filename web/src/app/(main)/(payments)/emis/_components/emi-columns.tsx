@@ -7,6 +7,7 @@ import { Info, SquarePen, SquareSlash, Trash } from 'lucide-react';
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import Modal from '@/components/modal';
+import { Badge } from '@/components/ui/badge';
 import { ZonedDate } from '@/components/zoned-date';
 import { formatCurrency } from '@/lib/format';
 import type { ColumnDef } from '@/lib/table';
@@ -17,6 +18,7 @@ import type { CreditCard } from '@/types/router-outputs';
 import EmiDetails from './emi-details';
 import { UpdateEmiForm } from './emi-forms';
 import { EmiSplitsDialog } from './emi-splits';
+import { RecordEmiPayment } from './record-emi-payment';
 
 type Emi = RouterOutput['emis']['getEmis']['emis'][number];
 
@@ -96,8 +98,18 @@ export const createEmiColumns = (
   {
     accessorKey: 'nextPaymentOn',
     header: 'Next Date',
-    cell: ({ row }) =>
-      row.original.nextPaymentOn === null ? '' : <ZonedDate value={row.original.nextPaymentOn} />,
+    cell: ({ row }) => {
+      const { nextPaymentOn } = row.original;
+      if (nextPaymentOn === null) {
+        return null;
+      }
+      return (
+        <span className="flex items-center gap-2">
+          <ZonedDate value={nextPaymentOn} />
+          {nextPaymentOn < new Date() ? <Badge variant="destructive">Overdue</Badge> : null}
+        </span>
+      );
+    },
   },
   {
     accessorKey: 'nextPaymentAmount',
@@ -113,6 +125,7 @@ export const createEmiColumns = (
 
       return (
         <RowActions>
+          <RecordEmiPayment creditCards={creditCards} emi={row.original} />
           <UpdateEmiForm
             creditCards={creditCards}
             emiId={row.original.id}

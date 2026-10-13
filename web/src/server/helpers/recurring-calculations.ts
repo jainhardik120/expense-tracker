@@ -395,3 +395,26 @@ export const isOccurrenceSettled = (
     ),
   );
 };
+
+export const linkWindowDays = (recurringPayment: RecurringPayment): number =>
+  getPeriodInDays(recurringPayment.frequency, parseFloat(recurringPayment.frequencyMultiplier)) *
+  QUARTER_TOLERANCE;
+
+export const assertLinkableDate = (
+  recurringPayment: RecurringPayment,
+  statementDate: Date,
+  linkedStatements: LinkedStatement[],
+  timezone: string,
+): void => {
+  const occurrence = findScheduledOccurrence(recurringPayment, statementDate, timezone);
+  if (occurrence === null) {
+    throw new Error(
+      `${recurringPayment.name} has no payment due within ${String(Math.floor(linkWindowDays(recurringPayment)))} days of this date`,
+    );
+  }
+  if (isOccurrenceSettled(recurringPayment, occurrence, linkedStatements, timezone)) {
+    throw new Error(
+      `The ${recurringPayment.name} payment due ${format(occurrence, 'd MMM yyyy')} is already paid`,
+    );
+  }
+};

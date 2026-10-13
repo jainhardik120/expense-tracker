@@ -12,6 +12,7 @@ import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
+import { RecordRecurringPayment } from './record-recurring-payment';
 import { RecurringPaymentDetailsDialog } from './recurring-payment-details-dialog';
 import { UpdateRecurringPaymentForm } from './recurring-payment-forms';
 
@@ -90,6 +91,7 @@ export const createRecurringPaymentColumns = (
 
       return (
         <RowActions>
+          {isActive(row.original) ? <RecordRecurringPayment payment={row.original} /> : null}
           <RecurringPaymentDetailsDialog
             recurringPayment={row.original}
             trigger={<RowActionTrigger icon={Eye} label="Details" />}

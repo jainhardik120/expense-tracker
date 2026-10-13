@@ -20,7 +20,7 @@ import {
   statementParser,
 } from '@/types';
 
-const statementFormFields = (
+export const statementFormFields = (
   accountsData: Account[],
   friendsData: Friend[],
   categories: string[],

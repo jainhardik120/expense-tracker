@@ -11,6 +11,7 @@ import {
 import { buildQueryConditions } from '@/server/helpers';
 import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
 import {
+  asOptionalId,
   getMergedStatements,
   getRowsCount,
   getStatementTimeline,
@@ -32,9 +33,6 @@ import {
   statementsResponseSchema,
   updateStatementTaxableIncomeSchema,
 } from '@/types';
-
-const asOptionalId = (value: string | null | undefined) =>
-  value === undefined || value === null || value === '' ? null : value;
 
 export const statementsRouter = createTRPCRouter({
   getCategories: protectedProcedure

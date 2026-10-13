@@ -57,7 +57,17 @@ const createEmiFormFields = (
   ...(emiCalculationFormFields as unknown as FormField<z.infer<typeof createEmiSchema>>[]),
 ];
 
-export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) => {
+export const CreateEmiForm = ({
+  creditCards,
+  initialValues,
+  trigger,
+  onCreated,
+}: {
+  creditCards: CreditCard[];
+  initialValues?: Partial<z.infer<typeof createEmiSchema>>;
+  trigger?: React.ReactNode;
+  onCreated?: () => void;
+}) => {
   const mutation = api.emis.createEmi.useMutation();
   const router = useRouter();
   const currentDate = useMemo(() => new Date(), []);
@@ -73,9 +83,11 @@ export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) =>
   return (
     <MutationModal
       button={
-        <Button className="h-8" variant="outline">
-          New EMI
-        </Button>
+        trigger ?? (
+          <Button className="h-8" variant="outline">
+            New EMI
+          </Button>
+        )
       }
       defaultValues={{
         name: '',
@@ -93,11 +105,16 @@ export const CreateEmiForm = ({ creditCards }: { creditCards: CreditCard[] }) =>
         processingFeesDate: currentDate,
         iafe: '',
         tags: [],
+        ...initialValues,
       }}
       fields={createEmiFormFields(creditCards)}
       mutation={mutation}
       refresh={() => {
-        router.refresh();
+        if (onCreated === undefined) {
+          router.refresh();
+          return;
+        }
+        onCreated();
       }}
       schema={createEmiSchema}
       successToast={(result) => `${result.length} EMI(s) created`}

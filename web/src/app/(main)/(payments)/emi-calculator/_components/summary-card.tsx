@@ -4,9 +4,10 @@ import { type EmiCalculationResult } from '@/types';
 
 interface SummaryCardProps {
   result: EmiCalculationResult;
+  action?: React.ReactNode;
 }
 
-export const SummaryCard = ({ result }: SummaryCardProps) => {
+export const SummaryCard = ({ result, action }: SummaryCardProps) => {
   return (
     <Card>
       <CardHeader>
@@ -50,11 +51,14 @@ export const SummaryCard = ({ result }: SummaryCardProps) => {
               </div>
             </>
           )}
-          <div className="sm:col-span-2 lg:col-span-3">
-            <p className="text-muted-foreground text-sm">Total Amount Payable</p>
-            <p className="text-primary text-3xl font-bold">
-              {formatCurrency(result.summary.totalAmount)}
-            </p>
+          <div className="flex flex-wrap items-end justify-between gap-3 sm:col-span-2 lg:col-span-3">
+            <div>
+              <p className="text-muted-foreground text-sm">Total Amount Payable</p>
+              <p className="text-primary text-3xl font-bold">
+                {formatCurrency(result.summary.totalAmount)}
+              </p>
+            </div>
+            {action}
           </div>
         </div>
       </CardContent>

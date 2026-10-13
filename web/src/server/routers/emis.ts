@@ -30,13 +30,22 @@ import {
   confirmMatch,
   getEmiBalances,
   parseFloatSafe,
+  INSTALMENT_WINDOW_DAYS,
+  isWithinInstalmentWindow,
   calculateCardBalances,
   groupPaymentsByMonth,
   getEmiPaymentsInRange,
 } from '@/server/helpers/emi-calculations';
 import { getRecurringPaymentsInRange } from '@/server/helpers/recurring-calculations';
+import { insertLinkedStatement } from '@/server/helpers/statement';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createEmiSchema, emiParserSchema, MONTHS_PER_YEAR, PERCENTAGE_DIVISOR } from '@/types';
+import {
+  createEmiSchema,
+  createStatementSchema,
+  emiParserSchema,
+  MONTHS_PER_YEAR,
+  PERCENTAGE_DIVISOR,
+} from '@/types';
 
 const EMI_NOT_FOUND = 'EMI not found or access denied';
 const STATEMENT_NOT_LINKED = 'Statement is not linked to an EMI';
@@ -267,6 +276,32 @@ export const emisRouter = createTRPCRouter({
         };
       }),
     ),
+  recordPayment: protectedProcedure
+    .input(createStatementSchema.extend({ emiId: z.string() }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (tx) => {
+        const { emiId, ...statement } = input;
+        const emi = await lockEmiData(tx, ctx.user.id, emiId);
+        const { schedule } = calculateSchedule(emi);
+        const paidTill = await getMaxInstallment(tx, ctx.user.id, emiId);
+        const installmentNo =
+          paidTill === null ? schedule[0]?.installment : parseFloatSafe(paidTill) + 1;
+        const instalment = schedule.find((row) => row.installment === installmentNo);
+        if (instalment === undefined) {
+          throw new Error('Every instalment of this EMI is already paid');
+        }
+        if (!isWithinInstalmentWindow(instalment, statement.createdAt)) {
+          throw new Error(
+            `Instalment ${String(installmentNo)} can only be paid within ${String(INSTALMENT_WINDOW_DAYS)} days of its due date`,
+          );
+        }
+        const created = await insertLinkedStatement(tx, ctx.user.id, statement, {
+          emiId,
+          installmentNo,
+        });
+        return [{ ...created, installmentNo }];
+      }),
+    ),
   getLinkCandidates: protectedProcedure
     .input(z.object({ statementId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -333,6 +368,10 @@ export const emisRouter = createTRPCRouter({
           attributes: statements.additionalAttributes,
           amount: statements.amount,
           createdAt: statements.createdAt,
+          friendId: statements.friendId,
+          category: statements.category,
+          tags: statements.tags,
+          statementKind: statements.statementKind,
         })
         .from(statements)
         .where(

@@ -11,9 +11,15 @@ import {
   generatePaymentSchedule,
   findScheduledOccurrence,
   isOccurrenceSettled,
+  assertLinkableDate,
 } from '@/server/helpers/recurring-calculations';
+import { insertLinkedStatement } from '@/server/helpers/statement';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { createRecurringPaymentSchema, recurringPaymentParserSchema } from '@/types';
+import {
+  createRecurringPaymentSchema,
+  createStatementSchema,
+  recurringPaymentParserSchema,
+} from '@/types';
 
 import {
   getLinkedStatementsRecurringPayment,
@@ -196,10 +202,47 @@ export const recurringPaymentsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await getRecurringPayment(ctx.db, ctx.user.id, input.recurringPaymentId);
-      return setStatementAttributes(ctx.db, ctx.user.id, input.statementId, {
-        recurringPaymentId: input.recurringPaymentId,
+      const [recurringPayment, timezone] = await Promise.all([
+        getRecurringPayment(ctx.db, ctx.user.id, input.recurringPaymentId),
+        getTimezone(),
+      ]);
+      return ctx.db.transaction(async (tx) => {
+        const { attributes, createdAt } = await lockStatementAttributes(
+          tx,
+          ctx.user.id,
+          input.statementId,
+        );
+        assertLinkableDate(
+          recurringPayment,
+          createdAt,
+          await getLinkedStatementsRecurringPayment(tx, ctx.user.id, recurringPayment.id),
+          timezone,
+        );
+        await tx
+          .update(statements)
+          .set({
+            additionalAttributes: { ...attributes, recurringPaymentId: input.recurringPaymentId },
+          })
+          .where(eq(statements.id, input.statementId));
+        return { success: true };
       });
+    }),
+
+  recordPayment: protectedProcedure
+    .input(createStatementSchema.extend({ recurringPaymentId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { recurringPaymentId, ...statement } = input;
+      const [recurringPayment, timezone] = await Promise.all([
+        getRecurringPayment(ctx.db, ctx.user.id, recurringPaymentId),
+        getTimezone(),
+      ]);
+      assertLinkableDate(
+        recurringPayment,
+        statement.createdAt,
+        await getLinkedStatementsRecurringPayment(ctx.db, ctx.user.id, recurringPaymentId),
+        timezone,
+      );
+      return [await insertLinkedStatement(ctx.db, ctx.user.id, statement, { recurringPaymentId })];
     }),
 
   unlinkStatement: protectedProcedure
