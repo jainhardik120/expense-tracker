@@ -3,7 +3,6 @@ import { createLoader, type SearchParams } from 'nuqs/server';
 import { api } from '@/server/server';
 import { smsNotificationParser } from '@/types';
 
-import { PendingEstimate } from './_components/pending-estimate';
 import Table from './_components/table';
 
 const loader = createLoader(smsNotificationParser);
@@ -28,7 +27,6 @@ export default async function SmsNotificationsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <PendingEstimate estimate={estimate} />
       <Table
         accountsData={accounts}
         categories={categories}
