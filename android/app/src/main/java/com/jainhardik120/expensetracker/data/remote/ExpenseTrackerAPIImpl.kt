@@ -2,6 +2,7 @@ package com.jainhardik120.expensetracker.data.remote
 
 import com.jainhardik120.expensetracker.data.entity.AccountItem
 import com.jainhardik120.expensetracker.data.entity.CreateSelfTransferBody
+import com.jainhardik120.expensetracker.data.entity.ChartData
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
@@ -117,6 +118,16 @@ class ExpenseTrackerAPIImpl(
                 method = HttpMethod.Get
                 if (start != null) parameter("start", start)
                 if (end != null) parameter("end", end)
+            }.body()
+        }
+    }
+
+    override suspend fun getChartData(start: String, end: String): Result<ChartData, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.SUMMARY_CHARTS) {
+                method = HttpMethod.Get
+                parameter("start", start)
+                parameter("end", end)
             }.body()
         }
     }

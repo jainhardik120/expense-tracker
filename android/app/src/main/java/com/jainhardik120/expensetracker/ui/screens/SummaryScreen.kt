@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jainhardik120.expensetracker.data.entity.AccountSummary
+import com.jainhardik120.expensetracker.data.entity.ChartData
 import com.jainhardik120.expensetracker.data.entity.FriendSummary
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
 import java.time.YearMonth
@@ -72,6 +73,7 @@ fun SummaryScreen(viewModel: SummaryViewModel) {
 
             else -> SummaryContent(
                 summary = summary,
+                charts = viewModel.charts,
                 month = viewModel.month,
                 isCurrentMonth = viewModel.isCurrentMonth,
                 isLoading = viewModel.isLoading,
@@ -85,6 +87,7 @@ fun SummaryScreen(viewModel: SummaryViewModel) {
 @Composable
 private fun SummaryContent(
     summary: SummaryResponse,
+    charts: ChartData?,
     month: YearMonth,
     isCurrentMonth: Boolean,
     isLoading: Boolean,
@@ -146,6 +149,11 @@ private fun SummaryContent(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 AmountRow("Net change", accounts.totalTransfers, bold = true, coloured = true)
             }
+        }
+
+        if (charts != null) {
+            DailyExpensesChart(month = month, days = charts.days)
+            CategoryPieChart(categories = charts.categories)
         }
 
         if (summary.accountsSummaryData.isNotEmpty()) {

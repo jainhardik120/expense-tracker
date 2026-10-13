@@ -8,6 +8,7 @@ object APIRoutes {
     const val SEND_NOTIFICATION = "${BASE_URL}/sms-notifications"
     const val STATEMENTS = "${BASE_URL}/statements"
     const val SUMMARY = "${BASE_URL}/summary"
+    const val SUMMARY_CHARTS = "${BASE_URL}/summary/charts"
     const val SELF_TRANSFER = "${BASE_URL}/statements/self-transfer"
     const val ACCOUNTS = "${BASE_URL}/accounts"
     const val FRIENDS = "${BASE_URL}/friends"

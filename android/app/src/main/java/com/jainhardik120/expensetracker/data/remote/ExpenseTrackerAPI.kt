@@ -2,6 +2,7 @@ package com.jainhardik120.expensetracker.data.remote
 
 import com.jainhardik120.expensetracker.data.entity.AccountItem
 import com.jainhardik120.expensetracker.data.entity.CreateSelfTransferBody
+import com.jainhardik120.expensetracker.data.entity.ChartData
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
@@ -29,6 +30,7 @@ interface ExpenseTrackerAPI {
         filters: StatementFilters = StatementFilters()
     ): Result<StatementsResponse, MessageError>
     suspend fun getSummary(start: String? = null, end: String? = null): Result<SummaryResponse, MessageError>
+    suspend fun getChartData(start: String, end: String): Result<ChartData, MessageError>
     suspend fun createStatement(body: CreateStatementBody): Result<List<IDResult>, MessageError>
     suspend fun updateStatement(
         id: String,

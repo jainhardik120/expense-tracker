@@ -65,6 +65,41 @@ export const summaryRouter = createTRPCRouter({
         aggregatedFriendsSummaryData,
       };
     }),
+  getChartData: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/summary/charts',
+      },
+    })
+    .input(z.object(dateSchema))
+    .output(
+      z.object({
+        days: z.array(z.object({ date: z.date(), expenses: z.number() })),
+        categories: z.array(z.object({ category: z.string(), amount: z.number() })),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const rawData = await getRawDataForAggregation(
+        ctx.db,
+        ctx.user.id,
+        'day',
+        await getTimezone(),
+        input.start,
+        input.end,
+      );
+      const { periodAggregations, categoryWiseTotals } = processAggregatedData(rawData);
+      return {
+        days: periodAggregations.map((period) => ({
+          date: period.date,
+          expenses: period.totalExpenses,
+        })),
+        categories: Object.entries(categoryWiseTotals)
+          .filter(([, amount]) => amount > 0)
+          .map(([category, amount]) => ({ category, amount: Number(amount.toFixed(2)) }))
+          .sort((left, right) => right.amount - left.amount),
+      };
+    }),
   getAggregatedData: protectedProcedure
     .input(
       z.object({

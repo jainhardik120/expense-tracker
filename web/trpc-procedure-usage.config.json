@@ -1,12 +1,8 @@
 {
   "backendRouterEntry": "src/server/routers/index.ts",
   "backendRouterRootExport": "appRouter",
-  "routerFactoryNames": [
-    "createTRPCRouter"
-  ],
-  "callerFactoryNames": [
-    "createCallerFactory"
-  ],
+  "routerFactoryNames": ["createTRPCRouter"],
+  "callerFactoryNames": ["createCallerFactory"],
   "pathAliases": {
     "@/": "src/"
   },
@@ -18,14 +14,9 @@
   ],
   "manualUsages": [],
   "ignoreUsagePaths": [],
-  "usageRoots": [
-    "src",
-    "../android/app/src"
-  ],
+  "usageRoots": ["src", "../android/app/src"],
   "openApiBasePath": "/api/external",
-  "openApiTextUsageRoots": [
-    "../android/app/src"
-  ],
+  "openApiTextUsageRoots": ["../android/app/src"],
   "reportJsonPath": "reports/trpc-procedure-usage.json",
   "reportMarkdownPath": "reports/trpc-procedure-usage.md"
 }

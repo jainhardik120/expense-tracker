@@ -3,6 +3,7 @@ package com.jainhardik120.expensetracker.ui.screens
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.jainhardik120.expensetracker.data.entity.ChartData
 import com.jainhardik120.expensetracker.data.entity.SummaryResponse
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
 import com.jainhardik120.expensetracker.ui.BaseViewModel
@@ -24,6 +25,9 @@ class SummaryViewModel @Inject constructor(
         private set
 
     var errorMessage by mutableStateOf<String?>(null)
+        private set
+
+    var charts by mutableStateOf<ChartData?>(null)
         private set
 
     var month by mutableStateOf(YearMonth.now())
@@ -66,7 +70,25 @@ class SummaryViewModel @Inject constructor(
         ) { response ->
             summary = response
         }
+        val requestedMonth = month
+        makeApiCall(
+            call = {
+                api.getChartData(
+                    start = start.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
+                    end = end.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                )
+            },
+            preExecuting = { if (chartsMonth != requestedMonth) charts = null },
+            onDoneExecuting = null,
+            onException = { }
+        ) { response ->
+            if (requestedMonth != month) return@makeApiCall
+            charts = response
+            chartsMonth = requestedMonth
+        }
     }
+
+    private var chartsMonth: YearMonth? = null
 
     private companion object {
         const val END_OF_DAY_HOUR = 23
