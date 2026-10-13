@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 
 import { DataTableDateFilter } from '@/components/data-table/data-table-date-filter';
 import { DataTableFacetedFilter } from '@/components/data-table/data-table-faceted-filter';
+import { DataTableNumberFilter } from '@/components/data-table/data-table-number-filter';
 import { DataTableSliderFilter } from '@/components/data-table/data-table-slider-filter';
 import { DataTableViewOptions } from '@/components/data-table/data-table-view-options';
 import { Button } from '@/components/ui/button';
@@ -131,6 +132,9 @@ const DataTableToolbarFilter = <TData extends RowData>({
 
       case 'range':
         return <DataTableSliderFilter column={column} title={columnMeta.label ?? column.id} />;
+
+      case 'numberCompare':
+        return <DataTableNumberFilter column={column} title={columnMeta.label ?? column.id} />;
 
       case 'date':
       case 'dateRange':

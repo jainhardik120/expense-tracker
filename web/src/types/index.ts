@@ -448,6 +448,7 @@ export const statementParser = {
   category: parseAsArrayOf(parseAsString, ',').withDefault([]),
   tags: parseAsArrayOf(parseAsString, ',').withDefault([]),
   statementKind: parseAsArrayOf(parseAsStringEnum([...statementKinds]), ',').withDefault([]),
+  split: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
 export const investmentParser = {
@@ -479,6 +480,7 @@ export const statementParserSchema = z.object({
   account: z.string().array().optional().default([]),
   category: z.string().array().optional().default([]),
   tags: z.string().array().optional().default([]),
+  split: z.string().array().optional().default([]),
 });
 
 export const investmentParserSchema = z.object({

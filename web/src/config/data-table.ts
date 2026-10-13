@@ -7,4 +7,5 @@ export const filterVariants = [
   'boolean',
   'select',
   'multiSelect',
+  'numberCompare',
 ] as const;

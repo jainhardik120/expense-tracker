@@ -371,6 +371,24 @@ export const createStatementColumns = ({
     },
   },
   {
+    id: 'split',
+    accessorFn: (row) => row.splitAmount,
+    header: 'Split',
+    enableSorting: false,
+    cell: ({ row }) =>
+      row.original.splitAmount === 0 ? (
+        <span className="text-muted-foreground">-</span>
+      ) : (
+        <span className="tabular-nums">{formatCurrency(row.original.splitAmount)}</span>
+      ),
+    meta: {
+      align: 'right',
+      label: 'Split',
+      variant: 'numberCompare',
+    },
+    enableColumnFilter: true,
+  },
+  {
     accessorKey: 'expense',
     header: 'Expense',
     enableSorting: false,

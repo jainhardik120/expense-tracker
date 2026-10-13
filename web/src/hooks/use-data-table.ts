@@ -155,7 +155,7 @@ export const useDataTable = <TData extends RowData>(props: UseDataTableProps<TDa
   const filterParsers = React.useMemo(() => {
     return filterableColumns.reduce<Record<string, SingleParser<string> | SingleParser<string[]>>>(
       (acc, column) => {
-        if (column.meta?.options === undefined) {
+        if (column.meta?.options === undefined && column.meta?.variant !== 'numberCompare') {
           acc[column.id ?? ''] = parseAsString.withOptions(queryStateOptions);
         } else {
           acc[column.id ?? ''] = parseAsArrayOf(parseAsString, ARRAY_SEPARATOR).withOptions(

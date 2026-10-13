@@ -26,6 +26,7 @@ import {
 } from '@/db/schema';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
+import { matchesNumberFilter, parseNumberFilter, type NumberFilter } from '@/lib/number-filter';
 import {
   type StatementSort,
   type StatementKind,
@@ -76,6 +77,37 @@ export const getStatementAmountAndSplits = instrumentedFunction(
     };
   },
 );
+
+const splitTotalOfStatement = (userId: string) =>
+  sql<number>`COALESCE((SELECT SUM(split_row.amount) FROM ${splits} split_row WHERE split_row.statement_id = ${statements}.id AND split_row.user_id = ${userId}), 0)`;
+
+const numberFilterCondition = (
+  value: SQL | SQL.Aliased | AnyPgColumn,
+  { operator, values }: NumberFilter,
+) => {
+  const [first, second] = values;
+  switch (operator) {
+    case 'gt':
+      return sql`${value} > ${first}`;
+    case 'gte':
+      return sql`${value} >= ${first}`;
+    case 'lt':
+      return sql`${value} < ${first}`;
+    case 'lte':
+      return sql`${value} <= ${first}`;
+    case 'eq':
+      return sql`${value} = ${first}`;
+    case 'ne':
+      return sql`${value} <> ${first}`;
+    case 'between':
+      return sql`${value} BETWEEN ${first} AND ${second}`;
+    case 'nonzero':
+      return sql`${value} <> 0`;
+    case 'zero':
+    default:
+      return sql`${value} = 0`;
+  }
+};
 
 export const splitTotalsByStatement = (db: Database, userId: string, statementIds?: string[]) =>
   db.$with('split_totals').as(
@@ -212,6 +244,7 @@ const getMergedStatementsDetailedRaw = (
   sort: StatementSort,
   start?: Date,
   end?: Date,
+  split: NumberFilter | null = null,
 ) => {
   const union = generateStatementUnionDetailedQuery(db, userId, false);
   const conditions: (SQL | undefined)[] = buildQueryConditions(union, userId, start, end);
@@ -238,6 +271,9 @@ const getMergedStatementsDetailedRaw = (
   }
   if (statementKind.length > 0) {
     conditions.push(inArray(union.statementKind, statementKind));
+  }
+  if (split !== null) {
+    conditions.push(numberFilterCondition(union.splitAmount, split));
   }
   const columns = sortableColumns(union);
   const ordering =
@@ -269,6 +305,7 @@ export const getMergedStatements = instrumentedFunction(
       parseStatementSort(input.sort),
       input.start,
       input.end,
+      parseNumberFilter(input.split),
     );
     return (await selectQuery.limit(input.perPage).offset(offset))
       .map<Statement | SelfTransferStatement | undefined>((row) => {
@@ -363,6 +400,13 @@ const buildCountConditions = (db: Database, userId: string, input: CountInput) =
   }
   if (input.tags.length > 0) {
     statementConditions.push(arrayOverlaps(statements.tags, input.tags));
+  }
+  const split = parseNumberFilter(input.split);
+  if (split !== null) {
+    statementConditions.push(numberFilterCondition(splitTotalOfStatement(userId), split));
+    if (!matchesNumberFilter(split, 0)) {
+      selfTransferStatementConditions.push(sql`1 = 0`);
+    }
   }
   return {
     statementConditions,
@@ -711,6 +755,7 @@ const generateStatementFacetRows = (db: Database, userId: string, input: FacetIn
         category: sql<string | null>`${statements.category}`.as('category'),
         tags: statements.tags,
         statementKind: sql<string>`${statements.statementKind}::text`.as('statement_kind'),
+        splitAmount: splitTotalOfStatement(userId).as('split_amount'),
       })
       .from(statements)
       .where(eq(statements.userId, userId)),
@@ -725,6 +770,7 @@ const generateStatementFacetRows = (db: Database, userId: string, input: FacetIn
         category: sql<string | null>`NULL`.as('category'),
         tags: sql<string[]>`ARRAY[]::text[]`.as('tags'),
         statementKind: sql<string>`'self_transfer'`.as('statement_kind'),
+        splitAmount: sql<number>`0`.as('split_amount'),
       })
       .from(selfTransferStatements)
       .where(eq(selfTransferStatements.userId, userId)),
@@ -776,6 +822,10 @@ const buildFacetConditions = (
   }
   if (applies('statementKind') && input.statementKind.length > 0) {
     conditions.push(inArray(rows.statementKind, input.statementKind));
+  }
+  const split = parseNumberFilter(input.split);
+  if (split !== null) {
+    conditions.push(numberFilterCondition(rows.splitAmount, split));
   }
   return and(...conditions);
 };

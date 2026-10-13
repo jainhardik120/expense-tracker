@@ -8,6 +8,7 @@ import {
   statementKindEnum,
   statements,
 } from '@/db/schema';
+import { parseNumberFilter } from '@/lib/number-filter';
 import { buildQueryConditions } from '@/server/helpers';
 import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
 import {
@@ -139,7 +140,8 @@ export const statementsRouter = createTRPCRouter({
         input.account.length === 1 &&
         input.category.length === 0 &&
         input.statementKind.length === 0 &&
-        input.tags.length === 0
+        input.tags.length === 0 &&
+        parseNumberFilter(input.split) === null
       ) {
         const accountId = input.account[0];
         const { summary: accountSummary, statements: accountStatements } =
