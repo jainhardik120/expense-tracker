@@ -204,19 +204,20 @@ export const budgetRouter = createTRPCRouter({
       const nextCycle = addMonths(cycleStart, 1);
       const cycleEnd = nextCycle < year.endDate ? nextCycle : year.endDate;
       const daysLeft = Math.max(differenceInCalendarDays(cycleEnd, now), 0);
+      const allowanceInputs = {
+        spent: spentThisCycle + pendingSms.totalSpend,
+        monthsFromCycleStart: monthsBetween(cycleStart, year.endDate),
+        cycleMonths: monthsBetween(cycleStart, cycleEnd),
+        daysLeftInCycle: daysLeft,
+        daysInCycle: differenceInCalendarDays(cycleEnd, cycleStart),
+      };
       const thisCycle = {
         key: openCycle,
         endsOn: cycleEnd,
         daysLeft,
         recorded: spentThisCycle,
-        ...cycleAllowance({
-          affordable: projection.affordable,
-          spent: spentThisCycle + pendingSms.totalSpend,
-          monthsFromCycleStart: monthsBetween(cycleStart, year.endDate),
-          cycleMonths: monthsBetween(cycleStart, cycleEnd),
-          daysLeftInCycle: daysLeft,
-          daysInCycle: differenceInCalendarDays(cycleEnd, cycleStart),
-        }),
+        allowanceInputs,
+        ...cycleAllowance({ affordable: projection.affordable, ...allowanceInputs }),
       };
 
       return {
@@ -239,6 +240,25 @@ export const budgetRouter = createTRPCRouter({
         unclaimedCount: unclaimed.length,
         unclaimedTotal: unclaimed.reduce((sum, s) => sum + s.myAmount, 0),
       };
+    }),
+
+  setGoal: protectedProcedure
+    .input(z.object({ budgetYearId: z.string(), amount: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
+      const updated = await ctx.db
+        .update(budgetLines)
+        .set({ allocationAmount: String(input.amount) })
+        .where(
+          and(
+            eq(budgetLines.budgetYearId, input.budgetYearId),
+            eq(budgetLines.allocationKind, 'residual'),
+          ),
+        )
+        .returning({ id: budgetLines.id });
+      if (updated.length === 0) {
+        throw new Error('This year has no investment line to set a goal on');
+      }
     }),
 
   createLine: protectedProcedure

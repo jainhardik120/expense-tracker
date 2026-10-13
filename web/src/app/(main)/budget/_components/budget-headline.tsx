@@ -1,8 +1,19 @@
 'use client';
 
-import { format, parse, setDate } from 'date-fns';
+import { useState } from 'react';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { format, parse, setDate } from 'date-fns';
+import { Pencil } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -11,9 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { cycleAllowance } from '@/lib/budget-projection';
 import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import type { YearDetail } from '@/types/router-outputs';
 
+import { GoalEditor } from './goal-editor';
 import { LeftBreakdown } from './left-breakdown';
 
 const DAYS_PER_MONTH = 30.4;
@@ -89,10 +102,11 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
     pendingCounted,
     pendingSpend,
     pendingCount,
-    thisCycle,
+    thisCycle: savedCycle,
   } = detail;
   const {
-    goal,
+    goal: savedGoal,
+    affordable,
     investedSoFar,
     projectedAtPace,
     projectedAtBudget,
@@ -102,6 +116,21 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
     budgetPerMonth,
     unrecordedSpend,
   } = projection;
+
+  const [editing, setEditing] = useState(false);
+  const [draftGoal, setDraftGoal] = useState<number | null>(null);
+  const previewing = draftGoal !== null && (editing || draftGoal !== savedGoal);
+  const goal = previewing ? draftGoal : savedGoal;
+  const thisCycle = !previewing
+    ? savedCycle
+    : {
+        ...savedCycle,
+        ...cycleAllowance({
+          affordable: affordable + savedGoal - draftGoal,
+          ...savedCycle.allowanceInputs,
+        }),
+      };
+  const noLivingAbove = savedGoal + affordable + savedCycle.allowanceInputs.spent;
 
   const months = projection.spendMonths;
   const incomeRemaining = pendingCounted;
@@ -168,8 +197,39 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
             The same {months.toFixed(1)} months read three ways. The last row is the one to follow
             if {formatCurrency(goal)} invested is the point.
           </CardDescription>
+          {editing ? null : (
+            <CardAction>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setDraftGoal(savedGoal);
+                  setEditing(true);
+                }}
+              >
+                <Pencil />
+                Edit goal
+              </Button>
+            </CardAction>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
+          {editing && draftGoal !== null ? (
+            <GoalEditor
+              budgetYearId={detail.year.id}
+              draft={draftGoal}
+              goal={savedGoal}
+              investedSoFar={investedSoFar}
+              noLivingAbove={noLivingAbove}
+              onDone={(saved) => {
+                setEditing(false);
+                if (!saved) {
+                  setDraftGoal(null);
+                }
+              }}
+              onDraftChange={setDraftGoal}
+            />
+          ) : null}
           <div className="rounded-lg border p-3">
             <p className="text-muted-foreground text-xs">To reach your goal, spend at most</p>
             <p className="text-3xl font-semibold">
