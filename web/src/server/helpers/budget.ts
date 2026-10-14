@@ -124,6 +124,7 @@ export const summariseIncome = (
   pendingWaterfall: number;
   pendingCounted: number;
   pendingByLine: Map<string, number>;
+  claimedByLine: Map<string, number>;
 } => {
   const ordered = [...incomeLines].sort((a, b) => a.position - b.position);
   const earmarked = new Map<string, number>();
@@ -131,6 +132,7 @@ export const summariseIncome = (
   let pendingWaterfall = 0;
   let pendingCounted = 0;
   const pendingByLine = new Map<string, number>();
+  const claimedByLine = new Map<string, number>();
 
   const pendingAmountFor = (source: BudgetIncomeLineRow['source']): number | null => {
     if (source === 'pending_salary') {
@@ -161,7 +163,11 @@ export const summariseIncome = (
     const match = ordered.find(
       (line) => line.source === 'statements' && matchesRule(statement, line.rule),
     );
-    if (match === undefined || match.destination === 'excluded') {
+    if (match === undefined) {
+      continue;
+    }
+    claimedByLine.set(match.id, (claimedByLine.get(match.id) ?? 0) + statement.myAmount);
+    if (match.destination === 'excluded') {
       continue;
     }
     if (match.destination === 'waterfall') {
@@ -176,7 +182,7 @@ export const summariseIncome = (
     }
   }
 
-  return { waterfall, earmarked, pendingWaterfall, pendingCounted, pendingByLine };
+  return { waterfall, earmarked, pendingWaterfall, pendingCounted, pendingByLine, claimedByLine };
 };
 
 export const summariseLines = (

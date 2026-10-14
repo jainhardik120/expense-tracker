@@ -217,7 +217,7 @@ const incomeColumns = ({
   detail: YearDetail;
   lineOptions: { label: string; value: string }[];
 }): ColumnDef<IncomeRow>[] => {
-  const { year, lines, pendingByLine } = detail;
+  const { year, lines, incomeByLine } = detail;
   const targetName = (id: string | null) =>
     id === null ? null : (lines.find((line) => line.id === id)?.name ?? '?');
 
@@ -235,24 +235,11 @@ const incomeColumns = ({
     {
       id: 'name',
       header: 'Name',
-      cell: ({ row }) =>
-        row.original.kind === 'opening' ? (
-          <span className="font-medium">
-            Carried in from last year
-            <span className="text-muted-foreground ml-2 font-normal tabular-nums">
-              {formatCurrency(row.original.amount)}
-            </span>
-          </span>
-        ) : (
-          <span className="font-medium">
-            {row.original.name}
-            {Object.hasOwn(pendingByLine, row.original.id) ? (
-              <span className="text-muted-foreground ml-2 font-normal tabular-nums">
-                {formatCurrency(pendingByLine[row.original.id])}
-              </span>
-            ) : null}
-          </span>
-        ),
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {row.original.kind === 'opening' ? 'Carried in from last year' : row.original.name}
+        </span>
+      ),
       enableSorting: false,
     },
     {
@@ -262,6 +249,23 @@ const incomeColumns = ({
         <span className="text-muted-foreground text-xs">{describeClaims(row.original)}</span>
       ),
       enableSorting: false,
+    },
+    {
+      id: 'amount',
+      header: 'Amount',
+      cell: ({ row }) => {
+        const amount =
+          row.original.kind === 'opening'
+            ? row.original.amount
+            : (incomeByLine[row.original.id] ?? 0);
+        return (
+          <span className={`tabular-nums ${amount === 0 ? 'text-muted-foreground' : ''}`}>
+            {formatCurrency(amount)}
+          </span>
+        );
+      },
+      enableSorting: false,
+      meta: { align: 'right' },
     },
     {
       id: 'destination',

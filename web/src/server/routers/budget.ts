@@ -234,7 +234,12 @@ export const budgetRouter = createTRPCRouter({
         incomeCyclesRemaining,
         pendingIncome: pending,
         pendingCounted: income.pendingCounted,
-        pendingByLine: Object.fromEntries(income.pendingByLine),
+        incomeByLine: Object.fromEntries(
+          incomeLines.map((line) => [
+            line.id,
+            income.pendingByLine.get(line.id) ?? income.claimedByLine.get(line.id) ?? 0,
+          ]),
+        ),
         cycles,
         thisCycle,
         unclaimedCount: unclaimed.length,
