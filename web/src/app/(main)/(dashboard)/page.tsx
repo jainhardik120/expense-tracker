@@ -109,7 +109,7 @@ export default async function Page({
             />
           )}
         </AsyncComponent>
-        <AsyncComponent promise={aggregationPromise}>
+        <AsyncComponent promise={chartPromise}>
           {(aggregationData) => (
             <CategoryExpensesPieChart
               data={Object.entries(aggregationData.categoryWiseTotals)
@@ -119,6 +119,7 @@ export default async function Page({
                   amount: parseFloat(amount.toFixed(2)),
                 }))}
               range={dateParams}
+              scope={expenseLines.find((line) => line.id === chartScope) ?? null}
             />
           )}
         </AsyncComponent>

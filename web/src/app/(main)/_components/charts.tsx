@@ -262,15 +262,18 @@ export const ExpensesLineChart = ({
 export const CategoryExpensesPieChart = ({
   data,
   range,
+  scope,
 }: {
   data: { category: string; amount: number }[];
   range: DateRange;
+  scope: { id: string; name: string } | null;
 }) => {
   const router = useRouter();
   return (
     <Card>
       <CardHeader>
         <CardTitle>Expenses by Category</CardTitle>
+        {scope === null ? null : <CardDescription>{scope.name} only</CardDescription>}
       </CardHeader>
       <CardContent className="flex h-full flex-col">
         <PieChart
@@ -281,9 +284,12 @@ export const CategoryExpensesPieChart = ({
           }}
           innerRadius={0}
           onClick={(data) => {
-            router.push(
-              `/statements?category=${data.category}&date=${range.start.getTime()},${range.end.getTime()}`,
-            );
+            const query = new URLSearchParams({
+              category: data.category,
+              date: `${String(range.start.getTime())},${String(range.end.getTime())}`,
+              ...(scope === null ? {} : { line: scope.id }),
+            });
+            router.push(`/statements?${query.toString()}`);
           }}
         />
       </CardContent>
