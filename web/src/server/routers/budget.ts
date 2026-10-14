@@ -17,6 +17,7 @@ import {
   summariseIncome,
   summariseLines,
 } from '@/server/helpers/budget';
+import { getLineOptions } from '@/server/helpers/budget-line-filter';
 import { getPendingIncome } from '@/server/helpers/pending-income';
 import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
 import { getNetBalance } from '@/server/helpers/summary';
@@ -90,6 +91,8 @@ export const budgetRouter = createTRPCRouter({
     }
     return expenseLineOptions(await getYearLines(ctx.db, year.id));
   }),
+
+  getLineOptions: protectedProcedure.query(({ ctx }) => getLineOptions(ctx.db, ctx.user.id)),
 
   getYears: protectedProcedure.query(async ({ ctx }) =>
     ctx.db

@@ -125,6 +125,18 @@ const SelfTransferStatementActions = ({
 
 type FacetCounts = Record<'account' | 'category' | 'tags' | 'statementKind', FacetCount[]>;
 
+type LineOption = { id: string; name: string; kind: 'spend' | 'income'; yearName: string };
+
+const lineFilterOptions = (lineOptions: LineOption[]) => {
+  const manyYears = new Set(lineOptions.map((option) => option.yearName)).size > 1;
+  return lineOptions.map((option) => ({
+    value: option.id,
+    label: `${option.name}${option.kind === 'income' ? ' (income)' : ''}${
+      manyYears ? ` · ${option.yearName}` : ''
+    }`,
+  }));
+};
+
 type FilterOption = { label: string; value: string; count: number };
 
 const withCounts = (
@@ -147,6 +159,7 @@ export const createStatementColumns = ({
   tags,
   facetCounts,
   activeFilters,
+  lineOptions,
   startingBalance,
   mode,
   onCellSave,
@@ -160,6 +173,7 @@ export const createStatementColumns = ({
   tags: string[];
   facetCounts: FacetCounts;
   activeFilters: { category: string[]; tags: string[] };
+  lineOptions: LineOption[];
   mode: 'view' | 'edit';
   onCellSave: (statement: Statement, patch: Partial<Statement>) => void;
   anchorRow: number | null;
@@ -369,6 +383,20 @@ export const createStatementColumns = ({
     meta: {
       label: 'To Account',
     },
+  },
+  {
+    id: 'line',
+    accessorFn: () => null,
+    header: 'Budget line',
+    cell: () => null,
+    enableSorting: false,
+    enableHiding: false,
+    meta: {
+      label: 'Budget line',
+      variant: 'multiSelect',
+      options: lineFilterOptions(lineOptions),
+    },
+    enableColumnFilter: true,
   },
   {
     id: 'split',

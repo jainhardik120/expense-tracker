@@ -21,7 +21,12 @@ import { api } from '@/server/react';
 import { budgetIncomeLineSchema, emptyBudgetRule } from '@/types/budget';
 import type { YearDetail } from '@/types/router-outputs';
 
-import { BUDGET_COLUMN_SIZE, dragHandleColumn, POSITION_INDENT } from './columns';
+import {
+  BUDGET_COLUMN_SIZE,
+  dragHandleColumn,
+  POSITION_INDENT,
+  ViewStatementsAction,
+} from './columns';
 
 import { BudgetIncomeHelp } from '../_help/budget-income-help';
 
@@ -298,6 +303,13 @@ const incomeColumns = ({
           </RowActions>
         ) : (
           <RowActions>
+            {row.original.source === 'statements' ? (
+              <ViewStatementsAction
+                end={year.endDate}
+                lineId={row.original.id}
+                start={year.startDate}
+              />
+            ) : null}
             <EditIncome budgetYearId={year.id} line={row.original} lineOptions={lineOptions} />
             <DeleteIncome budgetYearId={year.id} id={row.original.id} />
           </RowActions>

@@ -26,7 +26,12 @@ import {
 } from '@/types/budget';
 import type { YearDetail } from '@/types/router-outputs';
 
-import { BUDGET_COLUMN_SIZE, dragHandleColumn, POSITION_INDENT } from './columns';
+import {
+  BUDGET_COLUMN_SIZE,
+  dragHandleColumn,
+  POSITION_INDENT,
+  ViewStatementsAction,
+} from './columns';
 import { LineBreakdown } from './line-breakdown';
 
 import { BudgetLinesHelp } from '../_help/budget-lines-help';
@@ -187,111 +192,119 @@ const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) 
 };
 
 const waterfallColumns = (
-  budgetYearId: string,
+  year: YearDetail['year'],
   projection: YearDetail['projection'],
-): ColumnDef<WaterfallRow>[] => [
-  {
-    id: 'position',
-    header: () => <span className={POSITION_INDENT}>#</span>,
-    cell: ({ row }) => <span className={POSITION_INDENT}>{row.index + 1}</span>,
-    enableSorting: false,
-    enableHiding: false,
-    size: BUDGET_COLUMN_SIZE.position,
-  },
-  {
-    accessorKey: 'name',
-    header: 'Line',
-    cell: ({ row }) => (
-      <span className="font-medium">
-        {row.original.name}
-        {row.original.closed ? (
-          <span className="text-muted-foreground ml-2 text-xs font-normal">done</span>
-        ) : null}
-      </span>
-    ),
-    enableSorting: false,
-  },
-  {
-    id: 'claims',
-    header: 'Claims',
-    size: BUDGET_COLUMN_SIZE.claims,
-    cell: ({ row }) => (
-      <span className="text-muted-foreground block max-w-[320px] truncate text-xs">
-        {describeRule(row.original.rule)}
-      </span>
-    ),
-    enableSorting: false,
-  },
-  {
-    id: 'allocation',
-    header: 'Allocation',
-    cell: ({ row }) =>
-      describeAllocation(row.original.allocationKind, row.original.allocationAmount),
-    enableSorting: false,
-    meta: { align: 'right' },
-  },
-  {
-    id: 'yearBudget',
-    header: 'Year budget',
-    cell: ({ row }) => (
-      <span className="text-muted-foreground">{formatCurrency(row.original.yearBudget)}</span>
-    ),
-    enableSorting: false,
-    meta: { align: 'right' },
-  },
-  {
-    accessorKey: 'actual',
-    header: 'Actual',
-    cell: ({ row }) => formatCurrency(row.original.actual),
-    enableSorting: false,
-    meta: { align: 'right' },
-  },
-  {
-    id: 'committed',
-    header: 'Committed',
-    cell: ({ row }) =>
-      row.original.committed === 0 ? (
-        <span className="text-muted-foreground">--</span>
-      ) : (
-        <span className="text-muted-foreground">{formatCurrency(row.original.committed)}</span>
+): ColumnDef<WaterfallRow>[] => {
+  const budgetYearId = year.id;
+  return [
+    {
+      id: 'position',
+      header: () => <span className={POSITION_INDENT}>#</span>,
+      cell: ({ row }) => <span className={POSITION_INDENT}>{row.index + 1}</span>,
+      enableSorting: false,
+      enableHiding: false,
+      size: BUDGET_COLUMN_SIZE.position,
+    },
+    {
+      accessorKey: 'name',
+      header: 'Line',
+      cell: ({ row }) => (
+        <span className="font-medium">
+          {row.original.name}
+          {row.original.closed ? (
+            <span className="text-muted-foreground ml-2 text-xs font-normal">done</span>
+          ) : null}
+        </span>
       ),
-    enableSorting: false,
-    meta: { align: 'right' },
-  },
-  {
-    id: 'remaining',
-    header: 'Remaining',
-    cell: ({ row }) => (
-      <span className={row.original.overspent ? 'text-destructive' : undefined}>
-        {formatCurrency(row.original.remaining)}
-      </span>
-    ),
-    enableSorting: false,
-    meta: { align: 'right' },
-  },
-  {
-    id: 'actions',
-    header: '',
-    cell: ({ row }) => (
-      <RowActions>
-        {row.original.projected === undefined ? null : (
-          <LineBreakdown
-            claims={describeRule(row.original.rule)}
-            line={row.original.projected}
-            matchedCount={row.original.matchedCount}
-            projection={projection}
+      enableSorting: false,
+    },
+    {
+      id: 'claims',
+      header: 'Claims',
+      size: BUDGET_COLUMN_SIZE.claims,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground block max-w-[320px] truncate text-xs">
+          {describeRule(row.original.rule)}
+        </span>
+      ),
+      enableSorting: false,
+    },
+    {
+      id: 'allocation',
+      header: 'Allocation',
+      cell: ({ row }) =>
+        describeAllocation(row.original.allocationKind, row.original.allocationAmount),
+      enableSorting: false,
+      meta: { align: 'right' },
+    },
+    {
+      id: 'yearBudget',
+      header: 'Year budget',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">{formatCurrency(row.original.yearBudget)}</span>
+      ),
+      enableSorting: false,
+      meta: { align: 'right' },
+    },
+    {
+      accessorKey: 'actual',
+      header: 'Actual',
+      cell: ({ row }) => formatCurrency(row.original.actual),
+      enableSorting: false,
+      meta: { align: 'right' },
+    },
+    {
+      id: 'committed',
+      header: 'Committed',
+      cell: ({ row }) =>
+        row.original.committed === 0 ? (
+          <span className="text-muted-foreground">--</span>
+        ) : (
+          <span className="text-muted-foreground">{formatCurrency(row.original.committed)}</span>
+        ),
+      enableSorting: false,
+      meta: { align: 'right' },
+    },
+    {
+      id: 'remaining',
+      header: 'Remaining',
+      cell: ({ row }) => (
+        <span className={row.original.overspent ? 'text-destructive' : undefined}>
+          {formatCurrency(row.original.remaining)}
+        </span>
+      ),
+      enableSorting: false,
+      meta: { align: 'right' },
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <RowActions>
+          {row.original.projected === undefined ? null : (
+            <LineBreakdown
+              claims={describeRule(row.original.rule)}
+              line={row.original.projected}
+              matchedCount={row.original.matchedCount}
+              projection={projection}
+            />
+          )}
+          <ViewStatementsAction
+            end={year.endDate}
+            lineId={row.original.lineId}
+            start={year.startDate}
           />
-        )}
-        <EditLine budgetYearId={budgetYearId} row={row.original} />
-        <DeleteLine budgetYearId={budgetYearId} id={row.original.lineId} />
-      </RowActions>
-    ),
-    enableSorting: false,
-    enableHiding: false,
-    size: BUDGET_COLUMN_SIZE.actions,
-  },
-  dragHandleColumn(),
-];
+          <EditLine budgetYearId={budgetYearId} row={row.original} />
+          <DeleteLine budgetYearId={budgetYearId} id={row.original.lineId} />
+        </RowActions>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: BUDGET_COLUMN_SIZE.actions,
+    },
+    dragHandleColumn(),
+  ];
+};
 
 export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
   const router = useRouter();
@@ -324,7 +337,7 @@ export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
 
   const { table } = useDataTable({
     data: rows,
-    columns: waterfallColumns(year.id, projection),
+    columns: waterfallColumns(year, projection),
     pageCount: -1,
   });
 

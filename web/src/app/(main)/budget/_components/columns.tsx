@@ -1,6 +1,11 @@
-import { type RowData } from '@tanstack/react-table';
-import { GripVertical } from 'lucide-react';
+'use client';
 
+import { useRouter } from 'next/navigation';
+
+import { type RowData } from '@tanstack/react-table';
+import { GripVertical, ListFilter } from 'lucide-react';
+
+import { RowActionTrigger } from '@/components/data-table/row-actions';
 import { Button } from '@/components/ui/button';
 import { SortableItemHandle } from '@/components/ui/sortable';
 import type { ColumnDef } from '@/lib/table';
@@ -31,3 +36,30 @@ export const dragHandleColumn = <T extends RowData>(
   enableHiding: false,
   size: BUDGET_COLUMN_SIZE.dragHandle,
 });
+
+const statementsForLineHref = (lineId: string, start: Date, end: Date) =>
+  `/statements?${new URLSearchParams({
+    line: lineId,
+    date: `${String(start.getTime())},${String(end.getTime())}`,
+  }).toString()}`;
+
+export const ViewStatementsAction = ({
+  lineId,
+  start,
+  end,
+}: {
+  lineId: string;
+  start: Date;
+  end: Date;
+}) => {
+  const router = useRouter();
+  return (
+    <RowActionTrigger
+      icon={ListFilter}
+      label="View statements"
+      onClick={() => {
+        router.push(statementsForLineHref(lineId, start, end));
+      }}
+    />
+  );
+};

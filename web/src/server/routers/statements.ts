@@ -141,7 +141,8 @@ export const statementsRouter = createTRPCRouter({
         input.category.length === 0 &&
         input.statementKind.length === 0 &&
         input.tags.length === 0 &&
-        parseNumberFilter(input.split) === null
+        parseNumberFilter(input.split) === null &&
+        input.line.length === 0
       ) {
         const accountId = input.account[0];
         const { summary: accountSummary, statements: accountStatements } =

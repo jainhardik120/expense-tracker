@@ -33,6 +33,7 @@ import StatementTableActionBar from './statement-table-action-bar';
 
 type StatementData = RouterOutput['statements']['getStatements'];
 type FacetCounts = RouterOutput['statements']['getFacetCounts'];
+type LineOption = RouterOutput['budget']['getLineOptions'][number];
 
 type OptimisticUpdateAction =
   | { action: 'update_all_items'; items: (Statement | SelfTransferStatement)[] }
@@ -52,6 +53,7 @@ const Table = ({
   categories,
   tags,
   facetCounts,
+  lineOptions,
 }: {
   data: StatementData;
   accountsData: Account[];
@@ -59,6 +61,7 @@ const Table = ({
   categories: string[];
   tags: string[];
   facetCounts: FacetCounts;
+  lineOptions: LineOption[];
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [anchorRow, setAnchorRow] = useState<number | null>(null);
@@ -116,6 +119,7 @@ const Table = ({
     tags,
     facetCounts,
     activeFilters: { category: searchParams.category, tags: searchParams.tags },
+    lineOptions,
     startingBalance:
       data.summary === null
         ? undefined
@@ -133,7 +137,7 @@ const Table = ({
     pageCount: data.pageCount,
     persistPageSizeKey: STATEMENTS_PAGE_SIZE_KEY,
     shallow: false,
-    initialState: { sorting: [{ id: 'date', desc: true }] },
+    initialState: { sorting: [{ id: 'date', desc: true }], columnVisibility: { line: false } },
     enableSortingRemoval: false,
   });
   const { rows } = table.getRowModel();

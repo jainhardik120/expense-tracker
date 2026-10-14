@@ -44,13 +44,14 @@ export default async function Page({
     end: pageParams.date[1],
     sort: JSON.stringify(pageParams.sort),
   };
-  const [data, friends, accounts, categories, tags, facetCounts] = await Promise.all([
+  const [data, friends, accounts, categories, tags, facetCounts, lineOptions] = await Promise.all([
     api.statements.getStatements(queryParams),
     api.friends.getFriends(),
     api.accounts.getAccounts(),
     api.statements.getCategories({}),
     api.statements.getTags({}),
     api.statements.getFacetCounts(queryParams),
+    api.budget.getLineOptions(),
   ]);
   return (
     <Table
@@ -59,6 +60,7 @@ export default async function Page({
       data={data}
       facetCounts={facetCounts}
       friendsData={friends}
+      lineOptions={lineOptions}
       tags={tags}
     />
   );

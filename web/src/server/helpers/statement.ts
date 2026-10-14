@@ -40,6 +40,7 @@ import {
 
 import { buildQueryConditions } from '.';
 import { assertOwnsAccountsAndFriends } from './account';
+import { lineScopeCondition, resolveLineScope, type LineScope } from './budget-line-filter';
 import {
   getAccountsAndStartingBalances,
   getFinalBalanceFromStatements,
@@ -245,6 +246,7 @@ const getMergedStatementsDetailedRaw = (
   start?: Date,
   end?: Date,
   split: NumberFilter | null = null,
+  lineScope: LineScope = null,
 ) => {
   const union = generateStatementUnionDetailedQuery(db, userId, false);
   const conditions: (SQL | undefined)[] = buildQueryConditions(union, userId, start, end);
@@ -275,6 +277,7 @@ const getMergedStatementsDetailedRaw = (
   if (split !== null) {
     conditions.push(numberFilterCondition(union.splitAmount, split));
   }
+  conditions.push(lineScopeCondition(lineScope, union));
   const columns = sortableColumns(union);
   const ordering =
     sort.length > 0
@@ -306,6 +309,7 @@ export const getMergedStatements = instrumentedFunction(
       input.start,
       input.end,
       parseNumberFilter(input.split),
+      await resolveLineScope(db, userId, input.line),
     );
     return (await selectQuery.limit(input.perPage).offset(offset))
       .map<Statement | SelfTransferStatement | undefined>((row) => {
@@ -363,7 +367,12 @@ export const getMergedStatements = instrumentedFunction(
 
 type CountInput = Omit<z.infer<typeof statementParserSchema>, 'page' | 'perPage'>;
 
-const buildCountConditions = (db: Database, userId: string, input: CountInput) => {
+const buildCountConditions = (
+  db: Database,
+  userId: string,
+  input: CountInput,
+  lineScope: LineScope,
+) => {
   const statementConditions = [];
   const selfTransferStatementConditions = [];
   statementConditions.push(...buildQueryConditions(statements, userId, input.start, input.end));
@@ -408,6 +417,10 @@ const buildCountConditions = (db: Database, userId: string, input: CountInput) =
       selfTransferStatementConditions.push(sql`1 = 0`);
     }
   }
+  if (lineScope !== null) {
+    statementConditions.push(lineScopeCondition(lineScope, statements));
+    selfTransferStatementConditions.push(sql`1 = 0`);
+  }
   return {
     statementConditions,
     selfTransferStatementConditions,
@@ -419,7 +432,7 @@ export const getRowsCount = instrumentedFunction(
   'getRowsCount',
   async (db: Database, userId: string, input: CountInput) => {
     const { statementConditions, selfTransferStatementConditions, includeSelfTransfers } =
-      buildCountConditions(db, userId, input);
+      buildCountConditions(db, userId, input, await resolveLineScope(db, userId, input.line));
     const [{ statementCount }] = await db
       .select({ statementCount: count() })
       .from(statements)
@@ -445,7 +458,7 @@ export const getStatementTimeline = instrumentedFunction(
   'getStatementTimeline',
   async (db: Database, userId: string, input: CountInput, timezone: string) => {
     const { statementConditions, selfTransferStatementConditions, includeSelfTransfers } =
-      buildCountConditions(db, userId, input);
+      buildCountConditions(db, userId, input, await resolveLineScope(db, userId, input.line));
     const statementDay = localDay(statements.createdAt, timezone);
     const selfTransferDay = localDay(selfTransferStatements.createdAt, timezone);
     const [statementDays, selfTransferDays] = await Promise.all([
@@ -756,6 +769,7 @@ const generateStatementFacetRows = (db: Database, userId: string, input: FacetIn
         tags: statements.tags,
         statementKind: sql<string>`${statements.statementKind}::text`.as('statement_kind'),
         splitAmount: splitTotalOfStatement(userId).as('split_amount'),
+        amount: statements.amount,
       })
       .from(statements)
       .where(eq(statements.userId, userId)),
@@ -771,6 +785,7 @@ const generateStatementFacetRows = (db: Database, userId: string, input: FacetIn
         tags: sql<string[]>`ARRAY[]::text[]`.as('tags'),
         statementKind: sql<string>`'self_transfer'`.as('statement_kind'),
         splitAmount: sql<number>`0`.as('split_amount'),
+        amount: selfTransferStatements.amount,
       })
       .from(selfTransferStatements)
       .where(eq(selfTransferStatements.userId, userId)),
@@ -795,6 +810,7 @@ const buildFacetConditions = (
   rows: FacetRows,
   input: FacetInput,
   facet: FacetName,
+  lineScope: LineScope,
 ) => {
   const applies = (other: FacetName) => FACET_LEVEL[other] < FACET_LEVEL[facet];
   const conditions: SQL<unknown>[] = [];
@@ -827,6 +843,10 @@ const buildFacetConditions = (
   if (split !== null) {
     conditions.push(numberFilterCondition(rows.splitAmount, split));
   }
+  const lineCondition = lineScopeCondition(lineScope, rows);
+  if (lineCondition !== undefined) {
+    conditions.push(lineCondition);
+  }
   return and(...conditions);
 };
 
@@ -838,6 +858,7 @@ export const getStatementFacetCounts = instrumentedFunction(
     input: FacetInput,
   ): Promise<Record<FacetName, FacetCount[]>> => {
     const rows = generateStatementFacetRows(db, userId, input);
+    const lineScope = await resolveLineScope(db, userId, input.line);
     const facetQuery = (
       facet: FacetName,
       value: SQL,
@@ -854,7 +875,7 @@ export const getStatementFacetCounts = instrumentedFunction(
           ).as('count'),
         })
         .from(sql`${from}`)
-        .where(and(buildFacetConditions(db, rows, input, facet), extra))
+        .where(and(buildFacetConditions(db, rows, input, facet, lineScope), extra))
         .groupBy(value);
     const facets = unionAll(
       facetQuery('statementKind', sql`${rows.statementKind}`, sql`${rows}`, { unnested: false }),
