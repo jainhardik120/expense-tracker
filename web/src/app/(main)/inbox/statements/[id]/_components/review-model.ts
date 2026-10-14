@@ -28,6 +28,7 @@ export const ROW_STATUSES = [
   'netted',
   'reversed',
   'exact',
+  'no_amount',
 ] as const;
 
 export type RowStatus = (typeof ROW_STATUSES)[number];
@@ -43,6 +44,7 @@ export const STATUS_LABELS: Record<RowStatus | LedgerOnlyStatus, string> = {
   netted: 'Netted over days',
   reversed: 'Charged and reversed',
   exact: 'Exact match',
+  no_amount: 'No amount',
   not_on_statement: 'Not on statement',
   other_statement: 'On another statement',
   likely_next: 'Likely next statement',
@@ -57,6 +59,7 @@ export const STATUS_TONES: Record<RowStatus | LedgerOnlyStatus, 'good' | 'action
   netted: 'good',
   reversed: 'good',
   exact: 'good',
+  no_amount: 'info',
   not_on_statement: 'action',
   other_statement: 'info',
   likely_next: 'info',
@@ -165,10 +168,14 @@ const ledgerOnlyStatus = (
 };
 
 const rowStatus = (
+  amount: number,
   addition: Addition | null,
   group: Group | undefined,
   shared: Suggestion[],
 ): RowStatus => {
+  if (amount === 0) {
+    return 'no_amount';
+  }
   if (addition !== null || group === undefined) {
     return 'missing';
   }
@@ -209,7 +216,7 @@ export const buildReviewRows = (review: Review): ReviewRow[] => {
         description: row.description,
         amount: row.amount,
         direction: row.direction,
-        status: rowStatus(addition, group, shared),
+        status: rowStatus(row.amount, addition, group, shared),
         ledger: (group?.ledger ?? []).flatMap((key) => {
           const ledgerRow = review.ledger[key];
           return ledgerRow === undefined ? [] : [ledgerRow];

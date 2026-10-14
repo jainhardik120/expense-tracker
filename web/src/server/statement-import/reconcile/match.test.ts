@@ -41,6 +41,25 @@ describe('reconcile', () => {
     expect(result.residual).toBe(0);
   });
 
+  test('leaves a zero-amount row alone on either side', () => {
+    const result = reconcile({
+      period,
+      statement: statementRows([
+        ['2026-03-02', 45_000, 'debit', 'SWIGGY'],
+        ['2026-03-10', 0, 'credit', 'CARD VERIFICATION'],
+      ]),
+      ledger: ledgerRows([
+        ['food', '2026-03-02', 45_000, 'debit'],
+        ['nothing', '2026-03-12', 0, 'debit'],
+      ]),
+    });
+    expect(result.groups).toEqual([
+      { kind: 'exact', statement: [0], ledger: ['food'], difference: 0 },
+    ]);
+    expect(result.suggestions).toEqual([]);
+    expect(result.residual).toBe(0);
+  });
+
   test('joins a payment the ledger split across days', () => {
     const result = reconcile({
       period,

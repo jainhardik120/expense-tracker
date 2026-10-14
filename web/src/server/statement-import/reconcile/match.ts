@@ -20,6 +20,8 @@ export type LedgerEntry = {
 type MatchKind =
   'exact' | 'ledger_club' | 'statement_club' | 'window' | 'reversal' | 'near' | 'emi_rounding';
 
+const hasAmount = (entry: { amount: number }) => entry.amount !== 0;
+
 export type MatchGroup = {
   kind: MatchKind;
   statement: number[];
@@ -279,7 +281,7 @@ class Matcher {
       end: dayNumber(input.period.end) + EXACT_DAYS,
     };
     this.items = [
-      ...input.statement.map((entry): Item => ({
+      ...input.statement.filter(hasAmount).map((entry): Item => ({
         id: `s:${String(entry.index)}`,
         side: 'statement',
         day: dayNumber(entry.date),
@@ -292,7 +294,7 @@ class Matcher {
         index: entry.index,
         key: '',
       })),
-      ...input.ledger.map((entry): Item => ({
+      ...input.ledger.filter(hasAmount).map((entry): Item => ({
         id: `l:${entry.key}`,
         side: 'ledger',
         day: dayNumber(entry.date),
