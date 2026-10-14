@@ -170,3 +170,50 @@ export const getLineOptions = instrumentedFunction(
     ];
   },
 );
+
+export const resolveChartLineScope = instrumentedFunction(
+  'resolveChartLineScope',
+  async (
+    db: Database,
+    userId: string,
+    lineId: string,
+    start?: Date,
+    end?: Date,
+  ): Promise<LineScope> => {
+    if (start === undefined || end === undefined) {
+      return { targets: [] };
+    }
+    const latest = (
+      await db
+        .select({ id: budgetYears.id })
+        .from(budgetYears)
+        .where(eq(budgetYears.userId, userId))
+        .orderBy(desc(budgetYears.startDate))
+        .limit(1)
+    ).at(0);
+    if (latest === undefined) {
+      return { targets: [] };
+    }
+    const lines = await db
+      .select({ id: budgetLines.id, position: budgetLines.position, rule: budgetLines.rule })
+      .from(budgetLines)
+      .where(eq(budgetLines.budgetYearId, latest.id))
+      .orderBy(asc(budgetLines.position));
+    const line = lines.find((candidate) => candidate.id === lineId);
+    if (line === undefined) {
+      return { targets: [] };
+    }
+    return {
+      targets: [
+        {
+          start,
+          end,
+          rule: parseRule(line.rule),
+          claimedEarlier: lines
+            .filter((other) => other.position < line.position)
+            .map((other) => parseRule(other.rule)),
+        },
+      ],
+    };
+  },
+);

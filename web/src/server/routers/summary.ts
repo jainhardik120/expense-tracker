@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { getTimezone } from '@/lib/date';
-import { claimedStatementIds } from '@/server/helpers/chart-scope';
+import { chartLineCondition } from '@/server/helpers/chart-scope';
 import {
   sumAccountSummaries,
   sumFriendSummaries,
@@ -110,10 +110,10 @@ export const summaryRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const tz = await getTimezone();
-      const onlyStatementIds =
+      const statementScope =
         input.budgetLineId === undefined
           ? undefined
-          : await claimedStatementIds(
+          : await chartLineCondition(
               ctx.db,
               ctx.user.id,
               input.budgetLineId,
@@ -127,7 +127,7 @@ export const summaryRouter = createTRPCRouter({
         tz,
         input.start,
         input.end,
-        onlyStatementIds,
+        statementScope,
       );
       const processedAggregations = processAggregatedData(rawData);
       const aggregatedAccountsSummaryData = sumAccountSummaries(rawData.accountsSummary);

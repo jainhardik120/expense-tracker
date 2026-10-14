@@ -562,9 +562,9 @@ export const getRawDataForAggregation = instrumentedFunction(
     timezone: string,
     start?: Date,
     end?: Date,
-    onlyStatementIds?: string[],
+    statementScope?: SQL,
   ) => {
-    const withBalances = onlyStatementIds === undefined;
+    const withBalances = statementScope === undefined;
     const params = {
       db: db,
       userId: userId,
@@ -595,10 +595,7 @@ export const getRawDataForAggregation = instrumentedFunction(
         category: sql<string>`${statements.category}`,
       },
       aggregationBy: [statementAggregation, sql<string>`${statements.category}`],
-      extraConditions:
-        onlyStatementIds === undefined
-          ? []
-          : [onlyStatementIds.length === 0 ? sql`false` : inArray(statements.id, onlyStatementIds)],
+      extraConditions: statementScope === undefined ? [] : [statementScope],
     };
     const selfTransferParams = {
       ...params,

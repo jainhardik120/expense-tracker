@@ -347,19 +347,3 @@ export const expenseLineOptions = (lines: BudgetLineRow[]): ExpenseLineOption[] 
       return statementKinds.length === 0 || statementKinds.includes('expense');
     })
     .map((line) => ({ id: line.id, name: line.name }));
-
-export const statementIdsForLine = (
-  lines: BudgetLineRow[],
-  scoped: ScopedStatement[],
-  lineId: string,
-): string[] => {
-  const ordered = [...lines].sort((a, b) => a.position - b.position);
-  const claimed: string[] = [];
-  for (const statement of scoped) {
-    const index = assignToLine(statement, ordered);
-    if (index !== -1 && ordered[index].id === lineId) {
-      claimed.push(statement.id);
-    }
-  }
-  return claimed;
-};
