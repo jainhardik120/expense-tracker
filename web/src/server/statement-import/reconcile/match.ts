@@ -95,6 +95,8 @@ const NEAR_RANK_SCALE = 10_000;
 const NEAR_CLUB_RATIO = 0.05;
 const NEAR_CLUB_MAX_SIZE = 4;
 const NEAR_CLUB_POOL = 10;
+const SURCHARGE_DAYS = 1;
+const SURCHARGE_MAX_FEES = 2;
 const YEAR_END = 4;
 const MONTH_START = 5;
 const MONTH_END = 7;
@@ -494,10 +496,12 @@ class Matcher {
               if (!statementSide.includes(member)) {
                 continue;
               }
+              if (splitsInstallment(statementSide, statementPool)) {
+                continue;
+              }
               const members = [...statementSide, ...ledgerSide];
               candidates.push({
                 rank: [
-                  Number(splitsInstallment(statementSide, statementPool)),
                   Math.abs(offset),
                   ledgerSide.length,
                   -statementSide.filter(isEmiFamily).length,
@@ -546,7 +550,10 @@ class Matcher {
                 const statementSide = statementNear.filter(
                   (_, position) => (mask & (1 << position)) !== 0,
                 );
-                if (approximate && !hasInstallment(statementSide)) {
+                if (
+                  (approximate && !hasInstallment(statementSide)) ||
+                  splitsInstallment(statementSide, statementPool)
+                ) {
                   continue;
                 }
                 const members = [...statementSide, ...ledgerSide];
@@ -567,10 +574,50 @@ class Matcher {
     }
   }
 
+  surcharges() {
+    const statementPool = this.free('statement');
+    const ledgerPool = this.free('ledger');
+    const candidates: Candidate[] = [];
+    for (const anchor of ledgerPool) {
+      const sameDay = statementPool.filter(
+        (item) => item.direction === anchor.direction && gap(item, anchor) <= SURCHARGE_DAYS,
+      );
+      const fees = sameDay.filter((item) => FEE_PATTERN.test(item.description));
+      for (const base of sameDay) {
+        if (
+          FEE_PATTERN.test(base.description) ||
+          isEmiFamily(base) ||
+          ledgerPool.some((other) => other.signed === base.signed && gap(other, base) === 0)
+        ) {
+          continue;
+        }
+        for (let size = 1; size <= SURCHARGE_MAX_FEES; size += 1) {
+          for (const combo of combinations(fees, size)) {
+            const statementSide = [base, ...combo];
+            if (total(statementSide) !== anchor.signed) {
+              continue;
+            }
+            const members = [...statementSide, anchor];
+            candidates.push({
+              rank: [size, spreadOf(members), anchor.day],
+              kind: 'ledger_club',
+              items: members,
+            });
+          }
+        }
+      }
+    }
+    this.acceptAll(candidates);
+  }
+
   nearPairs() {
     const ledger = this.free('ledger');
+    const statementPool = this.free('statement');
     const candidates: Candidate[] = [];
-    for (const entry of this.free('statement')) {
+    for (const entry of statementPool) {
+      if (splitsInstallment([entry], statementPool)) {
+        continue;
+      }
       for (const other of ledger) {
         const difference = Math.abs(entry.amount - other.amount);
         const tolerance = Math.max(
@@ -617,7 +664,7 @@ class Matcher {
       for (let size = 2; size <= NEAR_CLUB_MAX_SIZE; size += 1) {
         for (const combo of combinations(near, size)) {
           const difference = Math.abs(total(combo) - anchor.signed);
-          if (difference > tolerance) {
+          if (difference > tolerance || splitsInstallment(combo, statementPool)) {
             continue;
           }
           const members = [...combo, anchor];
@@ -683,9 +730,13 @@ const sumsWithin = (sorted: number[], low: number, high: number) => {
 
 const isFeeLike = (item: Item) =>
   item.direction === 'debit' &&
+  !isEmiFamily(item) &&
   (item.amount < TINY_AMOUNT || (item.amount <= FEE_MAX && FEE_PATTERN.test(item.description)));
 
 const foldTarget = (matcher: Matcher, fee: Item) => {
+  if (matcher.free('statement').some((item) => isEmiFamily(item) && gap(item, fee) === 0)) {
+    return null;
+  }
   let best: { key: string; rank: number[] } | null = null;
   for (const group of matcher.groups) {
     for (const key of group.ledger) {
@@ -784,6 +835,7 @@ export const inPeriodLedgerMatches = (input: ReconcileInput) => {
   matcher.wide = false;
   matcher.reversals(true);
   matcher.emiFirst();
+  matcher.surcharges();
   matcher.exactPairs();
   matcher.clubs(false);
   return matcher.groups.flatMap((group) => group.ledger);
@@ -795,6 +847,7 @@ export const reconcile = (input: ReconcileInput): Reconciliation => {
     matcher.wide = wide;
     matcher.reversals(true);
     matcher.emiFirst();
+    matcher.surcharges();
     matcher.exactPairs();
     matcher.clubs(false);
     matcher.reversals(false);

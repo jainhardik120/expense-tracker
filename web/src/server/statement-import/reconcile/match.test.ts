@@ -156,4 +156,80 @@ describe('reconcile', () => {
     ]);
     expect(result.residual).toBe(0);
   });
+
+  test('keeps an EMI instalment whole and pairs a fuel surcharge with its fill-up', () => {
+    const result = reconcile({
+      period: { start: '2026-09-15', end: '2026-10-14' },
+      statement: statementRows([
+        ['2026-10-11', 261, 'debit', 'UPI Fuel Surcharge -628482654276-101126'],
+        ['2026-10-11', 33_600, 'debit', 'UPI_VEDAM IND - Ref No: RT262840376000780000182'],
+        [
+          '2026-10-11',
+          22_100,
+          'debit',
+          'UPI_DEVARAJ_ENTERPRISE IND - Ref No: RT262840376001090000583',
+        ],
+        [
+          '2026-10-12',
+          13_500,
+          'debit',
+          'UPI_MANSI PARATHA AND IT IND - Ref No: RT2628604050016100007',
+        ],
+        [
+          '2026-10-12',
+          18_000,
+          'debit',
+          'UPI_C 076 KA BENGALURU HS IND - Ref No: RT262860405001750000',
+        ],
+        [
+          '2026-10-13',
+          24_400,
+          'debit',
+          'UPI_POMAC HYPER MARKET PR IND - Ref No: RT2628704190017000000',
+        ],
+        [
+          '2026-10-14',
+          830_810,
+          'debit',
+          'EMI PRIN FOR SAMSUNGINDIAELE (002/003) - Ref No: 20262362020352813167948',
+        ],
+        [
+          '2026-10-14',
+          22_300,
+          'debit',
+          'EMI INT-SAMSUNGINDIAELECTRON (002/003) - Ref No: 20262362020352813167948',
+        ],
+        ['2026-10-14', 4014, 'debit', 'GOODS & SERVICES TAX - GST @ 18%'],
+      ]),
+      ledger: ledgerRows([
+        ['chole', '2026-10-11', 33_600, 'debit'],
+        ['petrol', '2026-10-11', 22_361, 'debit'],
+        ['paratha', '2026-10-12', 13_500, 'debit'],
+        ['waffle', '2026-10-12', 18_000, 'debit'],
+        ['icecream', '2026-10-13', 24_400, 'debit'],
+        ['momos', '2026-10-14', 20_000, 'debit'],
+        ['petrol-later', '2026-10-14', 22_100, 'debit'],
+      ]),
+    });
+    expect(
+      result.groups.map((group) => ({ statement: group.statement, ledger: group.ledger })),
+    ).toEqual(
+      expect.arrayContaining([
+        { statement: [1], ledger: ['chole'] },
+        { statement: [0, 2], ledger: ['petrol'] },
+        { statement: [3], ledger: ['paratha'] },
+        { statement: [4], ledger: ['waffle'] },
+        { statement: [5], ledger: ['icecream'] },
+      ]),
+    );
+    expect(result.groups).toHaveLength(5);
+    expect(result.suggestions).toEqual([
+      { type: 'add', statement: 6, foldInto: null },
+      { type: 'add', statement: 7, foldInto: null },
+      { type: 'add', statement: 8, foldInto: null },
+      { type: 'not_on_statement', ledger: 'momos' },
+      { type: 'not_on_statement', ledger: 'petrol-later' },
+    ]);
+    expect(result.residual).toBe(0);
+  });
 });
