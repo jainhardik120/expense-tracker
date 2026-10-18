@@ -36,6 +36,8 @@ const FOLD_DAYS = 3;
 const HISTORY_IMPORTS = 24;
 const MERCHANT_WORDS = 2;
 const PAISE = 100;
+const GST_RATE = 0.18;
+const TAX_BASE_POOL = 10;
 const DAY_MS = 86_400_000;
 
 export type AddKind = 'expense' | 'outside_transaction' | 'self_transfer';
@@ -111,12 +113,16 @@ const localMidnight = (date: string, timeZone: string) =>
   fromZonedTime(`${date}T00:00:00`, timeZone);
 
 const PAYMENT = /\b(?:payment|bbps|autopay|auto debit|neft|imps|rtgs)\b/i;
+const GST = /\b(?:gst|igst|cgst|sgst)\b/i;
+const EMI_ROW = /\bEMI\b/i;
 const FEE = /\b(?:fee|gst|igst|cgst|sgst|tax|surcharge|charges?|interest|markup)\b/i;
 const CARD_PAYMENT = /credit\s*card|creditcard|cred club|card payment|cc payment|bbps/i;
 const SALARY = /\bsalary\b|\bsal\b/i;
 const INTEREST = /\bint\.?\s*pd\b|interest/i;
 const CASHBACK = /\b(?:cashback|refund|reversal|reversed)\b/i;
 const REFERENCE = /REF\s*NO/g;
+const EMI_REFERENCE = /\bEMI\b.*\bref\s*no:?\s*(\d{12,})/i;
+const EMI_REFERENCE_DIGITS = 16;
 const LINE_BREAK = /[\n\r\u2028\u2029]/;
 const WHITESPACE = /\s/;
 
@@ -137,7 +143,13 @@ const stripReference = (text: string) => {
   return text;
 };
 
+const emiLoanKey = (description: string) => {
+  const reference = EMI_REFERENCE.exec(description)?.[1];
+  return reference === undefined ? null : `EMI ${reference.slice(0, EMI_REFERENCE_DIGITS)}`;
+};
+
 const merchantKey = (description: string) =>
+  emiLoanKey(description) ??
   stripReference(description.toUpperCase())
     .replace(/^UPI[_\s-]*/, '')
     .replace(/[^A-Z ]+/g, ' ')
@@ -146,6 +158,34 @@ const merchantKey = (description: string) =>
     .split(/\s+/)
     .slice(0, MERCHANT_WORDS)
     .join(' ');
+
+const taxedEmiHint = (
+  rows: StatementImportRow[],
+  tax: StatementImportRow,
+  hintFor: (description: string) => CategoryHint | null,
+): CategoryHint | null => {
+  if (tax.direction !== 'debit' || !GST.test(tax.description)) {
+    return null;
+  }
+  const pool = rows
+    .filter(
+      (row) =>
+        row !== tax &&
+        row.date === tax.date &&
+        row.direction === 'debit' &&
+        !GST.test(row.description),
+    )
+    .slice(0, TAX_BASE_POOL);
+  for (let mask = 1; mask < 1 << pool.length; mask += 1) {
+    const base = pool.filter((_, position) => (mask & (1 << position)) !== 0);
+    const emi = base.find((row) => EMI_ROW.test(row.description));
+    const charged = base.reduce((sum, row) => sum + paise(row.amount), 0);
+    if (emi !== undefined && Math.abs(Math.round(charged * GST_RATE) - paise(tax.amount)) <= 1) {
+      return hintFor(emi.description);
+    }
+  }
+  return null;
+};
 
 export const loadLedger = async (
   db: Database,
@@ -309,18 +349,34 @@ const categoryHistory = async (
     votes.set(key, byCategory);
   };
 
+  const voteGroup = (descriptions: string[], hints: Array<CategoryHint | undefined>) => {
+    const [first] = hints;
+    if (
+      first === undefined ||
+      hints.some(
+        (hint) => hint?.category !== first.category || hint.tags.join(',') !== first.tags.join(','),
+      )
+    ) {
+      return;
+    }
+    for (const description of descriptions) {
+      if (descriptions.length === 1 || !FEE.test(description)) {
+        vote(description, first);
+      }
+    }
+  };
+
   const ledgerByKey = new Map(current.ledger.map((row) => [row.key, row]));
   for (const group of current.result.groups) {
-    const index = group.statement.at(0);
-    const key = group.ledger.at(0);
-    if (group.statement.length !== 1 || group.ledger.length !== 1 || index === undefined) {
-      continue;
-    }
-    const ledger = key === undefined ? undefined : ledgerByKey.get(key);
-    const row = current.rows.at(index);
-    if (ledger?.category !== null && ledger?.category !== undefined && row !== undefined) {
-      vote(row.description, { category: ledger.category, tags: ledger.tags });
-    }
+    voteGroup(
+      group.statement.flatMap((index) => current.rows.at(index)?.description ?? []),
+      group.ledger.map((key) => {
+        const ledger = ledgerByKey.get(key);
+        return ledger?.category === null || ledger?.category === undefined
+          ? undefined
+          : { category: ledger.category, tags: ledger.tags };
+      }),
+    );
   }
 
   const applied = await db
@@ -330,17 +386,16 @@ const categoryHistory = async (
     .orderBy(desc(statementImports.periodEnd))
     .limit(HISTORY_IMPORTS);
   const pairs = applied.flatMap((record) =>
-    (record.outcome?.matches ?? []).flatMap((match) => {
-      const index = match.rows.at(0);
-      const key = match.ledger.at(0);
-      const row = index === undefined ? undefined : record.rows.at(index);
-      return match.rows.length === 1 &&
-        match.ledger.length === 1 &&
-        key?.startsWith('s:') === true &&
-        row !== undefined
-        ? [{ description: row.description, statementId: key.slice(2) }]
-        : [];
-    }),
+    (record.outcome?.matches ?? []).flatMap((match) =>
+      match.ledger.length > 0 && match.ledger.every((key) => key.startsWith('s:'))
+        ? [
+            {
+              descriptions: match.rows.flatMap((index) => record.rows.at(index)?.description ?? []),
+              statementIds: match.ledger.map((key) => key.slice(2)),
+            },
+          ]
+        : [],
+    ),
   );
   if (pairs.length > 0) {
     const found = await db
@@ -351,16 +406,21 @@ const categoryHistory = async (
           eq(statements.userId, userId),
           inArray(
             statements.id,
-            pairs.map((pair) => pair.statementId),
+            pairs.flatMap((pair) => pair.statementIds),
           ),
         ),
       );
     const byId = new Map(found.map((row) => [row.id, row]));
     for (const pair of pairs) {
-      const statement = byId.get(pair.statementId);
-      if (statement !== undefined) {
-        vote(pair.description, { category: statement.category, tags: statement.tags });
-      }
+      voteGroup(
+        pair.descriptions,
+        pair.statementIds.map((id) => {
+          const statement = byId.get(id);
+          return statement === undefined
+            ? undefined
+            : { category: statement.category, tags: statement.tags };
+        }),
+      );
     }
   }
 
@@ -757,7 +817,7 @@ export const getImportReview = instrumentedFunction(
             defaults: defaultsFor(
               row.description,
               row.direction,
-              hintFor(row.description),
+              hintFor(row.description) ?? taxedEmiHint(record.rows, row, hintFor),
               paymentSource,
               kind,
             ),
