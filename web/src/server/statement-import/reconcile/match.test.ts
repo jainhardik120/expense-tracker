@@ -232,4 +232,41 @@ describe('reconcile', () => {
     ]);
     expect(result.residual).toBe(0);
   });
+
+  test('nets a partial return against what the ledger kept of the purchase', () => {
+    const result = reconcile({
+      period: { start: '2026-09-18', end: '2026-10-17' },
+      statement: statementRows([
+        ['2026-10-07', 1_095_900, 'debit', 'AMAZON PAY INDIA PRIVA Bangalore IND (Pay in EMIs)'],
+        ['2026-10-12', 1_049_100, 'credit', 'AMAZON PAY INDIA PRIVA Bangalore IND'],
+      ]),
+      ledger: ledgerRows([
+        ['cashback', '2026-10-08', 30_000, 'debit'],
+        ['shortfall', '2026-10-17', 16_800, 'debit'],
+      ]),
+    });
+    expect(result.groups).toEqual([
+      { kind: 'window', statement: [0, 1], ledger: ['cashback', 'shortfall'], difference: 0 },
+    ]);
+    expect(result.suggestions).toEqual([]);
+    expect(result.residual).toBe(0);
+  });
+
+  test('suggests the paise a purchase split across ledger rows is short by', () => {
+    const result = reconcile({
+      period: { start: '2026-09-18', end: '2026-10-17' },
+      statement: statementRows([
+        ['2026-10-10', 518_060, 'debit', 'AMAZON PAY INDIA PRIVA Bangalore IND (Pay in EMIs)'],
+      ]),
+      ledger: ledgerRows([
+        ['shopping', '2026-10-10', 501_002, 'debit'],
+        ['cashback', '2026-10-10', 16_998, 'debit'],
+      ]),
+    });
+    expect(result.groups.map((group) => group.kind)).toEqual(['near']);
+    expect(result.suggestions).toEqual([
+      { type: 'adjust', ledger: 'shopping', from: 501_002, to: 501_062, group: 0 },
+    ]);
+    expect(result.residual).toBe(0);
+  });
 });

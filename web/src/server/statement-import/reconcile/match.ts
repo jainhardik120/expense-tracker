@@ -220,8 +220,24 @@ const shareCounterparty = (first: Item, second: Item) => {
 
 const directions = (items: Item[]) => new Set(items.map((item) => item.direction)).size;
 
+const returnsPurchase = (members: Item[]) => {
+  const statement = members.filter((item) => item.side === 'statement');
+  return statement.some(
+    (purchase) =>
+      purchase.direction === 'debit' &&
+      statement.some(
+        (refund) =>
+          refund.direction === 'credit' &&
+          refund.day >= purchase.day &&
+          shareCounterparty(purchase, refund),
+      ),
+  );
+};
+
 const plausibleWindow = (members: Item[]) =>
-  directions(members) === 1 || spreadOf(members) <= CLUB_DAYS;
+  directions(members) === 1 ||
+  spreadOf(members) <= CLUB_DAYS ||
+  (spreadOf(members) <= REVERSAL_DAYS && returnsPurchase(members));
 
 const emiFamilyCache = new WeakMap<Item, boolean>();
 
@@ -650,29 +666,39 @@ class Matcher {
   nearClubs() {
     const candidates: Candidate[] = [];
     const statementPool = this.free('statement');
-    for (const anchor of this.free('ledger')) {
-      const near = nearest(
-        anchor,
-        statementPool.filter((item) => item.direction === anchor.direction),
-        EXACT_DAYS,
-        NEAR_CLUB_POOL,
-      );
-      const tolerance = Math.max(
-        NEAR_MIN_TOLERANCE,
-        Math.min(NEAR_MAX_TOLERANCE, Math.round(anchor.amount * NEAR_CLUB_RATIO)),
-      );
-      for (let size = 2; size <= NEAR_CLUB_MAX_SIZE; size += 1) {
-        for (const combo of combinations(near, size)) {
-          const difference = Math.abs(total(combo) - anchor.signed);
-          if (difference > tolerance || splitsInstallment(combo, statementPool)) {
-            continue;
+    const ledgerPool = this.free('ledger');
+    const sides: Array<[Item[], Item[]]> = [
+      [ledgerPool, statementPool],
+      [statementPool, ledgerPool],
+    ];
+    for (const [anchors, pool] of sides) {
+      for (const anchor of anchors) {
+        if (anchor.side === 'statement' && splitsInstallment([anchor], statementPool)) {
+          continue;
+        }
+        const near = nearest(
+          anchor,
+          pool.filter((item) => item.direction === anchor.direction),
+          EXACT_DAYS,
+          NEAR_CLUB_POOL,
+        );
+        const tolerance = Math.max(
+          NEAR_MIN_TOLERANCE,
+          Math.min(NEAR_MAX_TOLERANCE, Math.round(anchor.amount * NEAR_CLUB_RATIO)),
+        );
+        for (let size = 2; size <= NEAR_CLUB_MAX_SIZE; size += 1) {
+          for (const combo of combinations(near, size)) {
+            const difference = Math.abs(total(combo) - anchor.signed);
+            if (difference > tolerance || splitsInstallment(combo, statementPool)) {
+              continue;
+            }
+            const members = [...combo, anchor];
+            candidates.push({
+              rank: [difference, size, spreadOf(members), anchor.day],
+              kind: 'near',
+              items: members,
+            });
           }
-          const members = [...combo, anchor];
-          candidates.push({
-            rank: [difference, size, spreadOf(members), anchor.day],
-            kind: 'near',
-            items: members,
-          });
         }
       }
     }
