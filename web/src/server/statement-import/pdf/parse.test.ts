@@ -808,3 +808,162 @@ describe('ICICI Bank account statement', () => {
     expect(statement.balanceCheck?.difference).toBe(0);
   });
 });
+
+describe('IDFC FIRST Bank credit card', () => {
+  const lines = [
+    ...page(1, [
+      [818, [[459, 'Credit Card Statement']]],
+      [633, [[34, '(FIRST Wealth XX1234)']]],
+      [
+        616,
+        [
+          [46, 'Total Amount Due'],
+          [162, 'Minimum Amount Due'],
+          [266, 'Credit Limit'],
+          [371, 'Payment Due Date'],
+          [466, 'Statement Period'],
+        ],
+      ],
+      [
+        602,
+        [
+          [47, 'r1,500.00 DR'],
+          [162, 'r100.00 DR'],
+          [267, 'r5,00,000'],
+          [371, '06/Nov/2026'],
+          [462, '27/Sep/2026 - 22/Oct/2026'],
+        ],
+      ],
+      [
+        548,
+        [
+          [57, 'Opening Balance'],
+          [245, 'r1,000.00'],
+        ],
+      ],
+      [
+        540,
+        [
+          [302, 'Opening Balance'],
+          [534, '0'],
+        ],
+      ],
+      [
+        526,
+        [
+          [57, 'Purchases'],
+          [176, '+'],
+          [236, 'r1,200.00'],
+        ],
+      ],
+      [
+        502,
+        [
+          [57, 'EMI & Other Debits'],
+          [176, '+'],
+          [245, 'r300.00'],
+        ],
+      ],
+      [
+        478,
+        [
+          [57, 'Payments & Refunds'],
+          [177, '-'],
+          [245, 'r1,000.00'],
+        ],
+      ],
+      [
+        309,
+        [[46, 'latest APR, visit the Card Privileges section in your IDFC FIRST Bank Mobile App.']],
+      ],
+    ]),
+    ...page(2, [
+      [
+        725,
+        [
+          [34, 'Statement Date:'],
+          [125, 'Relationship No.'],
+        ],
+      ],
+      [
+        711,
+        [
+          [34, '22/Oct/2026'],
+          [125, '0000000000'],
+        ],
+      ],
+      [
+        644,
+        [
+          [34, 'Transaction'],
+          [151, 'Transaction Details'],
+          [323, 'EMI'],
+          [390, 'FX'],
+          [513, 'Amount'],
+        ],
+      ],
+      [
+        636,
+        [
+          [34, 'Date'],
+          [323, 'Eligibility'],
+          [390, 'Transactions'],
+          [513, '(In INR)'],
+        ],
+      ],
+      [619, [[35, 'Card Number: XXXX 1234']]],
+      [605, [[35, 'Purchases, EMIs & Other Debits']]],
+      [
+        591,
+        [
+          [35, '03 Oct 26'],
+          [152, 'MOVIE TICKETS, GURUGRAM'],
+          [519, '1,200.00 DR'],
+        ],
+      ],
+      [
+        577,
+        [
+          [35, '05 Oct 26'],
+          [152, 'ANNUAL FEE'],
+          [519, '300.00 DR'],
+        ],
+      ],
+      [563, [[35, 'Payments & Refunds']]],
+      [
+        549,
+        [
+          [35, '10 Oct 26'],
+          [152, 'UPI PAYMENT RECEIVED'],
+          [519, '1,000.00 CR'],
+        ],
+      ],
+    ]),
+  ];
+
+  test('reads the summary, rupee-glyph amounts and slashed-month dates', () => {
+    const statement = parseStatementLines(lines);
+    expect(statement).toMatchObject({
+      issuer: 'idfc',
+      accountLast4: '1234',
+      statementDate: '2026-10-22',
+      dueDate: '2026-11-06',
+      periodStart: '2026-09-27',
+      periodEnd: '2026-10-22',
+      openingBalance: 1000,
+      closingBalance: 1500,
+      minimumDue: 100,
+      creditLimit: 500000,
+      declared: { debits: 1500, credits: 1000 },
+    });
+    expect(
+      statement.transactions.map((row) => [row.date, row.description, row.amount, row.direction]),
+    ).toEqual([
+      ['2026-10-03', 'MOVIE TICKETS, GURUGRAM', 1200, 'debit'],
+      ['2026-10-05', 'ANNUAL FEE', 300, 'debit'],
+      ['2026-10-10', 'UPI PAYMENT RECEIVED', 1000, 'credit'],
+    ]);
+    expect(statement.balanceCheck?.difference).toBe(0);
+    expect(isReconciled(statement)).toBe(true);
+  });
+});

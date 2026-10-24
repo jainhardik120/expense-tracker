@@ -10,6 +10,7 @@ const ISSUER_LABELS: Record<string, string> = {
   axis: 'Axis Bank',
   axis_account: 'Axis Bank account',
   icici_account: 'ICICI Bank account',
+  idfc: 'IDFC FIRST Bank',
   sheet: 'Spreadsheet',
 };
 

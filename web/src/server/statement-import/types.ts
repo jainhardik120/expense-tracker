@@ -1,7 +1,15 @@
 export type StatementKind = 'credit_card' | 'bank_account';
 
 type StatementIssuer =
-  'icici' | 'yes' | 'indusind' | 'sbi' | 'axis' | 'axis_account' | 'icici_account' | 'sheet';
+  | 'icici'
+  | 'yes'
+  | 'indusind'
+  | 'sbi'
+  | 'axis'
+  | 'axis_account'
+  | 'icici_account'
+  | 'idfc'
+  | 'sheet';
 
 export type ParsedTransaction = {
   date: string;

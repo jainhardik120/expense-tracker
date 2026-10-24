@@ -3,6 +3,7 @@ import { matchesAxis, parseAxis } from './issuers/axis';
 import { matchesAxisAccount, parseAxisAccount } from './issuers/axis-account';
 import { matchesIcici, parseIcici } from './issuers/icici';
 import { matchesIciciAccount, parseIciciAccount } from './issuers/icici-account';
+import { matchesIdfc, parseIdfc } from './issuers/idfc';
 import { matchesIndusind, parseIndusind } from './issuers/indusind';
 import { matchesSbi, parseSbi } from './issuers/sbi';
 import { matchesYes, parseYes } from './issuers/yes';
@@ -20,6 +21,7 @@ const issuers = [
   { matches: matchesAxis, parse: parseAxis },
   { matches: matchesAxisAccount, parse: parseAxisAccount },
   { matches: matchesIciciAccount, parse: parseIciciAccount },
+  { matches: matchesIdfc, parse: parseIdfc },
 ];
 
 export class UnsupportedStatementError extends Error {
