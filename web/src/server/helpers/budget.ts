@@ -1,6 +1,7 @@
 import { asc, eq, sql } from 'drizzle-orm';
 
 import { budgetIncomeLines, budgetLines } from '@/db/schema';
+import { summariseActual, type ActualGroup } from '@/lib/budget-actual';
 import {
   assignToLine,
   matchesRule,
@@ -26,6 +27,8 @@ const parseRule = (value: unknown): BudgetRule => {
 type ScopedStatement = MatchableStatement & {
   id: string;
   emiId: string | null;
+  emiName: string | null;
+  installment: number | null;
   createdAt: Date;
   myAmount: number;
   costAmount: number;
@@ -70,12 +73,18 @@ export const getStatementsInWindow = instrumentedFunction(
       friend_id: string | null;
       amount: string;
       emi_id: string | null;
+      emi_name: string | null;
+      installment_no: string | null;
       owed: string | null;
     }>(sql`
       select s.id, (extract(epoch from s.created_at) * 1000)::bigint as created_ms, s.category,
              s.tags, s."statementKind" as kind, s.account_id, s.friend_id, s.amount,
-             s.additional_attributes->>'emiId' as emi_id, o.owed
+             s.additional_attributes->>'emiId' as emi_id,
+             s.additional_attributes->>'installmentNo' as installment_no,
+             e.name as emi_name, o.owed
       from statements s
+      left join emis e on e.id::text = s.additional_attributes->>'emiId'
+        and e.user_id = ${userId}
       left join (
         select statement_id, sum(amount) as owed from splits
         where user_id = ${userId} group by statement_id
@@ -94,6 +103,8 @@ export const getStatementsInWindow = instrumentedFunction(
         statementKind: row.kind,
         amount: Number(row.amount),
         emiId: row.emi_id,
+        emiName: row.emi_name,
+        installment: row.installment_no === null ? null : Number(row.installment_no),
         accountRefs: [row.account_id, row.friend_id],
         myAmount,
         costAmount: row.kind === 'outside_transaction' ? -myAmount : myAmount,
@@ -188,7 +199,11 @@ export const summariseIncome = (
 export const summariseLines = (
   lines: BudgetLineRow[],
   scoped: ScopedStatement[],
-): { totals: LineTotals[]; unclaimed: ScopedStatement[] } => {
+): {
+  totals: LineTotals[];
+  unclaimed: ScopedStatement[];
+  actualsByLine: Record<string, ActualGroup[]>;
+} => {
   const ordered = [...lines].sort((a, b) => a.position - b.position);
   const totals: LineTotals[] = ordered.map((line) => ({
     lineId: line.id,
@@ -202,6 +217,7 @@ export const summariseLines = (
     matchedCount: 0,
   }));
   const unclaimed: ScopedStatement[] = [];
+  const contributors: ScopedStatement[][] = ordered.map(() => []);
 
   for (const statement of scoped) {
     const index = assignToLine(statement, ordered);
@@ -211,9 +227,16 @@ export const summariseLines = (
     }
     totals[index].actual += statement.costAmount;
     totals[index].matchedCount += 1;
+    contributors[index].push(statement);
   }
 
-  return { totals, unclaimed };
+  const actualsByLine = Object.fromEntries(
+    ordered.map((line, index) => [
+      line.id,
+      summariseActual(contributors[index], line.allocationKind),
+    ]),
+  );
+  return { totals, unclaimed, actualsByLine };
 };
 
 export type CycleRow = {

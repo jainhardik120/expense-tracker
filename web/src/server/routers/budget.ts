@@ -127,7 +127,7 @@ export const budgetRouter = createTRPCRouter({
         getYearIncomeLines(ctx.db, year.id),
       ]);
       const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, year.startDate, year.endDate);
-      const { totals, unclaimed } = summariseLines(lines, scoped);
+      const { totals, unclaimed, actualsByLine } = summariseLines(lines, scoped);
       const now = new Date();
       const pending = await getPendingIncome(
         ctx.db,
@@ -229,6 +229,7 @@ export const budgetRouter = createTRPCRouter({
         incomeLines,
         totals,
         projection,
+        actualsByLine,
         commitmentsByLine: Object.fromEntries(
           [...scheduled].map(([lineId, schedule]) => [lineId, schedule.pendingPayments]),
         ),

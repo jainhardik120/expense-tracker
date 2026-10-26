@@ -67,7 +67,7 @@ export const HelpBar = ({ segments }: { segments: Segment[] }) => {
   );
 };
 
-export type CalcRow = { label: string; value: number | string; note?: string };
+export type CalcRow = { key?: string; label: string; value: number | string; note?: string };
 
 const formatValue = (value: number | string): string => {
   if (typeof value === 'string') {
@@ -88,7 +88,7 @@ export const HelpCalc = ({
 }) => (
   <div className="bg-muted/40 flex flex-col gap-1 rounded-md p-3 text-xs">
     {rows.map((row) => (
-      <div key={row.label} className="flex items-baseline gap-2">
+      <div key={row.key ?? row.label} className="flex items-baseline gap-2">
         <span className="text-muted-foreground">{row.label}</span>
         {row.note === undefined ? null : (
           <span className="text-muted-foreground/70">{row.note}</span>

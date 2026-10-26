@@ -17,6 +17,7 @@ import { api } from '@/server/react';
 import { budgetLineFormSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 import type { YearDetail } from '@/types/router-outputs';
 
+import { ActualBreakdown } from './actual-breakdown';
 import {
   BUDGET_COLUMN_SIZE,
   dragHandleColumn,
@@ -61,6 +62,7 @@ const waterfallColumns = (
   year: YearDetail['year'],
   projection: YearDetail['projection'],
   commitmentsByLine: YearDetail['commitmentsByLine'],
+  actualsByLine: YearDetail['actualsByLine'],
 ): ColumnDef<WaterfallRow>[] => {
   const budgetYearId = year.id;
   return [
@@ -114,7 +116,13 @@ const waterfallColumns = (
     {
       accessorKey: 'actual',
       header: 'Actual',
-      cell: ({ row }) => formatCurrency(row.original.actual),
+      cell: ({ row }) => (
+        <ActualBreakdown
+          actual={row.original.actual}
+          groups={actualsByLine[row.original.lineId] ?? []}
+          name={row.original.name}
+        />
+      ),
       enableSorting: false,
       meta: { align: 'right' },
     },
@@ -172,7 +180,7 @@ export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
   const [, startTransition] = useTransition();
   const createLine = api.budget.createLine.useMutation();
   const reorderLines = api.budget.reorderLines.useMutation();
-  const { year, lines, totals, projection, commitmentsByLine } = detail;
+  const { year, lines, totals, projection, commitmentsByLine, actualsByLine } = detail;
 
   const projected = new Map(projection.lines.map((line) => [line.lineId, line]));
   const lineById = new Map(lines.map((line) => [line.id, line]));
@@ -206,7 +214,7 @@ export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
 
   const { table } = useDataTable({
     data: rows,
-    columns: waterfallColumns(year, projection, commitmentsByLine),
+    columns: waterfallColumns(year, projection, commitmentsByLine, actualsByLine),
     pageCount: -1,
   });
 

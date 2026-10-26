@@ -16,12 +16,12 @@ export const CalculationDetails = ({
   trigger?: ReactElement;
   rows: CalcRow[];
   result: CalcRow;
-  note: string;
+  note?: string;
 }) => {
   const details = (
     <div className="flex flex-col gap-2">
       <HelpCalc result={result} rows={rows} />
-      <HelpNote>{note}</HelpNote>
+      {note === undefined ? null : <HelpNote>{note}</HelpNote>}
     </div>
   );
 
