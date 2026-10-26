@@ -117,6 +117,26 @@ const incomeFields = (lineOptions: { label: string; value: string }[]) => [
     displayCondition: (values: IncomeFormValues) => !readsPayroll(values),
     valueWhenHidden: [] as string[],
   },
+  {
+    name: 'rule.minAmount' as const,
+    label: 'Minimum amount',
+    type: 'nullableNumber' as const,
+    min: 0,
+    step: 0.01,
+    description: 'Only counts statements of at least this amount. Leave empty for no limit.',
+    displayCondition: (values: IncomeFormValues) => !readsPayroll(values),
+    valueWhenHidden: null,
+  },
+  {
+    name: 'rule.maxAmount' as const,
+    label: 'Maximum amount',
+    type: 'nullableNumber' as const,
+    min: 0,
+    step: 0.01,
+    description: 'Only counts statements of at most this amount. Leave empty for no limit.',
+    displayCondition: (values: IncomeFormValues) => !readsPayroll(values),
+    valueWhenHidden: null,
+  },
 ];
 
 const EditIncome = ({

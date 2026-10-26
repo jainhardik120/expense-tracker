@@ -270,6 +270,22 @@ const RenderedIntegerInput = <T extends FieldValues = FieldValues>(props: FieldP
   />
 );
 
+const RenderedNullableNumberInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
+  <Input
+    max={props.formField.max}
+    min={props.formField.min}
+    placeholder={props.formField.placeholder}
+    step={props.formField.step}
+    type="number"
+    {...props.field}
+    id={props.id}
+    value={(props.field.value as number | null) ?? ''}
+    onChange={(event) => {
+      props.field.onChange(event.target.value === '' ? null : event.target.valueAsNumber);
+    }}
+  />
+);
+
 const RenderedCheckboxInput = <T extends FieldValues = FieldValues>(props: FieldProps<T>) => (
   <Checkbox
     checked={props.field.value as boolean}
@@ -317,6 +333,7 @@ export const RenderedFormFields: {
   tel: renderTextInput('tel'),
   url: renderTextInput('url'),
   integer: RenderedIntegerInput,
+  nullableNumber: RenderedNullableNumberInput,
   date: RenderedDateInput,
   time: RenderedTimeInput,
   datetime: RenderedDatetimeInput,
