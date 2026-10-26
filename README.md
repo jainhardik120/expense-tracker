@@ -174,6 +174,69 @@ pnpm update:check     # Check for dependency updates
 
 ## 🐳 Docker Deployment
 
+### Local development database
+
+The local database stack runs separately from Next.js:
+
+```bash
+# From the repository root, after local credentials have been provisioned
+docker compose -f docker-compose.local.yml up -d --wait
+
+# Run the app using web/.env.local
+cd web
+pnpm dev
+```
+
+PostgreSQL is available at `127.0.0.1:5432`, with database and application
+username `expense_tracker`. pgAdmin is at <http://localhost:5050>, with login
+`admin@expense-tracker.dev`; its registered server connects to `postgres:5432`
+inside Docker. The generated passwords are in `.local-db/app-password` and
+`.local-db/pgadmin-password`. `.local-db/postgres-password` is the separate
+PostgreSQL administrator password. These files are private local configuration
+and must remain ignored by Git.
+
+For the initial setup, provision those three files with separate random
+passwords and `.local-db/servers.json` with the pgAdmin server registration
+before starting Compose. The `.local-db/` directory should have mode `0700`;
+the two container-mounted password files and server registration must be
+readable by the containers. Keep the application password file at mode `0600`.
+Set `DATABASE_URL` in `web/.env.local` to use the local application credentials.
+An existing remote database can be copied using PostgreSQL 18 `pg_dump` and
+`pg_restore`, preserving application schemas, data, sequences, and Drizzle's
+migration history while omitting remote ownership and grants.
+
+The initial switch preserves the previous environment in
+`web/.env.remote.local`. Next.js does not automatically load that backup.
+Restore it to `web/.env.local` and restart Next.js to reconnect to the remote
+database. The clone is independent; local changes do not sync back to remote.
+
+```bash
+# Stop the containers while preserving their database volumes
+docker compose -f docker-compose.local.yml down
+```
+
+The named volumes persist across restarts. `down --volumes` deletes local data.
+The local PostgreSQL image includes Debian's `tzdata-legacy` package so browser
+timezone names such as `Asia/Calcutta` work in dashboard aggregation queries.
+The database works without network access once images are downloaded; features
+that call external services, including email, GitHub sign-in, AI, and market
+data, still require connectivity.
+
+For local SQL tracing, start this repository's Jaeger service:
+
+```bash
+docker compose --env-file .env.observability.local -f docker-compose.observability.yml up -d
+```
+
+The ignored `.env.observability.local` selects the already downloaded Jaeger
+image. Without that file, omit `--env-file` to use the default Jaeger 2 image.
+`web/.env.local` exports traces to `http://127.0.0.1:4318` using
+`OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`, and
+`OTEL_TRACES_SAMPLER=always_on`. Open <http://localhost:16686>, select service
+`expense-tracker`, and expand `drizzle.select` spans to inspect SQL and timings.
+The app sends traces directly to Jaeger; an additional collector is unnecessary
+for this setup. Traces are held in memory and disappear when Jaeger restarts.
+
 Build and run with Docker:
 
 ```bash

@@ -8,13 +8,16 @@
 
 services:
   jaeger:
-    image: jaegertracing/jaeger:2.11.0
+    image: ${JAEGER_IMAGE:-jaegertracing/jaeger:2.11.0}
     container_name: expense-tracker-jaeger
     ports:
-      - '16686:16686' # Jaeger UI
-      - '4318:4318' # OTLP over HTTP -- what the app exports to
-      - '4317:4317' # OTLP over gRPC
+      - '127.0.0.1:16686:16686' # Jaeger UI
+      - '127.0.0.1:4318:4318' # OTLP over HTTP -- what the app exports to
+      - '127.0.0.1:4317:4317' # OTLP over gRPC
     environment:
       # Keep a decent scrollback; the default window is small for a dev session.
       - JAEGER_MEMORY_MAX_TRACES=20000
+      - COLLECTOR_OTLP_ENABLED=true
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

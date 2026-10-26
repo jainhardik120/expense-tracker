@@ -4,13 +4,9 @@ import { useOptimistic, useTransition } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { Pencil, Trash } from 'lucide-react';
-import { z } from 'zod';
-
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
-import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
-import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import { RowActions } from '@/components/data-table/row-actions';
 import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
@@ -18,12 +14,7 @@ import { describeRule } from '@/lib/budget-rules';
 import { formatCurrency } from '@/lib/format';
 import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
-import {
-  budgetLineFormSchema,
-  emptyBudgetRule,
-  type budgetAllocationKinds,
-  type BudgetRule,
-} from '@/types/budget';
+import { budgetLineFormSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 import type { YearDetail } from '@/types/router-outputs';
 
 import {
@@ -33,6 +24,8 @@ import {
   ViewStatementsAction,
 } from './columns';
 import { LineBreakdown } from './line-breakdown';
+import { DeleteLine, EditLine, lineFields } from './line-form';
+import { CommittedValue, WaterfallValue, YearBudgetValue } from './waterfall-values';
 
 import { BudgetLinesHelp } from '../_help/budget-lines-help';
 
@@ -53,167 +46,21 @@ type WaterfallRow = {
   matchedCount: number;
 };
 
-const ALLOCATION_LABELS: Record<(typeof budgetAllocationKinds)[number], string> = {
-  monthly: 'Fixed amount per month',
-  annual: 'Fixed amount per year',
-  earmarked: 'Funded only by earmarked income',
-  schedule: 'Taken from the loan schedule',
-  residual: 'Residual — whatever is left',
+const ALLOCATION_SUFFIX: Partial<Record<string, string>> = {
+  monthly: '/ mo',
+  annual: '/ yr',
+  residual: '',
 };
-
-const allocationKinds = Object.keys(ALLOCATION_LABELS) as (typeof budgetAllocationKinds)[number][];
-
-type LineFormValues = z.input<typeof budgetLineFormSchema>;
-
-const TYPED_ALLOCATIONS = new Set(['monthly', 'annual']);
-
-const readsSchedule = (values: LineFormValues) => values.allocationKind === 'schedule';
-
-const lineFields = [
-  { name: 'name' as const, label: 'Name', type: 'input' as const },
-  {
-    name: 'allocationKind' as const,
-    label: 'Allocation',
-    type: 'select' as const,
-    options: allocationKinds.map((kind) => ({ label: ALLOCATION_LABELS[kind], value: kind })),
-  },
-  {
-    name: 'allocationAmount' as const,
-    label: 'Amount',
-    type: 'input' as const,
-    displayCondition: (values: LineFormValues) => TYPED_ALLOCATIONS.has(values.allocationKind),
-    valueWhenHidden: '0',
-  },
-  {
-    name: 'allocationAmount' as const,
-    label: 'Goal for the year',
-    type: 'input' as const,
-    description: 'What you are aiming to finish the year with.',
-    displayCondition: (values: LineFormValues) => values.allocationKind === 'residual',
-    valueWhenHidden: '0',
-  },
-  {
-    name: 'discretionary' as const,
-    label: 'I can choose to spend less on this',
-    type: 'checkbox' as const,
-    displayCondition: (values: LineFormValues) => !readsSchedule(values),
-    valueWhenHidden: false,
-  },
-  {
-    name: 'closed' as const,
-    label: 'Done for the year — nothing more to spend here',
-    type: 'checkbox' as const,
-    displayCondition: (values: LineFormValues) =>
-      !readsSchedule(values) && values.allocationKind !== 'residual',
-    valueWhenHidden: false,
-  },
-  {
-    name: 'rule.tags' as const,
-    label: 'Tags',
-    type: 'stringArray' as const,
-    description: 'The only thing a loan schedule line matches on.',
-  },
-  {
-    name: 'rule.categories' as const,
-    label: 'Categories',
-    type: 'stringArray' as const,
-    displayCondition: (values: LineFormValues) => !readsSchedule(values),
-    valueWhenHidden: [] as string[],
-  },
-  {
-    name: 'rule.statementKinds' as const,
-    label: 'Statement kinds',
-    type: 'stringArray' as const,
-    displayCondition: (values: LineFormValues) => !readsSchedule(values),
-    valueWhenHidden: [] as string[],
-  },
-  {
-    name: 'rule.accounts' as const,
-    label: 'Account / friend ids',
-    type: 'stringArray' as const,
-    displayCondition: (values: LineFormValues) => !readsSchedule(values),
-    valueWhenHidden: [] as string[],
-  },
-  {
-    name: 'rule.minAmount' as const,
-    label: 'Minimum amount',
-    type: 'nullableNumber' as const,
-    min: 0,
-    step: 0.01,
-    description: 'Only counts statements of at least this amount. Leave empty for no limit.',
-    displayCondition: (values: LineFormValues) => !readsSchedule(values),
-    valueWhenHidden: null,
-  },
-  {
-    name: 'rule.maxAmount' as const,
-    label: 'Maximum amount',
-    type: 'nullableNumber' as const,
-    min: 0,
-    step: 0.01,
-    description: 'Only counts statements of at most this amount. Leave empty for no limit.',
-    displayCondition: (values: LineFormValues) => !readsSchedule(values),
-    valueWhenHidden: null,
-  },
-];
-
-const ALLOCATION_SUFFIX: Partial<Record<string, string>> = { monthly: '/mo', annual: '/yr' };
 
 const describeAllocation = (kind: string, amount: number): string => {
   const suffix = ALLOCATION_SUFFIX[kind];
   return suffix === undefined ? '—' : `${formatCurrency(amount)} ${suffix}`;
 };
 
-const EditLine = ({ row, budgetYearId }: { row: WaterfallRow; budgetYearId: string }) => {
-  const router = useRouter();
-  const mutation = api.budget.updateLine.useMutation();
-  const { line } = row;
-  if (line === undefined) {
-    return null;
-  }
-  return (
-    <MutationModal
-      button={<RowActionTrigger icon={Pencil} label="Edit" />}
-      defaultValues={{
-        id: line.id,
-        budgetYearId,
-        name: line.name,
-        rule: line.rule,
-        allocationKind: line.allocationKind,
-        allocationAmount: line.allocationAmount,
-        discretionary: line.discretionary,
-        closed: line.closed,
-      }}
-      fields={lineFields}
-      mutation={mutation}
-      refresh={() => {
-        router.refresh();
-      }}
-      schema={budgetLineFormSchema.extend({ id: z.string() })}
-      successToast={() => 'Line updated'}
-      titleText={`Edit ${line.name}`}
-    />
-  );
-};
-
-const DeleteLine = ({ id, budgetYearId }: { id: string; budgetYearId: string }) => {
-  const router = useRouter();
-  const mutation = api.budget.deleteLine.useMutation();
-  return (
-    <DeleteConfirmationDialog
-      mutation={mutation}
-      mutationInput={{ id, budgetYearId }}
-      refresh={() => {
-        router.refresh();
-      }}
-    >
-      <RowActionTrigger destructive icon={Trash} label="Delete" />
-    </DeleteConfirmationDialog>
-  );
-};
-
 const waterfallColumns = (
   year: YearDetail['year'],
   projection: YearDetail['projection'],
+  commitmentsByLine: YearDetail['commitmentsByLine'],
 ): ColumnDef<WaterfallRow>[] => {
   const budgetYearId = year.id;
   return [
@@ -260,9 +107,7 @@ const waterfallColumns = (
     {
       id: 'yearBudget',
       header: 'Year budget',
-      cell: ({ row }) => (
-        <span className="text-muted-foreground">{formatCurrency(row.original.yearBudget)}</span>
-      ),
+      cell: ({ row }) => <YearBudgetValue projection={projection} row={row.original} />,
       enableSorting: false,
       meta: { align: 'right' },
     },
@@ -276,23 +121,19 @@ const waterfallColumns = (
     {
       id: 'committed',
       header: 'Committed',
-      cell: ({ row }) =>
-        row.original.committed === 0 ? (
-          <span className="text-muted-foreground">--</span>
-        ) : (
-          <span className="text-muted-foreground">{formatCurrency(row.original.committed)}</span>
-        ),
+      cell: ({ row }) => (
+        <CommittedValue
+          payments={commitmentsByLine[row.original.lineId] ?? []}
+          row={row.original}
+        />
+      ),
       enableSorting: false,
       meta: { align: 'right' },
     },
     {
       id: 'remaining',
       header: 'Remaining',
-      cell: ({ row }) => (
-        <span className={row.original.overspent ? 'text-destructive' : undefined}>
-          {formatCurrency(row.original.remaining)}
-        </span>
-      ),
+      cell: ({ row }) => <WaterfallValue field="remaining" row={row.original} />,
       enableSorting: false,
       meta: { align: 'right' },
     },
@@ -314,7 +155,7 @@ const waterfallColumns = (
             lineId={row.original.lineId}
             start={year.startDate}
           />
-          <EditLine budgetYearId={budgetYearId} row={row.original} />
+          <EditLine budgetYearId={budgetYearId} line={row.original.line} />
           <DeleteLine budgetYearId={budgetYearId} id={row.original.lineId} />
         </RowActions>
       ),
@@ -331,7 +172,7 @@ export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
   const [, startTransition] = useTransition();
   const createLine = api.budget.createLine.useMutation();
   const reorderLines = api.budget.reorderLines.useMutation();
-  const { year, lines, totals, projection } = detail;
+  const { year, lines, totals, projection, commitmentsByLine } = detail;
 
   const projected = new Map(projection.lines.map((line) => [line.lineId, line]));
   const lineById = new Map(lines.map((line) => [line.id, line]));
@@ -344,9 +185,17 @@ export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
     allocationAmount: line.allocationAmount,
     actual: line.actual,
     yearBudget: projected.get(line.lineId)?.yearBudget ?? 0,
-    committed: projected.get(line.lineId)?.committed ?? 0,
+    committed:
+      line.allocationKind === 'residual'
+        ? (projected.get(line.lineId)?.yearBudget ?? 0) -
+          (projected.get(line.lineId)?.allocationAmount ?? 0)
+        : (projected.get(line.lineId)?.committed ?? 0),
     closed: line.closed,
-    remaining: projected.get(line.lineId)?.remaining ?? 0,
+    remaining:
+      line.allocationKind === 'residual'
+        ? (projected.get(line.lineId)?.allocationAmount ?? 0) -
+          (projected.get(line.lineId)?.actual ?? 0)
+        : (projected.get(line.lineId)?.remaining ?? 0),
     overspent: projected.get(line.lineId)?.overspent ?? false,
     line: lineById.get(line.lineId),
     projected: projected.get(line.lineId),
@@ -357,7 +206,7 @@ export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
 
   const { table } = useDataTable({
     data: rows,
-    columns: waterfallColumns(year, projection),
+    columns: waterfallColumns(year, projection, commitmentsByLine),
     pageCount: -1,
   });
 

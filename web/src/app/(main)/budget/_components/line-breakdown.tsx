@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 
 import { Info } from 'lucide-react';
 
+import { CalculationDetails } from '@/components/calculation-details';
 import { RowActionTrigger } from '@/components/data-table/row-actions';
 import { HelpCalc, HelpNote, type CalcRow } from '@/components/help/help-visuals';
 import Modal from '@/components/modal';
@@ -115,6 +116,27 @@ const yearBudgetWorking = (
   }
 };
 
+export const YearBudgetBreakdown = ({
+  line,
+  projection,
+  trigger,
+}: {
+  line: ProjectedLine;
+  projection: Projection;
+  trigger?: ReactElement;
+}) => {
+  const budget = yearBudgetWorking(line, projection);
+  return (
+    <CalculationDetails
+      note={budget.note}
+      result={{ label: YEAR_BUDGET, value: line.yearBudget }}
+      rows={budget.rows}
+      title={trigger === undefined ? undefined : `${line.name}: year budget`}
+      trigger={trigger}
+    />
+  );
+};
+
 const forecastWorking = (
   line: ProjectedLine,
   projection: Projection,
@@ -187,7 +209,6 @@ export const LineBreakdown = ({
 }) => {
   const [open, setOpen] = useState(false);
   const isResidual = line.allocationKind === 'residual';
-  const budget = yearBudgetWorking(line, projection);
   const forecast = forecastWorking(line, projection);
 
   return (
@@ -214,8 +235,7 @@ export const LineBreakdown = ({
         </Step>
 
         <Step title="Year budget">
-          <HelpCalc result={{ label: YEAR_BUDGET, value: line.yearBudget }} rows={budget.rows} />
-          <HelpNote>{budget.note}</HelpNote>
+          <YearBudgetBreakdown line={line} projection={projection} />
         </Step>
 
         <Step title="Committed">

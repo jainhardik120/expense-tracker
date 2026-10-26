@@ -275,6 +275,8 @@ export const spentOnDiscretionary = (
 
 export type ScheduleTotals = { year: number; toDate: number; remaining: number; overdue: number };
 
+type ScheduleDetails = ScheduleTotals & { pendingPayments: ScheduledEmiPayment[] };
+
 export const scheduleTotalsFrom = (
   payments: Pick<ScheduledEmiPayment, 'status' | 'myShare'>[],
 ): ScheduleTotals => {
@@ -300,8 +302,8 @@ export const getScheduledTotals = instrumentedFunction(
     from: Date,
     to: Date,
     now: Date,
-  ): Promise<Map<string, ScheduleTotals>> => {
-    const totals = new Map<string, ScheduleTotals>();
+  ): Promise<Map<string, ScheduleDetails>> => {
+    const totals = new Map<string, ScheduleDetails>();
     if (lines.length === 0) {
       return totals;
     }
@@ -328,7 +330,12 @@ export const getScheduledTotals = instrumentedFunction(
       const payments = emis
         .filter((emi) => ownerByEmi.get(emi.id) === line.id)
         .flatMap((emi) => getEmiPaymentsInRange(emi, emi.creditCardName, from, to, now));
-      totals.set(line.id, scheduleTotalsFrom(payments));
+      totals.set(line.id, {
+        ...scheduleTotalsFrom(payments),
+        pendingPayments: payments.filter(
+          (payment) => payment.status !== 'paid' && payment.myShare !== 0,
+        ),
+      });
     }
     return totals;
   },

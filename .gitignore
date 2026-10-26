@@ -6,3 +6,6 @@
 
 loadtest/results/
 loadtest/users.json
+
+# Local database credentials, exports, and development-server logs
+.local-db/

@@ -229,6 +229,9 @@ export const budgetRouter = createTRPCRouter({
         incomeLines,
         totals,
         projection,
+        commitmentsByLine: Object.fromEntries(
+          [...scheduled].map(([lineId, schedule]) => [lineId, schedule.pendingPayments]),
+        ),
         balanceToday,
         balanceParts: { inAccounts, owedToFriends },
         pendingSpend: pendingSms.totalSpend,
