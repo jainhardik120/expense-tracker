@@ -162,6 +162,7 @@ const LinkToRecurringPaymentContent = ({
   const { data: salaryCandidates, isLoading: salaryLoading } =
     api.salary.getLinkCandidates.useQuery({ statementDate }, { enabled: canLinkSalary });
   const linkSalaryMutation = api.salary.linkStatement.useMutation();
+  const addToPaymentMutation = api.salary.addStatementToPayment.useMutation();
 
   if (recurringLoading || emisLoading || (canLinkSalary && salaryLoading)) {
     return (
@@ -193,26 +194,41 @@ const LinkToRecurringPaymentContent = ({
             <div className="font-medium">{candidate.revisionName}</div>
             <div className="text-muted-foreground text-sm">
               <ZonedDate pattern={DATE_FORMAT.month} value={candidate.periodStart} /> ·{' '}
-              {formatCurrency(candidate.totals.net)} estimated net
+              {candidate.paymentId === null ? (
+                `${formatCurrency(candidate.totals.net)} estimated net`
+              ) : (
+                <>
+                  {formatCurrency(candidate.statementAmount ?? 0)} of{' '}
+                  {formatCurrency(candidate.totals.net)} net already linked
+                </>
+              )}
             </div>
           </div>
           <Button
-            disabled={linkSalaryMutation.isPending}
+            disabled={linkSalaryMutation.isPending || addToPaymentMutation.isPending}
             onClick={async () => {
               try {
-                await linkSalaryMutation.mutateAsync({
-                  statementId,
-                  revisionId: candidate.revisionId,
-                  periodStart: candidate.periodStart,
-                });
-                toast.success('Statement linked to salary period');
+                if (candidate.paymentId === null) {
+                  await linkSalaryMutation.mutateAsync({
+                    statementId,
+                    revisionId: candidate.revisionId,
+                    periodStart: candidate.periodStart,
+                  });
+                  toast.success('Statement linked to salary period');
+                } else {
+                  await addToPaymentMutation.mutateAsync({
+                    statementId,
+                    paymentId: candidate.paymentId,
+                  });
+                  toast.success("Statement added to this month's pay");
+                }
                 onSuccess();
               } catch (error) {
                 toast.error((error as Error).message);
               }
             }}
           >
-            Link salary
+            {candidate.paymentId === null ? 'Link salary' : 'Add to pay'}
           </Button>
         </div>
       ))}

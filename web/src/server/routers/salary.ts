@@ -8,6 +8,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  ne,
   sql,
 } from 'drizzle-orm';
 import { z } from 'zod';
@@ -542,14 +543,14 @@ export const salaryRouter = createTRPCRouter({
         ctx.user.id,
         getFinancialYearStart(input.statementDate),
       );
-      return data.rows
-        .filter((row) => row.status !== 'actual')
-        .sort(
-          (left, right) =>
-            Math.abs(left.paymentDate.getTime() - input.statementDate.getTime()) -
-            Math.abs(right.paymentDate.getTime() - input.statementDate.getTime()),
-        )
-        .slice(0, 1);
+      const byDistance = data.rows.toSorted(
+        (left, right) =>
+          Math.abs(left.paymentDate.getTime() - input.statementDate.getTime()) -
+          Math.abs(right.paymentDate.getTime() - input.statementDate.getTime()),
+      );
+      const period = byDistance.find((row) => row.status !== 'actual');
+      const payment = byDistance.find((row) => row.status === 'actual');
+      return [period, payment].filter((row) => row !== undefined);
     }),
 
   createComponent: protectedProcedure
@@ -774,6 +775,40 @@ export const salaryRouter = createTRPCRouter({
       });
     }),
 
+  addStatementToPayment: protectedProcedure
+    .input(z.object({ statementId: z.uuidv4(), paymentId: z.uuidv4() }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (tx) => {
+        const statement = await lockStatementAttributes(tx, ctx.user.id, input.statementId);
+        const { attributes } = statement;
+        if (
+          attributes.recurringPaymentId !== undefined ||
+          attributes.emiId !== undefined ||
+          attributes.salaryPaymentId !== undefined
+        ) {
+          throw new Error('This statement is already linked');
+        }
+        const payments = await tx
+          .select({ id: salaryPayments.id })
+          .from(salaryPayments)
+          .where(
+            and(eq(salaryPayments.id, input.paymentId), eq(salaryPayments.userId, ctx.user.id)),
+          )
+          .limit(1);
+        if (payments.length === 0) {
+          throw new Error('Salary payment not found or access denied');
+        }
+        await tx
+          .update(statements)
+          .set({
+            additionalAttributes: { ...attributes, salaryPaymentId: input.paymentId },
+            taxableAmount: null,
+          })
+          .where(and(eq(statements.id, input.statementId), eq(statements.userId, ctx.user.id)));
+        return { success: true };
+      }),
+    ),
+
   unlinkStatement: protectedProcedure
     .input(z.object({ statementId: z.uuidv4() }))
     .mutation(({ ctx, input }) =>
@@ -785,6 +820,35 @@ export const salaryRouter = createTRPCRouter({
           throw new Error('Statement is not linked to a salary payment');
         }
         const { salaryPaymentId: _removed, ...remainingAttributes } = attributes;
+        const otherCredits = await tx
+          .select({ id: statements.id, createdAt: statements.createdAt })
+          .from(statements)
+          .where(
+            and(
+              eq(statements.userId, ctx.user.id),
+              eq(statementAttribute('salaryPaymentId'), paymentId),
+              ne(statements.id, input.statementId),
+            ),
+          )
+          .orderBy(asc(statements.createdAt));
+        const remaining = otherCredits.at(0);
+        if (remaining !== undefined) {
+          await tx
+            .update(salaryPayments)
+            .set({ statementId: remaining.id, paymentDate: remaining.createdAt })
+            .where(
+              and(
+                eq(salaryPayments.id, paymentId),
+                eq(salaryPayments.userId, ctx.user.id),
+                eq(salaryPayments.statementId, input.statementId),
+              ),
+            );
+          await tx
+            .update(statements)
+            .set({ additionalAttributes: remainingAttributes })
+            .where(and(eq(statements.id, input.statementId), eq(statements.userId, ctx.user.id)));
+          return { success: true };
+        }
         const linkedBonusLines = await tx
           .select({ bonusId: salaryPaymentComponents.bonusId })
           .from(salaryPaymentComponents)
