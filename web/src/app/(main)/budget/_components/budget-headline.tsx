@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { format, parse, setDate } from 'date-fns';
+import { differenceInCalendarDays, format, parse, setDate } from 'date-fns';
 import { Pencil } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -135,6 +135,9 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
   const months = projection.spendMonths;
   const incomeRemaining = pendingCounted;
   const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
+  const daysLeftInYear = Math.max(differenceInCalendarDays(detail.year.endDate, new Date()), 0);
+  const goalRemaining = Math.max(savedGoal - investedSoFar, 0);
+  const leftForLiving = leftToSpendOrInvest - goalRemaining;
   const cycleOpened = format(
     setDate(parse(thisCycle.key, 'yyyy-MM', new Date()), detail.year.startDate.getDate()),
     DATE_FORMAT.day,
@@ -151,8 +154,9 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
             <LeftBreakdown detail={detail} />
           </CardTitle>
           <CardDescription>
-            {months.toFixed(1)} months left to spend in, {incomeCyclesRemaining} more salaries.
-            Everything already promised comes off first.
+            {months.toFixed(1)} months ({daysLeftInYear} {daysLeftInYear === 1 ? 'day' : 'days'})
+            left to spend in, {incomeCyclesRemaining} more salaries. Everything already promised
+            comes off first.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm">
@@ -187,6 +191,14 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
             Carrying on as you are, {formatCurrency(discretionaryRemaining)} of that goes on living
             and the rest is invested.
           </p>
+
+          <div className="h-2" />
+          <Row
+            label="Still to invest for your goal"
+            note={`${formatCurrency(investedSoFar)} of ${formatCurrency(savedGoal)} done`}
+            value={-goalRemaining}
+          />
+          <Row label="Left for living" rule strong value={leftForLiving} />
         </CardContent>
       </Card>
 
