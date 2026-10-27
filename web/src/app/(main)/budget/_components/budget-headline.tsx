@@ -94,6 +94,42 @@ const Scenario = ({
   );
 };
 
+const NAMES_SHOWN = 3;
+
+const listNames = (names: string[]): string =>
+  names.length <= NAMES_SHOWN
+    ? names.join(', ')
+    : `${names.slice(0, NAMES_SHOWN).join(', ')} and ${String(names.length - NAMES_SHOWN)} more`;
+
+const describeLines = (lines: YearDetail['projection']['lines']) => {
+  const living = lines.filter((line) => line.discretionary && line.allocationKind === 'monthly');
+  return {
+    promised: lines
+      .filter(
+        (line) =>
+          line.allocationKind !== 'residual' &&
+          !living.includes(line) &&
+          line.forecastRemaining !== 0,
+      )
+      .map((line) => line.name),
+    living: living.map((line) => line.name),
+    residual: lines.find((line) => line.allocationKind === 'residual')?.name ?? null,
+  };
+};
+
+const restSentence = (
+  named: ReturnType<typeof describeLines>,
+  livingAmount: number,
+  hasLines: boolean,
+): string => {
+  if (!hasLines) {
+    return 'There are no budget lines yet, so nothing is promised or planned. Add lines, or copy them from another year.';
+  }
+  const spentOn = named.living.length === 0 ? 'day-to-day spending' : listNames(named.living);
+  const rest = named.residual === null ? 'is not given to any line' : `goes to ${named.residual}`;
+  return `Carrying on as you are, ${formatCurrency(livingAmount)} of that goes on ${spentOn} and the rest ${rest}.`;
+};
+
 export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
   const {
     projection,
@@ -134,8 +170,15 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
 
   const months = projection.spendMonths;
   const incomeRemaining = pendingCounted;
-  const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
-  const { daysLeftInYear } = detail;
+  const { keptOutside } = detail;
+  const totalAvailable = balanceToday - pendingSpend + incomeRemaining - keptOutside;
+  const leftToSpendOrInvest = totalAvailable - commitmentsRemaining;
+  const { daysLeftInYear, pendingIncome } = detail;
+  const named = describeLines(projection.lines);
+  const incomeNote =
+    pendingIncome.payments > 0 && incomeRemaining === 0
+      ? `${String(pendingIncome.payments)} salaries expected, but no income line counts them yet`
+      : `${String(incomeCyclesRemaining)} salaries`;
   const goalRemaining = Math.max(savedGoal - investedSoFar, 0);
   const leftForLiving = leftToSpendOrInvest - goalRemaining;
   const cycleOpened = format(
@@ -168,28 +211,25 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
               value={-pendingSpend}
             />
           )}
-          <Row
-            label="Income still to come"
-            note={`${incomeCyclesRemaining} salaries`}
-            value={incomeRemaining}
-          />
-          <Row
-            label="Total available"
-            rule
-            strong
-            value={balanceToday - pendingSpend + incomeRemaining}
-          />
+          <Row label="Income still to come" note={incomeNote} value={incomeRemaining} />
+          {keptOutside === 0 ? null : (
+            <Row
+              label="Kept outside the budget"
+              note="income set to stay out of the plan"
+              value={-keptOutside}
+            />
+          )}
+          <Row label="Total available" rule strong value={totalAvailable} />
 
           <div className="h-2" />
           <Row
             label="Everything already promised"
-            note="rent, money home, loans, flights"
+            note={named.promised.length === 0 ? 'nothing yet' : listNames(named.promised)}
             value={-commitmentsRemaining}
           />
           <Row label="Left to spend or invest" rule strong value={leftToSpendOrInvest} />
           <p className="text-muted-foreground pt-2 text-xs">
-            Carrying on as you are, {formatCurrency(discretionaryRemaining)} of that goes on living
-            and the rest is invested.
+            {restSentence(named, discretionaryRemaining, projection.lines.length > 0)}
           </p>
 
           <div className="h-2" />

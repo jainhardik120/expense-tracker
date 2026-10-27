@@ -40,6 +40,7 @@ export const budgetYearSchema = z.object({
   startDate: z.date(),
   endDate: z.date(),
   openingBalanceLineId: z.string().nullable().default(null),
+  openingBalanceDestination: z.enum(budgetIncomeDestinations).default('waterfall'),
 });
 
 export const budgetLineSchema = z.object({

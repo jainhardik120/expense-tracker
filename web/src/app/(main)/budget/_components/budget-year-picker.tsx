@@ -20,6 +20,8 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { budgetYearSchema } from '@/types/budget';
 
+import { CopyLinesFromYear } from './copy-lines';
+
 type Years = RouterOutput['budget']['getYears'];
 
 const yearFields = [
@@ -56,6 +58,7 @@ const EditYear = ({ year }: { year: Years[number] }) => {
         startDate: calendarDateForPicker(year.startDate),
         endDate: calendarDateForPicker(year.endDate),
         openingBalanceLineId: year.openingBalanceLineId,
+        openingBalanceDestination: year.openingBalanceDestination,
       }}
       fields={yearFields}
       mutation={mutation}
@@ -130,6 +133,9 @@ export const BudgetYearPicker = ({
         </SelectContent>
       </Select>
       {selected === undefined ? null : <EditYear key={selected.id} year={selected} />}
+      {selected === undefined ? null : (
+        <CopyLinesFromYear budgetYearId={selected.id} years={years} />
+      )}
       {newYearForm}
     </div>
   );

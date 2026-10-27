@@ -88,7 +88,8 @@ export const BudgetLinesHelp = () => (
         ]}
       />
       <HelpNote>
-        Rent and money sent home. Spending under it is money saved, not money still to go out.
+        Rent, a regular transfer, a subscription. Spending under it is money saved, not money still
+        to go out.
       </HelpNote>
     </HelpCard>
 
@@ -98,8 +99,8 @@ export const BudgetLinesHelp = () => (
         rows={[{ label: 'Allocation', value: 10000, note: '/yr' }]}
       />
       <HelpNote>
-        An envelope — flights, shopping. It is assumed you will use all of it, because the flight
-        home is still going to be booked. Mark the line done when it is finished.
+        An envelope — travel, shopping. It is assumed you will use all of it, because the spending
+        it is for is still to come. Mark the line done when it is finished.
       </HelpNote>
     </HelpCard>
 

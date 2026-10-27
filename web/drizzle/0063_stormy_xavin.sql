@@ -1,0 +1,2 @@
+ALTER TABLE "budget_years" ADD COLUMN "opening_balance_destination" "budget_income_destination" DEFAULT 'waterfall' NOT NULL;--> statement-breakpoint
+UPDATE "budget_years" SET "opening_balance_destination" = 'line' WHERE "opening_balance_line_id" IS NOT NULL;

@@ -175,12 +175,10 @@ export const budgetRouter = createTRPCRouter({
       const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, window.start, window.end);
       const { totals, unclaimed, actualsByLine } = summariseLines(lines, scoped);
       const now = new Date();
-      const pending = await getPendingIncome(
-        ctx.db,
-        ctx.user.id,
-        now,
-        window.end > now ? window.end : now,
-      );
+      const started = window.start <= now;
+      const from = started ? now : window.start;
+      const until = window.end > from ? window.end : from;
+      const pending = await getPendingIncome(ctx.db, ctx.user.id, from, until);
       const income = summariseIncome(
         incomeLines,
         scoped,
@@ -203,21 +201,32 @@ export const budgetRouter = createTRPCRouter({
       const cyclesTotal = Math.round(totalMonths);
       const incomeCyclesRemaining = pending.payments;
       const cyclesElapsed = Math.max(cyclesTotal - incomeCyclesRemaining, 0);
-      const monthsRemaining = Math.max(
-        monthsBetween(zoned(now), zoned(window.end > now ? window.end : now)),
-        0,
-      );
+      const monthsRemaining = Math.max(monthsBetween(zoned(from), zoned(until)), 0);
 
       const earmarkedIncome = new Map(income.earmarked);
-      const openingIsEarmarked = year.openingBalanceLineId !== null;
-      if (year.openingBalanceLineId !== null) {
+      const openingLineId =
+        year.openingBalanceDestination === 'line' &&
+        lines.some((line) => line.id === year.openingBalanceLineId)
+          ? year.openingBalanceLineId
+          : null;
+      if (openingLineId !== null) {
         earmarkedIncome.set(
-          year.openingBalanceLineId,
-          (earmarkedIncome.get(year.openingBalanceLineId) ?? 0) + openingBalance,
+          openingLineId,
+          (earmarkedIncome.get(openingLineId) ?? 0) + openingBalance,
         );
       }
+      const openingInWaterfall =
+        year.openingBalanceDestination === 'waterfall' ||
+        (year.openingBalanceDestination === 'line' && openingLineId === null);
+      const keptOutside =
+        (year.openingBalanceDestination === 'excluded' ? openingBalance : 0) +
+        incomeLines
+          .filter((line) => line.destination === 'excluded' && line.source === 'statements')
+          .reduce((sum, line) => sum + (income.claimedByLine.get(line.id) ?? 0), 0);
 
-      const pendingSms = await getPendingSmsEstimate(ctx.db, ctx.user.id);
+      const pendingSms = started
+        ? await getPendingSmsEstimate(ctx.db, ctx.user.id)
+        : { totalSpend: 0, count: 0 };
 
       const scheduled = await getScheduledTotals(
         ctx.db,
@@ -245,14 +254,14 @@ export const budgetRouter = createTRPCRouter({
         income.waterfall,
         cyclesElapsed,
         cyclesTotal,
-        openingIsEarmarked ? 0 : openingBalance,
+        openingInWaterfall ? openingBalance : 0,
         monthsRemaining,
         pendingSms.totalSpend,
         income.pendingWaterfall,
       );
       const cycleStartDay = cycleStartDayOf(year);
       const cycles = summariseByCycle(lines, scoped, cycleStartDay, timeZone);
-      const openCycle = cycleKeyFor(now, cycleStartDay, timeZone);
+      const openCycle = cycleKeyFor(from, cycleStartDay, timeZone);
       const spentThisCycle = spentOnDiscretionary(
         cycles.find((row) => row.cycle === openCycle),
         lines,
@@ -260,7 +269,7 @@ export const budgetRouter = createTRPCRouter({
       const cycleStart = zonedCycleStart(openCycle, cycleStartDay, timeZone);
       const nextCycle = nextCycleStart(cycleStart, timeZone);
       const cycleEnd = nextCycle < window.end ? nextCycle : window.end;
-      const daysLeft = Math.max(zonedDaysBetween(now, cycleEnd, timeZone), 0);
+      const daysLeft = Math.max(zonedDaysBetween(from, cycleEnd, timeZone), 0);
       const allowanceInputs = {
         spent: spentThisCycle + pendingSms.totalSpend,
         monthsFromCycleStart: monthsBetween(zoned(cycleStart), zoned(window.end)),
@@ -280,7 +289,8 @@ export const budgetRouter = createTRPCRouter({
       return {
         year,
         window,
-        daysLeftInYear: Math.max(zonedDaysBetween(now, window.end, timeZone), 0),
+        started,
+        daysLeftInYear: Math.max(zonedDaysBetween(from, window.end, timeZone), 0),
         lines,
         incomeLines,
         totals,
@@ -294,6 +304,7 @@ export const budgetRouter = createTRPCRouter({
         pendingSpend: pendingSms.totalSpend,
         pendingCount: pendingSms.count,
         openingBalance,
+        keptOutside,
         incomeCyclesRemaining,
         pendingIncome: pending,
         pendingCounted: income.pendingCounted,
@@ -336,6 +347,74 @@ export const budgetRouter = createTRPCRouter({
         throw new Error('This year has no investment line to set a goal on');
       }
     }),
+
+  copyLinesFromYear: protectedProcedure
+    .input(z.object({ budgetYearId: z.string(), sourceYearId: z.string() }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.transaction(async (tx) => {
+        if (input.budgetYearId === input.sourceYearId) {
+          throw new Error('Pick a different year to copy from');
+        }
+        await lockOwnedYear(tx, ctx.user.id, input.budgetYearId);
+        await assertOwnedYear(tx, ctx.user.id, input.sourceYearId);
+        const [sourceLines, sourceIncome, targetLines, targetIncome] = await Promise.all([
+          getYearLines(tx, input.sourceYearId),
+          getYearIncomeLines(tx, input.sourceYearId),
+          getYearLines(tx, input.budgetYearId),
+          getYearIncomeLines(tx, input.budgetYearId),
+        ]);
+        const lineIdBySource = new Map<string, string>();
+        const targetLineByName = new Map(targetLines.map((line) => [line.name, line.id]));
+        let linePosition = await nextLinePosition(tx, budgetLines, input.budgetYearId);
+        let addedLines = 0;
+        for (const line of sourceLines) {
+          const existing = targetLineByName.get(line.name);
+          if (existing !== undefined) {
+            lineIdBySource.set(line.id, existing);
+            continue;
+          }
+          const [created] = await tx
+            .insert(budgetLines)
+            .values({
+              budgetYearId: input.budgetYearId,
+              name: line.name,
+              position: linePosition,
+              rule: line.rule,
+              allocationKind: line.allocationKind,
+              allocationAmount: line.allocationAmount,
+              discretionary: line.discretionary,
+              closed: false,
+            })
+            .returning({ id: budgetLines.id });
+          lineIdBySource.set(line.id, created.id);
+          linePosition += 1;
+          addedLines += 1;
+        }
+        const targetIncomeNames = new Set(targetIncome.map((line) => line.name));
+        let incomePosition = await nextLinePosition(tx, budgetIncomeLines, input.budgetYearId);
+        let addedIncome = 0;
+        for (const line of sourceIncome) {
+          if (targetIncomeNames.has(line.name)) {
+            continue;
+          }
+          await tx.insert(budgetIncomeLines).values({
+            budgetYearId: input.budgetYearId,
+            name: line.name,
+            position: incomePosition,
+            rule: line.rule,
+            source: line.source,
+            destination: line.destination,
+            destinationLineId:
+              line.destinationLineId === null
+                ? null
+                : (lineIdBySource.get(line.destinationLineId) ?? null),
+          });
+          incomePosition += 1;
+          addedIncome += 1;
+        }
+        return { addedLines, addedIncome };
+      }),
+    ),
 
   createLine: protectedProcedure.input(budgetLineFormSchema).mutation(({ ctx, input }) =>
     ctx.db.transaction(async (tx) => {

@@ -38,7 +38,13 @@ const OPENING_ROW_ID = '__opening_balance__';
 const NO_LINE = 'none';
 
 type IncomeRow =
-  | { kind: 'opening'; id: typeof OPENING_ROW_ID; amount: number; destinationLineId: string | null }
+  | {
+      kind: 'opening';
+      id: typeof OPENING_ROW_ID;
+      amount: number;
+      destination: YearDetail['year']['openingBalanceDestination'];
+      destinationLineId: string | null;
+    }
   | ({ kind: 'line' } & IncomeLine);
 
 const PAYROLL_CLAIM: Record<string, string> = {
@@ -61,6 +67,15 @@ const DESTINATION_LABEL: Record<string, string> = {
   line: 'Earmarked to a line',
   excluded: 'Outside the budget',
 };
+
+const DESTINATION_OPTIONS = [
+  { label: 'Down the waterfall', value: 'waterfall' },
+  { label: 'Earmarked to one line', value: 'line' },
+  { label: 'Outside the budget', value: 'excluded' },
+];
+
+const DESTINATION_HELP =
+  'Down the waterfall, it pays for the lines in order and whatever is left goes to the residual line. Outside the budget, the money stays in your balance but the plan acts as if it is not there.';
 
 const SOURCE_LABEL: Record<string, string> = {
   statements: 'Matched from statements',
@@ -85,11 +100,8 @@ const incomeFields = (lineOptions: { label: string; value: string }[]) => [
     name: 'destination' as const,
     label: 'Where it goes',
     type: 'select' as const,
-    options: [
-      { label: 'Down the waterfall — ordinary income', value: 'waterfall' },
-      { label: 'Earmarked to one line', value: 'line' },
-      { label: 'Outside the budget — a bonus you will not spend', value: 'excluded' },
-    ],
+    description: DESTINATION_HELP,
+    options: DESTINATION_OPTIONS,
   },
   {
     name: 'destinationLineId' as const,
@@ -189,16 +201,24 @@ const EditOpeningBalance = ({ detail }: { detail: YearDetail }) => {
         name: year.name,
         startDate: calendarDateForPicker(year.startDate),
         endDate: calendarDateForPicker(year.endDate),
+        openingBalanceDestination: year.openingBalanceDestination,
         openingBalanceLineId: year.openingBalanceLineId ?? NO_LINE,
       }}
       fields={[
         {
+          name: 'openingBalanceDestination' as const,
+          label: 'Where it goes',
+          type: 'select' as const,
+          description: DESTINATION_HELP,
+          options: DESTINATION_OPTIONS,
+        },
+        {
           name: 'openingBalanceLineId' as const,
-          label: 'Where last year’s leftover goes',
+          label: 'Which line (only if earmarked)',
           type: 'select' as const,
           options: [
-            { label: 'The general pot — like salary', value: NO_LINE },
-            ...lines.map((line) => ({ label: `Set aside for ${line.name}`, value: line.id })),
+            { label: 'None', value: NO_LINE },
+            ...lines.map((line) => ({ label: line.name, value: line.id })),
           ],
         },
       ]}
@@ -206,17 +226,24 @@ const EditOpeningBalance = ({ detail }: { detail: YearDetail }) => {
       refresh={() => {
         router.refresh();
       }}
-      schema={z.object({
-        id: z.string(),
-        name: z.string(),
-        startDate: z.date(),
-        endDate: z.date(),
-        openingBalanceLineId: z
-          .string()
-          .nullable()
-          .transform((value) => (value === null || value === NO_LINE ? null : value)),
-      })}
-      successToast={() => 'Opening balance updated'}
+      schema={z
+        .object({
+          id: z.string(),
+          name: z.string(),
+          startDate: z.date(),
+          endDate: z.date(),
+          openingBalanceDestination: z.enum(['waterfall', 'line', 'excluded']),
+          openingBalanceLineId: z
+            .string()
+            .nullable()
+            .transform((value) => (value === null || value === NO_LINE ? null : value)),
+        })
+        .refine(
+          (values) =>
+            values.openingBalanceDestination !== 'line' || values.openingBalanceLineId !== null,
+          { message: 'Pick the line to earmark it to', path: ['openingBalanceLineId'] },
+        )}
+      successToast={() => 'Carried-in balance updated'}
       titleText="Carried in from last year"
     />
   );
@@ -299,12 +326,6 @@ const incomeColumns = ({
       id: 'destination',
       header: 'Goes to',
       cell: ({ row }) => {
-        if (row.original.kind === 'opening') {
-          const target = targetName(row.original.destinationLineId);
-          return (
-            <span>{target === null ? 'The general pot' : `Earmarked to a line → ${target}`}</span>
-          );
-        }
         const { destination, destinationLineId } = row.original;
         const target = targetName(destinationLineId);
         return (
@@ -363,7 +384,9 @@ export const BudgetIncome = ({ detail }: { detail: YearDetail }) => {
       kind: 'opening',
       id: OPENING_ROW_ID,
       amount: openingBalance,
-      destinationLineId: year.openingBalanceLineId,
+      destination: year.openingBalanceDestination,
+      destinationLineId:
+        year.openingBalanceDestination === 'line' ? year.openingBalanceLineId : null,
     },
     ...orderedLines.map((line) => ({ kind: 'line' as const, ...line })),
   ];

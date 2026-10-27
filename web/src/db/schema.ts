@@ -516,6 +516,12 @@ export const salaryTaxSettings = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.financialYearStart] })],
 );
 
+export const budgetIncomeDestinationEnum = pgEnum('budget_income_destination', [
+  'waterfall',
+  'line',
+  'excluded',
+]);
+
 export const budgetYears = pgTable(
   'budget_years',
   {
@@ -527,6 +533,9 @@ export const budgetYears = pgTable(
     startDate: timestamp('start_date').notNull(),
     endDate: timestamp('end_date').notNull(),
     openingBalanceLineId: uuid('opening_balance_line_id'),
+    openingBalanceDestination: budgetIncomeDestinationEnum('opening_balance_destination')
+      .notNull()
+      .default('waterfall'),
     createdAt: timestamp('created_at')
       .notNull()
       .$defaultFn(() => new Date()),
@@ -562,12 +571,6 @@ export const budgetLines = pgTable(
   },
   (table) => [index('budget_lines_year_position_idx').on(table.budgetYearId, table.position)],
 );
-
-export const budgetIncomeDestinationEnum = pgEnum('budget_income_destination', [
-  'waterfall',
-  'line',
-  'excluded',
-]);
 
 export const budgetIncomeSourceEnum = pgEnum('budget_income_source', [
   'statements',

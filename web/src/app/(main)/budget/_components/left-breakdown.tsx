@@ -27,10 +27,11 @@ export const LeftBreakdown = ({ detail }: { detail: YearDetail }) => {
     pendingCount,
     pendingIncome,
     pendingCounted,
+    keptOutside,
   } = detail;
   const { commitmentsRemaining, discretionaryRemaining, lines, spendMonths } = projection;
 
-  const totalAvailable = balanceToday - pendingSpend + pendingCounted;
+  const totalAvailable = balanceToday - pendingSpend + pendingCounted - keptOutside;
   const keptOut = pendingIncome.salary + pendingIncome.bonus - pendingCounted;
   const left = totalAvailable - commitmentsRemaining;
 
@@ -55,6 +56,15 @@ export const LeftBreakdown = ({ detail }: { detail: YearDetail }) => {
           },
         ]),
     { label: 'Income still to come', value: pendingCounted },
+    ...(keptOutside === 0
+      ? []
+      : [
+          {
+            label: 'Kept outside the budget',
+            value: -keptOutside,
+            note: 'set on the Income table',
+          },
+        ]),
     { label: 'Everything already promised', value: -commitmentsRemaining },
   ];
 
@@ -133,9 +143,9 @@ export const LeftBreakdown = ({ detail }: { detail: YearDetail }) => {
             }))}
           />
           <HelpNote>
-            Rent and money home for the months left, the instalments still on each loan, and
-            envelopes assumed to be spent. Day-to-day living is not here -- it is what is left over,
-            below.
+            Fixed monthly amounts for the months left, the instalments still on each loan, and
+            yearly envelopes assumed to be spent. Monthly lines you can cut back on are not here --
+            they come out of what is left over, below.
           </HelpNote>
         </Step>
 
@@ -145,7 +155,7 @@ export const LeftBreakdown = ({ detail }: { detail: YearDetail }) => {
             rows={[
               { label: 'Left to spend or invest', value: left },
               {
-                label: 'Living, at the rate you are going',
+                label: 'Monthly lines you can cut back on, at your pace',
                 value: -discretionaryRemaining,
                 note: `${spendMonths.toFixed(1)} months`,
               },
