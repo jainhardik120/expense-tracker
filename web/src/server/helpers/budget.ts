@@ -3,10 +3,12 @@ import { asc, eq, sql } from 'drizzle-orm';
 import { budgetIncomeLines, budgetLines } from '@/db/schema';
 import { summariseActual, type ActualGroup } from '@/lib/budget-actual';
 import {
-  assignToLine,
+  budgetLineFor,
+  canCountAsIncome,
+  incomeAmountOf,
   matchesRule,
   resolveLoanOwners,
-  type MatchableStatement,
+  type OwnableStatement,
 } from '@/lib/budget-rules';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
@@ -24,7 +26,7 @@ const parseRule = (value: unknown): BudgetRule => {
   return result.success ? result.data : emptyBudgetRule;
 };
 
-type ScopedStatement = MatchableStatement & {
+export type ScopedStatement = OwnableStatement & {
   id: string;
   emiId: string | null;
   emiName: string | null;
@@ -106,6 +108,7 @@ export const getStatementsInWindow = instrumentedFunction(
         emiName: row.emi_name,
         installment: row.installment_no === null ? null : Number(row.installment_no),
         accountRefs: [row.account_id, row.friend_id],
+        accountId: row.account_id,
         myAmount,
         costAmount: row.kind === 'outside_transaction' ? -myAmount : myAmount,
       };
@@ -128,6 +131,7 @@ export type LineTotals = {
 export const summariseIncome = (
   incomeLines: BudgetIncomeLineRow[],
   scoped: ScopedStatement[],
+  unclaimedIds: ReadonlySet<string>,
   pending: PendingIncome = { salary: 0, bonus: 0, payments: 0 },
 ): {
   waterfall: number;
@@ -136,6 +140,7 @@ export const summariseIncome = (
   pendingCounted: number;
   pendingByLine: Map<string, number>;
   claimedByLine: Map<string, number>;
+  unmatched: ScopedStatement[];
 } => {
   const ordered = [...incomeLines].sort((a, b) => a.position - b.position);
   const earmarked = new Map<string, number>();
@@ -144,6 +149,7 @@ export const summariseIncome = (
   let pendingCounted = 0;
   const pendingByLine = new Map<string, number>();
   const claimedByLine = new Map<string, number>();
+  const unmatched: ScopedStatement[] = [];
 
   const pendingAmountFor = (source: BudgetIncomeLineRow['source']): number | null => {
     if (source === 'pending_salary') {
@@ -171,29 +177,42 @@ export const summariseIncome = (
   }
 
   for (const statement of scoped) {
+    if (!canCountAsIncome(statement) || !unclaimedIds.has(statement.id)) {
+      continue;
+    }
+    const amount = incomeAmountOf(statement);
     const match = ordered.find(
       (line) => line.source === 'statements' && matchesRule(statement, line.rule),
     );
     if (match === undefined) {
+      unmatched.push(statement);
       continue;
     }
-    claimedByLine.set(match.id, (claimedByLine.get(match.id) ?? 0) + statement.myAmount);
+    claimedByLine.set(match.id, (claimedByLine.get(match.id) ?? 0) + amount);
     if (match.destination === 'excluded') {
       continue;
     }
     if (match.destination === 'waterfall') {
-      waterfall += statement.myAmount;
+      waterfall += amount;
       continue;
     }
     if (match.destinationLineId !== null) {
       earmarked.set(
         match.destinationLineId,
-        (earmarked.get(match.destinationLineId) ?? 0) + statement.myAmount,
+        (earmarked.get(match.destinationLineId) ?? 0) + amount,
       );
     }
   }
 
-  return { waterfall, earmarked, pendingWaterfall, pendingCounted, pendingByLine, claimedByLine };
+  return {
+    waterfall,
+    earmarked,
+    pendingWaterfall,
+    pendingCounted,
+    pendingByLine,
+    claimedByLine,
+    unmatched,
+  };
 };
 
 export const summariseLines = (
@@ -220,7 +239,7 @@ export const summariseLines = (
   const contributors: ScopedStatement[][] = ordered.map(() => []);
 
   for (const statement of scoped) {
-    const index = assignToLine(statement, ordered);
+    const index = budgetLineFor(statement, ordered);
     if (index === -1) {
       unclaimed.push(statement);
       continue;
@@ -262,7 +281,7 @@ export const summariseByCycle = (
   const byCycle = new Map<string, Record<string, number>>();
 
   for (const statement of scoped) {
-    const index = assignToLine(statement, ordered);
+    const index = budgetLineFor(statement, ordered);
     if (index === -1) {
       continue;
     }

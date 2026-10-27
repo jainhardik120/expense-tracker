@@ -114,6 +114,8 @@ const incomeFields = (lineOptions: { label: string; value: string }[]) => [
     name: 'rule.statementKinds' as const,
     label: 'Statement kinds',
     type: 'stringArray' as const,
+    description:
+      'outside_transaction for money in or out of your accounts, friend_transaction for money given to or taken from a friend with no account, such as a gift.',
     displayCondition: (values: IncomeFormValues) => !readsPayroll(values),
     valueWhenHidden: [] as string[],
   },

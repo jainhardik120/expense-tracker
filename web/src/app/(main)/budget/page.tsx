@@ -6,6 +6,7 @@ import { BudgetIncome } from './_components/budget-income';
 import { BudgetVariance } from './_components/budget-variance';
 import { BudgetWaterfall } from './_components/budget-waterfall';
 import { BudgetYearPicker } from './_components/budget-year-picker';
+import { UncountedAlert } from './_components/uncounted-alert';
 
 export default async function BudgetPage({
   searchParams,
@@ -24,6 +25,7 @@ export default async function BudgetPage({
       <BudgetYearPicker selectedId={selectedId} years={years} />
       <BudgetHeadline detail={detail} />
       <BudgetVariance detail={detail} />
+      <UncountedAlert detail={detail} />
       <BudgetWaterfall detail={detail} />
       <BudgetIncome detail={detail} />
       <BudgetCycles detail={detail} />

@@ -59,4 +59,19 @@ export const budgetIncomeLineSchema = z.object({
   destinationLineId: z.string().nullable().default(null),
 });
 
-export const budgetLineFormSchema = budgetLineSchema.extend({ budgetYearId: z.string() });
+const requireStatementKinds = <T extends z.ZodType<z.output<typeof budgetLineSchema>>>(schema: T) =>
+  schema.refine(
+    (line) => line.allocationKind === 'schedule' || line.rule.statementKinds.length > 0,
+    {
+      message: 'Pick at least one statement kind, or the line would claim transfers and salary',
+      path: ['rule', 'statementKinds'],
+    },
+  );
+
+const budgetLineFormFields = budgetLineSchema.extend({ budgetYearId: z.string() });
+
+export const budgetLineFormSchema = requireStatementKinds(budgetLineFormFields);
+
+export const budgetLineEditSchema = requireStatementKinds(
+  budgetLineFormFields.extend({ id: z.string() }),
+);

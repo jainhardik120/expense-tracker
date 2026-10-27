@@ -22,7 +22,12 @@ import { getPendingIncome } from '@/server/helpers/pending-income';
 import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
 import { getNetBalance } from '@/server/helpers/summary';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { budgetIncomeLineSchema, budgetLineSchema, budgetYearSchema } from '@/types/budget';
+import {
+  budgetIncomeLineSchema,
+  budgetLineEditSchema,
+  budgetLineFormSchema,
+  budgetYearSchema,
+} from '@/types/budget';
 
 const YEAR_NOT_FOUND = 'Budget year not found';
 
@@ -135,7 +140,16 @@ export const budgetRouter = createTRPCRouter({
         now,
         year.endDate > now ? year.endDate : now,
       );
-      const income = summariseIncome(incomeLines, scoped, pending);
+      const income = summariseIncome(
+        incomeLines,
+        scoped,
+        new Set(unclaimed.map((statement) => statement.id)),
+        pending,
+      );
+      const uncounted = [
+        ...unclaimed.filter((statement) => statement.statementKind === 'expense'),
+        ...income.unmatched,
+      ];
       const totalMonths = monthsBetween(year.startDate, year.endDate);
 
       const [today, opening] = await Promise.all([
@@ -249,8 +263,16 @@ export const budgetRouter = createTRPCRouter({
         ),
         cycles,
         thisCycle,
-        unclaimedCount: unclaimed.length,
-        unclaimedTotal: unclaimed.reduce((sum, s) => sum + s.myAmount, 0),
+        uncounted: uncounted
+          .toSorted((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+          .map((statement) => ({
+            id: statement.id,
+            createdAt: statement.createdAt,
+            category: statement.category,
+            tags: statement.tags,
+            statementKind: statement.statementKind,
+            balanceEffect: -statement.costAmount,
+          })),
       };
     }),
 
@@ -273,32 +295,28 @@ export const budgetRouter = createTRPCRouter({
       }
     }),
 
-  createLine: protectedProcedure
-    .input(budgetLineSchema.extend({ budgetYearId: z.string() }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.transaction(async (tx) => {
-        await lockOwnedYear(tx, ctx.user.id, input.budgetYearId);
-        const [created] = await tx
-          .insert(budgetLines)
-          .values({
-            ...input,
-            position: await nextLinePosition(tx, budgetLines, input.budgetYearId),
-          })
-          .returning();
-        return created;
-      }),
-    ),
-
-  updateLine: protectedProcedure
-    .input(budgetLineSchema.extend({ id: z.string(), budgetYearId: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
-      const { id, budgetYearId, ...rest } = input;
-      await ctx.db
-        .update(budgetLines)
-        .set(rest)
-        .where(and(eq(budgetLines.id, id), eq(budgetLines.budgetYearId, budgetYearId)));
+  createLine: protectedProcedure.input(budgetLineFormSchema).mutation(({ ctx, input }) =>
+    ctx.db.transaction(async (tx) => {
+      await lockOwnedYear(tx, ctx.user.id, input.budgetYearId);
+      const [created] = await tx
+        .insert(budgetLines)
+        .values({
+          ...input,
+          position: await nextLinePosition(tx, budgetLines, input.budgetYearId),
+        })
+        .returning();
+      return created;
     }),
+  ),
+
+  updateLine: protectedProcedure.input(budgetLineEditSchema).mutation(async ({ ctx, input }) => {
+    await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
+    const { id, budgetYearId, ...rest } = input;
+    await ctx.db
+      .update(budgetLines)
+      .set(rest)
+      .where(and(eq(budgetLines.id, id), eq(budgetLines.budgetYearId, budgetYearId)));
+  }),
 
   deleteLine: protectedProcedure
     .input(z.object({ id: z.string(), budgetYearId: z.string() }))

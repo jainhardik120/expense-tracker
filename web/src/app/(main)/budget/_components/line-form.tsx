@@ -3,14 +3,19 @@
 import { useRouter } from 'next/navigation';
 
 import { Pencil, Trash } from 'lucide-react';
-import { z } from 'zod';
 
 import { RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import MutationModal from '@/components/mutation-modal';
 import { api } from '@/server/react';
-import { budgetLineFormSchema, type budgetAllocationKinds } from '@/types/budget';
+import {
+  budgetLineEditSchema,
+  type budgetAllocationKinds,
+  type budgetLineFormSchema,
+} from '@/types/budget';
 import type { YearDetail } from '@/types/router-outputs';
+
+import type { z } from 'zod';
 
 const ALLOCATION_LABELS: Record<(typeof budgetAllocationKinds)[number], string> = {
   monthly: 'Fixed amount per month',
@@ -145,7 +150,7 @@ export const EditLine = ({
       refresh={() => {
         router.refresh();
       }}
-      schema={budgetLineFormSchema.extend({ id: z.string() })}
+      schema={budgetLineEditSchema}
       successToast={() => 'Line updated'}
       titleText={`Edit ${line.name}`}
     />

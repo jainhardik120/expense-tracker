@@ -28,6 +28,27 @@ export const assignToLine = <T extends { rule: BudgetRule }>(
   lines: T[],
 ): number => lines.findIndex((line) => matchesRule(statement, line.rule));
 
+export type OwnableStatement = MatchableStatement & { accountId: string | null };
+
+const isFriendAdjustment = (statement: OwnableStatement): boolean =>
+  statement.statementKind === 'friend_transaction' && statement.accountId === null;
+
+const movesNetBalance = (statement: OwnableStatement): boolean =>
+  statement.statementKind === 'expense' ||
+  statement.statementKind === 'outside_transaction' ||
+  isFriendAdjustment(statement);
+
+export const canCountAsIncome = (statement: OwnableStatement): boolean =>
+  statement.statementKind === 'outside_transaction' || isFriendAdjustment(statement);
+
+export const budgetLineFor = <T extends { rule: BudgetRule }>(
+  statement: OwnableStatement,
+  lines: T[],
+): number => (movesNetBalance(statement) ? assignToLine(statement, lines) : -1);
+
+export const incomeAmountOf = (statement: OwnableStatement & { myAmount: number }): number =>
+  isFriendAdjustment(statement) ? -statement.myAmount : statement.myAmount;
+
 export type ClaimableLoan = { id: string; tags: string[] };
 
 export type ClaimingLine = {

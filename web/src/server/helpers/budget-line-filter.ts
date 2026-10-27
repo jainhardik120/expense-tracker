@@ -19,7 +19,13 @@ export type RuleColumns = {
   amount: Column;
 };
 
-type LineTarget = { start: Date; end: Date; rule: BudgetRule; claimedEarlier: BudgetRule[] };
+type LineTarget = {
+  start: Date;
+  end: Date;
+  rule: BudgetRule;
+  claimedEarlier: BudgetRule[];
+  side: 'spend' | 'income';
+};
 
 export type LineScope = { targets: LineTarget[] } | null;
 
@@ -71,7 +77,12 @@ export const lineScopeCondition = (scope: LineScope, columns: RuleColumns): SQL 
   if (scope.targets.length === 0) {
     return sql`false`;
   }
-  const notSelfTransfer = sql`${columns.statementKind}::text <> 'self_transfer'`;
+  const kind = sql`${columns.statementKind}::text`;
+  const friendAdjustment = sql`(${kind} = 'friend_transaction' AND ${columns.accountId} IS NULL)`;
+  const reachableBy = {
+    spend: sql`(${kind} IN ('expense', 'outside_transaction') OR ${friendAdjustment})`,
+    income: sql`(${kind} = 'outside_transaction' OR ${friendAdjustment})`,
+  };
   const perTarget = scope.targets.map((target) => {
     const earlier =
       target.claimedEarlier.length === 0
@@ -80,9 +91,9 @@ export const lineScopeCondition = (scope: LineScope, columns: RuleColumns): SQL 
             target.claimedEarlier.map((rule) => ruleMatches(rule, columns)),
             OR,
           )})`;
-    return sql`(${columns.createdAt} >= ${toTimestamp(target.start)}::timestamp AND ${columns.createdAt} < ${toTimestamp(target.end)}::timestamp AND ${ruleMatches(target.rule, columns)} AND NOT ${earlier})`;
+    return sql`(${columns.createdAt} >= ${toTimestamp(target.start)}::timestamp AND ${columns.createdAt} < ${toTimestamp(target.end)}::timestamp AND ${reachableBy[target.side]} AND ${ruleMatches(target.rule, columns)} AND NOT ${earlier})`;
   });
-  return and(notSelfTransfer, or(...perTarget));
+  return or(...perTarget);
 };
 
 export const resolveLineScope = instrumentedFunction(
@@ -115,22 +126,44 @@ export const resolveLineScope = instrumentedFunction(
     ]);
     const yearById = new Map(years.map((year) => [year.id, year]));
     const targets: LineTarget[] = [];
-    for (const family of [spendLines, incomeLines]) {
-      for (const line of family) {
-        const year = yearById.get(line.budgetYearId);
-        if (!lineIds.includes(line.id) || year === undefined) {
-          continue;
-        }
-        targets.push({
-          start: year.startDate,
-          end: year.endDate,
-          rule: parseRule(line.rule),
-          claimedEarlier: family
-            .filter((other) => other.budgetYearId === line.budgetYearId)
-            .filter((other) => other.position < line.position)
-            .map((other) => parseRule(other.rule)),
-        });
+    const rulesBefore = (
+      family: Array<{ budgetYearId: string; position: number; rule: unknown }>,
+      line: { budgetYearId: string; position: number },
+    ) =>
+      family
+        .filter((other) => other.budgetYearId === line.budgetYearId)
+        .filter((other) => other.position < line.position)
+        .map((other) => parseRule(other.rule));
+    for (const line of spendLines) {
+      const year = yearById.get(line.budgetYearId);
+      if (!lineIds.includes(line.id) || year === undefined) {
+        continue;
       }
+      targets.push({
+        start: year.startDate,
+        end: year.endDate,
+        rule: parseRule(line.rule),
+        claimedEarlier: rulesBefore(spendLines, line),
+        side: 'spend',
+      });
+    }
+    for (const line of incomeLines) {
+      const year = yearById.get(line.budgetYearId);
+      if (!lineIds.includes(line.id) || year === undefined) {
+        continue;
+      }
+      targets.push({
+        start: year.startDate,
+        end: year.endDate,
+        rule: parseRule(line.rule),
+        claimedEarlier: [
+          ...spendLines
+            .filter((other) => other.budgetYearId === line.budgetYearId)
+            .map((other) => parseRule(other.rule)),
+          ...rulesBefore(incomeLines, line),
+        ],
+        side: 'income',
+      });
     }
     return { targets };
   },
@@ -212,6 +245,7 @@ export const resolveChartLineScope = instrumentedFunction(
           claimedEarlier: lines
             .filter((other) => other.position < line.position)
             .map((other) => parseRule(other.rule)),
+          side: 'spend',
         },
       ],
     };
