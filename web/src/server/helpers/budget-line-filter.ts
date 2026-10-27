@@ -1,8 +1,11 @@
 import { and, asc, desc, eq, inArray, or, type SQL, sql, type SQLWrapper } from 'drizzle-orm';
 
 import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
+import { budgetWindow } from '@/lib/budget-year';
+import { getTimezone } from '@/lib/date';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
+import { getCurrentYear } from '@/server/helpers/budget';
 import { budgetRuleSchema, emptyBudgetRule, type BudgetRule } from '@/types/budget';
 
 type Column = SQLWrapper | SQL.Aliased;
@@ -124,6 +127,7 @@ export const resolveLineScope = instrumentedFunction(
         )
         .orderBy(asc(budgetIncomeLines.position)),
     ]);
+    const timeZone = await getTimezone();
     const yearById = new Map(years.map((year) => [year.id, year]));
     const targets: LineTarget[] = [];
     const rulesBefore = (
@@ -140,8 +144,7 @@ export const resolveLineScope = instrumentedFunction(
         continue;
       }
       targets.push({
-        start: year.startDate,
-        end: year.endDate,
+        ...budgetWindow(year, timeZone),
         rule: parseRule(line.rule),
         claimedEarlier: rulesBefore(spendLines, line),
         side: 'spend',
@@ -153,8 +156,7 @@ export const resolveLineScope = instrumentedFunction(
         continue;
       }
       targets.push({
-        start: year.startDate,
-        end: year.endDate,
+        ...budgetWindow(year, timeZone),
         rule: parseRule(line.rule),
         claimedEarlier: [
           ...spendLines
@@ -216,14 +218,7 @@ export const resolveChartLineScope = instrumentedFunction(
     if (start === undefined || end === undefined) {
       return { targets: [] };
     }
-    const latest = (
-      await db
-        .select({ id: budgetYears.id })
-        .from(budgetYears)
-        .where(eq(budgetYears.userId, userId))
-        .orderBy(desc(budgetYears.startDate))
-        .limit(1)
-    ).at(0);
+    const latest = (await getCurrentYear(db, userId, await getTimezone())) ?? undefined;
     if (latest === undefined) {
       return { targets: [] };
     }

@@ -15,6 +15,7 @@ import MutationModal from '@/components/mutation-modal';
 import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { describeRule } from '@/lib/budget-rules';
+import { calendarDateForPicker } from '@/lib/budget-year';
 import { formatCurrency } from '@/lib/format';
 import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
@@ -186,8 +187,8 @@ const EditOpeningBalance = ({ detail }: { detail: YearDetail }) => {
       defaultValues={{
         id: year.id,
         name: year.name,
-        startDate: year.startDate,
-        endDate: year.endDate,
+        startDate: calendarDateForPicker(year.startDate),
+        endDate: calendarDateForPicker(year.endDate),
         openingBalanceLineId: year.openingBalanceLineId ?? NO_LINE,
       }}
       fields={[
@@ -327,9 +328,9 @@ const incomeColumns = ({
           <RowActions>
             {row.original.source === 'statements' ? (
               <ViewStatementsAction
-                end={year.endDate}
+                end={detail.window.end}
                 lineId={row.original.id}
-                start={year.startDate}
+                start={detail.window.start}
               />
             ) : null}
             <EditIncome budgetYearId={year.id} line={row.original} lineOptions={lineOptions} />

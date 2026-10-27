@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { calendarDateForPicker } from '@/lib/budget-year';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { budgetYearSchema } from '@/types/budget';
@@ -23,8 +24,19 @@ type Years = RouterOutput['budget']['getYears'];
 
 const yearFields = [
   { name: 'name' as const, label: 'Name', type: 'input' as const },
-  { name: 'startDate' as const, label: 'Starts', type: 'date' as const },
-  { name: 'endDate' as const, label: 'Ends', type: 'date' as const },
+  {
+    name: 'startDate' as const,
+    label: 'First day',
+    type: 'date' as const,
+    description: 'Included. Counted from midnight in your time zone.',
+  },
+  {
+    name: 'endDate' as const,
+    label: 'Last day',
+    type: 'date' as const,
+    description:
+      'Included, up to midnight at the end of the day. The next year starts the day after.',
+  },
 ];
 
 const EditYear = ({ year }: { year: Years[number] }) => {
@@ -41,8 +53,8 @@ const EditYear = ({ year }: { year: Years[number] }) => {
       defaultValues={{
         id: year.id,
         name: year.name,
-        startDate: year.startDate,
-        endDate: year.endDate,
+        startDate: calendarDateForPicker(year.startDate),
+        endDate: calendarDateForPicker(year.endDate),
         openingBalanceLineId: year.openingBalanceLineId,
       }}
       fields={yearFields}

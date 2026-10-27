@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { differenceInCalendarDays, format, parse, setDate } from 'date-fns';
+import { format, parse, setDate } from 'date-fns';
 import { Pencil } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -135,11 +135,11 @@ export const BudgetHeadline = ({ detail }: { detail: YearDetail }) => {
   const months = projection.spendMonths;
   const incomeRemaining = pendingCounted;
   const leftToSpendOrInvest = balanceToday - pendingSpend + incomeRemaining - commitmentsRemaining;
-  const daysLeftInYear = Math.max(differenceInCalendarDays(detail.year.endDate, new Date()), 0);
+  const { daysLeftInYear } = detail;
   const goalRemaining = Math.max(savedGoal - investedSoFar, 0);
   const leftForLiving = leftToSpendOrInvest - goalRemaining;
   const cycleOpened = format(
-    setDate(parse(thisCycle.key, 'yyyy-MM', new Date()), detail.year.startDate.getDate()),
+    setDate(parse(thisCycle.key, 'yyyy-MM', new Date()), detail.year.startDate.getUTCDate()),
     DATE_FORMAT.day,
   );
   const cycleCloses = format(thisCycle.endsOn, DATE_FORMAT.day);

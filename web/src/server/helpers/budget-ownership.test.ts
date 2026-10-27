@@ -204,7 +204,12 @@ describe('each statement counts on one side only', () => {
   test('the per-cycle figures follow the same rule as the year totals', () => {
     const settlement = row('settle', 'friend_transaction', 20000);
     const meal = row('meal', 'expense', 250);
-    const cycles = summariseByCycle([spend('living', everything, 0)], [settlement, meal], 23);
+    const cycles = summariseByCycle(
+      [spend('living', everything, 0)],
+      [settlement, meal],
+      23,
+      'UTC',
+    );
     expect(cycles.flatMap((cycle) => Object.values(cycle.perLine))).toEqual([250]);
   });
 });

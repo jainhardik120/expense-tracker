@@ -60,6 +60,7 @@ const describeAllocation = (kind: string, amount: number): string => {
 
 const waterfallColumns = (
   year: YearDetail['year'],
+  window: YearDetail['window'],
   projection: YearDetail['projection'],
   commitmentsByLine: YearDetail['commitmentsByLine'],
   actualsByLine: YearDetail['actualsByLine'],
@@ -159,9 +160,9 @@ const waterfallColumns = (
             />
           )}
           <ViewStatementsAction
-            end={year.endDate}
+            end={window.end}
             lineId={row.original.lineId}
-            start={year.startDate}
+            start={window.start}
           />
           <EditLine budgetYearId={budgetYearId} line={row.original.line} />
           <DeleteLine budgetYearId={budgetYearId} id={row.original.lineId} />
@@ -214,7 +215,7 @@ export const BudgetWaterfall = ({ detail }: { detail: YearDetail }) => {
 
   const { table } = useDataTable({
     data: rows,
-    columns: waterfallColumns(year, projection, commitmentsByLine, actualsByLine),
+    columns: waterfallColumns(year, detail.window, projection, commitmentsByLine, actualsByLine),
     pageCount: -1,
   });
 

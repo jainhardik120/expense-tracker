@@ -1,14 +1,25 @@
-import { addMonths, differenceInCalendarDays } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 import { and, asc, eq, max } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
 import { cycleAllowance, monthsBetween, project } from '@/lib/budget-projection';
+import {
+  budgetWindow,
+  cycleStartDayOf,
+  nextCycleStart,
+  spansOverlap,
+  toCalendarDate,
+  zonedCycleStart,
+  zonedDaysBetween,
+} from '@/lib/budget-year';
+import { getTimezone } from '@/lib/date';
 import { type Database } from '@/lib/db';
 import {
   expenseLineOptions,
   getScheduledTotals,
   getStatementsInWindow,
+  getCurrentYear,
   getYearIncomeLines,
   getYearLines,
   cycleKeyFor,
@@ -79,18 +90,34 @@ const reorderYearLines = (
 const deleteYearLine = (db: Database, table: YearLineTable, budgetYearId: string, id: string) =>
   db.delete(table).where(and(eq(table.id, id), eq(table.budgetYearId, budgetYearId)));
 
-const latestYear = async (db: Database, userId: string) => {
-  const years = await db
-    .select()
-    .from(budgetYears)
-    .where(eq(budgetYears.userId, userId))
-    .orderBy(asc(budgetYears.startDate));
-  return years.at(-1) ?? null;
+const calendarSpan = async (input: { startDate: Date; endDate: Date }) => {
+  const timeZone = await getTimezone();
+  const span = {
+    startDate: toCalendarDate(input.startDate, timeZone),
+    endDate: toCalendarDate(input.endDate, timeZone),
+  };
+  if (span.endDate < span.startDate) {
+    throw new Error('The last day must be on or after the first day');
+  }
+  return span;
+};
+
+const assertNoOverlap = async (
+  db: Database,
+  userId: string,
+  span: { startDate: Date; endDate: Date },
+  exceptId?: string,
+) => {
+  const years = await db.select().from(budgetYears).where(eq(budgetYears.userId, userId));
+  const clash = years.find((year) => year.id !== exceptId && spansOverlap(year, span));
+  if (clash !== undefined) {
+    throw new Error(`These dates overlap the budget year "${clash.name}"`);
+  }
 };
 
 export const budgetRouter = createTRPCRouter({
   getExpenseLines: protectedProcedure.query(async ({ ctx }) => {
-    const year = await latestYear(ctx.db, ctx.user.id);
+    const year = await getCurrentYear(ctx.db, ctx.user.id, await getTimezone());
     if (year === null) {
       return [];
     }
@@ -107,10 +134,16 @@ export const budgetRouter = createTRPCRouter({
       .orderBy(asc(budgetYears.startDate)),
   ),
 
+  getCurrentYearId: protectedProcedure.query(
+    async ({ ctx }) => (await getCurrentYear(ctx.db, ctx.user.id, await getTimezone()))?.id ?? null,
+  ),
+
   createYear: protectedProcedure.input(budgetYearSchema).mutation(async ({ ctx, input }) => {
+    const span = await calendarSpan(input);
+    await assertNoOverlap(ctx.db, ctx.user.id, span);
     const [created] = await ctx.db
       .insert(budgetYears)
-      .values({ ...input, userId: ctx.user.id })
+      .values({ ...input, ...span, userId: ctx.user.id })
       .returning();
     return created;
   }),
@@ -120,25 +153,33 @@ export const budgetRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await assertOwnedYear(ctx.db, ctx.user.id, input.id);
       const { id, ...rest } = input;
-      await ctx.db.update(budgetYears).set(rest).where(eq(budgetYears.id, id));
+      const span = await calendarSpan(rest);
+      await assertNoOverlap(ctx.db, ctx.user.id, span, id);
+      await ctx.db
+        .update(budgetYears)
+        .set({ ...rest, ...span })
+        .where(eq(budgetYears.id, id));
     }),
 
   getYearDetail: protectedProcedure
     .input(z.object({ budgetYearId: z.string() }))
     .query(async ({ ctx, input }) => {
       const year = await assertOwnedYear(ctx.db, ctx.user.id, input.budgetYearId);
+      const timeZone = await getTimezone();
+      const window = budgetWindow(year, timeZone);
+      const zoned = (date: Date) => toZonedTime(date, timeZone);
       const [lines, incomeLines] = await Promise.all([
         getYearLines(ctx.db, year.id),
         getYearIncomeLines(ctx.db, year.id),
       ]);
-      const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, year.startDate, year.endDate);
+      const scoped = await getStatementsInWindow(ctx.db, ctx.user.id, window.start, window.end);
       const { totals, unclaimed, actualsByLine } = summariseLines(lines, scoped);
       const now = new Date();
       const pending = await getPendingIncome(
         ctx.db,
         ctx.user.id,
         now,
-        year.endDate > now ? year.endDate : now,
+        window.end > now ? window.end : now,
       );
       const income = summariseIncome(
         incomeLines,
@@ -150,11 +191,11 @@ export const budgetRouter = createTRPCRouter({
         ...unclaimed.filter((statement) => statement.statementKind === 'expense'),
         ...income.unmatched,
       ];
-      const totalMonths = monthsBetween(year.startDate, year.endDate);
+      const totalMonths = monthsBetween(zoned(window.start), zoned(window.end));
 
       const [today, opening] = await Promise.all([
         getNetBalance(ctx.db, ctx.user.id),
-        getNetBalance(ctx.db, ctx.user.id, year.startDate),
+        getNetBalance(ctx.db, ctx.user.id, window.start),
       ]);
       const { inAccounts, owedToFriends, net: balanceToday } = today;
       const openingBalance = opening.net;
@@ -163,7 +204,7 @@ export const budgetRouter = createTRPCRouter({
       const incomeCyclesRemaining = pending.payments;
       const cyclesElapsed = Math.max(cyclesTotal - incomeCyclesRemaining, 0);
       const monthsRemaining = Math.max(
-        monthsBetween(now, year.endDate > now ? year.endDate : now),
+        monthsBetween(zoned(now), zoned(window.end > now ? window.end : now)),
         0,
       );
 
@@ -183,8 +224,8 @@ export const budgetRouter = createTRPCRouter({
         ctx.user.id,
         lines,
         scoped,
-        year.startDate,
-        year.endDate,
+        window.start,
+        window.end,
         now,
       );
 
@@ -209,24 +250,23 @@ export const budgetRouter = createTRPCRouter({
         pendingSms.totalSpend,
         income.pendingWaterfall,
       );
-      const cycles = summariseByCycle(lines, scoped, year.startDate.getDate());
-      const openCycle = cycleKeyFor(now, year.startDate.getDate());
+      const cycleStartDay = cycleStartDayOf(year);
+      const cycles = summariseByCycle(lines, scoped, cycleStartDay, timeZone);
+      const openCycle = cycleKeyFor(now, cycleStartDay, timeZone);
       const spentThisCycle = spentOnDiscretionary(
         cycles.find((row) => row.cycle === openCycle),
         lines,
       );
-      const cycleStartDay = year.startDate.getDate();
-      const [cycleYear, cycleMonth] = openCycle.split('-').map(Number);
-      const cycleStart = new Date(cycleYear, cycleMonth - 1, cycleStartDay);
-      const nextCycle = addMonths(cycleStart, 1);
-      const cycleEnd = nextCycle < year.endDate ? nextCycle : year.endDate;
-      const daysLeft = Math.max(differenceInCalendarDays(cycleEnd, now), 0);
+      const cycleStart = zonedCycleStart(openCycle, cycleStartDay, timeZone);
+      const nextCycle = nextCycleStart(cycleStart, timeZone);
+      const cycleEnd = nextCycle < window.end ? nextCycle : window.end;
+      const daysLeft = Math.max(zonedDaysBetween(now, cycleEnd, timeZone), 0);
       const allowanceInputs = {
         spent: spentThisCycle + pendingSms.totalSpend,
-        monthsFromCycleStart: monthsBetween(cycleStart, year.endDate),
-        cycleMonths: monthsBetween(cycleStart, cycleEnd),
+        monthsFromCycleStart: monthsBetween(zoned(cycleStart), zoned(window.end)),
+        cycleMonths: monthsBetween(zoned(cycleStart), zoned(cycleEnd)),
         daysLeftInCycle: daysLeft,
-        daysInCycle: differenceInCalendarDays(cycleEnd, cycleStart),
+        daysInCycle: zonedDaysBetween(cycleStart, cycleEnd, timeZone),
       };
       const thisCycle = {
         key: openCycle,
@@ -239,6 +279,8 @@ export const budgetRouter = createTRPCRouter({
 
       return {
         year,
+        window,
+        daysLeftInYear: Math.max(zonedDaysBetween(now, window.end, timeZone), 0),
         lines,
         incomeLines,
         totals,

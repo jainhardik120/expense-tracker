@@ -12,8 +12,11 @@ export default async function BudgetPage({
   searchParams,
 }: Readonly<{ searchParams: Promise<{ year?: string }> }>) {
   const { year } = await searchParams;
-  const years = await api.budget.getYears();
-  const selectedId = year ?? years.at(-1)?.id;
+  const [years, currentYearId] = await Promise.all([
+    api.budget.getYears(),
+    api.budget.getCurrentYearId(),
+  ]);
+  const selectedId = year ?? currentYearId ?? undefined;
 
   if (selectedId === undefined) {
     return <BudgetYearPicker selectedId={null} years={years} />;

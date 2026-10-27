@@ -1,6 +1,7 @@
+import { toZonedTime } from 'date-fns-tz';
 import { asc, eq, sql } from 'drizzle-orm';
 
-import { budgetIncomeLines, budgetLines } from '@/db/schema';
+import { budgetIncomeLines, budgetLines, budgetYears } from '@/db/schema';
 import { summariseActual, type ActualGroup } from '@/lib/budget-actual';
 import {
   budgetLineFor,
@@ -10,6 +11,7 @@ import {
   resolveLoanOwners,
   type OwnableStatement,
 } from '@/lib/budget-rules';
+import { pickCurrentYear } from '@/lib/budget-year';
 import { type Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { getEmis } from '@/server/helpers/emi';
@@ -37,6 +39,16 @@ export type ScopedStatement = OwnableStatement & {
 };
 
 const toTimestamp = (date: Date): string => date.toISOString().replace('T', ' ').replace('Z', '');
+
+export const getCurrentYear = instrumentedFunction(
+  'getCurrentYear',
+  async (db: Database, userId: string, timeZone: string, now: Date = new Date()) =>
+    pickCurrentYear(
+      await db.select().from(budgetYears).where(eq(budgetYears.userId, userId)),
+      now,
+      timeZone,
+    ) ?? null,
+);
 
 export const getYearLines = instrumentedFunction(
   'getYearLines',
@@ -264,8 +276,8 @@ export type CycleRow = {
   total: number;
 };
 
-export const cycleKeyFor = (date: Date, cycleStartDay: number): string => {
-  const shifted = new Date(date);
+export const cycleKeyFor = (date: Date, cycleStartDay: number, timeZone: string): string => {
+  const shifted = toZonedTime(date, timeZone);
   if (shifted.getDate() < cycleStartDay) {
     shifted.setMonth(shifted.getMonth() - 1);
   }
@@ -276,6 +288,7 @@ export const summariseByCycle = (
   lines: BudgetLineRow[],
   scoped: ScopedStatement[],
   cycleStartDay: number,
+  timeZone: string,
 ): CycleRow[] => {
   const ordered = [...lines].sort((a, b) => a.position - b.position);
   const byCycle = new Map<string, Record<string, number>>();
@@ -285,7 +298,7 @@ export const summariseByCycle = (
     if (index === -1) {
       continue;
     }
-    const key = cycleKeyFor(statement.createdAt, cycleStartDay);
+    const key = cycleKeyFor(statement.createdAt, cycleStartDay, timeZone);
     const row = byCycle.get(key) ?? {};
     row[ordered[index].name] = (row[ordered[index].name] ?? 0) + statement.costAmount;
     byCycle.set(key, row);

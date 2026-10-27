@@ -15,12 +15,12 @@ const line = (
 
 describe('cycleKeyFor', () => {
   it('puts a day before the cycle day in the cycle that opened last month', () => {
-    expect(cycleKeyFor(new Date('2026-09-23T00:00:00Z'), 24)).toBe('2026-08');
-    expect(cycleKeyFor(new Date('2026-09-24T00:00:00Z'), 24)).toBe('2026-09');
+    expect(cycleKeyFor(new Date('2026-09-23T00:00:00Z'), 24, 'UTC')).toBe('2026-08');
+    expect(cycleKeyFor(new Date('2026-09-24T00:00:00Z'), 24, 'UTC')).toBe('2026-09');
   });
 
   it('carries back over a year boundary', () => {
-    expect(cycleKeyFor(new Date('2026-01-03T00:00:00Z'), 24)).toBe('2025-12');
+    expect(cycleKeyFor(new Date('2026-01-03T00:00:00Z'), 24, 'UTC')).toBe('2025-12');
   });
 });
 
@@ -64,5 +64,12 @@ describe('scheduleTotalsFrom', () => {
     ]);
     expect(totals).toEqual({ year: 12_078, toDate: 6_053, remaining: 6_025, overdue: 3_016 });
     expect(totals.toDate + totals.remaining).toBe(totals.year);
+  });
+});
+
+describe('cycleKeyFor in a local time zone', () => {
+  it('counts the early hours of the cycle day in the new cycle', () => {
+    expect(cycleKeyFor(new Date('2026-10-22T19:00:00Z'), 23, 'Asia/Kolkata')).toBe('2026-10');
+    expect(cycleKeyFor(new Date('2026-10-22T18:29:59Z'), 23, 'Asia/Kolkata')).toBe('2026-09');
   });
 });

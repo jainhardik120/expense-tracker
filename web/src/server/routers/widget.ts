@@ -1,7 +1,7 @@
-import { and, asc, eq, gte, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { budgetYears } from '@/db/schema';
+import { getTimezone } from '@/lib/date';
+import { getCurrentYear } from '@/server/helpers/budget';
 import { getPendingSmsEstimate } from '@/server/helpers/sms-estimate';
 import { createCallerFactory, createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
@@ -41,24 +41,13 @@ export const widgetRouter = createTRPCRouter({
       const summaryCaller = callSummary(ctx);
 
       const now = new Date();
-      const [summary, pending, years] = await Promise.all([
+      const [summary, pending, currentYear] = await Promise.all([
         summaryCaller.getSummary({ start: input.dayStart, end: input.dayEnd ?? now }),
         getPendingSmsEstimate(ctx.db, ctx.user.id),
-        ctx.db
-          .select()
-          .from(budgetYears)
-          .where(
-            and(
-              eq(budgetYears.userId, ctx.user.id),
-              lte(budgetYears.startDate, now),
-              gte(budgetYears.endDate, now),
-            ),
-          )
-          .orderBy(asc(budgetYears.startDate))
-          .limit(1),
+        getCurrentYear(ctx.db, ctx.user.id, await getTimezone(), now),
       ]);
 
-      const year = years.at(0);
+      const year = currentYear ?? undefined;
       const budget =
         year === undefined
           ? null
