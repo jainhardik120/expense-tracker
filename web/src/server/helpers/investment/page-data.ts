@@ -10,8 +10,9 @@ import {
 import { enrichInvestments } from './enrichment';
 import { buildInvestmentMarketDataContext } from './market-data';
 import { getTimeRangeBounds } from './range';
-import { startOfDay } from './shared';
+import { getFxRateToInrFromHistory, startOfDay } from './shared';
 import { buildInstrumentTimelineEntries, getInvestmentsDashboard } from './timeline';
+import { parseOptionalNumber } from './utils';
 
 import type {
   CategoryTimelineEntry,
@@ -118,6 +119,7 @@ const buildRangeView = async ({
   ]);
   return {
     enrichedAll,
+    usdInrHistory: history.usdInrHistory,
     startDate,
     endDate: rangeEnd,
     dashboard,
@@ -172,5 +174,75 @@ export const buildInvestmentsRangeTimelines = instrumentedFunction(
       categoryTimelines: view.categoryTimelines,
       instrumentTimelines: view.instrumentTimelines,
     };
+  },
+);
+
+type InstrumentChartPoint = {
+  date: Date;
+  unitPrice: number;
+  holdingValue: number;
+  investedAmount: number;
+};
+
+type InstrumentChartPosition = {
+  id: string;
+  date: Date;
+  units: number | null;
+  investedAmount: number;
+  valuationAmount: number;
+  isClosed: boolean;
+  closedAt: Date | null;
+};
+
+export type InstrumentChart = {
+  points: InstrumentChartPoint[];
+  positions: InstrumentChartPosition[];
+};
+
+export const buildInstrumentChart = instrumentedFunction(
+  'buildInstrumentChart',
+  async ({
+    investmentsListRaw,
+    range,
+    marketDataKinds,
+  }: Omit<RangeViewRequest, 'endDate'>): Promise<InstrumentChart> => {
+    if (investmentsListRaw.length === 0) {
+      return { points: [], positions: [] };
+    }
+    const view = await buildRangeView({ investmentsListRaw, range, marketDataKinds });
+    const points = view.instrumentTimelines[0]?.timeline.points ?? [];
+    const isUsd = view.enrichedAll.some((position) => position.displayCurrency === 'USD');
+    const fallbackFx =
+      view.enrichedAll.find((position) => position.currentFxRateToInr !== null)
+        ?.currentFxRateToInr ?? null;
+    const series = points.map((point) => {
+      const day = startOfDay(point.date).getTime();
+      const fx = isUsd
+        ? (getFxRateToInrFromHistory(point.date, view.usdInrHistory, fallbackFx) ?? 1)
+        : 1;
+      const investedAmount = view.enrichedAll.reduce((total, position) => {
+        const opened = startOfDay(position.investmentDate).getTime() <= day;
+        const closed = position.closedAt !== null && startOfDay(position.closedAt).getTime() <= day;
+        return opened && !closed ? total + position.investedAmountInr : total;
+      }, 0);
+      return {
+        date: point.date,
+        unitPrice: point.unitPrice * fx,
+        holdingValue: point.holdingValue * fx,
+        investedAmount,
+      };
+    });
+    const positions = view.enrichedAll
+      .map((position) => ({
+        id: position.id,
+        date: position.investmentDate,
+        units: parseOptionalNumber(position.units),
+        investedAmount: position.investedAmountInr,
+        valuationAmount: position.valuationAmount ?? position.investedAmountInr,
+        isClosed: position.isClosedPosition,
+        closedAt: position.closedAt,
+      }))
+      .sort((left, right) => right.date.getTime() - left.date.getTime());
+    return { points: series, positions };
   },
 );

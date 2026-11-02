@@ -1,2 +1,6 @@
 export { searchInvestmentInstruments } from './market-data';
-export { buildInvestmentsPageData, buildInvestmentsRangeTimelines } from './page-data';
+export {
+  buildInstrumentChart,
+  buildInvestmentsPageData,
+  buildInvestmentsRangeTimelines,
+} from './page-data';

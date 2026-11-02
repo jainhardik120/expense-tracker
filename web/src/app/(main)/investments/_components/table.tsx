@@ -66,6 +66,7 @@ const getMarketDataStatus = (query: { isError: boolean; isSuccess: boolean }): s
 const mergeDashboard = (
   initialDashboard: InvestmentsPageData['dashboard'],
   marketData: MarketDataResult[],
+  portfolioXirr: number | null,
 ) => {
   const updatedKinds = new Map(
     marketData.flatMap((data) => data.dashboard.kindBreakdown.map((item) => [item.kind, item])),
@@ -136,6 +137,7 @@ const mergeDashboard = (
           ? null
           : (summary.dayChange / (summary.valuationAmount - summary.dayChange)) *
             PERCENTAGE_DIVISOR,
+      xirr: portfolioXirr,
     },
     kindBreakdown,
     categoryBreakdown,
@@ -310,6 +312,18 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     ),
     meta: { align: 'right' },
   },
+  {
+    accessorKey: 'xirr',
+    header: 'XIRR',
+    cell: ({ row }) => (
+      <div
+        className={`text-right ${row.original.xirr === null ? '' : getSignedValueTone(row.original.xirr)}`}
+      >
+        {row.original.xirr === null ? '-' : formatPercent(row.original.xirr)}
+      </div>
+    ),
+    meta: { align: 'right' },
+  },
 ];
 
 const Table = ({ data, filters }: { data: InvestmentsPageData; filters: TimelineFilters }) => {
@@ -380,9 +394,11 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     () => data.table.investments.map((item) => enrichedById.get(item.id) ?? item),
     [data.table.investments, enrichedById],
   );
+  const overviewQuery = api.investments.getOverview.useQuery();
+  const portfolioXirr = overviewQuery.data?.summary.xirr ?? null;
   const dashboard = useMemo(
-    () => mergeDashboard(data.dashboard, marketData),
-    [data.dashboard, marketData],
+    () => mergeDashboard(data.dashboard, marketData, portfolioXirr),
+    [data.dashboard, marketData, portfolioXirr],
   );
   const zoned = useZonedFormat();
   const categoryTimelines = useMemo(() => {

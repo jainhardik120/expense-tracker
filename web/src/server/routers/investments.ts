@@ -17,6 +17,7 @@ import {
   stockMarketValues,
 } from '@/lib/investments';
 import {
+  buildInstrumentChart,
   buildInvestmentsPageData,
   buildInvestmentsRangeTimelines,
   searchInvestmentInstruments,
@@ -88,6 +89,7 @@ const overviewFigures = {
   pnlPercentage: z.number().nullable(),
   dayChange: z.number(),
   dayChangePercentage: z.number().nullable(),
+  xirr: z.number().nullable(),
 };
 
 const investmentsOverviewSchema = z.object({
@@ -119,6 +121,9 @@ const investmentsOverviewSchema = z.object({
       isExcludedFromPortfolio: z.boolean(),
       units: z.number(),
       ...overviewFigures,
+      investedInr: z.number(),
+      valuationInr: z.number(),
+      dayChangeInr: z.number(),
       openPositions: z.number(),
       totalPositions: z.number(),
     }),
@@ -168,6 +173,7 @@ export const investmentsRouter = createTRPCRouter({
           pnlPercentage: dashboard.summary.pnlPercentage,
           dayChange: dashboard.summary.dayChange,
           dayChangePercentage: dashboard.summary.dayChangePercentage,
+          xirr: dashboard.summary.xirr,
           openPositions: dashboard.summary.openPositions,
           closedPositions: dashboard.summary.closedPositions,
           totalPositions: dashboard.summary.totalPositions,
@@ -181,6 +187,7 @@ export const investmentsRouter = createTRPCRouter({
           pnlPercentage: row.pnlPercentage,
           dayChange: row.dayChange,
           dayChangePercentage: row.dayChangePercentage,
+          xirr: row.xirr,
           openPositions: row.openPositions,
           totalPositions: row.totalPositions,
         })),
@@ -194,16 +201,77 @@ export const investmentsRouter = createTRPCRouter({
           isRsu: row.isRsu,
           isExcludedFromPortfolio: row.isExcludedFromPortfolio,
           units: row.units,
+          investedInr: row.investedAmountInr,
+          valuationInr: row.valuationAmountInr,
+          dayChangeInr: row.dayChangeInr,
           invested: row.investedAmount,
           valuation: row.valuationAmount,
           pnl: row.pnl,
           pnlPercentage: row.pnlPercentage,
           dayChange: row.dayChange,
           dayChangePercentage: row.dayChangePercentage,
+          xirr: row.xirr,
           openPositions: row.openPositions,
           totalPositions: row.totalPositions,
         })),
       };
+    }),
+
+  getInstrumentChart: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/chart',
+      },
+    })
+    .input(
+      z.object({
+        kind: z.enum(investmentKindValues),
+        code: z.string().min(1),
+        isRsu: z.stringbool().default(false),
+        range: z.enum(investmentTimelineRangeValues).default('6m'),
+      }),
+    )
+    .output(
+      z.object({
+        points: z.array(
+          z.object({
+            date: z.date(),
+            unitPrice: z.number(),
+            holdingValue: z.number(),
+            investedAmount: z.number(),
+          }),
+        ),
+        positions: z.array(
+          z.object({
+            id: z.string(),
+            date: z.date(),
+            units: z.number().nullable(),
+            investedAmount: z.number(),
+            valuationAmount: z.number(),
+            isClosed: z.boolean(),
+            closedAt: z.date().nullable(),
+          }),
+        ),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select()
+        .from(investments)
+        .where(
+          and(eq(investments.userId, ctx.user.id), eq(investments.instrumentCode, input.code)),
+        );
+      const matching = rows.filter(
+        (row) =>
+          normalizeInvestmentKind(row.investmentKind) === input.kind &&
+          (input.kind !== 'stocks' || row.isRsu === input.isRsu),
+      );
+      return buildInstrumentChart({
+        investmentsListRaw: matching,
+        range: input.range,
+        marketDataKinds: [input.kind],
+      });
     }),
 
   getInvestmentsInitialData: protectedProcedure

@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency, DATE_FORMAT, formatNumber } from '@/lib/format';
+import { formatCurrency, DATE_FORMAT, formatNumber, formatPercent } from '@/lib/format';
 import {
   investmentCategoryLabels,
   investmentCategoryValues,
@@ -36,6 +36,7 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 
 import { getExcludedPortfolioDescription, getExcludedPortfolioTag } from './display';
+import { getSignedValueTone } from './investment-columns';
 
 type DashboardData = RouterOutput['investments']['getInvestmentsInitialData']['dashboard'];
 type CategoryTimelineEntry =
@@ -322,6 +323,19 @@ export const InvestmentsOverview = ({
         </Card>
         <Card>
           <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">XIRR</CardTitle>
+          </CardHeader>
+          <CardContent
+            className={cn(
+              'text-xl font-semibold',
+              dashboard.summary.xirr !== null && getSignedValueTone(dashboard.summary.xirr),
+            )}
+          >
+            {dashboard.summary.xirr === null ? '-' : formatPercent(dashboard.summary.xirr)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Open Positions</CardTitle>
           </CardHeader>
           <CardContent className="text-xl font-semibold">
@@ -498,6 +512,11 @@ export const InvestmentsOverview = ({
                   <div className={categoryItem.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
                     1D {formatCurrency(categoryItem.dayChange)}
                   </div>
+                  {categoryItem.xirr === null ? null : (
+                    <div className={getSignedValueTone(categoryItem.xirr)}>
+                      XIRR {formatPercent(categoryItem.xirr)}
+                    </div>
+                  )}
                 </button>
               );
             })}

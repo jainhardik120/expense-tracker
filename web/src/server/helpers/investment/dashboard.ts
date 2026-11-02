@@ -18,6 +18,7 @@ import {
   getPercentageChange,
   parseOptionalNumber,
 } from './utils';
+import { computeXirr, investmentCashFlows, type CashFlow } from './xirr';
 
 import type {
   DashboardInstrumentBreakdown,
@@ -54,6 +55,7 @@ type InstrumentAggregate = {
   weightedBuyUnits: number;
   currentUnitPriceDisplay: number | null;
   currentValueInrAtCurrentFx: number;
+  flows: CashFlow[];
 };
 
 type BreakdownAggregate = {
@@ -63,6 +65,7 @@ type BreakdownAggregate = {
   openPositions: number;
   closedPositions: number;
   totalPositions: number;
+  flows: CashFlow[];
 };
 
 const summarizeBreakdown = (summary: BreakdownAggregate) => ({
@@ -78,6 +81,7 @@ const summarizeBreakdown = (summary: BreakdownAggregate) => ({
     summary.valuationAmount,
     summary.dayChange,
   ),
+  xirr: computeXirr(summary.flows),
   openPositions: summary.openPositions,
   closedPositions: summary.closedPositions,
   totalPositions: summary.totalPositions,
@@ -87,6 +91,7 @@ const addInvestmentToBreakdown = <TKey extends string>(
   map: Map<TKey, BreakdownAggregate>,
   key: TKey,
   investment: EnrichedInvestment,
+  asOf: Date,
 ) => {
   const investedAmount = investment.investedAmountInr;
   const valuationAmount = investment.valuationAmount ?? investedAmount;
@@ -97,7 +102,9 @@ const addInvestmentToBreakdown = <TKey extends string>(
     openPositions: 0,
     closedPositions: 0,
     totalPositions: 0,
+    flows: [],
   };
+  summary.flows.push(...investmentCashFlows(investment, asOf));
   summary.investedAmount += investedAmount;
   summary.valuationAmount += valuationAmount;
   summary.dayChange += investment.dayChange ?? 0;
@@ -112,6 +119,7 @@ const addInvestmentToBreakdown = <TKey extends string>(
 
 const buildInstrumentBreakdown = (
   investmentsList: EnrichedInvestment[],
+  asOf: Date,
 ): DashboardInstrumentBreakdown[] => {
   const aggregates = new Map<string, InstrumentAggregate>();
 
@@ -154,7 +162,10 @@ const buildInstrumentBreakdown = (
       weightedBuyUnits: 0,
       currentUnitPriceDisplay: null,
       currentValueInrAtCurrentFx: 0,
+      flows: [],
     };
+
+    aggregate.flows.push(...investmentCashFlows(investment, asOf));
 
     aggregate.positionsCount += 1;
     if (investment.isClosedPosition) {
@@ -212,6 +223,10 @@ const buildInstrumentBreakdown = (
           aggregate.valuationAmountDisplay,
           aggregate.dayChangeDisplay,
         ),
+        xirr: computeXirr(aggregate.flows),
+        investedAmountInr: aggregate.investedAmount,
+        valuationAmountInr: aggregate.valuationAmount,
+        dayChangeInr: aggregate.dayChange,
         averageBuyPrice:
           aggregate.weightedBuyUnits > 0
             ? aggregate.weightedBuyAmountDisplay / aggregate.weightedBuyUnits
@@ -264,7 +279,8 @@ export const getInvestmentsDashboard = instrumentedFunction(
     const portfolioInvestments = includeExcludedFromPortfolio
       ? investmentsList
       : investmentsList.filter((investment) => !investment.isExcludedFromPortfolioPosition);
-    const instrumentBreakdown = buildInstrumentBreakdown(investmentsList);
+    const asOf = end ?? new Date();
+    const instrumentBreakdown = buildInstrumentBreakdown(investmentsList, asOf);
     const instrumentOptions: DashboardInstrumentOption[] = instrumentBreakdown.map((item) => ({
       kind: item.kind,
       code: item.code,
@@ -286,12 +302,14 @@ export const getInvestmentsDashboard = instrumentedFunction(
     let totalDayChange = 0;
     let openPositions = 0;
     let closedPositions = 0;
+    const portfolioFlows: CashFlow[] = [];
 
     for (const investment of investmentsList) {
       addInvestmentToBreakdown(
         categoryMap,
         getInvestmentCategory(investment.normalizedKind, investment.isRsuPosition),
         investment,
+        asOf,
       );
     }
 
@@ -302,6 +320,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
       totalInvestedAmount += investedAmount;
       totalValuationAmount += valuationAmount;
       totalDayChange += dayChange;
+      portfolioFlows.push(...investmentCashFlows(investment, asOf));
 
       if (investment.isClosedPosition) {
         closedPositions += 1;
@@ -309,7 +328,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
         openPositions += 1;
       }
 
-      addInvestmentToBreakdown(kindMap, investment.normalizedKind, investment);
+      addInvestmentToBreakdown(kindMap, investment.normalizedKind, investment, asOf);
     }
 
     const kindBreakdown = [...kindMap.entries()]
@@ -459,6 +478,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
           totalValuationAmount,
           totalDayChange,
         ),
+        xirr: computeXirr(portfolioFlows),
         openPositions,
         closedPositions,
         totalPositions: openPositions + closedPositions,
