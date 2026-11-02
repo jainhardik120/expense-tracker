@@ -6,6 +6,7 @@ import com.jainhardik120.expensetracker.data.entity.ChartData
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
+import com.jainhardik120.expensetracker.data.entity.InstrumentChart
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
@@ -51,6 +52,12 @@ interface ExpenseTrackerAPI {
     ): Result<WidgetSummary, MessageError>
 
     suspend fun getInvestments(): Result<InvestmentsOverview, MessageError>
+    suspend fun getInstrumentChart(
+        kind: String,
+        code: String,
+        isRsu: Boolean,
+        range: String
+    ): Result<InstrumentChart, MessageError>
 
     suspend fun getAccounts(): Result<List<AccountItem>, MessageError>
     suspend fun getFriends(): Result<List<FriendItem>, MessageError>

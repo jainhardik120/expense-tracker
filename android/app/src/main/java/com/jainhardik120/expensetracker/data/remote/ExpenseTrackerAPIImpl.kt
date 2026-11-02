@@ -6,6 +6,7 @@ import com.jainhardik120.expensetracker.data.entity.ChartData
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
+import com.jainhardik120.expensetracker.data.entity.InstrumentChart
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
@@ -204,6 +205,23 @@ class ExpenseTrackerAPIImpl(
             requestBuilder<InvestmentsOverview>(
                 url = APIRoutes.INVESTMENTS, method = HttpMethod.Get
             )
+        }
+    }
+
+    override suspend fun getInstrumentChart(
+        kind: String,
+        code: String,
+        isRsu: Boolean,
+        range: String
+    ): Result<InstrumentChart, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.INVESTMENT_CHART) {
+                method = HttpMethod.Get
+                parameter("kind", kind)
+                parameter("code", code)
+                parameter("isRsu", isRsu)
+                parameter("range", range)
+            }.body()
         }
     }
 

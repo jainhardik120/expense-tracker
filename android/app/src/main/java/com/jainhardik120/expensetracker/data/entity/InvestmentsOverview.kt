@@ -18,6 +18,7 @@ data class PortfolioSummary(
     val pnlPercentage: Double? = null,
     val dayChange: Double,
     val dayChangePercentage: Double? = null,
+    val xirr: Double? = null,
     val openPositions: Int,
     val closedPositions: Int,
     val totalPositions: Int
@@ -33,6 +34,7 @@ data class InvestmentCategory(
     val pnlPercentage: Double? = null,
     val dayChange: Double,
     val dayChangePercentage: Double? = null,
+    val xirr: Double? = null,
     val openPositions: Int,
     val totalPositions: Int
 )
@@ -48,12 +50,41 @@ data class InvestmentHolding(
     val isRsu: Boolean,
     val isExcludedFromPortfolio: Boolean,
     val units: Double,
+    val investedInr: Double = 0.0,
+    val valuationInr: Double = 0.0,
+    val dayChangeInr: Double = 0.0,
     val invested: Double,
     val valuation: Double,
     val pnl: Double,
     val pnlPercentage: Double? = null,
     val dayChange: Double,
     val dayChangePercentage: Double? = null,
+    val xirr: Double? = null,
     val openPositions: Int,
     val totalPositions: Int
+)
+
+@Serializable
+data class InstrumentChart(
+    val points: List<InstrumentChartPoint>,
+    val positions: List<InstrumentPosition> = emptyList()
+)
+
+@Serializable
+data class InstrumentPosition(
+    val id: String,
+    val date: String,
+    val units: Double? = null,
+    val investedAmount: Double,
+    val valuationAmount: Double,
+    val isClosed: Boolean,
+    val closedAt: String? = null
+)
+
+@Serializable
+data class InstrumentChartPoint(
+    val date: String,
+    val unitPrice: Double,
+    val holdingValue: Double,
+    val investedAmount: Double
 )

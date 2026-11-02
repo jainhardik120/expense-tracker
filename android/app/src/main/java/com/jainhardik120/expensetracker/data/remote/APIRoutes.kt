@@ -14,6 +14,7 @@ object APIRoutes {
     const val FRIENDS = "${BASE_URL}/friends"
     const val WIDGET = "${BASE_URL}/widget"
     const val INVESTMENTS = "${BASE_URL}/investments"
+    const val INVESTMENT_CHART = "${BASE_URL}/investments/chart"
     const val CATEGORIES = "${STATEMENTS}/categories"
     const val TAGS = "${STATEMENTS}/tags"
     const val TIMELINE = "${BASE_URL}/statements/timeline"
