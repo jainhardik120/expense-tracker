@@ -4,13 +4,14 @@ import { useRouter } from 'next/navigation';
 
 import {
   CalendarClock,
+  ChevronLeft,
+  ChevronRight,
   Landmark,
   ReceiptIndianRupee,
   WalletCards,
   type LucideIcon,
 } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format';
@@ -60,11 +61,12 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
             router.push(`/salary?fy=${previousYear}`);
           }}
         >
-          ← FY {previousYear}
+          <ChevronLeft />
+          FY {formatFinancialYearLabel(previousYear)}
         </Button>
-        <Badge className="px-3" variant="secondary">
+        <span className="bg-secondary text-secondary-foreground inline-flex h-8 items-center rounded-md px-3 text-sm font-medium">
           FY {formatFinancialYearLabel(data.financialYearStart)}
-        </Badge>
+        </span>
         <Button
           size="sm"
           variant="outline"
@@ -72,7 +74,8 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
             router.push(`/salary?fy=${nextYear}`);
           }}
         >
-          FY {nextYear} →
+          FY {formatFinancialYearLabel(nextYear)}
+          <ChevronRight />
         </Button>
       </div>
 
