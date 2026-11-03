@@ -24,7 +24,7 @@ import {
   type IngestResult,
   StatementAccountRequiredError,
 } from '@/server/statement-import/ingest';
-import { PdfPasswordError } from '@/server/statement-import/pdf/extract';
+import { StatementPasswordError } from '@/server/statement-import/pdf/extract';
 import { UnsupportedStatementError } from '@/server/statement-import/pdf/parse';
 import { getImportReview } from '@/server/statement-import/review';
 import { sealPassword } from '@/server/statement-import/secrets';
@@ -58,7 +58,7 @@ const outcomeOf = async (run: () => Promise<IngestResult>) => {
   try {
     return { status: 'imported' as const, ...(await run()) };
   } catch (error) {
-    if (error instanceof PdfPasswordError) {
+    if (error instanceof StatementPasswordError) {
       return { status: 'password' as const, incorrect: !error.needsPassword };
     }
     if (error instanceof StatementAccountRequiredError) {

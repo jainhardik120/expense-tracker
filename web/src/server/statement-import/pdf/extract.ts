@@ -3,7 +3,7 @@ import { getDocumentProxy } from 'unpdf';
 export type PdfLine = { page: number; y: number; text: string; cells: PdfCell[] };
 export type PdfCell = { x: number; text: string };
 
-export class PdfPasswordError extends Error {
+export class StatementPasswordError extends Error {
   constructor(readonly needsPassword: boolean) {
     super(needsPassword ? 'This statement is password protected' : 'The password is incorrect');
   }
@@ -61,7 +61,7 @@ const passwordFailure = (error: unknown) => {
     error.name === 'PasswordException'
   ) {
     const code = 'code' in error ? error.code : undefined;
-    return new PdfPasswordError(code === 1);
+    return new StatementPasswordError(code === 1);
   }
   return null;
 };

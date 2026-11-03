@@ -57,13 +57,6 @@ const SavePassword = ({ accountId }: { accountId: string }) => {
   );
 };
 
-const SavePasswordOrNote = ({ source }: { source: Sources[number] }) =>
-  source.issuer === 'sheet' ? (
-    <span className="text-muted-foreground text-xs">Spreadsheets need no password</span>
-  ) : (
-    <SavePassword accountId={source.accountId} />
-  );
-
 export const RecognisedCards = ({ sources }: { sources: Sources }) => {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -71,7 +64,7 @@ export const RecognisedCards = ({ sources }: { sources: Sources }) => {
   return (
     <Modal
       className="sm:max-w-xl"
-      description="Statements from these cards are matched to the account automatically, including PDFs that arrive by email. Save each card's PDF password so emailed statements open on their own. Saved passwords are encrypted and only used to open your statements."
+      description="Statements from these cards are matched to the account automatically, including PDFs that arrive by email. Save each account's statement password so locked PDFs and spreadsheets, including emailed ones, open on their own. Saved passwords are encrypted and only used to open your statements."
       open={open}
       setOpen={setOpen}
       title="Recognised cards"
@@ -119,7 +112,7 @@ export const RecognisedCards = ({ sources }: { sources: Sources }) => {
                   Forget password
                 </Button>
               ) : (
-                <SavePasswordOrNote source={source} />
+                <SavePassword accountId={source.accountId} />
               )}
             </div>
           ))}

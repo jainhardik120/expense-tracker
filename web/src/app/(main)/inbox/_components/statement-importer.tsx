@@ -98,7 +98,7 @@ const ItemRow = ({
         <span className="text-muted-foreground text-xs">
           {item.incorrectPassword === true
             ? 'That password did not open it. Try again.'
-            : 'This PDF is locked. Enter the password your bank uses for statements.'}
+            : 'This statement is locked. Enter the password your bank uses for statements.'}
         </span>
         <div className="flex gap-2">
           <Input

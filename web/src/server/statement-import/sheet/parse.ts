@@ -17,7 +17,7 @@ type Columns = {
 
 const HEADER_SCAN_ROWS = 60;
 const ACCOUNT_NUMBER = /account\s*(?:number|no\.?)\D{0,10}([\dx*]{6,})/i;
-const PERIOD = /from\s+(\S+)\s+to\s+(\S+)/i;
+const PERIOD = /from[\s:]+(\d\S*)\s+to\s+(\d\S*)/i;
 const LAST_DIGITS = 4;
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const CENTURY = 2000;

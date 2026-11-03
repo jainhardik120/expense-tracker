@@ -8,7 +8,7 @@ import logger from '@/lib/logger';
 import { readObject } from '@/server/helpers/inbound-email/storage';
 
 import { ingestStatementFile, type IngestInput, StatementAccountRequiredError } from './ingest';
-import { PdfPasswordError } from './pdf/extract';
+import { StatementPasswordError } from './pdf/extract';
 import { UnsupportedStatementError } from './pdf/parse';
 
 const isPdf = (attachment: { filename: string | null; mimeType: string }) =>
@@ -21,7 +21,7 @@ const bytesOf = (attachment: Attachment) =>
     : new Uint8Array(attachment.content);
 
 const outcomeOfError = (error: unknown): EmailImportOutcome => {
-  if (error instanceof PdfPasswordError) {
+  if (error instanceof StatementPasswordError) {
     return 'password';
   }
   if (error instanceof StatementAccountRequiredError) {

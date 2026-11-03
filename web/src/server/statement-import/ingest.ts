@@ -13,10 +13,11 @@ import { instrumentedFunction } from '@/lib/instrumentation';
 import { assertOwnsAccountsAndFriends } from '@/server/helpers/account';
 
 import { finalizeStatement } from './finalize';
-import { extractPdfLines, PdfPasswordError } from './pdf/extract';
+import { extractPdfLines, StatementPasswordError } from './pdf/extract';
 import { parseStatementLines } from './pdf/parse';
 import { roundMoney } from './pdf/values';
 import { openPassword, sealPassword } from './secrets';
+import { readSheetData } from './sheet/decrypt';
 import { parseSheetRows, readSheetRows } from './sheet/parse';
 import { type ParsedStatement, type StatementKind } from './types';
 
@@ -118,18 +119,18 @@ const isPdf = (data: Uint8Array) =>
   new TextDecoder().decode(data.subarray(0, PDF_MAGIC.length)) === PDF_MAGIC;
 
 const readLines = async (data: Uint8Array, passwords: Array<string | undefined>) => {
-  let lastError: PdfPasswordError | null = null;
+  let lastError: StatementPasswordError | null = null;
   for (const password of passwords) {
     try {
       return { lines: await extractPdfLines(new Uint8Array(data), password), password };
     } catch (error) {
-      if (!(error instanceof PdfPasswordError)) {
+      if (!(error instanceof StatementPasswordError)) {
         throw error;
       }
       lastError = error;
     }
   }
-  throw lastError ?? new PdfPasswordError(true);
+  throw lastError ?? new StatementPasswordError(true);
 };
 
 const pickSource = (
@@ -194,13 +195,21 @@ export const ingestStatementFile = instrumentedFunction(
         usedPassword = read.password;
         parsed = parseStatementLines(read.lines);
       } catch (error) {
-        if (error instanceof PdfPasswordError) {
-          throw new PdfPasswordError(!hasInput);
+        if (error instanceof StatementPasswordError) {
+          throw new StatementPasswordError(!hasInput);
         }
         throw error;
       }
     } else {
-      parsed = finalizeStatement(parseSheetRows(readSheetRows(input.data)));
+      const sheet = await readSheetData(input.data, hasInput ? [input.password] : saved).catch(
+        (error: unknown) => {
+          throw error instanceof StatementPasswordError
+            ? new StatementPasswordError(!hasInput)
+            : error;
+        },
+      );
+      usedPassword = sheet.password;
+      parsed = finalizeStatement(parseSheetRows(readSheetRows(sheet.data)));
     }
     if (parsed.periodStart === null || parsed.periodEnd === null) {
       throw new Error('Could not read the statement period from this file');
