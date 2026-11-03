@@ -2,9 +2,10 @@
 
 import { useMemo } from 'react';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { Info } from 'lucide-react';
+import { ArrowRight, Info } from 'lucide-react';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
@@ -45,8 +46,8 @@ const LOCAL_CALCULATION_SOURCE = 'local calculation';
 
 const marketDataSources: Record<InvestmentKindValue, string> = {
   fd: LOCAL_CALCULATION_SOURCE,
-  stocks: 'Yahoo Finance',
-  mutual_funds: 'MFAPI',
+  stocks: 'Groww for India, Yahoo Finance for US',
+  mutual_funds: 'Groww',
   crypto: 'CoinGecko',
   commodities: 'Upstox and Hindustan Times',
   epfo: LOCAL_CALCULATION_SOURCE,
@@ -447,6 +448,14 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
 
   return (
     <div className="grid gap-4">
+      <div className="flex justify-end">
+        <Button asChild size="sm" variant="outline">
+          <Link href="/investments/mutual-funds">
+            Mutual fund analysis
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
+      </div>
       <InvestmentsOverview
         categoryTimelines={categoryTimelines}
         dashboard={dashboard}

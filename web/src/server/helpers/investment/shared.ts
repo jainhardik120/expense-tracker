@@ -6,7 +6,7 @@ import {
   type StockMarketValue,
 } from '@/lib/investments';
 import { parseFloatSafe } from '@/server/helpers/emi-calculations';
-import { MONTHS_PER_YEAR, MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from '@/types';
+import { MS_PER_DAY, MS_PER_MINUTE } from '@/types';
 
 export const DAY_IN_MS = MS_PER_DAY;
 export const DEFAULT_USER_AGENT = 'Mozilla/5.0 (compatible; ExpenseTracker/1.0)';
@@ -17,21 +17,6 @@ export const getCoinGeckoHeaders = (): HeadersInit => ({
   Accept: 'application/json',
   'x-cg-demo-api-key': env.COINGECKO_API_KEY,
 });
-
-export const parseMfDate = (value: string): Date | null => {
-  const [day, month, year] = value.split('-').map((part) => Number(part));
-  if (
-    Number.isNaN(day) ||
-    Number.isNaN(month) ||
-    Number.isNaN(year) ||
-    day < 1 ||
-    month < 1 ||
-    month > MONTHS_PER_YEAR
-  ) {
-    return null;
-  }
-  return new Date(year, month - 1, day);
-};
 
 export const startOfDay = (date: Date): Date =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -189,43 +174,5 @@ export const splitIntoChunks = <T>(items: T[], chunkSize: number): T[][] => {
   }
   return chunks;
 };
-
-type MFScheme = {
-  schemeCode: number;
-  schemeName: string;
-};
-
-const MF_CACHE_TTL_HOURS = 6;
-const MF_CACHE_TTL_MS = MF_CACHE_TTL_HOURS * MS_PER_HOUR;
-let mfSchemesCache:
-  | {
-      items: MFScheme[];
-      fetchedAt: number;
-    }
-  | undefined;
-
-export const getMutualFundSchemes = instrumentedFunction(
-  'getMutualFundSchemes',
-  async (): Promise<MFScheme[]> => {
-    const now = Date.now();
-    if (
-      mfSchemesCache !== undefined &&
-      now - mfSchemesCache.fetchedAt < MF_CACHE_TTL_MS &&
-      mfSchemesCache.items.length > 0
-    ) {
-      return mfSchemesCache.items;
-    }
-
-    const payload = await fetchJson<MFScheme[]>('https://api.mfapi.in/mf', {
-      cache: 'no-store',
-    });
-    const items = payload ?? [];
-    mfSchemesCache = {
-      items,
-      fetchedAt: now,
-    };
-    return items;
-  },
-);
 
 export const parseNumericString = (value: string): number => parseFloatSafe(value);

@@ -54,7 +54,7 @@ const instrumentCodePlaceholders: Record<InvestmentKindValue, string> = {
 };
 
 const stockSearchHelperTextByMarket: Record<(typeof stockMarketValues)[number], string> = {
-  IN: 'Searches Yahoo Finance symbols for Indian exchanges (NSE/BSE).',
+  IN: 'Searches NSE and BSE stocks on Groww.',
   US: 'Searches Yahoo Finance symbols for US exchanges (NYSE/NASDAQ).',
 };
 
@@ -70,7 +70,7 @@ const getInstrumentSearchHelperText = (
 
 const instrumentSearchHelperText: Record<InvestmentKindValue, string> = {
   stocks: stockSearchHelperTextByMarket.IN,
-  mutual_funds: 'Searches mfapi.in scheme directory.',
+  mutual_funds: 'Searches mutual funds on Groww.',
   crypto: 'Searches CoinGecko coin ids.',
   commodities: 'Searches supported commodities like gold and silver.',
   fd: 'Searches preset Indian FD issuers.',

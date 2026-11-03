@@ -15,6 +15,7 @@ export type Quote = {
   fxRateToInr: number | null;
   asOf: Date | null;
   source: string;
+  previousCloseInr?: number | null;
 };
 
 export type InstrumentIdentity = {

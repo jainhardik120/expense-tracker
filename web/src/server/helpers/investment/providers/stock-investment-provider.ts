@@ -64,14 +64,6 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
       .filter((item) => {
         const symbol = item.symbol ?? '';
         const exchange = (item.exchange ?? '').toUpperCase();
-        if (this.stockMarket === 'IN') {
-          return (
-            symbol.endsWith('.NS') ||
-            symbol.endsWith('.BO') ||
-            exchange === 'NSI' ||
-            exchange === 'BSE'
-          );
-        }
         if (symbol.includes('.')) {
           return false;
         }
@@ -293,14 +285,6 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
       });
     }
     return points;
-  }
-}
-
-export class IndiaStockInvestmentProvider extends YahooStockInvestmentProvider {
-  readonly id = 'stocks-in';
-
-  constructor() {
-    super('IN');
   }
 }
 

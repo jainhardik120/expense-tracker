@@ -3,11 +3,9 @@ import type { InvestmentKindValue, StockMarketValue } from '@/lib/investments';
 import { CommoditiesInvestmentProvider } from './providers/commodities-investment-provider';
 import { CryptoInvestmentProvider } from './providers/crypto-investment-provider';
 import { FixedDepositInvestmentProvider } from './providers/fixed-deposit-investment-provider';
+import { IndiaStockInvestmentProvider } from './providers/india-stock-investment-provider';
 import { MutualFundInvestmentProvider } from './providers/mutual-fund-investment-provider';
-import {
-  IndiaStockInvestmentProvider,
-  UsStockInvestmentProvider,
-} from './providers/stock-investment-provider';
+import { UsStockInvestmentProvider } from './providers/stock-investment-provider';
 
 import type { InvestmentInstrumentProvider } from './provider-interface';
 import type { InstrumentIdentity, ProviderTarget } from './types';

@@ -1,4 +1,4 @@
-import { MS_PER_MINUTE } from '@/types';
+import { growwFundNav, growwSearch } from '@/server/helpers/groww/client';
 
 import type {
   InstrumentIdentity,
@@ -9,50 +9,19 @@ import type {
 } from '../types';
 
 import { BaseInvestmentInstrumentProvider } from '../provider-interface';
-import {
-  createInstrumentKey,
-  fetchJson,
-  getMutualFundSchemes,
-  parseMfDate,
-  parseNumericString,
-  startOfDay,
-} from '../shared';
+import { createInstrumentKey, DAY_IN_MS, startOfDay } from '../shared';
 
-const MAX_SEARCH_RESULTS = 25;
+const SOURCE = 'groww';
+const RECENT_NAV_DAYS = 14;
+const PREVIOUS_POINT = -2;
 
-const NAV_HISTORY_TTL_MINUTES = 15;
-const NAV_HISTORY_TTL_MS = NAV_HISTORY_TTL_MINUTES * MS_PER_MINUTE;
-const navHistories = new Map<string, { points: PriceHistoryPoint[]; at: number }>();
+const instrumentKey = (code: string) => createInstrumentKey('mutual_funds', code.trim(), null);
 
-const navHistory = async (code: string): Promise<PriceHistoryPoint[]> => {
-  const kept = navHistories.get(code);
-  if (kept !== undefined && Date.now() - kept.at < NAV_HISTORY_TTL_MS) {
-    return kept.points;
-  }
-  const payload = await fetchJson<{
-    data?: Array<{ date: string; nav: string }>;
-  }>(`https://api.mfapi.in/mf/${encodeURIComponent(code)}`, {
-    cache: 'no-store',
-  });
-  const points = (payload?.data ?? [])
-    .map((value) => {
-      const parsedDate = parseMfDate(value.date);
-      const nav = parseNumericString(value.nav);
-      if (parsedDate === null || !Number.isFinite(nav) || nav <= 0) {
-        return null;
-      }
-      return {
-        date: parsedDate,
-        price: nav,
-      };
-    })
-    .filter((value): value is PriceHistoryPoint => value !== null)
-    .reverse();
-  if (points.length > 0) {
-    navHistories.set(code, { points, at: Date.now() });
-  }
-  return points;
-};
+const uniqueCodes = (instruments: InstrumentIdentity[]) => [
+  ...new Set(instruments.map((instrument) => instrument.code.trim()).filter(Boolean)),
+];
+
+const recentStart = () => new Date(Date.now() - RECENT_NAV_DAYS * DAY_IN_MS);
 
 export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvider {
   readonly id = 'mutual-funds';
@@ -62,84 +31,55 @@ export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvid
   }
 
   async search(query: string): Promise<InvestmentInstrumentSearchResult[]> {
-    const schemes = await getMutualFundSchemes();
-    const normalized = query.toLowerCase().trim();
-
-    return schemes
-      .filter((item) => {
-        const byName = item.schemeName.toLowerCase().includes(normalized);
-        const byCode = String(item.schemeCode).includes(normalized);
-        return byName || byCode;
-      })
-      .slice(0, MAX_SEARCH_RESULTS)
-      .map((item) => ({
-        code: String(item.schemeCode),
-        name: item.schemeName,
-        kind: 'mutual_funds',
-        source: 'mfapi.in',
-      }));
+    const hits = await growwSearch(query, 'scheme');
+    return hits.flatMap((hit) =>
+      hit.scheme_code === null || hit.scheme_code === undefined || hit.title === undefined
+        ? []
+        : [
+            {
+              code: hit.scheme_code,
+              name: hit.title,
+              kind: 'mutual_funds' as const,
+              source: SOURCE,
+            },
+          ],
+    );
   }
 
   async resolveNames(instruments: InstrumentIdentity[]): Promise<Map<string, string>> {
     const names = new Map<string, string>();
-    const schemes = await getMutualFundSchemes();
-    const schemeByCode = new Map<string, string>();
-    for (const scheme of schemes) {
-      schemeByCode.set(String(scheme.schemeCode), scheme.schemeName);
-    }
-
-    for (const instrument of instruments) {
-      const normalizedCode = instrument.code.trim();
-      if (normalizedCode === '') {
-        continue;
-      }
-      const resolvedName = schemeByCode.get(normalizedCode);
-      if (resolvedName !== undefined && resolvedName.trim() !== '') {
-        names.set(createInstrumentKey('mutual_funds', normalizedCode, null), resolvedName.trim());
-      }
-    }
-
+    await Promise.all(
+      uniqueCodes(instruments).map(async (code) => {
+        const nav = await growwFundNav(code, recentStart());
+        if (nav?.name !== null && nav?.name !== undefined) {
+          names.set(instrumentKey(code), nav.name);
+        }
+      }),
+    );
     return names;
   }
 
   async getLiveQuotes(instruments: InstrumentIdentity[]): Promise<Map<string, Quote>> {
-    const quotesByCode = new Map<string, Quote>();
-    const normalizedCodes = [
-      ...new Set(instruments.map((instrument) => instrument.code.trim()).filter(Boolean)),
-    ];
-
+    const quotes = new Map<string, Quote>();
     await Promise.all(
-      normalizedCodes.map(async (code) => {
-        const payload = await fetchJson<{
-          data?: Array<{ date: string; nav: string }>;
-        }>(`https://api.mfapi.in/mf/${encodeURIComponent(code)}`, {
-          cache: 'no-store',
-        });
-        const nav = payload?.data?.[0];
-        if (nav === undefined) {
+      uniqueCodes(instruments).map(async (code) => {
+        const points = (await growwFundNav(code, recentStart()))?.points ?? [];
+        const latest = points.at(-1);
+        if (latest === undefined) {
           return;
         }
-        const price = parseNumericString(nav.nav);
-        if (!Number.isFinite(price) || price <= 0) {
-          return;
-        }
-        quotesByCode.set(code, {
-          unitPriceInr: price,
-          unitPriceNative: price,
+        quotes.set(instrumentKey(code), {
+          unitPriceInr: latest.price,
+          unitPriceNative: latest.price,
           nativeCurrency: 'INR',
           fxRateToInr: 1,
-          asOf: parseMfDate(nav.date),
-          source: 'mfapi.in',
+          asOf: latest.date,
+          source: SOURCE,
+          previousCloseInr: points.at(PREVIOUS_POINT)?.price ?? null,
         });
       }),
     );
-
-    return new Map(
-      [...quotesByCode.entries()].map(([code, quote]) => [
-        createInstrumentKey('mutual_funds', code, null),
-        quote,
-      ]),
-    );
+    return quotes;
   }
 
   async getHistoricalPrices(
@@ -147,9 +87,9 @@ export class MutualFundInvestmentProvider extends BaseInvestmentInstrumentProvid
     startDate: Date,
     endDate: Date,
   ): Promise<PriceHistoryPoint[]> {
-    const history = await navHistory(instrument.code);
+    const points = (await growwFundNav(instrument.code, startDate))?.points ?? [];
     const from = startOfDay(startDate).getTime();
     const to = startOfDay(endDate).getTime();
-    return history.filter((value) => value.date.getTime() >= from && value.date.getTime() <= to);
+    return points.filter((point) => point.date.getTime() >= from && point.date.getTime() <= to);
   }
 }

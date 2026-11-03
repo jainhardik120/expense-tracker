@@ -9,6 +9,7 @@ import { emailForwardingRouter } from './email-forwarding';
 import { emisRouter } from './emis';
 import { friendsRouter } from './friends';
 import { investmentsRouter } from './investments';
+import { mutualFundAnalysisRouter } from './mutual-fund-analysis';
 import { recurringPaymentsRouter } from './recurring-payments';
 import { reportsRouter } from './reports';
 import { salaryRouter } from './salary';
@@ -32,6 +33,7 @@ export const appRouter = createTRPCRouter({
   emailForwarding: emailForwardingRouter,
   bulkImport: bulkImportRouter,
   investments: investmentsRouter,
+  mutualFundAnalysis: mutualFundAnalysisRouter,
   emis: emisRouter,
   recurringPayments: recurringPaymentsRouter,
   reports: reportsRouter,

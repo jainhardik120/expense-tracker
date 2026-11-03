@@ -7,13 +7,24 @@ import {
   type InvestmentKindValue,
   type StockMarketValue,
 } from '@/lib/investments';
+import { MS_PER_MINUTE } from '@/types';
 
 import { getUsdInrHistory, getUsdInrRate } from './fx';
+import {
+  cachedHistories,
+  cachedNames,
+  cachedQuotes,
+  type InstrumentRow,
+  loadInstrumentRows,
+  storedQuote,
+} from './market-cache';
+import { isIndianMarketOpen } from './market-hours';
 import { investmentInstrumentProviderRegistry } from './registry';
 import { createInstrumentKey, getFxRateToInrFromHistory, startOfDay } from './shared';
 import { getStockMarketFromInvestment } from './utils';
 
 import type { InvestmentMarketDataContext } from './models';
+import type { InvestmentInstrumentProvider } from './provider-interface';
 import type {
   InstrumentIdentity,
   InvestmentInstrumentSearchResult,
@@ -22,23 +33,69 @@ import type {
   Quote,
 } from './types';
 
-const resolveInstrumentNames = async (
-  instruments: InstrumentIdentity[],
-): Promise<Map<string, string>> => {
-  const resolved = new Map<string, string>();
-  const providerGroups =
-    investmentInstrumentProviderRegistry.groupInstrumentsByProvider(instruments);
-  const providerResults = await Promise.all(
-    [...providerGroups.entries()].map(async ([provider, providerInstruments]) => {
-      return provider.resolveNames(providerInstruments);
-    }),
-  );
+const FX_KEY = 'fx:USDINR';
+const FX_TTL_MINUTES = 10;
+const SLOW_QUOTE_TTL_MINUTES = 30;
+const COMMODITY_TTL_MINUTES = 5;
+const FX_TTL_MS = FX_TTL_MINUTES * MS_PER_MINUTE;
+const FUND_QUOTE_TTL_MS = SLOW_QUOTE_TTL_MINUTES * MS_PER_MINUTE;
+const CLOSED_MARKET_TTL_MS = SLOW_QUOTE_TTL_MINUTES * MS_PER_MINUTE;
+const LIVE_TTL_MS = MS_PER_MINUTE;
+const COMMODITY_TTL_MS = COMMODITY_TTL_MINUTES * MS_PER_MINUTE;
 
-  for (const providerResult of providerResults) {
-    for (const [key, value] of providerResult.entries()) {
-      resolved.set(key, value);
+const instrumentKeyOf = (instrument: InstrumentIdentity) =>
+  createInstrumentKey(instrument.kind, instrument.code, instrument.stockMarket);
+
+const quoteTtlMs = (instrument: InstrumentIdentity, now: Date) => {
+  if (instrument.kind === 'mutual_funds') {
+    return FUND_QUOTE_TTL_MS;
+  }
+  if (instrument.kind === 'commodities') {
+    return COMMODITY_TTL_MS;
+  }
+  if (instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'IN') {
+    return isIndianMarketOpen(now) ? LIVE_TTL_MS : CLOSED_MARKET_TTL_MS;
+  }
+  return LIVE_TTL_MS;
+};
+
+const byKey = (instruments: InstrumentIdentity[]) =>
+  new Map(instruments.map((instrument) => [instrumentKeyOf(instrument), instrument]));
+
+const fromProviders = async <T>(
+  instruments: InstrumentIdentity[],
+  call: (
+    provider: InvestmentInstrumentProvider,
+    group: InstrumentIdentity[],
+  ) => Promise<Map<string, T>>,
+): Promise<Map<string, T>> => {
+  const merged = new Map<string, T>();
+  const groups = investmentInstrumentProviderRegistry.groupInstrumentsByProvider(instruments);
+  const results = await Promise.all(
+    [...groups.entries()].map(([provider, group]) => call(provider, group)),
+  );
+  for (const result of results) {
+    for (const [key, value] of result) {
+      merged.set(key, value);
     }
   }
+  return merged;
+};
+
+const resolveInstrumentNames = async (
+  instruments: InstrumentIdentity[],
+  preloaded: Map<string, InstrumentRow>,
+): Promise<Map<string, string>> => {
+  const instrumentByKey = byKey(instruments);
+  const resolved = await cachedNames(
+    [...instrumentByKey.keys()],
+    (keys) =>
+      fromProviders(
+        keys.flatMap((key) => instrumentByKey.get(key) ?? []),
+        (provider, group) => provider.resolveNames(group),
+      ),
+    preloaded,
+  );
 
   for (const instrument of instruments) {
     const normalizedCode = instrument.code.trim();
@@ -102,19 +159,17 @@ export const getHistoricalUnitPrices = instrumentedFunction(
     if (provider === null) {
       return [];
     }
-    return provider.getHistoricalPrices(
-      {
-        kind,
-        code,
-        stockMarket: effectiveStockMarket,
-      },
-      startDate,
-      endDate,
-      {
-        usdInrRate: options?.usdInrRate ?? null,
-        usdInrHistory: options?.usdInrHistory ?? [],
-      },
+    const instrument = { kind, code, stockMarket: effectiveStockMarket };
+    const key = instrumentKeyOf(instrument);
+    const histories = await cachedHistories(
+      [{ key, start: startDate, end: endDate }],
+      (_, start, end) =>
+        provider.getHistoricalPrices(instrument, start, end, {
+          usdInrRate: options?.usdInrRate ?? null,
+          usdInrHistory: options?.usdInrHistory ?? [],
+        }),
     );
+    return histories.get(key) ?? [];
   },
 );
 
@@ -142,72 +197,18 @@ const getUniqueInstruments = (
   return [...instrumentMap.values()];
 };
 
-const getLiveQuotesByInstrument = async (
-  instruments: InstrumentIdentity[],
-  usdInrRate: number | null,
-): Promise<Map<string, Quote>> => {
-  const openLiveInstruments = instruments.filter((instrument) =>
-    isLivePriceInvestment(instrument.kind),
-  );
-  const quoteByInstrumentKey = new Map<string, Quote>();
-  const providerGroups =
-    investmentInstrumentProviderRegistry.groupInstrumentsByProvider(openLiveInstruments);
-  const providerResults = await Promise.all(
-    [...providerGroups.entries()].map(async ([provider, providerInstruments]) => {
-      return provider.getLiveQuotes(providerInstruments, {
-        usdInrRate,
-        usdInrHistory: [],
-      });
-    }),
-  );
+const fxQuote = (rate: number): Quote => ({
+  unitPriceInr: rate,
+  unitPriceNative: 1,
+  nativeCurrency: 'USD',
+  fxRateToInr: rate,
+  asOf: new Date(),
+  source: 'yahoo-finance',
+});
 
-  for (const providerResult of providerResults) {
-    for (const [key, quote] of providerResult.entries()) {
-      quoteByInstrumentKey.set(key, quote);
-    }
-  }
-
-  return quoteByInstrumentKey;
-};
-
-const prefetchHistoricalPrices = async ({
-  instruments,
-  startDate,
-  endDate,
-  usdInrRate,
-  usdInrHistory,
-}: {
-  instruments: InstrumentIdentity[];
-  startDate: Date;
-  endDate: Date;
-  usdInrRate: number | null;
-  usdInrHistory: Array<{ date: Date; price: number }>;
-}): Promise<Map<string, Array<{ date: Date; price: number }>>> => {
-  const historyByInstrumentKey = new Map<string, Array<{ date: Date; price: number }>>();
-  await Promise.all(
-    instruments.map(async (instrument) => {
-      if (!isUnitBasedInvestment(instrument.kind)) {
-        return;
-      }
-      const history = await getHistoricalUnitPrices(
-        instrument.kind,
-        instrument.code,
-        startDate,
-        endDate,
-        {
-          stockMarket: instrument.stockMarket,
-          usdInrRate,
-          usdInrHistory,
-        },
-      );
-      historyByInstrumentKey.set(
-        createInstrumentKey(instrument.kind, instrument.code, instrument.stockMarket),
-        history,
-      );
-    }),
-  );
-  return historyByInstrumentKey;
-};
+const needsUsdInr = (instrument: InstrumentIdentity) =>
+  (instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US') ||
+  instrument.kind === 'commodities';
 
 export const buildInvestmentMarketDataContext = instrumentedFunction(
   'buildInvestmentMarketDataContext',
@@ -222,60 +223,116 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
     historyEndDate?: Date;
     marketDataKinds?: InvestmentKindValue[];
   }): Promise<InvestmentMarketDataContext> => {
+    const now = new Date();
     const instruments = getUniqueInstruments(investmentsList, marketDataKinds);
-    const openInstruments = getUniqueInstruments(
+    const liveInstruments = getUniqueInstruments(
       investmentsList.filter((investment) => !investment.isClosed),
       marketDataKinds,
+    ).filter((instrument) => isLivePriceInvestment(instrument.kind));
+    const unitInstruments = instruments.filter((instrument) =>
+      isUnitBasedInvestment(instrument.kind),
     );
-    const requiresUsdInrData = instruments.some(
-      (instrument) =>
-        (instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US') ||
-        instrument.kind === 'commodities',
-    );
-    const earliestInvestmentDate = investmentsList.reduce<Date | null>((earliest, investment) => {
-      const kind = normalizeInvestmentKind(investment.investmentKind);
-      const stockMarket = getStockMarketFromInvestment(investment);
-      const needsUsdInrData = (kind === 'stocks' && stockMarket === 'US') || kind === 'commodities';
-      if (!needsUsdInrData) {
-        return earliest;
-      }
+    const requiresUsdInrData = instruments.some(needsUsdInr);
+    const fxHistoryStart = investmentsList.reduce<Date>((earliest, investment) => {
+      const instrument = {
+        kind: normalizeInvestmentKind(investment.investmentKind),
+        code: '',
+        stockMarket: getStockMarketFromInvestment(investment),
+      };
       const date = startOfDay(investment.investmentDate);
-      if (earliest === null || date.getTime() < earliest.getTime()) {
-        return date;
-      }
-      return earliest;
-    }, null);
-    const usdInrHistoryEndDate = historyEndDate ?? new Date();
-    const [usdInrRateRaw, usdInrHistory] = requiresUsdInrData
-      ? await Promise.all([
-          getUsdInrRate(),
-          getUsdInrHistory({
-            startDate: earliestInvestmentDate ?? startOfDay(new Date()),
-            endDate: usdInrHistoryEndDate,
-          }),
-        ])
-      : [null, []];
-    const usdInrRate =
-      usdInrRateRaw ?? getFxRateToInrFromHistory(usdInrHistoryEndDate, usdInrHistory, null);
-    const [quoteByInstrumentKey, nameByInstrumentKey, historyByInstrumentKey] = await Promise.all([
-      getLiveQuotesByInstrument(openInstruments, usdInrRate),
-      resolveInstrumentNames(instruments),
-      historyStartDate === undefined || historyEndDate === undefined
-        ? Promise.resolve(new Map<string, Array<{ date: Date; price: number }>>())
-        : prefetchHistoricalPrices({
-            instruments,
-            startDate: historyStartDate,
-            endDate: historyEndDate,
-            usdInrRate,
-            usdInrHistory,
-          }),
+      return needsUsdInr(instrument) && date.getTime() < earliest.getTime() ? date : earliest;
+    }, startOfDay(now));
+    const fxHistoryEnd = historyEndDate ?? now;
+    const instrumentByKey = byKey(instruments);
+    const rows = await loadInstrumentRows([
+      ...instrumentByKey.keys(),
+      ...(requiresUsdInrData ? [FX_KEY] : []),
     ]);
+    const cachedRate = storedQuote(rows.get(FX_KEY))?.unitPriceInr ?? null;
+    let networkFxHistory: Promise<PriceHistoryPoint[]> | null = null;
+    const fxHistoryForFetch = () => {
+      networkFxHistory ??= getUsdInrHistory({ startDate: fxHistoryStart, endDate: fxHistoryEnd });
+      return networkFxHistory;
+    };
+
+    const [quotes, histories, nameByInstrumentKey] = await Promise.all([
+      cachedQuotes(
+        [
+          ...liveInstruments.map((instrument) => ({
+            key: instrumentKeyOf(instrument),
+            ttlMs: quoteTtlMs(instrument, now),
+          })),
+          ...(requiresUsdInrData ? [{ key: FX_KEY, ttlMs: FX_TTL_MS }] : []),
+        ],
+        async (keys) => {
+          const fetched = new Map<string, Quote>();
+          let rate = cachedRate;
+          if (keys.includes(FX_KEY)) {
+            const latest = await getUsdInrRate();
+            if (latest !== null) {
+              rate = latest;
+              fetched.set(FX_KEY, fxQuote(latest));
+            }
+          }
+          const providerQuotes = await fromProviders<Quote>(
+            keys.flatMap((key) => instrumentByKey.get(key) ?? []),
+            (provider, group) =>
+              provider.getLiveQuotes(group, { usdInrRate: rate, usdInrHistory: [] }),
+          );
+          for (const [key, quote] of providerQuotes) {
+            fetched.set(key, quote);
+          }
+          return fetched;
+        },
+        rows,
+      ),
+      cachedHistories(
+        [
+          ...(historyStartDate === undefined || historyEndDate === undefined
+            ? []
+            : unitInstruments.map((instrument) => ({
+                key: instrumentKeyOf(instrument),
+                start: historyStartDate,
+                end: historyEndDate,
+              }))),
+          ...(requiresUsdInrData
+            ? [{ key: FX_KEY, start: fxHistoryStart, end: fxHistoryEnd }]
+            : []),
+        ],
+        async (key, start, end) => {
+          if (key === FX_KEY) {
+            return getUsdInrHistory({ startDate: start, endDate: end });
+          }
+          const instrument = instrumentByKey.get(key);
+          const provider =
+            instrument === undefined
+              ? null
+              : investmentInstrumentProviderRegistry.getProvider(instrument);
+          if (instrument === undefined || provider === null) {
+            return [];
+          }
+          return provider.getHistoricalPrices(instrument, start, end, {
+            usdInrRate: cachedRate,
+            usdInrHistory: needsUsdInr(instrument) ? await fxHistoryForFetch() : [],
+          });
+        },
+        rows,
+      ),
+      resolveInstrumentNames(instruments, rows),
+    ]);
+
+    const usdInrHistory = histories.get(FX_KEY) ?? [];
+    const usdInrRate =
+      quotes.get(FX_KEY)?.unitPriceInr ??
+      getFxRateToInrFromHistory(fxHistoryEnd, usdInrHistory, null);
+    quotes.delete(FX_KEY);
+    histories.delete(FX_KEY);
     return {
-      usdInrRate,
+      usdInrRate: requiresUsdInrData ? usdInrRate : null,
       usdInrHistory,
-      quoteByInstrumentKey,
+      quoteByInstrumentKey: quotes,
       nameByInstrumentKey,
-      historyByInstrumentKey,
+      historyByInstrumentKey: histories,
     };
   },
 );

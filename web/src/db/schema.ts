@@ -807,3 +807,69 @@ export const statementSources = pgTable('statement_sources', {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const mutualFundSchemes = pgTable('mutual_fund_schemes', {
+  schemeCode: text('scheme_code').primaryKey(),
+  providerId: text('provider_id'),
+  schemeName: text('scheme_name').notNull(),
+  fundHouse: text('fund_house'),
+  category: text('category'),
+  subCategory: text('sub_category'),
+  expenseRatio: numeric('expense_ratio'),
+  aumCrore: numeric('aum_crore'),
+  benchmark: text('benchmark'),
+  portfolioTurnover: numeric('portfolio_turnover'),
+  returnStats: jsonb('return_stats'),
+  portfolioDate: timestamp('portfolio_date'),
+  fetchedAt: timestamp('fetched_at').notNull(),
+});
+
+export const mutualFundHoldings = pgTable(
+  'mutual_fund_holdings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    schemeCode: text('scheme_code')
+      .notNull()
+      .references(() => mutualFundSchemes.schemeCode, { onDelete: 'cascade' }),
+    companyName: text('company_name').notNull(),
+    stockRef: text('stock_ref'),
+    sector: text('sector'),
+    assetType: text('asset_type'),
+    instrument: text('instrument'),
+    rating: text('rating'),
+    weightPercent: numeric('weight_percent').notNull(),
+    marketValueCrore: numeric('market_value_crore'),
+  },
+  (table) => [index('mutual_fund_holdings_scheme_idx').on(table.schemeCode)],
+);
+
+export const stockProfiles = pgTable('stock_profiles', {
+  stockRef: text('stock_ref').primaryKey(),
+  name: text('name'),
+  industry: text('industry'),
+  marketCapCrore: numeric('market_cap_crore'),
+  nseSymbol: text('nse_symbol'),
+  bseCode: text('bse_code'),
+  fetchedAt: timestamp('fetched_at').notNull(),
+});
+
+export const marketInstruments = pgTable('market_instruments', {
+  instrumentKey: text('instrument_key').primaryKey(),
+  name: text('name'),
+  nameFetchedAt: timestamp('name_fetched_at'),
+  quote: jsonb('quote'),
+  quoteFetchedAt: timestamp('quote_fetched_at'),
+  historyStart: date('history_start'),
+  historyEnd: date('history_end'),
+  historySyncedAt: timestamp('history_synced_at'),
+});
+
+export const marketPrices = pgTable(
+  'market_prices',
+  {
+    instrumentKey: text('instrument_key').notNull(),
+    day: date('day').notNull(),
+    price: numeric('price').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.instrumentKey, table.day] })],
+);
