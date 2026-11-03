@@ -2,20 +2,18 @@
 
 import { useMemo } from 'react';
 
-import { parseAsArrayOf, parseAsInteger, parseAsString, useQueryStates } from 'nuqs';
-
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { ArrowRight, Info } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { useQueryStates } from 'nuqs';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency, formatSignedCurrency, formatPercent, formatNumber } from '@/lib/format';
+import { toViewValue } from '@/lib/investment-selection';
 import {
   compareInvestmentCategories,
   getInvestmentCategory,
@@ -25,34 +23,26 @@ import {
   investmentKindValues,
   type InvestmentCategoryValue,
   type InvestmentKindValue,
-  FX_RATE_DECIMALS,
   mergeTimelines,
   type TimelineFilters,
 } from '@/lib/investments';
-import { toViewValue } from '@/lib/investment-selection';
-import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
-import { PERCENTAGE_DIVISOR } from '@/types';
+import { investmentParser, PERCENTAGE_DIVISOR } from '@/types';
 
-import { createInvestmentColumns, getSignedValueTone } from './investment-columns';
+import { createGroupedColumns } from './grouped-columns';
+import { createInvestmentColumns } from './investment-columns';
 import { CreateInvestmentForm } from './investment-forms';
 import { InvestmentsOverview } from './investments-overview';
 
 type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialData'];
 type MarketDataResult = RouterOutput['investments']['getInvestmentsMarketDataByType'];
-const UNITS_DECIMALS = 4;
-type GroupedInvestmentRow = InvestmentsPageData['dashboard']['instrumentBreakdown'][number];
-const USD_CURRENCY = 'USD';
-
-type FilterOption = { label: string; value: string; count: number };
 
 const selectionParsers = {
-  category: parseAsArrayOf(parseAsString, ',').withDefault([]),
-  instrument: parseAsArrayOf(parseAsString, ',').withDefault([]),
-  page: parseAsInteger,
+  category: investmentParser.category,
+  instrument: investmentParser.instrument,
+  page: investmentParser.page,
 };
-const INR_CURRENCY = 'INR';
 const LOCAL_CALCULATION_SOURCE = 'local calculation';
 
 const marketDataSources: Record<InvestmentKindValue, string> = {
@@ -158,200 +148,6 @@ const mergeDashboard = (
     timeline,
   };
 };
-
-const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
-  if (row.displayCurrency !== USD_CURRENCY) {
-    return <span>-</span>;
-  }
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button className="h-7 px-2" size="sm" variant="outline">
-          <Info className="mr-1 size-3.5" />
-          FX
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 text-xs">
-        <div className="grid gap-1">
-          <div className="font-semibold">USD to INR Details</div>
-          <div>Buy value (USD): {formatCurrency(row.investedAmount, USD_CURRENCY)}</div>
-          <div>
-            Buy value (INR @ purchase-date FX):{' '}
-            {row.buyValueInrAtPurchaseFx === null
-              ? '-'
-              : formatCurrency(row.buyValueInrAtPurchaseFx, INR_CURRENCY)}
-          </div>
-          <div>Current value (USD): {formatCurrency(row.valuationAmount, USD_CURRENCY)}</div>
-          <div>
-            Current value (INR @ today FX):{' '}
-            {row.currentValueInrAtCurrentFx === null
-              ? '-'
-              : formatCurrency(row.currentValueInrAtCurrentFx, INR_CURRENCY)}
-          </div>
-          <div>
-            Purchase FX:{' '}
-            {row.buyFxRateToInr === null ? '-' : formatNumber(row.buyFxRateToInr, FX_RATE_DECIMALS)}
-          </div>
-          <div>
-            Today FX:{' '}
-            {row.currentFxRateToInr === null
-              ? '-'
-              : formatNumber(row.currentFxRateToInr, FX_RATE_DECIMALS)}
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-};
-
-const createGroupedColumns = (
-  instrumentOptions: FilterOption[],
-): ColumnDef<GroupedInvestmentRow>[] => [
-  {
-    id: 'category',
-    accessorFn: (row) => getInvestmentCategory(row.kind, row.isRsu),
-    header: 'Type',
-    cell: ({ row }) =>
-      investmentCategoryLabels[getInvestmentCategory(row.original.kind, row.original.isRsu)],
-    filterFn: (row, _columnId, filterValue: unknown) => {
-      if (!Array.isArray(filterValue) || filterValue.length === 0) {
-        return true;
-      }
-      return filterValue.includes(getInvestmentCategory(row.original.kind, row.original.isRsu));
-    },
-    meta: {
-      label: 'Investment Category',
-      variant: 'multiSelect',
-      options: investmentCategoryValues.map((category) => ({
-        label: investmentCategoryLabels[category],
-        value: category,
-      })),
-    },
-    enableColumnFilter: true,
-  },
-  {
-    accessorKey: 'name',
-    header: 'Instrument',
-    cell: ({ row }) => (
-      <div>
-        <div className="font-medium">{row.original.name}</div>
-      </div>
-    ),
-  },
-  {
-    id: 'positionCounts',
-    header: 'Open / Closed',
-    cell: ({ row }) => `${row.original.openPositions} / ${row.original.closedPositions}`,
-  },
-  {
-    accessorKey: 'units',
-    header: 'Units Held',
-    cell: ({ row }) => (
-      <div className="text-right">{formatNumber(row.original.units, UNITS_DECIMALS)}</div>
-    ),
-    meta: { align: 'right' },
-  },
-  {
-    accessorKey: 'averageBuyPrice',
-    header: 'Avg Buy Price',
-    cell: ({ row }) => (
-      <div className="text-right">
-        {row.original.averageBuyPrice === null
-          ? '-'
-          : formatCurrency(row.original.averageBuyPrice, row.original.displayCurrency)}
-      </div>
-    ),
-    meta: { align: 'right' },
-  },
-  {
-    accessorKey: 'currentUnitPrice',
-    header: 'Current Unit Price',
-    cell: ({ row }) => (
-      <div className="text-right">
-        {row.original.currentUnitPrice === null
-          ? '-'
-          : formatCurrency(row.original.currentUnitPrice, row.original.displayCurrency)}
-      </div>
-    ),
-    meta: { align: 'right' },
-  },
-  {
-    accessorKey: 'investedAmount',
-    header: 'Invested',
-    cell: ({ row }) => (
-      <div className="text-right">
-        {formatCurrency(row.original.investedAmount, row.original.displayCurrency)}
-      </div>
-    ),
-    meta: { align: 'right' },
-  },
-  {
-    accessorKey: 'valuationAmount',
-    header: 'Current Value',
-    cell: ({ row }) => (
-      <div className="text-right">
-        {formatCurrency(row.original.valuationAmount, row.original.displayCurrency)}
-      </div>
-    ),
-    meta: { align: 'right' },
-  },
-  {
-    id: 'fxDetails',
-    header: 'INR Details',
-    cell: ({ row }) => <GroupedFxPopover row={row.original} />,
-  },
-  {
-    accessorKey: 'pnl',
-    header: 'P/L',
-    cell: ({ row }) => (
-      <div className={`text-right ${getSignedValueTone(row.original.pnl)}`}>
-        {formatSignedCurrency(row.original.pnl, row.original.displayCurrency)}
-        {row.original.pnlPercentage === null
-          ? ''
-          : ` (${formatPercent(row.original.pnlPercentage)})`}
-      </div>
-    ),
-    meta: { align: 'right' },
-  },
-  {
-    accessorKey: 'dayChange',
-    header: '1D Change',
-    cell: ({ row }) => (
-      <div className={`text-right ${getSignedValueTone(row.original.dayChange)}`}>
-        {formatSignedCurrency(row.original.dayChange, row.original.displayCurrency)}
-        {row.original.dayChangePercentage === null
-          ? ''
-          : ` (${formatPercent(row.original.dayChangePercentage)})`}
-      </div>
-    ),
-    meta: { align: 'right' },
-  },
-  {
-    accessorKey: 'xirr',
-    header: 'XIRR',
-    cell: ({ row }) => (
-      <div
-        className={`text-right ${row.original.xirr === null ? '' : getSignedValueTone(row.original.xirr)}`}
-      >
-        {row.original.xirr === null ? '-' : formatPercent(row.original.xirr)}
-      </div>
-    ),
-    meta: { align: 'right' },
-  },
-  {
-    id: 'instrument',
-    accessorFn: (row) => toViewValue(row.kind, row.code, row.stockMarket),
-    header: 'Investment',
-    filterFn: (row, _columnId, filterValue: unknown) =>
-      !Array.isArray(filterValue) ||
-      filterValue.length === 0 ||
-      filterValue.includes(
-        toViewValue(row.original.kind, row.original.code, row.original.stockMarket),
-      ),
-    meta: { label: 'Investment', variant: 'multiSelect', options: instrumentOptions },
-    enableColumnFilter: true,
-  },
-];
 
 const Table = ({ data, filters }: { data: InvestmentsPageData; filters: TimelineFilters }) => {
   const router = useRouter();

@@ -23,26 +23,22 @@ import {
 } from '@/components/ui/select';
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/format';
 import {
-  investmentCategoryLabels,
-  investmentCategoryValues,
-  type InvestmentCategoryValue,
-  investmentKindLabels,
-  investmentKindValues,
-  type InvestmentKindValue,
-  type InvestmentTimelineRangeValue,
-  investmentTimelineRangeDays,
-  normalizeStockMarket,
-  type StockMarketValue,
-  mergeTimelines,
-  type TimelineFilters,
-} from '@/lib/investments';
-import {
   PORTFOLIO_VIEW,
   parseCategoryViewValue,
   parseViewValue,
   toCategoryViewValue,
   toViewValue,
 } from '@/lib/investment-selection';
+import {
+  investmentCategoryLabels,
+  type InvestmentCategoryValue,
+  investmentKindLabels,
+  type InvestmentKindValue,
+  type InvestmentTimelineRangeValue,
+  investmentTimelineRangeDays,
+  mergeTimelines,
+  type TimelineFilters,
+} from '@/lib/investments';
 import { cn } from '@/lib/utils';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -119,14 +115,12 @@ const viewFromSelection = ({
   category: string[];
   instrument: string[];
 }) => {
-  const [onlyInstrument] = instrument;
-  if (instrument.length === 1 && onlyInstrument !== undefined) {
-    return onlyInstrument;
+  if (instrument.length === 1) {
+    return instrument[0];
   }
-  const [onlyCategory] = category;
-  if (category.length === 1 && onlyCategory !== undefined) {
+  if (category.length === 1) {
     const parsed = parseCategoryViewValue(
-      toCategoryViewValue(onlyCategory as InvestmentCategoryValue),
+      toCategoryViewValue(category[0] as InvestmentCategoryValue),
     );
     return parsed === null ? PORTFOLIO_VIEW : toCategoryViewValue(parsed);
   }
