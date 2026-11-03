@@ -371,12 +371,25 @@ export const InvestmentsOverview = ({
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total P/L</CardTitle>
+            <CardTitle className="text-sm font-medium">Unrealised P/L</CardTitle>
           </CardHeader>
           <CardContent
             className={`text-xl font-semibold ${dashboard.summary.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}`}
           >
             {formatCurrency(dashboard.summary.pnl)}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Realised P/L</CardTitle>
+          </CardHeader>
+          <CardContent
+            className={cn(
+              'text-xl font-semibold',
+              getSignedValueTone(dashboard.summary.realizedPnl),
+            )}
+          >
+            {formatCurrency(dashboard.summary.realizedPnl)}
           </CardContent>
         </Card>
         <Card>
@@ -402,16 +415,22 @@ export const InvestmentsOverview = ({
             {dashboard.summary.xirr === null ? '-' : formatPercent(dashboard.summary.xirr)}
           </CardContent>
         </Card>
-        <Card>
+        <Card className="sm:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Open Positions</CardTitle>
           </CardHeader>
           <CardContent className="text-xl font-semibold">
             {dashboard.summary.openPositions}
+            {dashboard.summary.closedPositions === 0 ? null : (
+              <span className="text-muted-foreground ml-2 text-sm font-normal">
+                · {dashboard.summary.closedPositions} closed
+              </span>
+            )}
           </CardContent>
         </Card>
         <div className="text-muted-foreground px-1 text-xs sm:col-span-2">
-          Portfolio totals exclude RSU positions and EPFO.
+          Invested, current value and unrealised P/L cover open positions only. Portfolio totals
+          exclude RSU positions and EPFO.
         </div>
       </div>
 
@@ -488,6 +507,15 @@ export const InvestmentsOverview = ({
               <span className={selectedCategorySummary.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
                 {formatCurrency(selectedCategorySummary.pnl)}
               </span>
+              {selectedCategorySummary.realizedPnl === 0 ? null : (
+                <>
+                  {' '}
+                  - Realised{' '}
+                  <span className={getSignedValueTone(selectedCategorySummary.realizedPnl)}>
+                    {formatCurrency(selectedCategorySummary.realizedPnl)}
+                  </span>
+                </>
+              )}
             </div>
           ) : null}
           {!isPortfolioView && selectedInstrument !== null && selectedInstrument !== undefined ? (
@@ -584,6 +612,11 @@ export const InvestmentsOverview = ({
                   <div className={categoryItem.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
                     PNL {formatCurrency(categoryItem.pnl)}
                   </div>
+                  {categoryItem.realizedPnl === 0 ? null : (
+                    <div className={getSignedValueTone(categoryItem.realizedPnl)}>
+                      Realised {formatCurrency(categoryItem.realizedPnl)}
+                    </div>
+                  )}
                   <div className={categoryItem.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
                     1D {formatCurrency(categoryItem.dayChange)}
                   </div>

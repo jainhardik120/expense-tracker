@@ -107,6 +107,7 @@ const mergeDashboard = (
     (total, item) => ({
       investedAmount: total.investedAmount + item.investedAmount,
       valuationAmount: total.valuationAmount + item.valuationAmount,
+      realizedPnl: total.realizedPnl + item.realizedPnl,
       dayChange: total.dayChange + item.dayChange,
       openPositions: total.openPositions + item.openPositions,
       closedPositions: total.closedPositions + item.closedPositions,
@@ -115,6 +116,7 @@ const mergeDashboard = (
     {
       investedAmount: 0,
       valuationAmount: 0,
+      realizedPnl: 0,
       dayChange: 0,
       openPositions: 0,
       closedPositions: 0,

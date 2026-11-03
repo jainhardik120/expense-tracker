@@ -55,12 +55,14 @@ type InstrumentAggregate = {
   weightedBuyUnits: number;
   currentUnitPriceDisplay: number | null;
   currentValueInrAtCurrentFx: number;
+  realizedPnl: number;
   flows: CashFlow[];
 };
 
 type BreakdownAggregate = {
   investedAmount: number;
   valuationAmount: number;
+  realizedPnl: number;
   dayChange: number;
   openPositions: number;
   closedPositions: number;
@@ -76,6 +78,7 @@ const summarizeBreakdown = (summary: BreakdownAggregate) => ({
     summary.valuationAmount - summary.investedAmount,
     summary.investedAmount,
   ),
+  realizedPnl: summary.realizedPnl,
   dayChange: summary.dayChange,
   dayChangePercentage: getDayChangePercentageFromValuation(
     summary.valuationAmount,
@@ -98,15 +101,20 @@ const addInvestmentToBreakdown = <TKey extends string>(
   const summary = map.get(key) ?? {
     investedAmount: 0,
     valuationAmount: 0,
+    realizedPnl: 0,
     dayChange: 0,
     openPositions: 0,
     closedPositions: 0,
     totalPositions: 0,
     flows: [],
   };
-  summary.flows.push(...investmentCashFlows(investment, asOf));
-  summary.investedAmount += investedAmount;
-  summary.valuationAmount += valuationAmount;
+  if (investment.isClosedPosition) {
+    summary.realizedPnl += valuationAmount - investedAmount;
+  } else {
+    summary.flows.push(...investmentCashFlows(investment, asOf));
+    summary.investedAmount += investedAmount;
+    summary.valuationAmount += valuationAmount;
+  }
   summary.dayChange += investment.dayChange ?? 0;
   summary.totalPositions += 1;
   if (investment.isClosedPosition) {
@@ -122,17 +130,25 @@ const buildInstrumentBreakdown = (
   asOf: Date,
 ): DashboardInstrumentBreakdown[] => {
   const aggregates = new Map<string, InstrumentAggregate>();
+  const instrumentKey = (investment: EnrichedInvestment, code: string) =>
+    `${createInstrumentKey(
+      investment.normalizedKind,
+      code,
+      investment.normalizedStockMarket,
+    )}|${investment.isRsuPosition ? 'RSU' : 'REG'}`;
+  const keysWithOpenPositions = new Set(
+    investmentsList
+      .filter((investment) => !investment.isClosedPosition)
+      .map((investment) => instrumentKey(investment, investment.instrumentCode?.trim() ?? '')),
+  );
 
   for (const investment of investmentsList) {
     const code = investment.instrumentCode?.trim() ?? '';
     if (code === '') {
       continue;
     }
-    const key = `${createInstrumentKey(
-      investment.normalizedKind,
-      code,
-      investment.normalizedStockMarket,
-    )}|${investment.isRsuPosition ? 'RSU' : 'REG'}`;
+    const key = instrumentKey(investment, code);
+    const countsTowardsHolding = !investment.isClosedPosition || !keysWithOpenPositions.has(key);
     const investedAmount = investment.investedAmountInr;
     const valuationAmount = investment.valuationAmount ?? investedAmount;
     const dayChange = investment.dayChange ?? 0;
@@ -162,10 +178,16 @@ const buildInstrumentBreakdown = (
       weightedBuyUnits: 0,
       currentUnitPriceDisplay: null,
       currentValueInrAtCurrentFx: 0,
+      realizedPnl: 0,
       flows: [],
     };
 
-    aggregate.flows.push(...investmentCashFlows(investment, asOf));
+    if (countsTowardsHolding) {
+      aggregate.flows.push(...investmentCashFlows(investment, asOf));
+    }
+    if (investment.isClosedPosition) {
+      aggregate.realizedPnl += valuationAmount - investedAmount;
+    }
 
     aggregate.positionsCount += 1;
     if (investment.isClosedPosition) {
@@ -174,21 +196,23 @@ const buildInstrumentBreakdown = (
       aggregate.openPositions += 1;
       aggregate.units += units;
     }
-    aggregate.investedAmount += investedAmount;
-    aggregate.investedAmountDisplay += investment.investedAmountDisplay;
-    aggregate.buyValueInrAtPurchaseFx += investment.investedAmountInr;
-    aggregate.buyValueInrAtCurrentFx += investment.investedAmountInrAtCurrentFx ?? investedAmount;
-    aggregate.valuationAmount += valuationAmount;
-    aggregate.valuationAmountDisplay +=
-      investment.valuationAmountDisplay ?? investment.investedAmountDisplay;
-    aggregate.currentValueInrAtCurrentFx +=
-      investment.currentValueInrAtCurrentFx ?? valuationAmount;
+    if (countsTowardsHolding) {
+      aggregate.investedAmount += investedAmount;
+      aggregate.investedAmountDisplay += investment.investedAmountDisplay;
+      aggregate.buyValueInrAtPurchaseFx += investment.investedAmountInr;
+      aggregate.buyValueInrAtCurrentFx += investment.investedAmountInrAtCurrentFx ?? investedAmount;
+      aggregate.valuationAmount += valuationAmount;
+      aggregate.valuationAmountDisplay +=
+        investment.valuationAmountDisplay ?? investment.investedAmountDisplay;
+      aggregate.currentValueInrAtCurrentFx +=
+        investment.currentValueInrAtCurrentFx ?? valuationAmount;
+    }
     aggregate.dayChange += dayChange;
     aggregate.dayChangeDisplay += investment.dayChangeDisplay ?? dayChange;
     aggregate.isRsu = aggregate.isRsu || investment.isRsuPosition;
     aggregate.isExcludedFromPortfolio =
       aggregate.isExcludedFromPortfolio || investment.isExcludedFromPortfolioPosition;
-    if (units > 0) {
+    if (units > 0 && countsTowardsHolding) {
       aggregate.weightedBuyAmountDisplay += investment.investedAmountDisplay;
       aggregate.weightedBuyUnits += units;
     }
@@ -224,6 +248,7 @@ const buildInstrumentBreakdown = (
           aggregate.dayChangeDisplay,
         ),
         xirr: computeXirr(aggregate.flows),
+        realizedPnl: aggregate.realizedPnl,
         investedAmountInr: aggregate.investedAmount,
         valuationAmountInr: aggregate.valuationAmount,
         dayChangeInr: aggregate.dayChange,
@@ -299,6 +324,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
     }));
     let totalInvestedAmount = 0;
     let totalValuationAmount = 0;
+    let totalRealizedPnl = 0;
     let totalDayChange = 0;
     let openPositions = 0;
     let closedPositions = 0;
@@ -317,10 +343,16 @@ export const getInvestmentsDashboard = instrumentedFunction(
       const investedAmount = investment.investedAmountInr;
       const valuationAmount = investment.valuationAmount ?? investedAmount;
       const dayChange = investment.dayChange ?? 0;
-      totalInvestedAmount += investedAmount;
-      totalValuationAmount += valuationAmount;
+      if (investment.isClosedPosition) {
+        totalRealizedPnl += valuationAmount - investedAmount;
+      } else {
+        totalInvestedAmount += investedAmount;
+        totalValuationAmount += valuationAmount;
+      }
       totalDayChange += dayChange;
-      portfolioFlows.push(...investmentCashFlows(investment, asOf));
+      if (!investment.isClosedPosition) {
+        portfolioFlows.push(...investmentCashFlows(investment, asOf));
+      }
 
       if (investment.isClosedPosition) {
         closedPositions += 1;
@@ -473,6 +505,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
           totalValuationAmount - totalInvestedAmount,
           totalInvestedAmount,
         ),
+        realizedPnl: totalRealizedPnl,
         dayChange: totalDayChange,
         dayChangePercentage: getDayChangePercentageFromValuation(
           totalValuationAmount,

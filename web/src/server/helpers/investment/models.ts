@@ -46,6 +46,7 @@ export type DashboardInstrumentBreakdown = DashboardInstrumentOption & {
   currentUnitPrice: number | null;
   pnlPercentage: number | null;
   xirr: number | null;
+  realizedPnl: number;
   investedAmountInr: number;
   valuationAmountInr: number;
   dayChangeInr: number;
@@ -61,6 +62,7 @@ export type InvestmentsDashboard = {
     valuationAmount: number;
     pnl: number;
     pnlPercentage: number | null;
+    realizedPnl: number;
     dayChange: number;
     dayChangePercentage: number | null;
     xirr: number | null;
@@ -74,6 +76,7 @@ export type InvestmentsDashboard = {
     valuationAmount: number;
     pnl: number;
     pnlPercentage: number | null;
+    realizedPnl: number;
     dayChange: number;
     dayChangePercentage: number | null;
     xirr: number | null;
@@ -87,6 +90,7 @@ export type InvestmentsDashboard = {
     valuationAmount: number;
     pnl: number;
     pnlPercentage: number | null;
+    realizedPnl: number;
     dayChange: number;
     dayChangePercentage: number | null;
     xirr: number | null;
