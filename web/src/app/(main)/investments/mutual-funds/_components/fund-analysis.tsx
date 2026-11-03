@@ -16,6 +16,7 @@ import { api } from '@/server/react';
 import { assetTypeLabel, percent, rupees, shortFundName } from './format';
 import { FundBreakdownDialog } from './fund-breakdown-dialog';
 import { HoldingsTable } from './holdings-table';
+import { IndexComparison } from './index-comparison';
 import {
   type Analysis,
   type Fund,
@@ -30,6 +31,10 @@ import {
 } from './today';
 
 const LIVE_REFRESH_MS = 60_000;
+const COMPARE_TABS = [
+  { key: 'overlap', label: 'Overlap' },
+  { key: 'index', label: 'Versus Nifty 50' },
+] as const;
 const OVERLAP_STRONG = 50;
 const OVERLAP_SCALE = 100;
 const TOP_FUND_HOLDINGS = 5;
@@ -255,71 +260,93 @@ const Overlap = ({
   analysis: Analysis;
   fundNames: Map<string, string>;
 }) => {
+  const [tab, setTab] = useState<'overlap' | 'index'>('overlap');
   const codes = analysis.overlap.schemeCodes;
-  if (codes.length < 2) {
-    return null;
-  }
+  const { benchmark } = analysis;
   return (
     <Card className="min-w-0">
-      <CardHeader>
-        <CardTitle>How much your funds overlap</CardTitle>
-        <CardDescription>
-          Share of each pair&apos;s equity portfolio that is the same stocks at the same weights.
-          High overlap means paying two fund houses for one portfolio.
-        </CardDescription>
+      <CardHeader className="gap-3">
+        <CardTitle>How your funds compare</CardTitle>
+        <div className="flex [scrollbar-width:none] gap-1 overflow-x-auto">
+          {COMPARE_TABS.filter((item) => item.key === 'overlap' || benchmark !== null).map(
+            (item) => (
+              <Button
+                key={item.key}
+                className="shrink-0"
+                size="sm"
+                variant={item.key === tab ? 'secondary' : 'ghost'}
+                onClick={() => {
+                  setTab(item.key);
+                }}
+              >
+                {item.label}
+              </Button>
+            ),
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
-        <table className="w-full min-w-120 border-separate border-spacing-1 text-xs">
-          <thead>
-            <tr>
-              <th />
-              {codes.map((code, index) => (
-                <th
-                  key={code}
-                  className="text-muted-foreground w-14 font-normal"
-                  title={fundNames.get(code)}
-                >
-                  {index + 1}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {codes.map((rowCode, row) => (
-              <tr key={rowCode}>
-                <th className="max-w-40 truncate pr-2 text-left font-normal" scope="row">
-                  <span className="text-muted-foreground mr-1.5">{row + 1}</span>
-                  {fundNames.get(rowCode)}
-                </th>
-                {codes.map((columnCode, column) => {
-                  const value = analysis.overlap.matrix[row]?.[column] ?? 0;
-                  if (row === column) {
+      {tab === 'index' && benchmark !== null ? (
+        <CardContent>
+          <IndexComparison analysis={analysis} benchmark={benchmark} />
+        </CardContent>
+      ) : (
+        <CardContent className="flex flex-col gap-3 overflow-x-auto">
+          <CardDescription>
+            Share of each pair&apos;s equity portfolio that is the same stocks at the same weights.
+            High overlap means paying two fund houses for one portfolio.
+          </CardDescription>
+          <table className="w-full min-w-120 border-separate border-spacing-1 text-xs">
+            <thead>
+              <tr>
+                <th />
+                {codes.map((code, index) => (
+                  <th
+                    key={code}
+                    className="text-muted-foreground w-14 font-normal"
+                    title={fundNames.get(code)}
+                  >
+                    {index + 1}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {codes.map((rowCode, row) => (
+                <tr key={rowCode}>
+                  <th className="max-w-40 truncate pr-2 text-left font-normal" scope="row">
+                    <span className="text-muted-foreground mr-1.5">{row + 1}</span>
+                    {fundNames.get(rowCode)}
+                  </th>
+                  {codes.map((columnCode, column) => {
+                    const value = analysis.overlap.matrix[row]?.[column] ?? 0;
+                    if (row === column) {
+                      return (
+                        <td key={columnCode} className="text-muted-foreground text-center">
+                          —
+                        </td>
+                      );
+                    }
                     return (
-                      <td key={columnCode} className="text-muted-foreground text-center">
-                        —
+                      <td
+                        key={columnCode}
+                        className={cn(
+                          'rounded py-1.5 text-center tabular-nums',
+                          value >= OVERLAP_STRONG ? 'text-primary-foreground font-medium' : '',
+                        )}
+                        style={{
+                          backgroundColor: `color-mix(in oklch, var(--primary) ${String(Math.round(value))}%, transparent)`,
+                        }}
+                      >
+                        {Math.round(value)}%
                       </td>
                     );
-                  }
-                  return (
-                    <td
-                      key={columnCode}
-                      className={cn(
-                        'rounded py-1.5 text-center tabular-nums',
-                        value >= OVERLAP_STRONG ? 'text-primary-foreground font-medium' : '',
-                      )}
-                      style={{
-                        backgroundColor: `color-mix(in oklch, var(--primary) ${String(Math.round(value))}%, transparent)`,
-                      }}
-                    >
-                      {Math.round(value)}%
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </CardContent>
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      )}
     </Card>
   );
 };
