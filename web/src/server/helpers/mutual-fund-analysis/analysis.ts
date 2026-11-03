@@ -14,6 +14,8 @@ export type FundPosition = {
   value: number;
   invested: number;
   xirr: number | null;
+  navChange: number;
+  navDate: Date | null;
 };
 
 type CapBucket = 'Large cap' | 'Mid cap' | 'Small cap' | 'Unknown size' | 'Not equity';
@@ -44,6 +46,9 @@ type FundSummary = {
   value: number;
   invested: number;
   xirr: number | null;
+  navChange: number;
+  navChangePercent: number | null;
+  navDate: Date | null;
   share: number;
   expenseRatio: number | null;
   yearlyCost: number | null;
@@ -66,6 +71,9 @@ export type MutualFundAnalysis = {
     equityShare: number;
     weightedExpenseRatio: number | null;
     yearlyCost: number;
+    navChange: number;
+    navChangePercent: number | null;
+    latestNavDate: Date | null;
     topCompaniesShare: number;
     oldestPortfolioDate: Date | null;
   };
@@ -77,6 +85,14 @@ export type MutualFundAnalysis = {
   fundHouses: Slice[];
   categories: Slice[];
   overlap: { schemeCodes: string[]; matrix: number[][] };
+};
+
+const changePercent = (value: number, change: number) =>
+  value - change === 0 ? null : (change / (value - change)) * PERCENT;
+
+const latestDate = (dates: Array<Date | null>) => {
+  const times = dates.flatMap((date) => (date === null ? [] : [date.getTime()]));
+  return times.length === 0 ? null : new Date(Math.max(...times));
 };
 
 export const capBucketFor = (assetType: string, marketCapCrore: number | null): CapBucket => {
@@ -130,6 +146,7 @@ export const analyseMutualFunds = (
 ): MutualFundAnalysis => {
   const totalValue = positions.reduce((total, position) => total + position.value, 0);
   const totalInvested = positions.reduce((total, position) => total + position.invested, 0);
+  const totalNavChange = positions.reduce((total, position) => total + position.navChange, 0);
   const companies = new Map<string, CompanyExposure>();
   const sectors = new Map<string, number>();
   const assetTypes = new Map<string, number>();
@@ -206,6 +223,9 @@ export const analyseMutualFunds = (
         value: position.value,
         invested: position.invested,
         xirr: position.xirr,
+        navChange: position.navChange,
+        navChangePercent: changePercent(position.value, position.navChange),
+        navDate: position.navDate,
         share,
         expenseRatio,
         yearlyCost: cost,
@@ -252,6 +272,9 @@ export const analyseMutualFunds = (
       equityShare: analysedValue === 0 ? 0 : (equityValue / analysedValue) * PERCENT,
       weightedExpenseRatio: costedValue === 0 ? null : (yearlyCost / costedValue) * PERCENT,
       yearlyCost,
+      navChange: totalNavChange,
+      navChangePercent: changePercent(totalValue, totalNavChange),
+      latestNavDate: latestDate(positions.map((position) => position.navDate)),
       topCompaniesShare: companyList
         .filter((company) => company.assetType === EQUITY)
         .slice(0, TOP_COMPANIES)

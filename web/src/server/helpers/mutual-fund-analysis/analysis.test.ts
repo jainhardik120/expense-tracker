@@ -53,8 +53,24 @@ test('analyseMutualFunds adds each fund holding up across funds in rupees', () =
   ]);
   const analysis = analyseMutualFunds(
     [
-      { schemeCode: 'a', schemeName: 'A', value: 1000, invested: 900, xirr: null },
-      { schemeCode: 'b', schemeName: 'B', value: 500, invested: 500, xirr: null },
+      {
+        schemeCode: 'a',
+        schemeName: 'A',
+        value: 1000,
+        invested: 900,
+        xirr: null,
+        navChange: 10,
+        navDate: null,
+      },
+      {
+        schemeCode: 'b',
+        schemeName: 'B',
+        value: 500,
+        invested: 500,
+        xirr: null,
+        navChange: -5,
+        navDate: null,
+      },
     ],
     funds,
     new Map([['hdfc', { name: 'HDFC Bank', industry: 'Banks', marketCapCrore: 1_000_000 }]]),

@@ -1,3 +1,4 @@
+import { subDays } from 'date-fns';
 import { and, eq } from 'drizzle-orm';
 
 import { investments } from '@/db/schema';
@@ -5,12 +6,14 @@ import { normalizeInvestmentKind } from '@/lib/investments';
 import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
 import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
+import { createInstrumentKey } from '@/server/helpers/investment/shared';
 import { analyseMutualFunds } from '@/server/helpers/mutual-fund-analysis/analysis';
 import { getLiveFundPrices } from '@/server/helpers/mutual-fund-analysis/live';
 import { loadFundPortfolios } from '@/server/helpers/mutual-fund-analysis/store';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
 const MUTUAL_FUNDS = 'mutual_funds';
+const NAV_LOOKBACK_DAYS = 14;
 
 export const mutualFundAnalysisRouter = createTRPCRouter({
   getAnalysis: protectedProcedure.query(async ({ ctx }) => {
@@ -23,7 +26,7 @@ export const mutualFundAnalysisRouter = createTRPCRouter({
     const today = new Date();
     const context = await buildInvestmentMarketDataContext({
       investmentsList: rows,
-      historyStartDate: today,
+      historyStartDate: subDays(today, NAV_LOOKBACK_DAYS),
       historyEndDate: today,
       marketDataKinds: [MUTUAL_FUNDS],
     });
@@ -43,6 +46,10 @@ export const mutualFundAnalysisRouter = createTRPCRouter({
         value: row.valuationAmountInr,
         invested: row.investedAmountInr,
         xirr: row.xirr,
+        navChange: row.dayChangeInr,
+        navDate:
+          context.quoteByInstrumentKey.get(createInstrumentKey(MUTUAL_FUNDS, row.code, null))
+            ?.asOf ?? null,
       }));
     const { funds, stocks } = await loadFundPortfolios(
       ctx.db,
