@@ -139,7 +139,7 @@ export const buildRevisionSchedule = (
       financialYear.end.getTime(),
     ),
   );
-  if (activeStart >= activeEnd) {
+  if (activeStart >= activeEnd || revision.components.length === 0) {
     return [];
   }
 

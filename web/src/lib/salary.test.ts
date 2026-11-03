@@ -9,6 +9,23 @@ import {
   reconcileSalaryTdsForecast,
 } from './salary';
 
+test('a revision with no components schedules no pay, so gaps between jobs stay empty', () => {
+  expect(
+    buildRevisionSchedule(
+      {
+        revisionId: 'gap',
+        revisionName: 'No salary',
+        effectiveFrom: new Date(Date.UTC(2025, 6, 1, 12)),
+        effectiveUntil: new Date(Date.UTC(2025, 8, 10, 12)),
+        payDay: 25,
+        payDateRule: 'previous_weekday',
+        components: [],
+      },
+      2025,
+    ),
+  ).toEqual([]);
+});
+
 test('prorates only proratable components across a partial first month', () => {
   const [april] = buildRevisionSchedule(
     {
