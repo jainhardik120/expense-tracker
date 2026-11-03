@@ -18,6 +18,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import type { Table } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
+import { getColumnLabel } from './column-label';
+
 interface DataTableViewOptionsProps<TData extends RowData> {
   table: Table<TData>;
 }
@@ -32,6 +34,10 @@ export const DataTableViewOptions = <TData extends RowData>({
         .filter((column) => typeof column.accessorFn !== 'undefined' && column.getCanHide()),
     [table],
   );
+
+  if (columns.length === 0) {
+    return null;
+  }
 
   return (
     <Popover>
@@ -60,7 +66,7 @@ export const DataTableViewOptions = <TData extends RowData>({
                     column.toggleVisibility(!column.getIsVisible());
                   }}
                 >
-                  <span className="truncate">{column.columnDef.meta?.label ?? column.id}</span>
+                  <span className="truncate">{getColumnLabel(column)}</span>
                   <Check
                     className={cn(
                       'ml-auto size-4 shrink-0',

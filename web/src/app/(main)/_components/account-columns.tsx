@@ -170,7 +170,7 @@ export const createAccountColumns = (
       meta: { align: 'right' },
     },
     {
-      accessorKey: 'actions',
+      id: 'actions',
       header: '',
       cell: ({ row }) => {
         return (

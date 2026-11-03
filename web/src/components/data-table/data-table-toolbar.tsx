@@ -15,6 +15,8 @@ import { Input } from '@/components/ui/input';
 import type { Column, Table } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
+import { getColumnLabel } from './column-label';
+
 interface DataTableToolbarProps<TData extends RowData> extends Omit<
   React.ComponentProps<'div'>,
   'title'
@@ -131,10 +133,10 @@ const DataTableToolbarFilter = <TData extends RowData>({
         );
 
       case 'range':
-        return <DataTableSliderFilter column={column} title={columnMeta.label ?? column.id} />;
+        return <DataTableSliderFilter column={column} title={getColumnLabel(column)} />;
 
       case 'numberCompare':
-        return <DataTableNumberFilter column={column} title={columnMeta.label ?? column.id} />;
+        return <DataTableNumberFilter column={column} title={getColumnLabel(column)} />;
 
       case 'date':
       case 'dateRange':
@@ -142,7 +144,7 @@ const DataTableToolbarFilter = <TData extends RowData>({
           <DataTableDateFilter
             column={column}
             multiple={columnMeta.variant === 'dateRange'}
-            title={columnMeta.label ?? column.id}
+            title={getColumnLabel(column)}
           />
         );
 
@@ -153,7 +155,7 @@ const DataTableToolbarFilter = <TData extends RowData>({
             column={column}
             multiple={columnMeta.variant === 'multiSelect'}
             options={columnMeta.options ?? []}
-            title={columnMeta.label ?? column.id}
+            title={getColumnLabel(column)}
           />
         );
       case 'boolean':
