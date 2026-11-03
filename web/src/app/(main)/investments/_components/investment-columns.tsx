@@ -15,7 +15,8 @@ import {
   formatPercent,
   formatNumber,
 } from '@/lib/format';
-import { FX_RATE_DECIMALS, investmentKindLabels } from '@/lib/investments';
+import { toViewValue } from '@/lib/investment-selection';
+import { FX_RATE_DECIMALS, getInvestmentCategory, investmentKindLabels } from '@/lib/investments';
 import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -80,10 +81,28 @@ const CurrencyDetailsPopover = ({ row }: { row: InvestmentRow }) => {
   );
 };
 
+type FilterOption = { label: string; value: string; count: number };
+
 export const createInvestmentColumns = (
   refresh: () => void,
   zoned: ZonedFormat,
+  filters: { categoryOptions: FilterOption[]; instrumentOptions: FilterOption[] },
 ): ColumnDef<InvestmentRow>[] => [
+  {
+    id: 'category',
+    accessorFn: (row) => getInvestmentCategory(row.normalizedKind, row.isRsuPosition),
+    header: 'Category',
+    meta: { label: 'Category', variant: 'multiSelect', options: filters.categoryOptions },
+    enableColumnFilter: true,
+  },
+  {
+    id: 'instrument',
+    accessorFn: (row) =>
+      toViewValue(row.normalizedKind, row.instrumentCode?.trim() ?? '', row.normalizedStockMarket),
+    header: 'Investment',
+    meta: { label: 'Investment', variant: 'multiSelect', options: filters.instrumentOptions },
+    enableColumnFilter: true,
+  },
   {
     accessorKey: 'normalizedKind',
     header: 'Type',

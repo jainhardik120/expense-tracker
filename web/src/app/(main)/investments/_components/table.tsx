@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 
+import { parseAsArrayOf, parseAsInteger, parseAsString, useQueryStates } from 'nuqs';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -27,6 +29,7 @@ import {
   mergeTimelines,
   type TimelineFilters,
 } from '@/lib/investments';
+import { toViewValue } from '@/lib/investment-selection';
 import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -41,6 +44,14 @@ type MarketDataResult = RouterOutput['investments']['getInvestmentsMarketDataByT
 const UNITS_DECIMALS = 4;
 type GroupedInvestmentRow = InvestmentsPageData['dashboard']['instrumentBreakdown'][number];
 const USD_CURRENCY = 'USD';
+
+type FilterOption = { label: string; value: string; count: number };
+
+const selectionParsers = {
+  category: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  instrument: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  page: parseAsInteger,
+};
 const INR_CURRENCY = 'INR';
 const LOCAL_CALCULATION_SOURCE = 'local calculation';
 
@@ -193,7 +204,9 @@ const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
   );
 };
 
-const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
+const createGroupedColumns = (
+  instrumentOptions: FilterOption[],
+): ColumnDef<GroupedInvestmentRow>[] => [
   {
     id: 'category',
     accessorFn: (row) => getInvestmentCategory(row.kind, row.isRsu),
@@ -325,6 +338,19 @@ const groupedInvestmentColumns: ColumnDef<GroupedInvestmentRow>[] = [
     ),
     meta: { align: 'right' },
   },
+  {
+    id: 'instrument',
+    accessorFn: (row) => toViewValue(row.kind, row.code, row.stockMarket),
+    header: 'Investment',
+    filterFn: (row, _columnId, filterValue: unknown) =>
+      !Array.isArray(filterValue) ||
+      filterValue.length === 0 ||
+      filterValue.includes(
+        toViewValue(row.original.kind, row.original.code, row.original.stockMarket),
+      ),
+    meta: { label: 'Investment', variant: 'multiSelect', options: instrumentOptions },
+    enableColumnFilter: true,
+  },
 ];
 
 const Table = ({ data, filters }: { data: InvestmentsPageData; filters: TimelineFilters }) => {
@@ -410,30 +436,68 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     );
     return data.categoryTimelines.map((entry) => updatedTimelines.get(entry.category) ?? entry);
   }, [data.categoryTimelines, marketData]);
-  const columns = createInvestmentColumns(() => {
-    router.refresh();
-  }, zoned);
+  const [selection, setSelection] = useQueryStates(selectionParsers, { shallow: false });
+  const instrumentOptions = useMemo(
+    () =>
+      dashboard.instrumentBreakdown.map((row) => ({
+        label: row.name === row.code ? row.name : `${row.name} (${row.code})`,
+        value: toViewValue(row.kind, row.code, row.stockMarket),
+        count: row.positionsCount,
+      })),
+    [dashboard.instrumentBreakdown],
+  );
+  const categoryOptions = useMemo(
+    () =>
+      dashboard.categoryBreakdown.map((row) => ({
+        label: investmentCategoryLabels[row.category],
+        value: row.category,
+        count: row.totalPositions,
+      })),
+    [dashboard.categoryBreakdown],
+  );
+  const columns = useMemo(
+    () =>
+      createInvestmentColumns(
+        () => {
+          router.refresh();
+        },
+        zoned,
+        { categoryOptions, instrumentOptions },
+      ),
+    [router, zoned, categoryOptions, instrumentOptions],
+  );
+  const groupedColumns = useMemo(
+    () => createGroupedColumns(instrumentOptions),
+    [instrumentOptions],
+  );
 
   const { table } = useDataTable({
     data: tableData,
     columns,
     pageCount: data.table.pageCount,
     shallow: false,
+    initialState: { columnVisibility: { category: false, instrument: false } },
   });
   const { table: groupedTable } = useDataTable({
     data: dashboard.instrumentBreakdown,
-    columns: groupedInvestmentColumns,
+    columns: groupedColumns,
     pageCount: 1,
     manualFiltering: false,
+    shallow: false,
+    initialState: { columnVisibility: { instrument: false } },
   });
-  const selectedCategoryFilter = groupedTable.getColumn('category')?.getFilterValue();
   const selectedCategories = new Set<InvestmentCategoryValue>(
-    Array.isArray(selectedCategoryFilter)
-      ? selectedCategoryFilter.filter((category): category is InvestmentCategoryValue =>
-          investmentCategoryValues.includes(category as InvestmentCategoryValue),
-        )
-      : [],
+    selection.category.filter((category): category is InvestmentCategoryValue =>
+      investmentCategoryValues.includes(category as InvestmentCategoryValue),
+    ),
   );
+  const select = (next: { category?: string[]; instrument?: string[] }) => {
+    void setSelection({
+      category: next.category ?? selection.category,
+      instrument: next.instrument ?? selection.instrument,
+      page: null,
+    });
+  };
   const toggleCategory = (category: InvestmentCategoryValue) => {
     const nextCategories = new Set(selectedCategories);
     if (nextCategories.has(category)) {
@@ -441,9 +505,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     } else {
       nextCategories.add(category);
     }
-    groupedTable
-      .getColumn('category')
-      ?.setFilterValue(nextCategories.size === 0 ? undefined : [...nextCategories]);
+    select({ category: [...nextCategories], instrument: [] });
   };
 
   return (
@@ -462,7 +524,9 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
         filters={filters}
         instrumentTimelines={data.instrumentTimelines}
         selectedCategories={selectedCategories}
+        selection={selection}
         onCategoryToggle={toggleCategory}
+        onSelect={select}
       />
       <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs">
         {marketQueries.map(([kind, query]) => (
@@ -477,6 +541,12 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
           `${item.kind}:${item.stockMarket ?? 'NA'}:${item.code}:${item.isRsu ? 'RSU' : 'REG'}`
         }
         table={groupedTable}
+        onRowClick={(row) => {
+          const value = toViewValue(row.kind, row.code, row.stockMarket);
+          const alreadyOnly =
+            selection.instrument.length === 1 && selection.instrument[0] === value;
+          select({ instrument: alreadyOnly ? [] : [value] });
+        }}
       >
         <DataTableToolbar table={groupedTable} viewOptions={false} />
       </DataTable>

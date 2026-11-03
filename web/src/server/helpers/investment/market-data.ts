@@ -232,7 +232,7 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
     const unitInstruments = instruments.filter((instrument) =>
       isUnitBasedInvestment(instrument.kind),
     );
-    const requiresUsdInrData = instruments.some(needsUsdInr);
+    const requiresUsdInrData = getUniqueInstruments(investmentsList).some(needsUsdInr);
     const fxHistoryStart = investmentsList.reduce<Date>((earliest, investment) => {
       const instrument = {
         kind: normalizeInvestmentKind(investment.investmentKind),

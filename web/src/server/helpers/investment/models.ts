@@ -107,7 +107,7 @@ export type InstrumentHoldingTimelinePoint = {
 };
 
 export type InstrumentHoldingTimeline = {
-  points: InstrumentHoldingTimelinePoint[];
+  points: Array<InstrumentHoldingTimelinePoint & { investedAmount: number }>;
   summary: {
     unitsHeld: number;
     investedAmount: number;

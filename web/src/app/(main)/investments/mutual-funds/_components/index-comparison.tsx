@@ -1,3 +1,4 @@
+import { GainLossChart } from '@/components/gain-loss-chart';
 import {
   Table,
   TableBody,
@@ -8,7 +9,6 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-import { DifferenceChart } from './difference-chart';
 import { percent, rupees, shortFundName } from './format';
 import { type Analysis, signedRupees, toneFor } from './today';
 
@@ -81,7 +81,25 @@ export const IndexComparison = ({
           ({xirrLabel(benchmark.total.xirr)} XIRR against {xirrLabel(benchmark.total.indexXirr)}).
         </p>
       </div>
-      <DifferenceChart points={benchmark.timeline} />
+      <GainLossChart
+        labels={{
+          value: 'Your funds',
+          base: 'In the index',
+          extra: 'Invested so far',
+          difference: 'Difference',
+          relative: 'Relative to the index',
+        }}
+        points={benchmark.timeline.map((point) => ({
+          date: point.date,
+          value: point.value,
+          base: point.indexValue,
+          extra: point.invested,
+        }))}
+        title={{
+          rupees: 'Your funds minus the index, over time',
+          percent: 'How far ahead of the index, in %',
+        }}
+      />
       <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>

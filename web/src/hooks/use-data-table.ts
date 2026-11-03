@@ -200,6 +200,14 @@ export const useDataTable = <TData extends RowData>(props: UseDataTableProps<TDa
   const [columnFilters, setColumnFilters] =
     React.useState<ColumnFiltersState>(initialColumnFilters);
 
+  React.useEffect(() => {
+    setColumnFilters((current) =>
+      JSON.stringify(current) === JSON.stringify(initialColumnFilters)
+        ? current
+        : initialColumnFilters,
+    );
+  }, [initialColumnFilters]);
+
   const isFilterableColumn = React.useCallback(
     (filterId: string) => {
       return filterableColumns.some((column) => column.id === filterId);

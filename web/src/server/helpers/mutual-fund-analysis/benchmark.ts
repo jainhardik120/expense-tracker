@@ -27,7 +27,12 @@ const navOn = (history: BenchmarkPoint[], date: Date): number | null => {
   return chosen?.price ?? null;
 };
 
-const compare = (lots: BenchmarkLot[], history: BenchmarkPoint[], latestNav: number, asOf: Date) => {
+const compare = (
+  lots: BenchmarkLot[],
+  history: BenchmarkPoint[],
+  latestNav: number,
+  asOf: Date,
+) => {
   let invested = 0;
   let units = 0;
   const flows: CashFlow[] = [];

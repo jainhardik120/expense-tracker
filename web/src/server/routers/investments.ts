@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { investments } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
+import { matchesSelection } from '@/lib/investment-selection';
 import {
   getInvestmentCategory,
   investmentCategoryLabels,
@@ -282,6 +283,7 @@ export const investmentsRouter = createTRPCRouter({
         investmentsListRaw,
         page: input.page,
         perPage: input.perPage,
+        tableFilter: (investment) => matchesSelection(investment, input),
         endDate: input.end,
         marketDataKinds: [],
       });

@@ -4,7 +4,13 @@ import { useMemo, useState } from 'react';
 
 import { startOfDay, subDays } from 'date-fns';
 
-import LineChart from '@/components/line-chart';
+import {
+  GainLossChart,
+  type GainLossPoint,
+  PriceChart,
+  ValueVsBaseChart,
+} from '@/components/gain-loss-chart';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -15,8 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { formatCurrency, DATE_FORMAT, formatNumber, formatPercent } from '@/lib/format';
+import { formatCurrency, formatNumber, formatPercent } from '@/lib/format';
 import {
   investmentCategoryLabels,
   investmentCategoryValues,
@@ -31,6 +36,13 @@ import {
   mergeTimelines,
   type TimelineFilters,
 } from '@/lib/investments';
+import {
+  PORTFOLIO_VIEW,
+  parseCategoryViewValue,
+  parseViewValue,
+  toCategoryViewValue,
+  toViewValue,
+} from '@/lib/investment-selection';
 import { cn } from '@/lib/utils';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -44,12 +56,52 @@ type CategoryTimelineEntry =
 type InstrumentTimelineEntry =
   RouterOutput['investments']['getInvestmentsInitialData']['instrumentTimelines'][number];
 
-const PORTFOLIO_VIEW = '__portfolio__';
-const CATEGORY_VIEW_PREFIX = '__category__|';
 const POSITIVE_TONE = 'text-green-600';
 const NEGATIVE_TONE = 'text-red-600';
 const UNITS_DECIMALS = 4;
 const USD_CURRENCY = 'USD';
+
+type ChartTab = 'gain' | 'value' | 'price';
+
+const AGGREGATE_CHARTS: Array<{ key: ChartTab; label: string }> = [
+  { key: 'gain', label: 'Gain/loss' },
+  { key: 'value', label: 'Value vs invested' },
+];
+
+const INSTRUMENT_CHARTS: Array<{ key: ChartTab; label: string }> = [
+  { key: 'gain', label: 'Gain/loss' },
+  { key: 'value', label: 'Value vs invested' },
+  { key: 'price', label: 'Unit price' },
+];
+
+const AGGREGATE_LABELS = {
+  value: 'Current value',
+  base: 'Invested',
+  difference: 'Gain/loss',
+  relative: 'Return on invested',
+};
+
+const currentTotalsFor = ({
+  isPortfolioView,
+  summary,
+  category,
+  instrument,
+}: {
+  isPortfolioView: boolean;
+  summary: DashboardData['summary'];
+  category: DashboardData['categoryBreakdown'][number] | undefined;
+  instrument: DashboardData['instrumentOptions'][number] | null;
+}) => {
+  if (isPortfolioView) {
+    return { value: summary.valuationAmount, invested: summary.investedAmount };
+  }
+  if (category !== undefined) {
+    return { value: category.valuationAmount, invested: category.investedAmount };
+  }
+  return instrument === null
+    ? null
+    : { value: instrument.valuationAmount, invested: instrument.investedAmount };
+};
 
 const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: string }> = [
   { value: '1d', label: '1D' },
@@ -60,41 +112,25 @@ const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: st
   { value: 'lifetime', label: 'Lifetime' },
 ];
 
-const toCategoryViewValue = (category: InvestmentCategoryValue) =>
-  `${CATEGORY_VIEW_PREFIX}${category}`;
-
-const parseCategoryViewValue = (value: string): InvestmentCategoryValue | null => {
-  if (!value.startsWith(CATEGORY_VIEW_PREFIX)) {
-    return null;
+const viewFromSelection = ({
+  category,
+  instrument,
+}: {
+  category: string[];
+  instrument: string[];
+}) => {
+  const [onlyInstrument] = instrument;
+  if (instrument.length === 1 && onlyInstrument !== undefined) {
+    return onlyInstrument;
   }
-  const category = value.slice(CATEGORY_VIEW_PREFIX.length) as InvestmentCategoryValue;
-  return investmentCategoryValues.includes(category) ? category : null;
-};
-
-const toViewValue = (
-  kind: InvestmentKindValue,
-  code: string,
-  stockMarket: StockMarketValue | null,
-) => `${kind}|${stockMarket ?? 'NA'}|${code}`;
-
-const parseViewValue = (
-  value: string,
-): { kind: InvestmentKindValue; code: string; stockMarket: StockMarketValue | null } | null => {
-  const [kind, stockMarketRaw, ...codeParts] = value.split('|');
-  if (codeParts.length === 0) {
-    return null;
+  const [onlyCategory] = category;
+  if (category.length === 1 && onlyCategory !== undefined) {
+    const parsed = parseCategoryViewValue(
+      toCategoryViewValue(onlyCategory as InvestmentCategoryValue),
+    );
+    return parsed === null ? PORTFOLIO_VIEW : toCategoryViewValue(parsed);
   }
-  const code = codeParts.join('|');
-  const normalizedStockMarket =
-    stockMarketRaw === 'NA' ? null : normalizeStockMarket(stockMarketRaw);
-  if (investmentKindValues.includes(kind as InvestmentKindValue)) {
-    return {
-      kind: kind as InvestmentKindValue,
-      stockMarket: normalizedStockMarket,
-      code,
-    };
-  }
-  return null;
+  return PORTFOLIO_VIEW;
 };
 
 export const InvestmentsOverview = ({
@@ -103,18 +139,32 @@ export const InvestmentsOverview = ({
   instrumentTimelines,
   filters,
   selectedCategories,
+  selection,
   onCategoryToggle,
+  onSelect,
 }: {
   categoryTimelines: CategoryTimelineEntry[];
   dashboard: DashboardData;
   instrumentTimelines: InstrumentTimelineEntry[];
   filters: TimelineFilters;
   selectedCategories: Set<InvestmentCategoryValue>;
+  selection: { category: string[]; instrument: string[] };
   onCategoryToggle: (category: InvestmentCategoryValue) => void;
+  onSelect: (next: { category?: string[]; instrument?: string[] }) => void;
 }) => {
-  const [viewSelection, setViewSelection] = useState(PORTFOLIO_VIEW);
+  const viewSelection = viewFromSelection(selection);
+  const setViewSelection = (value: string) => {
+    const category = parseCategoryViewValue(value);
+    if (category !== null) {
+      onSelect({ category: [category], instrument: [] });
+    } else if (parseViewValue(value) === null) {
+      onSelect({ category: [], instrument: [] });
+    } else {
+      onSelect({ category: [], instrument: [value] });
+    }
+  };
   const [timeRange, setTimeRange] = useState<InvestmentTimelineRangeValue>('1m');
-  const zoned = useZonedFormat();
+  const [chartTab, setChartTab] = useState<ChartTab>('gain');
 
   const groupedOptions = useMemo(() => {
     const map = new Map<InvestmentKindValue, DashboardData['instrumentOptions']>();
@@ -148,6 +198,7 @@ export const InvestmentsOverview = ({
   const isPortfolioView = viewSelection === PORTFOLIO_VIEW;
   const isCategoryView = selectedCategory !== null;
   const isAggregateView = isPortfolioView || isCategoryView;
+  const activeChart: ChartTab = chartTab === 'price' && isAggregateView ? 'gain' : chartTab;
   const requiresRemoteTimeline =
     timeRange === '3m' || timeRange === '6m' || timeRange === 'lifetime';
 
@@ -226,44 +277,28 @@ export const InvestmentsOverview = ({
     );
   }, [selectedCategoryTimelineEntries]);
 
-  const chartRows = useMemo(() => {
+  const filteredPoints = useMemo(() => {
     let aggregateTimeline: DashboardData['timeline'] | null = null;
     if (isPortfolioView) {
       aggregateTimeline = portfolioTimeline;
     } else if (selectedCategory !== null) {
       aggregateTimeline = categoryTimelineMap.get(selectedCategory) ?? [];
     }
-    const sourcePoints =
-      aggregateTimeline === null
-        ? (instrumentTimelineMap.get(viewSelection)?.points ?? []).map((point) => ({
-            date: point.date,
-            holdingValue: point.holdingValue,
-            unitPrice: point.unitPrice,
-          }))
-        : aggregateTimeline.map((point) => ({
-            date: point.date,
-            investedAmount: point.investedAmount,
-            valuationAmount: point.valuationAmount,
-            pnl: point.pnl,
-          }));
-
     const days = investmentTimelineRangeDays[timeRange];
     const cutoffDate =
       requiresRemoteTimeline || days === undefined
         ? null
         : subDays(startOfDay(new Date()), days - 1).getTime();
-
-    return sourcePoints
-      .filter((point) => {
-        if (cutoffDate === null) {
-          return true;
-        }
-        return startOfDay(point.date).getTime() >= cutoffDate;
-      })
-      .map((point) => ({
-        ...point,
-        date: zoned(point.date, timeRange === 'lifetime' ? DATE_FORMAT.date : DATE_FORMAT.day),
-      }));
+    const inRange = (date: Date) => cutoffDate === null || startOfDay(date).getTime() >= cutoffDate;
+    return {
+      aggregate:
+        aggregateTimeline === null
+          ? null
+          : aggregateTimeline.filter((point) => inRange(point.date)),
+      instrument: (instrumentTimelineMap.get(viewSelection)?.points ?? []).filter((point) =>
+        inRange(point.date),
+      ),
+    };
   }, [
     instrumentTimelineMap,
     categoryTimelineMap,
@@ -273,14 +308,53 @@ export const InvestmentsOverview = ({
     selectedCategory,
     timeRange,
     viewSelection,
-    zoned,
   ]);
+
+  const currentTotals = useMemo(
+    () =>
+      currentTotalsFor({
+        isPortfolioView,
+        summary: dashboard.summary,
+        category: selectedCategorySummary,
+        instrument: selectedInstrument ?? null,
+      }),
+    [isPortfolioView, dashboard.summary, selectedCategorySummary, selectedInstrument],
+  );
+
+  const gainLossPoints = useMemo((): GainLossPoint[] => {
+    const points =
+      filteredPoints.aggregate === null
+        ? filteredPoints.instrument.map((point) => ({
+            date: point.date,
+            value: point.holdingValue,
+            base: point.investedAmount,
+          }))
+        : filteredPoints.aggregate.map((point) => ({
+            date: point.date,
+            value: point.valuationAmount,
+            base: point.investedAmount,
+          }));
+    if (currentTotals === null) {
+      return points;
+    }
+    const today = startOfDay(new Date()).getTime();
+    const current = {
+      date: new Date(today),
+      value: currentTotals.value,
+      base: currentTotals.invested,
+    };
+    const last = points.at(-1);
+    return last !== undefined && startOfDay(last.date).getTime() >= today
+      ? [...points.slice(0, -1), current]
+      : [...points, current];
+  }, [filteredPoints.aggregate, filteredPoints.instrument, currentTotals]);
 
   const isLoadingTimeline =
     requiresRemoteTimeline &&
     timelineQueries.some((query) => query.isFetching) &&
-    chartRows.length === 0;
+    gainLossPoints.length < 2;
   const selectedCurrency = selectedInstrument?.displayCurrency ?? 'INR';
+  const chartCurrency = !isAggregateView && selectedCurrency === USD_CURRENCY ? 'USD' : 'INR';
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
@@ -351,7 +425,7 @@ export const InvestmentsOverview = ({
         <CardHeader className="gap-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle>Investment Timeline</CardTitle>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
               <Select
                 value={timeRange}
                 onValueChange={(value) => {
@@ -370,7 +444,7 @@ export const InvestmentsOverview = ({
                 </SelectContent>
               </Select>
               <Select value={viewSelection} onValueChange={setViewSelection}>
-                <SelectTrigger className="w-[22rem] max-w-full">
+                <SelectTrigger className="w-full sm:w-[22rem]">
                   <SelectValue placeholder="Select portfolio or instrument" />
                 </SelectTrigger>
                 <SelectContent>
@@ -442,45 +516,52 @@ export const InvestmentsOverview = ({
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
-          {chartRows.length === 0 ? (
+          <div className="flex [scrollbar-width:none] gap-1 overflow-x-auto">
+            {(isAggregateView ? AGGREGATE_CHARTS : INSTRUMENT_CHARTS).map((item) => (
+              <Button
+                key={item.key}
+                className="shrink-0"
+                size="sm"
+                variant={item.key === activeChart ? 'secondary' : 'ghost'}
+                onClick={() => {
+                  setChartTab(item.key);
+                }}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </div>
+          {gainLossPoints.length < 2 ? (
             <p className="text-muted-foreground text-sm">
               {isLoadingTimeline
                 ? 'Loading timeline...'
                 : 'No timeline data available for the selected view.'}
             </p>
-          ) : (
-            <LineChart
-              data={{
-                primaryAxis: {
-                  key: 'date',
-                  label: 'Date',
-                },
-                secondaryAxes: isAggregateView
-                  ? {
-                      investedAmount: { label: 'Invested' },
-                      valuationAmount: { label: 'Current Value' },
-                      pnl: { label: 'P/L' },
-                    }
-                  : {
-                      holdingValue: {
-                        label:
-                          selectedInstrument?.displayCurrency === USD_CURRENCY
-                            ? 'Holding Value (USD)'
-                            : 'Holding Value',
-                      },
-                      unitPrice: {
-                        label:
-                          selectedInstrument?.displayCurrency === USD_CURRENCY
-                            ? 'Unit Price (USD)'
-                            : 'Unit Price',
-                      },
-                    },
-                data: chartRows,
-              }}
-              dot={false}
-              type="monotone"
+          ) : null}
+          {activeChart === 'gain' ? (
+            <GainLossChart
+              currency={chartCurrency}
+              labels={AGGREGATE_LABELS}
+              points={gainLossPoints}
+              title={{ rupees: 'Gain or loss, in ₹', percent: 'Gain or loss, as % of invested' }}
             />
-          )}
+          ) : null}
+          {activeChart === 'value' ? (
+            <ValueVsBaseChart
+              currency={chartCurrency}
+              labels={AGGREGATE_LABELS}
+              points={gainLossPoints}
+            />
+          ) : null}
+          {activeChart === 'price' ? (
+            <PriceChart
+              currency={chartCurrency}
+              points={filteredPoints.instrument.map((point) => ({
+                date: point.date,
+                price: point.unitPrice,
+              }))}
+            />
+          ) : null}
 
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {dashboard.categoryBreakdown.map((categoryItem) => {

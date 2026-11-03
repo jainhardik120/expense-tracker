@@ -456,6 +456,8 @@ export const investmentParser = {
   ...pageParser,
   date: parseAsArrayOf(parseAsTimestamp, ',').withDefault([]),
   investmentKind: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  category: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  instrument: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
 export const emiParser = {
@@ -489,6 +491,8 @@ export const investmentParserSchema = z.object({
   ...dateSchema,
   ...pageSchema,
   investmentKind: z.string().array().optional().default([]),
+  category: z.string().array().optional().default([]),
+  instrument: z.string().array().optional().default([]),
 });
 
 export const emiParserSchema = z.object({

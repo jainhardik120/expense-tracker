@@ -136,9 +136,11 @@ export const buildInvestmentsPageData = instrumentedFunction(
     perPage,
     endDate,
     marketDataKinds,
+    tableFilter,
   }: Omit<RangeViewRequest, 'range'> & {
     page: number;
     perPage: number;
+    tableFilter?: (investment: EnrichedInvestment) => boolean;
   }): Promise<InvestmentsPageData> => {
     const view = await buildRangeView({
       investmentsListRaw,
@@ -146,11 +148,13 @@ export const buildInvestmentsPageData = instrumentedFunction(
       endDate,
       marketDataKinds,
     });
-    const rowsCount = view.enrichedAll.length;
+    const tableRows =
+      tableFilter === undefined ? view.enrichedAll : view.enrichedAll.filter(tableFilter);
+    const rowsCount = tableRows.length;
     const offset = Math.max(page - 1, 0) * perPage;
     return {
       table: {
-        investments: view.enrichedAll.slice(offset, offset + perPage),
+        investments: tableRows.slice(offset, offset + perPage),
         pageCount: Math.max(1, Math.ceil(rowsCount / perPage)),
         rowsCount,
       },

@@ -255,11 +255,29 @@ const getInstrumentHoldingTimeline = instrumentedFunction(
     const investedAmount = investmentsList.reduce((acc, investment) => {
       return acc + (isUsStock ? investment.investedAmountDisplay : investment.investedAmountInr);
     }, 0);
-    const latestPoint = pointsInDisplayCurrency.at(-1);
+    const investedOn = (day: Date) => {
+      const dayTime = startOfDay(day).getTime();
+      return investmentsList.reduce((total, investment) => {
+        const opened = startOfDay(investment.investmentDate).getTime() <= dayTime;
+        const closed =
+          investment.closedAt !== null && startOfDay(investment.closedAt).getTime() <= dayTime;
+        if (!opened || closed) {
+          return total;
+        }
+        return (
+          total + (isUsStock ? investment.investedAmountDisplay : investment.investedAmountInr)
+        );
+      }, 0);
+    };
+    const pointsWithInvested = pointsInDisplayCurrency.map((point) => ({
+      ...point,
+      investedAmount: investedOn(point.date),
+    }));
+    const latestPoint = pointsWithInvested.at(-1);
     const latestHoldingValue = latestPoint?.holdingValue ?? 0;
 
     return {
-      points: pointsInDisplayCurrency,
+      points: pointsWithInvested,
       summary: {
         unitsHeld: latestPoint?.unitsHeld ?? 0,
         investedAmount,
