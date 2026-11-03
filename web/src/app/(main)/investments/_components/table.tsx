@@ -272,7 +272,9 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     columns,
     pageCount: data.table.pageCount,
     shallow: false,
-    initialState: { columnVisibility: { category: false, instrument: false } },
+    initialState: {
+      columnVisibility: { category: false, instrument: false, paidAmount: false, charges: false },
+    },
   });
   const { table: groupedTable } = useDataTable({
     data: dashboard.instrumentBreakdown,

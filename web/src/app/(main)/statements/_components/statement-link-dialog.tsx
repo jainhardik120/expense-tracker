@@ -12,6 +12,7 @@ import { formatCurrency, DATE_FORMAT } from '@/lib/format';
 import { api } from '@/server/react';
 import type { Statement } from '@/types';
 
+import { StatementInvestmentLinks } from './statement-investment-links';
 import { TaxableIncomeLinkOption } from './taxable-income-link-option';
 
 type LinkType = 'recurring' | 'emi' | 'salary';
@@ -71,32 +72,45 @@ const LinkDialog = ({
     statement.statementKind === 'outside_transaction' && Number(statement.amount) > 0;
   const canManageTaxableIncome =
     canLinkSalary && (!alreadyLinked.isLinked || alreadyLinked.type !== 'salary');
+  const canLinkInvestments = statement.category === 'Investment' && Number(statement.amount) < 0;
+  const { data: investmentLinks } = api.investments.payments.getForStatement.useQuery(
+    { statementId: statement.id },
+    { enabled: open && canLinkInvestments },
+  );
+  const hasInvestmentLinks = (investmentLinks?.links.length ?? 0) > 0;
   const finish = () => {
     setOpen(false);
     onRefresh();
   };
+  const linkRecurring = hasInvestmentLinks ? null : (
+    <LinkToRecurringPaymentContent
+      canLinkSalary={canLinkSalary}
+      statementDate={statement.createdAt}
+      statementId={statement.id}
+      onSuccess={finish}
+    />
+  );
+  const primaryContent = alreadyLinked.isLinked ? (
+    <UnlinkContent statement={statement} type={alreadyLinked.type} onSuccess={finish} />
+  ) : (
+    linkRecurring
+  );
   return (
     <Modal
       className="sm:max-w-fit"
-      description="Manage recurring payment, EMI, salary, and taxable-income associations."
+      description="Manage recurring payment, EMI, salary, investment, and taxable-income associations."
       open={open}
       setOpen={setOpen}
       title="Link Statement"
       trigger={trigger}
     >
       <div className="space-y-4">
-        {alreadyLinked.isLinked ? (
-          <UnlinkContent statement={statement} type={alreadyLinked.type} onSuccess={finish} />
-        ) : (
-          <LinkToRecurringPaymentContent
-            canLinkSalary={canLinkSalary}
-            statementDate={statement.createdAt}
-            statementId={statement.id}
-            onSuccess={finish}
-          />
-        )}
+        {primaryContent}
         {canManageTaxableIncome ? (
           <TaxableIncomeLinkOption statement={statement} onSaved={finish} />
+        ) : null}
+        {canLinkInvestments && open ? (
+          <StatementInvestmentLinks statementId={statement.id} onChanged={onRefresh} />
         ) : null}
       </div>
     </Modal>

@@ -99,6 +99,7 @@ export const createGroupedColumns = (
   {
     accessorKey: 'name',
     header: 'Instrument',
+    meta: { label: 'Instrument' },
     cell: ({ row }) => (
       <div>
         <div className="font-medium">{row.original.name}</div>
@@ -108,6 +109,7 @@ export const createGroupedColumns = (
   {
     id: 'positionCounts',
     header: 'Open / Closed',
+    meta: { label: 'Open / Closed' },
     cell: ({ row }) => `${row.original.openPositions} / ${row.original.closedPositions}`,
   },
   {
@@ -116,7 +118,7 @@ export const createGroupedColumns = (
     cell: ({ row }) => (
       <div className="text-right">{formatNumber(row.original.units, UNITS_DECIMALS)}</div>
     ),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Units Held' },
   },
   {
     accessorKey: 'averageBuyPrice',
@@ -128,7 +130,7 @@ export const createGroupedColumns = (
           : formatCurrency(row.original.averageBuyPrice, row.original.displayCurrency)}
       </div>
     ),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Avg Buy Price' },
   },
   {
     accessorKey: 'currentUnitPrice',
@@ -140,7 +142,7 @@ export const createGroupedColumns = (
           : formatCurrency(row.original.currentUnitPrice, row.original.displayCurrency)}
       </div>
     ),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Current Unit Price' },
   },
   {
     accessorKey: 'investedAmount',
@@ -150,7 +152,7 @@ export const createGroupedColumns = (
         {formatCurrency(row.original.investedAmount, row.original.displayCurrency)}
       </div>
     ),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Invested' },
   },
   {
     accessorKey: 'valuationAmount',
@@ -160,11 +162,12 @@ export const createGroupedColumns = (
         {formatCurrency(row.original.valuationAmount, row.original.displayCurrency)}
       </div>
     ),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Current Value' },
   },
   {
     id: 'fxDetails',
     header: 'INR Details',
+    meta: { label: 'INR Details' },
     cell: ({ row }) => <GroupedFxPopover row={row.original} />,
   },
   {
@@ -178,7 +181,7 @@ export const createGroupedColumns = (
           : ` (${formatPercent(row.original.pnlPercentage)})`}
       </div>
     ),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'P/L' },
   },
   {
     accessorKey: 'dayChange',
@@ -191,7 +194,7 @@ export const createGroupedColumns = (
           : ` (${formatPercent(row.original.dayChangePercentage)})`}
       </div>
     ),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: '1D Change' },
   },
   {
     accessorKey: 'xirr',
@@ -203,7 +206,7 @@ export const createGroupedColumns = (
         {row.original.xirr === null ? '-' : formatPercent(row.original.xirr)}
       </div>
     ),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'XIRR' },
   },
   {
     id: 'instrument',

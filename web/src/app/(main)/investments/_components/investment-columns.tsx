@@ -1,6 +1,6 @@
 'use client';
 
-import { CircleOff, Info, SquarePen, Trash } from 'lucide-react';
+import { CircleOff, Info, ReceiptIndianRupee, SquarePen, Trash } from 'lucide-react';
 
 import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
@@ -20,14 +20,17 @@ import { FX_RATE_DECIMALS, getInvestmentCategory, investmentKindLabels } from '@
 import type { ColumnDef } from '@/lib/table';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
+import { PERCENTAGE_DIVISOR } from '@/types';
 
 import { CloseInvestmentForm, UpdateInvestmentForm } from './investment-forms';
+import { InvestmentPaymentsDialog } from './investment-payments-dialog';
 
 type InvestmentRow =
   RouterOutput['investments']['getInvestmentsInitialData']['table']['investments'][number];
 
 const USD_CURRENCY = 'USD';
 const INR_CURRENCY = 'INR';
+const CHARGES_PERCENT_DECIMALS = 3;
 
 export const getSignedValueTone = (value: number | null): string => {
   if (value === null || value === 0) {
@@ -106,11 +109,13 @@ export const createInvestmentColumns = (
   {
     accessorKey: 'normalizedKind',
     header: 'Type',
+    meta: { label: 'Type' },
     cell: ({ row }) => investmentKindLabels[row.original.normalizedKind],
   },
   {
     accessorKey: 'instrumentCode',
     header: 'Code',
+    meta: { label: 'Code' },
     cell: ({ row }) => {
       const code = row.original.instrumentCode ?? '-';
       const marketSuffix =
@@ -126,6 +131,7 @@ export const createInvestmentColumns = (
   {
     id: 'rsu',
     header: 'Tag',
+    meta: { label: 'Tag' },
     cell: ({ row }) => {
       if (row.original.isRsuPosition) {
         return <Badge variant="secondary">RSU</Badge>;
@@ -139,6 +145,7 @@ export const createInvestmentColumns = (
   {
     accessorKey: 'investmentDate',
     header: 'Investment Date',
+    meta: { label: 'Investment Date' },
     cell: ({ row }) => zoned(row.original.investmentDate, DATE_FORMAT.date),
   },
   {
@@ -146,13 +153,39 @@ export const createInvestmentColumns = (
     header: 'Invested',
     cell: ({ row }) =>
       formatCurrency(row.original.investedAmountDisplay, row.original.displayCurrency),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Invested' },
+  },
+  {
+    accessorKey: 'paidAmount',
+    header: 'Paid',
+    cell: ({ row }) =>
+      row.original.paidAmount === null ? '-' : formatCurrency(row.original.paidAmount),
+    meta: { align: 'right', label: 'Paid' },
+  },
+  {
+    accessorKey: 'charges',
+    header: 'Charges',
+    cell: ({ row }) => {
+      const { charges, investedAmountInr } = row.original;
+      if (charges === null) {
+        return <span>-</span>;
+      }
+      const percentage =
+        investedAmountInr === 0 ? null : (charges / investedAmountInr) * PERCENTAGE_DIVISOR;
+      return (
+        <span className={charges > 0 ? 'text-red-600' : 'text-muted-foreground'}>
+          {formatCurrency(charges)}
+          {percentage === null ? '' : ` (${formatPercent(percentage, CHARGES_PERCENT_DECIMALS)})`}
+        </span>
+      );
+    },
+    meta: { align: 'right', label: 'Charges' },
   },
   {
     accessorKey: 'units',
     header: 'Units',
     cell: ({ row }) => row.original.units ?? '-',
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Units' },
   },
   {
     accessorKey: 'liveUnitPrice',
@@ -163,7 +196,7 @@ export const createInvestmentColumns = (
       }
       return formatCurrency(row.original.liveUnitPriceDisplay, row.original.displayCurrency);
     },
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Unit Price' },
   },
   {
     accessorKey: 'valuationAmount',
@@ -172,11 +205,12 @@ export const createInvestmentColumns = (
       row.original.valuationAmountDisplay === null
         ? '-'
         : formatCurrency(row.original.valuationAmountDisplay, row.original.displayCurrency),
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'Current Value' },
   },
   {
     id: 'fxDetails',
     header: 'INR Details',
+    meta: { label: 'INR Details' },
     cell: ({ row }) => <CurrencyDetailsPopover row={row.original} />,
   },
   {
@@ -196,7 +230,7 @@ export const createInvestmentColumns = (
         </span>
       );
     },
-    meta: { align: 'right' },
+    meta: { align: 'right', label: 'P/L' },
   },
   {
     accessorKey: 'dayChange',
@@ -214,11 +248,12 @@ export const createInvestmentColumns = (
         </span>
       );
     },
-    meta: { align: 'right' },
+    meta: { align: 'right', label: '1D Change' },
   },
   {
     id: 'status',
     header: 'Status',
+    meta: { label: 'Status' },
     cell: ({ row }) => (
       <Badge variant={row.original.isClosedPosition ? 'secondary' : 'default'}>
         {row.original.isClosedPosition ? 'Closed' : 'Open'}
@@ -232,6 +267,12 @@ export const createInvestmentColumns = (
 
       return (
         <RowActions>
+          <InvestmentPaymentsDialog
+            investmentId={row.original.id}
+            title={`Payments · ${row.original.instrumentName ?? row.original.instrumentCode ?? investmentKindLabels[row.original.normalizedKind]}`}
+            trigger={<RowActionTrigger icon={ReceiptIndianRupee} label="Payments" />}
+            onChanged={refresh}
+          />
           <UpdateInvestmentForm
             initialData={row.original}
             investmentId={row.original.id}

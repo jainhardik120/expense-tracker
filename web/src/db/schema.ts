@@ -226,6 +226,32 @@ export const investments = pgTable(
   (table) => [index('investments_user_idx').on(table.userId)],
 );
 
+export const investmentPayments = pgTable(
+  'investment_payments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    investmentId: uuid('investment_id')
+      .notNull()
+      .references(() => investments.id, { onDelete: 'cascade' }),
+    statementId: uuid('statement_id')
+      .notNull()
+      .references(() => statements.id, { onDelete: 'cascade' }),
+    amount: numeric('amount').notNull(),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('investment_payments_pair_idx').on(table.investmentId, table.statementId),
+    index('investment_payments_statement_idx').on(table.statementId),
+    index('investment_payments_user_idx').on(table.userId),
+    check('investment_payments_amount_check', sql`${table.amount} > 0`),
+  ],
+);
+
 export const creditCardAccounts = pgTable('credit_card_accounts', {
   id: uuid('id').defaultRandom().primaryKey(),
   accountId: uuid('account_id')

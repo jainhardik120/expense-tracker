@@ -470,6 +470,13 @@
       "when": 1793697257928,
       "tag": "0066_lonely_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1793709833099,
+      "tag": "0067_sour_carmella_unuscione",
+      "breakpoints": true
     }
   ]
 }

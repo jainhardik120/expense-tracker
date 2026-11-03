@@ -26,8 +26,11 @@ import {
 import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
 import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
+import { attachPaymentTotals } from '@/server/helpers/investment/payments';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema, investmentParserSchema } from '@/types';
+
+import { investmentPaymentsRouter } from './investment-payments';
 
 const SEARCH_QUERY_MAX_LENGTH = 120;
 
@@ -132,6 +135,7 @@ const investmentsOverviewSchema = z.object({
 });
 
 export const investmentsRouter = createTRPCRouter({
+  payments: investmentPaymentsRouter,
   getOverview: protectedProcedure
     .meta({
       openapi: {
@@ -279,14 +283,17 @@ export const investmentsRouter = createTRPCRouter({
     .input(investmentParserSchema)
     .query(async ({ ctx, input }) => {
       const investmentsListRaw = await getFilteredInvestments(ctx.db, ctx.user.id, input);
-      return buildInvestmentsPageData({
-        investmentsListRaw,
-        page: input.page,
-        perPage: input.perPage,
-        tableFilter: (investment) => matchesSelection(investment, input),
-        endDate: input.end,
-        marketDataKinds: [],
-      });
+      return attachPaymentTotals(
+        ctx.db,
+        await buildInvestmentsPageData({
+          investmentsListRaw,
+          page: input.page,
+          perPage: input.perPage,
+          tableFilter: (investment) => matchesSelection(investment, input),
+          endDate: input.end,
+          marketDataKinds: [],
+        }),
+      );
     }),
 
   getInvestmentsMarketDataByType: protectedProcedure
@@ -300,13 +307,16 @@ export const investmentsRouter = createTRPCRouter({
       const typeInvestments = investmentsListRaw.filter(
         (investment) => normalizeInvestmentKind(investment.investmentKind) === input.investmentType,
       );
-      return buildInvestmentsPageData({
-        investmentsListRaw: typeInvestments,
-        page: 0,
-        perPage: Math.max(1, typeInvestments.length),
-        endDate: input.end,
-        marketDataKinds: [input.investmentType],
-      });
+      return attachPaymentTotals(
+        ctx.db,
+        await buildInvestmentsPageData({
+          investmentsListRaw: typeInvestments,
+          page: 0,
+          perPage: Math.max(1, typeInvestments.length),
+          endDate: input.end,
+          marketDataKinds: [input.investmentType],
+        }),
+      );
     }),
 
   getInvestmentsTimelinesByType: protectedProcedure
