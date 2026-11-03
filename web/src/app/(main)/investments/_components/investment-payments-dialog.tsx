@@ -14,6 +14,7 @@ import { api } from '@/server/react';
 import { PERCENTAGE_DIVISOR } from '@/types';
 
 const FEE_PERCENT_DECIMALS = 3;
+const NO_ACCOUNT = 'No account';
 export const PAISA = 0.005;
 
 const Stat = ({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) => (
@@ -108,7 +109,14 @@ const PaymentsContent = ({
     );
   }
 
-  const { summary, payments, investment } = data;
+  const { summary, payments, proceeds, investment } = data;
+  const paymentCandidates = candidates?.payments ?? [];
+  const proceedsCandidates = candidates?.proceeds ?? [];
+  const stillToReceive = Math.max((investment.closedAmount ?? 0) - (summary.received ?? 0), 0);
+  let netResultTone: string | undefined;
+  if (summary.netResult !== null) {
+    netResultTone = summary.netResult >= 0 ? 'text-green-600' : 'text-red-600';
+  }
   const stillToPay = Math.max(summary.invested - summary.paid, 0);
   const feeShare =
     summary.feePercentage === null
@@ -131,6 +139,33 @@ const PaymentsContent = ({
           value={summary.daysToInvest === null ? '—' : `${summary.daysToInvest} days`}
         />
       </div>
+      {investment.isClosed ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Stat
+            label="Closed for"
+            value={investment.closedAmount === null ? '—' : formatCurrency(investment.closedAmount)}
+          />
+          <Stat
+            label="Received"
+            value={summary.received === null ? '—' : formatCurrency(summary.received)}
+          />
+          <Stat
+            label="Net result"
+            tone={netResultTone}
+            value={summary.netResult === null ? '—' : formatCurrency(summary.netResult)}
+          />
+          <Stat
+            label="Closed on"
+            value={
+              investment.closedAt === null ? (
+                '—'
+              ) : (
+                <ZonedDate pattern={DATE_FORMAT.date} value={investment.closedAt} />
+              )
+            }
+          />
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <div className="text-sm font-medium">Linked payments</div>
@@ -147,7 +182,7 @@ const PaymentsContent = ({
                 </div>
                 <div className="text-muted-foreground text-xs">
                   <ZonedDate pattern={DATE_FORMAT.dateTime} value={payment.spentAt} /> ·{' '}
-                  {payment.accountName ?? 'No account'}
+                  {payment.accountName ?? NO_ACCOUNT}
                   {payment.statementAmount - payment.amount > PAISA
                     ? ` · part of ${formatCurrency(payment.statementAmount)}`
                     : ''}
@@ -176,19 +211,19 @@ const PaymentsContent = ({
           <ZonedDate pattern={DATE_FORMAT.date} value={investment.investmentDate} /> with money
           still unlinked. Enter how much of each went into this investment, fees included.
         </div>
-        {candidates === undefined || candidates.length === 0 ? (
+        {paymentCandidates.length === 0 ? (
           <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
             No unlinked investment payments around this date.
           </div>
         ) : (
           <div className="max-h-72 space-y-2 overflow-y-auto">
-            {candidates.map((candidate) => (
+            {paymentCandidates.map((candidate) => (
               <LinkCandidate
                 key={candidate.id}
                 detail={
                   <>
                     <ZonedDate pattern={DATE_FORMAT.dateTime} value={candidate.createdAt} /> ·{' '}
-                    {candidate.accountName ?? 'No account'}
+                    {candidate.accountName ?? NO_ACCOUNT}
                     {candidate.remaining < candidate.amount
                       ? ` · ${formatCurrency(candidate.remaining)} of ${formatCurrency(candidate.amount)} left`
                       : ''}
@@ -208,6 +243,71 @@ const PaymentsContent = ({
           </div>
         )}
       </div>
+
+      {investment.isClosed || proceeds.length > 0 ? (
+        <div className="space-y-2">
+          <div className="text-sm font-medium">Money received</div>
+          {proceeds.map((proceed) => (
+            <div key={proceed.id} className="flex items-center gap-3 rounded-lg border p-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-green-600 tabular-nums">
+                  +{formatCurrency(proceed.amount)}
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  <ZonedDate pattern={DATE_FORMAT.dateTime} value={proceed.receivedAt} /> ·{' '}
+                  {proceed.accountName ?? NO_ACCOUNT}
+                  {proceed.statementAmount - proceed.amount > PAISA
+                    ? ` · part of ${formatCurrency(proceed.statementAmount)}`
+                    : ''}
+                </div>
+              </div>
+              <Button
+                aria-label="Unlink received money"
+                disabled={unlinkMutation.isPending}
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  unlinkMutation.mutate({ id: proceed.id });
+                }}
+              >
+                <Unlink />
+              </Button>
+            </div>
+          ))}
+          {proceedsCandidates.length === 0 && proceeds.length === 0 ? (
+            <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
+              No incoming investment money around the close date.
+            </div>
+          ) : null}
+          {proceedsCandidates.length === 0 ? null : (
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {proceedsCandidates.map((candidate) => (
+                <LinkCandidate
+                  key={candidate.id}
+                  detail={
+                    <>
+                      <ZonedDate pattern={DATE_FORMAT.dateTime} value={candidate.createdAt} /> ·{' '}
+                      {candidate.accountName ?? NO_ACCOUNT}
+                      {candidate.remaining < candidate.amount
+                        ? ` · ${formatCurrency(candidate.remaining)} of ${formatCurrency(candidate.amount)} left`
+                        : ''}
+                    </>
+                  }
+                  label={`+${formatCurrency(candidate.amount)}`}
+                  pending={linkMutation.isPending}
+                  suggested={Math.min(
+                    candidate.remaining,
+                    stillToReceive > 0 ? stillToReceive : candidate.remaining,
+                  )}
+                  onLink={(amount) => {
+                    linkMutation.mutate({ investmentId, statementId: candidate.id, amount });
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 };

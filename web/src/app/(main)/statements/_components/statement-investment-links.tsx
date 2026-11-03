@@ -51,14 +51,22 @@ export const StatementInvestmentLinks = ({
   }
 
   const hasRemaining = data.remaining > PAISA;
-  const suggestFor = (candidate: { investmentAmount: number; alreadyPaid: number }) => {
-    const unpaid = Math.max(candidate.investmentAmount - candidate.alreadyPaid, 0);
-    return unpaid > 0 ? Math.min(data.remaining, unpaid) : data.remaining;
+  const incoming = data.direction === 'in';
+  const suggestFor = (candidate: {
+    investmentAmount: number;
+    closedAmount: number | null;
+    alreadyPaid: number;
+  }) => {
+    const target = incoming ? (candidate.closedAmount ?? 0) : candidate.investmentAmount;
+    const open = Math.max(target - candidate.alreadyPaid, 0);
+    return open > 0 ? Math.min(data.remaining, open) : data.remaining;
   };
   const candidateList =
     data.candidates.length === 0 ? (
       <div className="text-muted-foreground text-center text-sm">
-        No investments from 10 days before to 6 months after this payment.
+        {incoming
+          ? 'No investment closed from 30 days before to 10 days after this money came in.'
+          : 'No investments from 10 days before to 6 months after this payment.'}
       </div>
     ) : (
       <div className="max-h-72 space-y-2 overflow-y-auto">
@@ -66,13 +74,23 @@ export const StatementInvestmentLinks = ({
           <LinkCandidate
             key={candidate.id}
             detail={
-              <>
-                {formatCurrency(candidate.investmentAmount)} on{' '}
-                <ZonedDate pattern={DATE_FORMAT.date} value={candidate.investmentDate} />
-                {candidate.alreadyPaid > 0
-                  ? ` · ${formatCurrency(candidate.alreadyPaid)} already linked`
-                  : ''}
-              </>
+              incoming && candidate.closedAt !== null ? (
+                <>
+                  Closed for {formatCurrency(candidate.closedAmount ?? 0)} on{' '}
+                  <ZonedDate pattern={DATE_FORMAT.date} value={candidate.closedAt} />
+                  {candidate.alreadyPaid > 0
+                    ? ` · ${formatCurrency(candidate.alreadyPaid)} already linked`
+                    : ''}
+                </>
+              ) : (
+                <>
+                  {formatCurrency(candidate.investmentAmount)} on{' '}
+                  <ZonedDate pattern={DATE_FORMAT.date} value={candidate.investmentDate} />
+                  {candidate.alreadyPaid > 0
+                    ? ` · ${formatCurrency(candidate.alreadyPaid)} already linked`
+                    : ''}
+                </>
+              )
             }
             label={describe(candidate)}
             pending={linkMutation.isPending}
@@ -88,7 +106,9 @@ export const StatementInvestmentLinks = ({
   return (
     <div className="space-y-3 rounded-lg border p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="font-medium">Investments funded</div>
+        <div className="font-medium">
+          {incoming ? 'Money back from investments' : 'Investments funded'}
+        </div>
         <div className="text-muted-foreground text-sm tabular-nums">
           {formatCurrency(data.allocated)} of {formatCurrency(data.statement.amount)} linked
           {hasRemaining ? ` · ${formatCurrency(data.remaining)} left` : ''}
@@ -99,9 +119,19 @@ export const StatementInvestmentLinks = ({
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-medium">{describe(link.investment)}</div>
             <div className="text-muted-foreground text-xs tabular-nums">
-              {formatCurrency(link.amount)} paid ·{' '}
-              {formatCurrency(link.investment.investmentAmount)} invested on{' '}
-              <ZonedDate pattern={DATE_FORMAT.date} value={link.investment.investmentDate} />
+              {incoming ? (
+                <>
+                  {formatCurrency(link.amount)} received ·{' '}
+                  {formatCurrency(link.investment.investmentAmount)} invested on{' '}
+                  <ZonedDate pattern={DATE_FORMAT.date} value={link.investment.investmentDate} />
+                </>
+              ) : (
+                <>
+                  {formatCurrency(link.amount)} paid ·{' '}
+                  {formatCurrency(link.investment.investmentAmount)} invested on{' '}
+                  <ZonedDate pattern={DATE_FORMAT.date} value={link.investment.investmentDate} />
+                </>
+              )}
             </div>
           </div>
           <Button

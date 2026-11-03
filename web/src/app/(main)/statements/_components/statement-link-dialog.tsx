@@ -72,7 +72,7 @@ const LinkDialog = ({
     statement.statementKind === 'outside_transaction' && Number(statement.amount) > 0;
   const canManageTaxableIncome =
     canLinkSalary && (!alreadyLinked.isLinked || alreadyLinked.type !== 'salary');
-  const canLinkInvestments = statement.category === 'Investment' && Number(statement.amount) < 0;
+  const canLinkInvestments = statement.category === 'Investment' && Number(statement.amount) !== 0;
   const { data: investmentLinks } = api.investments.payments.getForStatement.useQuery(
     { statementId: statement.id },
     { enabled: open && canLinkInvestments },

@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { addDays, differenceInCalendarDays, subDays } from 'date-fns';
-import { and, asc, eq, gte, inArray, lt, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, lt, lte, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
@@ -21,6 +21,8 @@ const PAYMENT_LOOKBACK_DAYS = 180;
 const PAYMENT_LOOKAHEAD_DAYS = 10;
 const INVESTMENT_LOOKBACK_DAYS = 10;
 const INVESTMENT_LOOKAHEAD_DAYS = 180;
+const PROCEEDS_LOOKBACK_DAYS = 10;
+const PROCEEDS_LOOKAHEAD_DAYS = 30;
 const PAISA = 0.005;
 const INVESTMENT_CATEGORY = 'Investment';
 
@@ -43,7 +45,11 @@ const allocatedByStatement = async (db: Database, statementIds: string[]) => {
   return new Map(rows.map((row) => [row.statementId, Number(row.total)]));
 };
 
-const allocatedByInvestment = async (db: Database, investmentIds: string[]) => {
+const allocatedByInvestment = async (
+  db: Database,
+  investmentIds: string[],
+  direction: 'out' | 'in',
+) => {
   if (investmentIds.length === 0) {
     return new Map<string, number>();
   }
@@ -53,7 +59,13 @@ const allocatedByInvestment = async (db: Database, investmentIds: string[]) => {
       total: sql<string>`sum(${investmentPayments.amount})`,
     })
     .from(investmentPayments)
-    .where(inArray(investmentPayments.investmentId, investmentIds))
+    .innerJoin(statements, eq(statements.id, investmentPayments.statementId))
+    .where(
+      and(
+        inArray(investmentPayments.investmentId, investmentIds),
+        direction === 'out' ? lt(statements.amount, '0') : gt(statements.amount, '0'),
+      ),
+    )
     .groupBy(investmentPayments.investmentId);
   return new Map(rows.map((row) => [row.investmentId, Number(row.total)]));
 };
@@ -67,6 +79,9 @@ const investmentWithName = (db: Database) =>
       investmentDate: investments.investmentDate,
       investmentAmount: investments.investmentAmount,
       units: investments.units,
+      isClosed: investments.isClosed,
+      closedAt: investments.closedAt,
+      closedAmount: investments.amount,
       name: instrumentName,
     })
     .from(investments)
@@ -250,8 +265,10 @@ export const investmentPaymentsRouter = createTRPCRouter({
         ctx.db,
         rows.map((row) => row.statementId),
       );
+      const outgoing = rows.filter((row) => Number(row.statementAmount) < 0);
+      const incoming = rows.filter((row) => Number(row.statementAmount) > 0);
       const payments = await Promise.all(
-        rows.map(async (row) => {
+        outgoing.map(async (row) => {
           const fundedBy =
             row.accountId === null
               ? null
@@ -274,17 +291,37 @@ export const investmentPaymentsRouter = createTRPCRouter({
           };
         }),
       );
+      const proceeds = incoming.map((row) => ({
+        id: row.id,
+        statementId: row.statementId,
+        amount: Number(row.amount),
+        statementAmount: Number(row.statementAmount),
+        receivedAt: row.paidAt,
+        accountName: row.accountName,
+        category: row.category,
+      }));
+      const summary = summarise(
+        Number(investment.investmentAmount),
+        payments,
+        investment.investmentDate,
+      );
+      const received = roundCurrency(proceeds.reduce((sum, row) => sum + row.amount, 0));
       return {
         investment: {
           ...investment,
           investmentAmount: Number(investment.investmentAmount),
+          closedAmount: investment.closedAmount === null ? null : Number(investment.closedAmount),
         },
         payments,
-        summary: summarise(
-          Number(investment.investmentAmount),
-          payments,
-          investment.investmentDate,
-        ),
+        proceeds,
+        summary: {
+          ...summary,
+          received: proceeds.length === 0 ? null : received,
+          netResult:
+            proceeds.length === 0 || payments.length === 0
+              ? null
+              : roundCurrency(received - summary.paid),
+        },
       };
     }),
 
@@ -292,49 +329,72 @@ export const investmentPaymentsRouter = createTRPCRouter({
     .input(z.object({ investmentId: z.string() }))
     .query(async ({ ctx, input }) => {
       const investment = await getOwnedInvestment(ctx.db, ctx.user.id, input.investmentId);
-      const rows = await ctx.db
-        .select({
-          id: statements.id,
-          amount: statements.amount,
-          createdAt: statements.createdAt,
-          category: statements.category,
-          tags: statements.tags,
-          accountName: bankAccount.accountName,
-        })
-        .from(statements)
-        .leftJoin(bankAccount, eq(bankAccount.id, statements.accountId))
-        .where(
-          and(
-            eq(statements.userId, ctx.user.id),
-            eq(statements.category, INVESTMENT_CATEGORY),
-            lt(statements.amount, '0'),
-            gte(statements.createdAt, subDays(investment.investmentDate, PAYMENT_LOOKBACK_DAYS)),
-            lte(statements.createdAt, addDays(investment.investmentDate, PAYMENT_LOOKAHEAD_DAYS)),
-          ),
-        );
-      const allocated = await allocatedByStatement(
-        ctx.db,
-        rows.map((row) => row.id),
-      );
       const linked = await ctx.db
         .select({ statementId: investmentPayments.statementId })
         .from(investmentPayments)
         .where(eq(investmentPayments.investmentId, investment.id));
       const linkedIds = new Set(linked.map((row) => row.statementId));
-      return rows
-        .map((row) => {
-          const total = Math.abs(Number(row.amount));
-          return {
-            ...row,
-            amount: total,
-            remaining: roundCurrency(total - (allocated.get(row.id) ?? 0)),
-            distanceDays: Math.abs(
-              differenceInCalendarDays(investment.investmentDate, row.createdAt),
+      const findCandidates = async (
+        direction: 'out' | 'in',
+        anchor: Date,
+        from: Date,
+        to: Date,
+      ) => {
+        const rows = await ctx.db
+          .select({
+            id: statements.id,
+            amount: statements.amount,
+            createdAt: statements.createdAt,
+            category: statements.category,
+            tags: statements.tags,
+            accountName: bankAccount.accountName,
+          })
+          .from(statements)
+          .leftJoin(bankAccount, eq(bankAccount.id, statements.accountId))
+          .where(
+            and(
+              eq(statements.userId, ctx.user.id),
+              eq(statements.category, INVESTMENT_CATEGORY),
+              direction === 'out' ? lt(statements.amount, '0') : gt(statements.amount, '0'),
+              gte(statements.createdAt, from),
+              lte(statements.createdAt, to),
             ),
-          };
-        })
-        .filter((row) => row.remaining > PAISA && !linkedIds.has(row.id))
-        .sort((a, b) => a.distanceDays - b.distanceDays);
+          );
+        const allocated = await allocatedByStatement(
+          ctx.db,
+          rows.map((row) => row.id),
+        );
+        return rows
+          .map((row) => {
+            const total = Math.abs(Number(row.amount));
+            return {
+              ...row,
+              amount: total,
+              remaining: roundCurrency(total - (allocated.get(row.id) ?? 0)),
+              distanceDays: Math.abs(differenceInCalendarDays(anchor, row.createdAt)),
+            };
+          })
+          .filter((row) => row.remaining > PAISA && !linkedIds.has(row.id))
+          .sort((a, b) => a.distanceDays - b.distanceDays);
+      };
+      const { closedAt } = investment;
+      return {
+        payments: await findCandidates(
+          'out',
+          investment.investmentDate,
+          subDays(investment.investmentDate, PAYMENT_LOOKBACK_DAYS),
+          addDays(investment.investmentDate, PAYMENT_LOOKAHEAD_DAYS),
+        ),
+        proceeds:
+          closedAt === null
+            ? []
+            : await findCandidates(
+                'in',
+                closedAt,
+                subDays(closedAt, PROCEEDS_LOOKBACK_DAYS),
+                addDays(closedAt, PROCEEDS_LOOKAHEAD_DAYS),
+              ),
+      };
     }),
 
   getForStatement: protectedProcedure
@@ -365,21 +425,37 @@ export const investmentPaymentsRouter = createTRPCRouter({
             );
       const byId = new Map(linkedInvestments.map((row) => [row.id, row]));
       const total = Math.abs(Number(statement.amount));
+      const direction = Number(statement.amount) < 0 ? 'out' : 'in';
       const allocated = roundCurrency(links.reduce((sum, link) => sum + Number(link.amount), 0));
       const candidates = await investmentWithName(ctx.db).where(
-        and(
-          eq(investments.userId, ctx.user.id),
-          gte(investments.investmentDate, subDays(statement.createdAt, INVESTMENT_LOOKBACK_DAYS)),
-          lte(investments.investmentDate, addDays(statement.createdAt, INVESTMENT_LOOKAHEAD_DAYS)),
-        ),
+        direction === 'out'
+          ? and(
+              eq(investments.userId, ctx.user.id),
+              gte(
+                investments.investmentDate,
+                subDays(statement.createdAt, INVESTMENT_LOOKBACK_DAYS),
+              ),
+              lte(
+                investments.investmentDate,
+                addDays(statement.createdAt, INVESTMENT_LOOKAHEAD_DAYS),
+              ),
+            )
+          : and(
+              eq(investments.userId, ctx.user.id),
+              eq(investments.isClosed, true),
+              gte(investments.closedAt, subDays(statement.createdAt, PROCEEDS_LOOKAHEAD_DAYS)),
+              lte(investments.closedAt, addDays(statement.createdAt, PROCEEDS_LOOKBACK_DAYS)),
+            ),
       );
       const paidByInvestment = await allocatedByInvestment(
         ctx.db,
         candidates.map((row) => row.id),
+        direction,
       );
       const linkedIds = new Set(links.map((link) => link.investmentId));
       return {
         statement: { ...statement, amount: total },
+        direction,
         allocated,
         remaining: roundCurrency(total - allocated),
         links: links.flatMap((link) => {
@@ -393,6 +469,8 @@ export const investmentPaymentsRouter = createTRPCRouter({
                   investment: {
                     ...investment,
                     investmentAmount: Number(investment.investmentAmount),
+                    closedAmount:
+                      investment.closedAmount === null ? null : Number(investment.closedAmount),
                   },
                 },
               ];
@@ -402,9 +480,13 @@ export const investmentPaymentsRouter = createTRPCRouter({
           .map((row) => ({
             ...row,
             investmentAmount: Number(row.investmentAmount),
+            closedAmount: row.closedAmount === null ? null : Number(row.closedAmount),
             alreadyPaid: paidByInvestment.get(row.id) ?? 0,
             distanceDays: Math.abs(
-              differenceInCalendarDays(row.investmentDate, statement.createdAt),
+              differenceInCalendarDays(
+                direction === 'out' ? row.investmentDate : (row.closedAt ?? row.investmentDate),
+                statement.createdAt,
+              ),
             ),
           }))
           .sort((a, b) =>
@@ -421,11 +503,8 @@ export const investmentPaymentsRouter = createTRPCRouter({
       const investment = await getOwnedInvestment(ctx.db, ctx.user.id, input.investmentId);
       const statement = await getOwnedStatement(ctx.db, ctx.user.id, input.statementId);
       const total = Math.abs(Number(statement.amount));
-      if (Number(statement.amount) >= 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Only outgoing payments can fund an investment',
-        });
+      if (Number(statement.amount) === 0) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'This statement has no amount' });
       }
       const allocated = (await allocatedByStatement(ctx.db, [statement.id])).get(statement.id) ?? 0;
       const value = Number(input.amount);
