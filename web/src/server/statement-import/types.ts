@@ -8,6 +8,7 @@ type StatementIssuer =
   | 'axis'
   | 'axis_account'
   | 'icici_account'
+  | 'pnb_account'
   | 'idfc'
   | 'sheet';
 
