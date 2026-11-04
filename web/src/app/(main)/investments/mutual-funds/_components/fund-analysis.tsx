@@ -100,7 +100,7 @@ const MovementBanner = ({ analysis, today }: { analysis: Analysis; today: Today 
             <span
               className={cn(
                 'size-2 rounded-full',
-                today.marketOpen ? 'bg-green-600' : 'bg-muted-foreground',
+                today.marketOpen ? 'animate-pulse bg-green-600' : 'bg-muted-foreground',
               )}
             />
             {today.marketOpen ? 'Live' : 'Market closed'}

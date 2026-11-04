@@ -28,6 +28,7 @@ export type GainLossLabels = {
 };
 
 type Row = {
+  index: number;
   time: number;
   value: number;
   base: number;
@@ -49,6 +50,7 @@ const PERCENT = 100;
 const MS_PER_DAY = 86_400_000;
 const CHART_WRAPPER = 'flex flex-col gap-1';
 const LONG_RANGE_DAYS = 120;
+const INTRADAY_TICK_MAX_DAYS = 2;
 const PERCENT_TICK_DECIMALS = 1;
 const LAKH_DECIMALS = 1;
 const GAP_FILL_OPACITY = 0.35;
@@ -133,8 +135,14 @@ const monthDate = (time: number) =>
 const fullDate = (time: number) =>
   new Date(time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
+const shortTime = (time: number) =>
+  new Date(time).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+
+const fullDateTime = (time: number) => `${fullDate(time)}, ${shortTime(time)}`;
+
 const toRows = (points: GainLossPoint[]): Row[] =>
-  points.map((point) => ({
+  points.map((point, index) => ({
+    index,
     time: point.date.getTime(),
     value: point.value,
     base: point.base,
@@ -163,11 +171,13 @@ const TooltipBody = ({
   payload,
   labels,
   money,
+  formatDate,
 }: {
   active?: boolean;
   payload?: Array<{ payload: Row }>;
   labels: GainLossLabels;
   money: MoneyFormat;
+  formatDate: (time: number) => string;
 }) => {
   const row = payload?.[0]?.payload;
   if (active !== true || row === undefined) {
@@ -175,7 +185,7 @@ const TooltipBody = ({
   }
   return (
     <div className="bg-background flex min-w-52 flex-col gap-1 rounded-md border px-3 py-2 text-xs shadow-sm">
-      <span className="font-medium">{fullDate(row.time)}</span>
+      <span className="font-medium">{formatDate(row.time)}</span>
       <Line2
         className={toneFor(row.difference)}
         label={labels.difference}
@@ -199,6 +209,30 @@ const spanDays = (times: number[]) => {
   const first = times.at(0) ?? 0;
   const last = times.at(-1) ?? 0;
   return (last - first) / MS_PER_DAY;
+};
+
+const tickFormatFor = (times: number[], intraday: boolean) => {
+  if (intraday && spanDays(times) < INTRADAY_TICK_MAX_DAYS) {
+    return shortTime;
+  }
+  return spanDays(times) > LONG_RANGE_DAYS ? monthDate : shortDate;
+};
+
+const xAxisProps = (rows: Array<{ time: number }>, intraday: boolean) => {
+  const times = rows.map((row) => row.time);
+  const format = tickFormatFor(times, intraday);
+  if (!intraday) {
+    return { dataKey: 'time', scale: 'time', tickFormatter: format } as const;
+  }
+  const dayStarts = rows.flatMap((row, index) =>
+    index === 0 || shortDate(rows[index - 1].time) !== shortDate(row.time) ? [index] : [],
+  );
+  return {
+    dataKey: 'index',
+    scale: 'linear',
+    ticks: spanDays(times) < INTRADAY_TICK_MAX_DAYS ? undefined : dayStarts,
+    tickFormatter: (index: number) => format(rows[index]?.time ?? 0),
+  } as const;
 };
 
 const ModeToggle = ({
@@ -236,12 +270,14 @@ export const GainLossChart = ({
   title,
   className,
   currency = 'INR',
+  intraday = false,
 }: {
   points: GainLossPoint[];
   labels: GainLossLabels;
   title?: { rupees: string; percent: string };
   className?: string;
   currency?: ChartCurrency;
+  intraday?: boolean;
 }) => {
   const money = useMemo(() => moneyFormat(currency), [currency]);
   const [mode, setMode] = useState<Mode>('rupees');
@@ -254,7 +290,7 @@ export const GainLossChart = ({
   const crossesZero = Math.max(...values) > 0 && Math.min(...values) < 0;
   const solid = Math.max(...values) > 0 ? AHEAD : BEHIND;
   const gradientId = useId().replaceAll(':', '');
-  const dateTick = spanDays(rows.map((row) => row.time)) > LONG_RANGE_DAYS ? monthDate : shortDate;
+  const xAxis = xAxisProps(rows, intraday);
   if (rows.length < 2) {
     return null;
   }
@@ -291,13 +327,11 @@ export const GainLossChart = ({
           <CartesianGrid strokeOpacity={0.4} vertical={false} />
           <XAxis
             axisLine={false}
-            dataKey="time"
             domain={['dataMin', 'dataMax']}
             minTickGap={40}
-            scale="time"
-            tickFormatter={dateTick}
             tickLine={false}
             type="number"
+            {...xAxis}
           />
           <YAxis
             axisLine={false}
@@ -307,7 +341,13 @@ export const GainLossChart = ({
           />
           <ReferenceLine stroke="currentColor" strokeDasharray="4 4" strokeOpacity={0.5} y={0} />
           <ChartTooltip
-            content={<TooltipBody labels={labels} money={money} />}
+            content={
+              <TooltipBody
+                formatDate={intraday ? fullDateTime : fullDate}
+                labels={labels}
+                money={money}
+              />
+            }
             cursor={{ strokeDasharray: '3 3' }}
           />
           <Area
@@ -330,15 +370,17 @@ export const ValueVsBaseChart = ({
   labels,
   className,
   currency = 'INR',
+  intraday = false,
 }: {
   points: GainLossPoint[];
   labels: GainLossLabels;
   className?: string;
   currency?: ChartCurrency;
+  intraday?: boolean;
 }) => {
   const money = useMemo(() => moneyFormat(currency), [currency]);
   const rows = useMemo(() => toRows(points), [points]);
-  const dateTick = spanDays(rows.map((row) => row.time)) > LONG_RANGE_DAYS ? monthDate : shortDate;
+  const xAxis = xAxisProps(rows, intraday);
   if (rows.length < 2) {
     return null;
   }
@@ -359,13 +401,11 @@ export const ValueVsBaseChart = ({
           <CartesianGrid strokeOpacity={0.4} vertical={false} />
           <XAxis
             axisLine={false}
-            dataKey="time"
             domain={['dataMin', 'dataMax']}
             minTickGap={40}
-            scale="time"
-            tickFormatter={dateTick}
             tickLine={false}
             type="number"
+            {...xAxis}
           />
           <YAxis
             axisLine={false}
@@ -375,7 +415,13 @@ export const ValueVsBaseChart = ({
             width={56}
           />
           <ChartTooltip
-            content={<TooltipBody labels={labels} money={money} />}
+            content={
+              <TooltipBody
+                formatDate={intraday ? fullDateTime : fullDate}
+                labels={labels}
+                money={money}
+              />
+            }
             cursor={{ strokeDasharray: '3 3' }}
           />
           <Line
@@ -405,15 +451,20 @@ type PricePoint = { date: Date; price: number };
 
 const PRICE_DECIMALS = 2;
 const COMPACT_PRICE_FROM = 10_000;
+const PRICE_DOMAIN_PADDING = 0.05;
 
 const PriceTooltip = ({
   active,
   payload,
   formatPrice,
+  formatDate,
+  averageBuyPrice,
 }: {
   active?: boolean;
   payload?: Array<{ payload: { time: number; price: number } }>;
   formatPrice: (value: number) => string;
+  formatDate: (time: number) => string;
+  averageBuyPrice: number | null;
 }) => {
   const row = payload?.[0]?.payload;
   if (active !== true || row === undefined) {
@@ -421,24 +472,45 @@ const PriceTooltip = ({
   }
   return (
     <div className="bg-background flex min-w-40 flex-col gap-1 rounded-md border px-3 py-2 text-xs shadow-sm">
-      <span className="font-medium">{fullDate(row.time)}</span>
+      <span className="font-medium">{formatDate(row.time)}</span>
       <Line2 label="Unit price" value={formatPrice(row.price)} />
+      {averageBuyPrice === null ? null : (
+        <Line2 label="Avg buy price" value={formatPrice(averageBuyPrice)} />
+      )}
     </div>
   );
+};
+
+const priceDomain = (
+  rows: Array<{ price: number }>,
+  averageBuyPrice: number | null,
+): [number | string, number | string] => {
+  if (averageBuyPrice === null) {
+    return ['auto', 'auto'];
+  }
+  const prices = [...rows.map((row) => row.price), averageBuyPrice];
+  const lowest = Math.min(...prices);
+  const highest = Math.max(...prices);
+  const padding = (highest - lowest) * PRICE_DOMAIN_PADDING;
+  return [lowest - padding, highest + padding];
 };
 
 export const PriceChart = ({
   points,
   currency = 'INR',
   className,
+  intraday = false,
+  averageBuyPrice = null,
 }: {
   points: PricePoint[];
   currency?: ChartCurrency;
   className?: string;
+  intraday?: boolean;
+  averageBuyPrice?: number | null;
 }) => {
   const money = useMemo(() => moneyFormat(currency), [currency]);
   const rows = useMemo(
-    () => points.map((point) => ({ time: point.date.getTime(), price: point.price })),
+    () => points.map((point, index) => ({ index, time: point.date.getTime(), price: point.price })),
     [points],
   );
   const formatPrice = useMemo(() => {
@@ -452,37 +524,57 @@ export const PriceChart = ({
   }, [currency]);
   const highest = Math.max(0, ...rows.map((row) => row.price));
   const tick = highest >= COMPACT_PRICE_FROM ? money.compact : formatPrice;
-  const dateTick = spanDays(rows.map((row) => row.time)) > LONG_RANGE_DAYS ? monthDate : shortDate;
+  const xAxis = xAxisProps(rows, intraday);
   if (rows.length < 2) {
     return null;
   }
   return (
     <div className={cn(CHART_WRAPPER, className)}>
-      <span className="text-sm font-medium">Unit price</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="text-sm font-medium">Unit price</span>
+        {averageBuyPrice === null ? null : (
+          <span className="flex items-center gap-1.5 text-xs">
+            <span className="w-4 border-t-2 border-dashed" style={{ borderColor: BASE_STROKE }} />
+            Avg buy price {formatPrice(averageBuyPrice)}
+          </span>
+        )}
+      </div>
       <ChartContainer className="aspect-auto h-56 w-full" config={{}}>
         <LineChart data={rows} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
           <CartesianGrid strokeOpacity={0.4} vertical={false} />
           <XAxis
             axisLine={false}
-            dataKey="time"
             domain={['dataMin', 'dataMax']}
             minTickGap={40}
-            scale="time"
-            tickFormatter={dateTick}
             tickLine={false}
             type="number"
+            {...xAxis}
           />
           <YAxis
             axisLine={false}
-            domain={['auto', 'auto']}
+            domain={priceDomain(rows, averageBuyPrice)}
             tickFormatter={tick}
             tickLine={false}
             width={64}
           />
           <ChartTooltip
-            content={<PriceTooltip formatPrice={formatPrice} />}
+            content={
+              <PriceTooltip
+                averageBuyPrice={averageBuyPrice}
+                formatDate={intraday ? fullDateTime : fullDate}
+                formatPrice={formatPrice}
+              />
+            }
             cursor={{ strokeDasharray: '3 3' }}
           />
+          {averageBuyPrice === null ? null : (
+            <ReferenceLine
+              stroke={BASE_STROKE}
+              strokeDasharray="5 4"
+              strokeWidth={2}
+              y={averageBuyPrice}
+            />
+          )}
           <Line
             dataKey="price"
             dot={false}

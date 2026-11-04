@@ -28,6 +28,11 @@ import { InvestmentPaymentsDialog } from './investment-payments-dialog';
 type InvestmentRow =
   RouterOutput['investments']['getInvestmentsInitialData']['table']['investments'][number];
 
+const getBuyPrice = (row: InvestmentRow) => {
+  const units = Number(row.units);
+  return units > 0 ? row.investedAmountDisplay / units : null;
+};
+
 const USD_CURRENCY = 'USD';
 const INR_CURRENCY = 'INR';
 const CHARGES_PERCENT_DECIMALS = 3;
@@ -107,6 +112,12 @@ export const createInvestmentColumns = (
     enableColumnFilter: true,
   },
   {
+    accessorKey: 'investmentDate',
+    header: 'Investment Date',
+    meta: { label: 'Investment Date' },
+    cell: ({ row }) => zoned(row.original.investmentDate, DATE_FORMAT.date),
+  },
+  {
     accessorKey: 'normalizedKind',
     header: 'Type',
     meta: { label: 'Type' },
@@ -130,6 +141,8 @@ export const createInvestmentColumns = (
   },
   {
     id: 'rsu',
+    accessorFn: (row) => row.isRsuPosition,
+    enableSorting: false,
     header: 'Tag',
     meta: { label: 'Tag' },
     cell: ({ row }) => {
@@ -143,10 +156,31 @@ export const createInvestmentColumns = (
     },
   },
   {
-    accessorKey: 'investmentDate',
-    header: 'Investment Date',
-    meta: { label: 'Investment Date' },
-    cell: ({ row }) => zoned(row.original.investmentDate, DATE_FORMAT.date),
+    accessorKey: 'units',
+    header: 'Units',
+    cell: ({ row }) => row.original.units ?? '-',
+    meta: { align: 'right', label: 'Units' },
+  },
+  {
+    id: 'averageBuyPrice',
+    accessorFn: getBuyPrice,
+    header: 'Avg Buy Price',
+    cell: ({ row }) => {
+      const buyPrice = getBuyPrice(row.original);
+      return buyPrice === null ? '-' : formatCurrency(buyPrice, row.original.displayCurrency);
+    },
+    meta: { align: 'right', label: 'Avg Buy Price' },
+  },
+  {
+    accessorKey: 'liveUnitPrice',
+    header: 'Current Unit Price',
+    cell: ({ row }) => {
+      if (row.original.liveUnitPriceDisplay === null) {
+        return '-';
+      }
+      return formatCurrency(row.original.liveUnitPriceDisplay, row.original.displayCurrency);
+    },
+    meta: { align: 'right', label: 'Current Unit Price' },
   },
   {
     accessorKey: 'investmentAmount',
@@ -182,23 +216,6 @@ export const createInvestmentColumns = (
     meta: { align: 'right', label: 'Charges' },
   },
   {
-    accessorKey: 'units',
-    header: 'Units',
-    cell: ({ row }) => row.original.units ?? '-',
-    meta: { align: 'right', label: 'Units' },
-  },
-  {
-    accessorKey: 'liveUnitPrice',
-    header: 'Unit Price',
-    cell: ({ row }) => {
-      if (row.original.liveUnitPriceDisplay === null) {
-        return '-';
-      }
-      return formatCurrency(row.original.liveUnitPriceDisplay, row.original.displayCurrency);
-    },
-    meta: { align: 'right', label: 'Unit Price' },
-  },
-  {
     accessorKey: 'valuationAmount',
     header: 'Current Value',
     cell: ({ row }) =>
@@ -209,6 +226,8 @@ export const createInvestmentColumns = (
   },
   {
     id: 'fxDetails',
+    accessorFn: (row) => row.displayCurrency,
+    enableSorting: false,
     header: 'INR Details',
     meta: { label: 'INR Details' },
     cell: ({ row }) => <CurrencyDetailsPopover row={row.original} />,

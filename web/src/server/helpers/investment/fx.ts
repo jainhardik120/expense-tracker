@@ -6,6 +6,7 @@ import {
   DAY_IN_MS,
   DEFAULT_USER_AGENT,
   fetchJson,
+  fetchLiveJson,
   getFxRateToInrFromHistory,
   INR_CURRENCY,
   startOfDay,
@@ -67,7 +68,7 @@ export const getInvestmentAmountInInr = ({
 export const getUsdInrRate = instrumentedFunction(
   'getUsdInrRate',
   async (): Promise<number | null> => {
-    const payload = await fetchJson<{
+    const payload = await fetchLiveJson<{
       quoteResponse?: {
         result?: Array<{ symbol?: string; regularMarketPrice?: number }>;
       };

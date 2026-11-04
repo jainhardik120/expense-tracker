@@ -1,8 +1,10 @@
 import { instrumentedFunction } from '@/lib/instrumentation';
 import {
   compareInvestmentCategories,
+  getAssetClass,
   getInvestmentCategory,
   isUnitBasedInvestment,
+  type AssetClassTagValue,
   type InvestmentCategoryValue,
   type InvestmentKindValue,
   type StockMarketValue,
@@ -21,6 +23,7 @@ import {
 import { computeXirr, investmentCashFlows, type CashFlow } from './xirr';
 
 import type {
+  AssetAllocationEntry,
   DashboardInstrumentBreakdown,
   DashboardInstrumentOption,
   EnrichedInvestment,
@@ -36,6 +39,7 @@ type InstrumentAggregate = {
   code: string;
   stockMarket: StockMarketValue | null;
   name: string;
+  assetClass: AssetClassTagValue | null;
   displayCurrency: 'INR' | 'USD';
   isRsu: boolean;
   isExcludedFromPortfolio: boolean;
@@ -125,6 +129,31 @@ const addInvestmentToBreakdown = <TKey extends string>(
   map.set(key, summary);
 };
 
+const buildAssetAllocation = (investmentsList: EnrichedInvestment[]): AssetAllocationEntry[] => {
+  const entries = new Map<string, AssetAllocationEntry>();
+  for (const investment of investmentsList) {
+    if (investment.isClosedPosition) {
+      continue;
+    }
+    const assetClass = getAssetClass(
+      investment.normalizedKind,
+      investment.instrumentCode,
+      investment.assetClass,
+    );
+    const key = `${investment.normalizedKind}:${assetClass}`;
+    const entry = entries.get(key) ?? {
+      kind: investment.normalizedKind,
+      assetClass,
+      investedAmount: 0,
+      valuationAmount: 0,
+    };
+    entry.investedAmount += investment.investedAmountInr;
+    entry.valuationAmount += investment.valuationAmount ?? investment.investedAmountInr;
+    entries.set(key, entry);
+  }
+  return [...entries.values()];
+};
+
 const buildInstrumentBreakdown = (
   investmentsList: EnrichedInvestment[],
   asOf: Date,
@@ -159,6 +188,7 @@ const buildInstrumentBreakdown = (
       code,
       stockMarket: investment.normalizedStockMarket,
       name: investment.instrumentName ?? code,
+      assetClass: investment.assetClass ?? null,
       displayCurrency: investment.displayCurrency,
       isRsu: investment.isRsuPosition,
       isExcludedFromPortfolio: investment.isExcludedFromPortfolioPosition,
@@ -230,6 +260,7 @@ const buildInstrumentBreakdown = (
         code: aggregate.code,
         stockMarket: aggregate.stockMarket,
         name: aggregate.name,
+        assetClass: aggregate.assetClass,
         displayCurrency: aggregate.displayCurrency,
         isRsu: aggregate.isRsu,
         isExcludedFromPortfolio: aggregate.isExcludedFromPortfolio,
@@ -518,6 +549,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
       },
       kindBreakdown,
       categoryBreakdown,
+      assetAllocation: buildAssetAllocation(portfolioInvestments),
       timeline,
       instrumentOptions,
       instrumentBreakdown,

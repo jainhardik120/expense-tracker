@@ -16,6 +16,7 @@ import {
   date,
 } from 'drizzle-orm/pg-core';
 
+import type { AssetClassTagValue } from '@/lib/investments';
 import type { StoredBudgetRule } from '@/types/budget';
 
 import { user } from './auth-schema';
@@ -224,6 +225,26 @@ export const investments = pgTable(
     closedAt: timestamp('closed_at'),
   },
   (table) => [index('investments_user_idx').on(table.userId)],
+);
+
+export const instrumentAssetClasses = pgTable(
+  'instrument_asset_classes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    investmentKind: text('investment_kind').notNull(),
+    instrumentCode: text('instrument_code').notNull(),
+    assetClass: text('asset_class').$type<AssetClassTagValue>().notNull(),
+  },
+  (table) => [
+    uniqueIndex('instrument_asset_classes_instrument_idx').on(
+      table.userId,
+      table.investmentKind,
+      table.instrumentCode,
+    ),
+  ],
 );
 
 export const investmentPayments = pgTable(

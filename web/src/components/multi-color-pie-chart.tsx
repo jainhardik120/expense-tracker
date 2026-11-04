@@ -7,7 +7,7 @@ import { Cell, Pie, PieChart } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { CATEGORICAL_PALETTE, OTHER_SLICE_COLOR } from '@/lib/chart-palette';
 
-type PieSlice = { label: string; value: number };
+type PieSlice = { label: string; value: number; color?: string };
 
 const PERCENT = 100;
 const OTHER = 'Other';
@@ -24,7 +24,7 @@ const colourSlices = (slices: PieSlice[]) => {
   const colourOf = new Map<string, string>(
     shown.map((slice, index) => [
       slice.label,
-      CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length] ?? OTHER_SLICE_COLOR,
+      slice.color ?? CATEGORICAL_PALETTE[index % CATEGORICAL_PALETTE.length],
     ]),
   );
   const restTotal = rest.reduce((total, slice) => total + slice.value, 0);

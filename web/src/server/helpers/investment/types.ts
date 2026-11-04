@@ -1,7 +1,9 @@
 import type { investments } from '@/db/schema';
-import type { InvestmentKindValue, StockMarketValue } from '@/lib/investments';
+import type { AssetClassTagValue, InvestmentKindValue, StockMarketValue } from '@/lib/investments';
 
-export type InvestmentRow = typeof investments.$inferSelect;
+export type InvestmentRow = typeof investments.$inferSelect & {
+  assetClass?: AssetClassTagValue | null;
+};
 
 export type PriceHistoryPoint = {
   date: Date;

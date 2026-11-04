@@ -17,6 +17,7 @@ import {
   DEFAULT_USER_AGENT,
   DAY_IN_MS,
   fetchJson,
+  fetchLiveJson,
   getFxRateToInrFromHistory,
   getYahooStockSymbol,
   splitIntoChunks,
@@ -151,7 +152,7 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
     await Promise.all(
       normalizedInstruments.map(async (code) => {
         const symbol = getYahooStockSymbol(code, this.stockMarket);
-        const payload = await fetchJson<{
+        const payload = await fetchLiveJson<{
           chart?: {
             result?: Array<{
               meta?: {
@@ -175,7 +176,7 @@ abstract class YahooStockInvestmentProvider extends BaseInvestmentInstrumentProv
         let marketCurrency = payload?.chart?.result?.[0]?.meta?.currency;
 
         if (marketPrice === undefined || !Number.isFinite(marketPrice) || marketPrice <= 0) {
-          const quotePayload = await fetchJson<{
+          const quotePayload = await fetchLiveJson<{
             quoteResponse?: {
               result?: Array<{
                 regularMarketPrice?: number;

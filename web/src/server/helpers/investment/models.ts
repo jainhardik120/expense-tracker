@@ -1,4 +1,6 @@
 import type {
+  AssetClassTagValue,
+  AssetClassValue,
   InvestmentCategoryValue,
   InvestmentKindValue,
   InvestmentTimelineRangeValue,
@@ -39,6 +41,7 @@ export type DashboardInstrumentOption = {
 };
 
 export type DashboardInstrumentBreakdown = DashboardInstrumentOption & {
+  assetClass: AssetClassTagValue | null;
   openPositions: number;
   closedPositions: number;
   totalPositions: number;
@@ -54,6 +57,13 @@ export type DashboardInstrumentBreakdown = DashboardInstrumentOption & {
   currentValueInrAtCurrentFx: number | null;
   buyFxRateToInr: number | null;
   currentFxRateToInr: number | null;
+};
+
+export type AssetAllocationEntry = {
+  kind: InvestmentKindValue;
+  assetClass: AssetClassValue;
+  investedAmount: number;
+  valuationAmount: number;
 };
 
 export type InvestmentsDashboard = {
@@ -98,6 +108,7 @@ export type InvestmentsDashboard = {
     closedPositions: number;
     totalPositions: number;
   }>;
+  assetAllocation: AssetAllocationEntry[];
   timeline: InvestmentTimelinePoint[];
   instrumentOptions: DashboardInstrumentOption[];
   instrumentBreakdown: DashboardInstrumentBreakdown[];

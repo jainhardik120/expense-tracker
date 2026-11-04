@@ -27,10 +27,14 @@ const MARKET_DATA_MAX_ENTRIES = 1_000;
 const fetched = new Map<string, { text: string; at: number }>();
 const inFlight = new Map<string, Promise<string | null>>();
 
-const fetchText = (url: string, init?: RequestInit): Promise<string | null> => {
+export const fetchText = (
+  url: string,
+  init?: RequestInit,
+  maxAgeMs = MARKET_DATA_TTL_MS,
+): Promise<string | null> => {
   const key = `${url}\n${JSON.stringify(init?.headers ?? {})}`;
   const kept = fetched.get(key);
-  if (kept !== undefined && Date.now() - kept.at < MARKET_DATA_TTL_MS) {
+  if (kept !== undefined && Date.now() - kept.at < maxAgeMs) {
     return Promise.resolve(kept.text);
   }
   const pending = inFlight.get(key);
@@ -63,19 +67,27 @@ const fetchText = (url: string, init?: RequestInit): Promise<string | null> => {
   return request;
 };
 
+const parseJson = <T>(text: string | null): T | null => {
+  if (text === null) {
+    return null;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    return null;
+  }
+};
+
 export const fetchJson = instrumentedFunction(
   'fetchJson',
-  async <T>(url: string, init?: RequestInit): Promise<T | null> => {
-    const text = await fetchText(url, init);
-    if (text === null) {
-      return null;
-    }
-    try {
-      return JSON.parse(text) as T;
-    } catch {
-      return null;
-    }
-  },
+  async <T>(url: string, init?: RequestInit): Promise<T | null> =>
+    parseJson<T>(await fetchText(url, init)),
+);
+
+export const fetchLiveJson = instrumentedFunction(
+  'fetchLiveJson',
+  async <T>(url: string, init?: RequestInit, maxAgeMs = 0): Promise<T | null> =>
+    parseJson<T>(await fetchText(url, init, maxAgeMs)),
 );
 
 export const createInstrumentKey = (

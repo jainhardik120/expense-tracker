@@ -6,6 +6,7 @@ import {
   DAY_IN_MS,
   DEFAULT_USER_AGENT,
   fetchJson,
+  fetchLiveJson,
   parseNumericString,
   startOfDay,
 } from '../shared';
@@ -16,6 +17,7 @@ type UpstoxGoldOverviewResponse = {
     updatedDate?: string;
     price24k?: {
       today?: number;
+      yesterday?: number;
     };
     valueOver10days?: Array<{
       date?: string;
@@ -30,10 +32,23 @@ type UpstoxSilverOverviewResponse = {
     updatedDate?: string;
     price?: {
       today?: number;
+      yesterday?: number;
     };
     valueOver10days?: Array<{
       date?: string;
       price?: number;
+    }>;
+  };
+};
+
+type YahooChartResponse = {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        regularMarketPrice?: number;
+        chartPreviousClose?: number;
+        regularMarketTime?: number;
+      };
     }>;
   };
 };
@@ -72,6 +87,9 @@ const MONTH_INDEX_NOVEMBER = 10;
 const MONTH_INDEX_OCTOBER = 9;
 const MONTH_INDEX_SEPTEMBER = 8;
 const UPSTOX_SOURCE = 'upstox';
+const YAHOO_SOURCE = 'yahoo-finance';
+const US_DOLLAR = 'USD';
+const SECONDS_TO_MS = 1000;
 
 const UPSTOX_HEADERS: HeadersInit = {
   'User-Agent': DEFAULT_USER_AGENT,
@@ -97,6 +115,11 @@ const monthByShortName = new Map<string, number>([
   ['Oct', MONTH_INDEX_OCTOBER],
   ['Nov', MONTH_INDEX_NOVEMBER],
   ['Dec', MONTH_INDEX_DECEMBER],
+]);
+
+const COMEX_SYMBOLS = new Map([
+  ['gold', 'GC=F'],
+  ['silver', 'SI=F'],
 ]);
 
 const commodityDefinitions = new Map<string, CommodityDefinition>([
@@ -265,7 +288,7 @@ const mergeHistoryPoints = (
 export const fetchCommodityLiveQuote = instrumentedFunction(
   'fetchCommodityLiveQuote',
   async (definition: CommodityDefinition): Promise<Quote | null> => {
-    const payload = await fetchJson<UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse>(
+    const payload = await fetchLiveJson<UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse>(
       getUpstoxOverviewUrl(definition),
       {
         cache: 'no-store',
@@ -273,10 +296,11 @@ export const fetchCommodityLiveQuote = instrumentedFunction(
       },
     );
 
-    const unitPrice =
+    const dailyPrice =
       definition.code === 'gold'
-        ? parseFiniteNumber((payload as UpstoxGoldOverviewResponse | null)?.data?.price24k?.today)
-        : parseFiniteNumber((payload as UpstoxSilverOverviewResponse | null)?.data?.price?.today);
+        ? (payload as UpstoxGoldOverviewResponse | null)?.data?.price24k
+        : (payload as UpstoxSilverOverviewResponse | null)?.data?.price;
+    const unitPrice = parseFiniteNumber(dailyPrice?.today);
     if (unitPrice === null) {
       return null;
     }
@@ -291,6 +315,41 @@ export const fetchCommodityLiveQuote = instrumentedFunction(
       fxRateToInr: 1,
       asOf,
       source: UPSTOX_SOURCE,
+      previousCloseInr: parseFiniteNumber(dailyPrice?.yesterday),
+    };
+  },
+);
+
+export const fetchComexQuote = instrumentedFunction(
+  'fetchComexQuote',
+  async (definition: CommodityDefinition): Promise<Quote | null> => {
+    const symbol = COMEX_SYMBOLS.get(definition.code);
+    if (symbol === undefined) {
+      return null;
+    }
+    const payload = await fetchLiveJson<YahooChartResponse>(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m`,
+      {
+        cache: 'no-store',
+        headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'application/json' },
+      },
+    );
+    const meta = payload?.chart?.result?.[0]?.meta;
+    const unitPrice = parseFiniteNumber(meta?.regularMarketPrice);
+    if (unitPrice === null) {
+      return null;
+    }
+    return {
+      unitPriceInr: unitPrice,
+      unitPriceNative: unitPrice,
+      nativeCurrency: US_DOLLAR,
+      fxRateToInr: null,
+      asOf:
+        meta?.regularMarketTime === undefined
+          ? null
+          : new Date(meta.regularMarketTime * SECONDS_TO_MS),
+      source: YAHOO_SOURCE,
+      previousCloseInr: parseFiniteNumber(meta?.chartPreviousClose),
     };
   },
 );

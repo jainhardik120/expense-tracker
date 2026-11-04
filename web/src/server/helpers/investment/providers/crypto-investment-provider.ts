@@ -13,6 +13,7 @@ import {
   createInstrumentKey,
   DAY_IN_MS,
   fetchJson,
+  fetchLiveJson,
   getCoinGeckoHeaders,
   startOfDay,
 } from '../shared';
@@ -119,7 +120,7 @@ export class CryptoInvestmentProvider extends BaseInvestmentInstrumentProvider {
       return quotesByCode;
     }
 
-    const payload = await fetchJson<
+    const payload = await fetchLiveJson<
       Record<string, { inr?: number; last_updated_at?: number } | undefined>
     >(
       `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(normalizedCodes.join(','))}&vs_currencies=inr&include_last_updated_at=true`,

@@ -1,12 +1,16 @@
 'use client';
 
-import { Info } from 'lucide-react';
+import { Info, SquarePen } from 'lucide-react';
 
+import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatCurrency, formatSignedCurrency, formatPercent, formatNumber } from '@/lib/format';
 import { toViewValue } from '@/lib/investment-selection';
 import {
+  assetClassLabels,
+  canTagAssetClass,
+  getAssetClass,
   getInvestmentCategory,
   investmentCategoryLabels,
   investmentCategoryValues,
@@ -16,6 +20,7 @@ import type { ColumnDef } from '@/lib/table';
 import { type RouterOutput } from '@/server/routers';
 
 import { getSignedValueTone } from './investment-columns';
+import { AssetClassForm } from './investment-forms';
 
 type GroupedInvestmentRow =
   RouterOutput['investments']['getInvestmentsInitialData']['dashboard']['instrumentBreakdown'][number];
@@ -73,6 +78,7 @@ const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
 
 export const createGroupedColumns = (
   instrumentOptions: FilterOption[],
+  refresh: () => Promise<void>,
 ): ColumnDef<GroupedInvestmentRow>[] => [
   {
     id: 'category',
@@ -107,7 +113,14 @@ export const createGroupedColumns = (
     ),
   },
   {
+    id: 'assetClass',
+    accessorFn: (row) => assetClassLabels[getAssetClass(row.kind, row.code, row.assetClass)],
+    header: 'Asset class',
+    meta: { label: 'Asset class' },
+  },
+  {
     id: 'positionCounts',
+    accessorFn: (row) => row.openPositions,
     header: 'Open / Closed',
     meta: { label: 'Open / Closed' },
     cell: ({ row }) => `${row.original.openPositions} / ${row.original.closedPositions}`,
@@ -166,6 +179,8 @@ export const createGroupedColumns = (
   },
   {
     id: 'fxDetails',
+    accessorFn: (row) => row.displayCurrency,
+    enableSorting: false,
     header: 'INR Details',
     meta: { label: 'INR Details' },
     cell: ({ row }) => <GroupedFxPopover row={row.original} />,
@@ -211,6 +226,7 @@ export const createGroupedColumns = (
   {
     id: 'instrument',
     accessorFn: (row) => toViewValue(row.kind, row.code, row.stockMarket),
+    enableHiding: false,
     header: 'Investment',
     filterFn: (row, _columnId, filterValue: unknown) =>
       !Array.isArray(filterValue) ||
@@ -220,5 +236,21 @@ export const createGroupedColumns = (
       ),
     meta: { label: 'Investment', variant: 'multiSelect', options: instrumentOptions },
     enableColumnFilter: true,
+  },
+  {
+    id: 'actions',
+    cell: ({ row }) =>
+      canTagAssetClass(row.original.kind) && !row.original.isRsu ? (
+        <RowActions collapse="always">
+          <AssetClassForm
+            assetClass={row.original.assetClass}
+            code={row.original.code}
+            kind={row.original.kind}
+            name={row.original.name}
+            refresh={refresh}
+            trigger={<RowActionTrigger icon={SquarePen} label="Edit asset class" />}
+          />
+        </RowActions>
+      ) : null,
   },
 ];

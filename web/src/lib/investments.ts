@@ -25,6 +25,41 @@ export const investmentCategoryValues = [
 
 export type InvestmentCategoryValue = (typeof investmentCategoryValues)[number];
 
+export const assetClassTagValues = ['gold', 'silver'] as const;
+
+export type AssetClassTagValue = (typeof assetClassTagValues)[number];
+
+export type AssetClassValue = 'market' | AssetClassTagValue | 'fd' | 'crypto' | 'epfo' | 'other';
+
+export const assetClassLabels: Record<AssetClassValue, string> = {
+  market: 'Market',
+  gold: 'Gold',
+  silver: 'Silver',
+  fd: 'Fixed deposits',
+  crypto: 'Crypto',
+  epfo: 'EPFO',
+  other: 'Other',
+};
+
+export const canTagAssetClass = (kind: InvestmentKindValue): boolean => {
+  return kind === 'stocks' || kind === 'mutual_funds';
+};
+
+export const getAssetClass = (
+  kind: InvestmentKindValue,
+  code: string | null,
+  tag: AssetClassTagValue | null | undefined,
+): AssetClassValue => {
+  if (kind === 'stocks' || kind === 'mutual_funds') {
+    return tag ?? 'market';
+  }
+  if (kind === 'commodities') {
+    const normalized = code?.trim().toLowerCase();
+    return normalized === 'gold' || normalized === 'silver' ? normalized : 'other';
+  }
+  return kind;
+};
+
 export const stockMarketValues = ['IN', 'US'] as const;
 
 export type StockMarketValue = (typeof stockMarketValues)[number];

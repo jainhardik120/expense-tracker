@@ -1,12 +1,14 @@
 import { subDays } from 'date-fns';
-import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, gte, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { investments } from '@/db/schema';
+import { instrumentAssetClasses, investments } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { matchesSelection } from '@/lib/investment-selection';
 import {
+  assetClassTagValues,
+  canTagAssetClass,
   getInvestmentCategory,
   investmentCategoryLabels,
   investmentCategoryValues,
@@ -25,7 +27,13 @@ import {
 } from '@/server/helpers/investment';
 import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
+import { buildFineTimeline, fineTimelineRanges } from '@/server/helpers/investment/intraday';
 import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
+import {
+  getMetalCharts,
+  getMetalPrices,
+  metalChartRanges,
+} from '@/server/helpers/investment/metal-prices';
 import { attachPaymentTotals } from '@/server/helpers/investment/payments';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema, investmentParserSchema } from '@/types';
@@ -71,8 +79,19 @@ const getFilteredInvestments = instrumentedFunction(
     { start, end, investmentKind }: { start?: Date; end?: Date; investmentKind: string[] },
   ) =>
     db
-      .select()
+      .select({
+        ...getTableColumns(investments),
+        assetClass: instrumentAssetClasses.assetClass,
+      })
       .from(investments)
+      .leftJoin(
+        instrumentAssetClasses,
+        and(
+          eq(instrumentAssetClasses.userId, investments.userId),
+          eq(instrumentAssetClasses.investmentKind, investments.investmentKind),
+          eq(instrumentAssetClasses.instrumentCode, investments.instrumentCode),
+        ),
+      )
       .where(
         and(
           eq(investments.userId, userId),
@@ -340,6 +359,63 @@ export const investmentsRouter = createTRPCRouter({
         endDate: input.end,
         marketDataKinds: [input.investmentType],
       });
+    }),
+
+  getMetalPrices: protectedProcedure.query(async ({ ctx }) => getMetalPrices(ctx.db, ctx.user.id)),
+
+  getMetalCharts: protectedProcedure
+    .input(z.object({ metal: z.enum(assetClassTagValues), range: z.enum(metalChartRanges) }))
+    .query(async ({ ctx, input }) => getMetalCharts(ctx.db, ctx.user.id, input.metal, input.range)),
+
+  getFineTimeline: protectedProcedure
+    .input(
+      z.object({
+        start: z.date().optional(),
+        end: z.date().optional(),
+        investmentKind: z.string().array().optional().default([]),
+        view: z.string(),
+        range: z.enum(fineTimelineRanges),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const investmentsListRaw = await getFilteredInvestments(ctx.db, ctx.user.id, input);
+      return buildFineTimeline(investmentsListRaw, input.view, input.range);
+    }),
+
+  setAssetClass: protectedProcedure
+    .input(
+      z.object({
+        kind: z.enum(investmentKindValues).refine(canTagAssetClass),
+        code: z.string().min(1),
+        assetClass: z.enum(assetClassTagValues).nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const instrument = and(
+        eq(instrumentAssetClasses.userId, ctx.user.id),
+        eq(instrumentAssetClasses.investmentKind, input.kind),
+        eq(instrumentAssetClasses.instrumentCode, input.code),
+      );
+      if (input.assetClass === null) {
+        await ctx.db.delete(instrumentAssetClasses).where(instrument);
+        return;
+      }
+      await ctx.db
+        .insert(instrumentAssetClasses)
+        .values({
+          userId: ctx.user.id,
+          investmentKind: input.kind,
+          instrumentCode: input.code,
+          assetClass: input.assetClass,
+        })
+        .onConflictDoUpdate({
+          target: [
+            instrumentAssetClasses.userId,
+            instrumentAssetClasses.investmentKind,
+            instrumentAssetClasses.instrumentCode,
+          ],
+          set: { assetClass: input.assetClass },
+        });
     }),
 
   searchInstruments: protectedProcedure

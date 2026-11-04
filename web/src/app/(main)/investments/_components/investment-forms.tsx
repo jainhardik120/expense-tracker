@@ -13,6 +13,9 @@ import { Autocomplete } from '@/components/ui/autocomplete';
 import { Button } from '@/components/ui/button';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
 import {
+  assetClassLabels,
+  assetClassTagValues,
+  type AssetClassTagValue,
   type InvestmentKindValue,
   investmentKindLabels,
   investmentKindValues,
@@ -368,6 +371,64 @@ export const CloseInvestmentForm = ({
       schema={closeInvestmentSchema}
       successToast={() => 'Investment closed'}
       titleText="Close Investment"
+    />
+  );
+};
+
+const UNTAGGED_ASSET_CLASS = 'market';
+
+const assetClassChoices = [UNTAGGED_ASSET_CLASS, ...assetClassTagValues] as const;
+
+const assetClassSchema = z.object({
+  assetClass: z.enum(assetClassChoices),
+});
+
+const assetClassFields: FormField<z.input<typeof assetClassSchema>>[] = [
+  {
+    name: 'assetClass',
+    label: 'Asset Class',
+    type: 'select',
+    options: assetClassChoices.map((value) => ({
+      label: assetClassLabels[value],
+      value,
+    })),
+  },
+];
+
+export const AssetClassForm = ({
+  kind,
+  code,
+  name,
+  assetClass,
+  refresh,
+  trigger,
+}: {
+  kind: InvestmentKindValue;
+  code: string;
+  name: string;
+  assetClass: AssetClassTagValue | null;
+  refresh?: () => Promise<void> | void;
+  trigger: React.ReactNode;
+}) => {
+  const mutation = api.investments.setAssetClass.useMutation();
+  const selected: (typeof assetClassChoices)[number] = assetClass ?? UNTAGGED_ASSET_CLASS;
+
+  return (
+    <MutationModal
+      button={trigger}
+      defaultValues={{ assetClass: selected }}
+      fields={assetClassFields}
+      mapInput={(values) => ({
+        kind,
+        code,
+        assetClass: values.assetClass === UNTAGGED_ASSET_CLASS ? null : values.assetClass,
+      })}
+      modalDescription={name}
+      mutation={mutation}
+      refresh={refresh}
+      schema={assetClassSchema}
+      successToast={() => 'Asset class updated'}
+      titleText="Edit Asset Class"
     />
   );
 };
