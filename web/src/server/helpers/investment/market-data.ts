@@ -16,11 +16,12 @@ import {
   cachedQuotes,
   type InstrumentRow,
   loadInstrumentRows,
+  readStoredPrices,
   storedQuote,
 } from './market-cache';
 import { isIndianMarketOpen } from './market-hours';
 import { investmentInstrumentProviderRegistry } from './registry';
-import { createInstrumentKey, getFxRateToInrFromHistory, startOfDay } from './shared';
+import { createInstrumentKey, DAY_IN_MS, getFxRateToInrFromHistory, startOfDay } from './shared';
 import { getStockMarketFromInvestment } from './utils';
 
 import type { InvestmentMarketDataContext } from './models';
@@ -332,6 +333,52 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
       usdInrHistory,
       quoteByInstrumentKey: quotes,
       nameByInstrumentKey,
+      historyByInstrumentKey: histories,
+    };
+  },
+);
+
+const SAVED_HISTORY_DAYS = 10;
+
+export const loadSavedMarketData = instrumentedFunction(
+  'loadSavedMarketData',
+  async (investmentsList: InvestmentRow[]): Promise<InvestmentMarketDataContext> => {
+    const now = new Date();
+    const instruments = getUniqueInstruments(investmentsList);
+    const keys = instruments.map(instrumentKeyOf);
+    const earliest = investmentsList.reduce<Date>((first, investment) => {
+      const day = startOfDay(investment.investmentDate);
+      return day.getTime() < first.getTime() ? day : first;
+    }, startOfDay(now));
+    const usesUsdInr = instruments.some(needsUsdInr);
+    const [rows, histories, fxHistories] = await Promise.all([
+      loadInstrumentRows([...keys, FX_KEY]),
+      readStoredPrices(keys, new Date(now.getTime() - SAVED_HISTORY_DAYS * DAY_IN_MS)),
+      usesUsdInr
+        ? readStoredPrices([FX_KEY], earliest)
+        : Promise.resolve(new Map<string, PriceHistoryPoint[]>()),
+    ]);
+    const quotes = new Map<string, Quote>();
+    const names = new Map<string, string>();
+    for (const key of keys) {
+      const row = rows.get(key);
+      const quote = storedQuote(row);
+      if (quote !== null) {
+        quotes.set(key, quote);
+      }
+      if (row?.name !== null && row?.name !== undefined) {
+        names.set(key, row.name);
+      }
+    }
+    const usdInrHistory = fxHistories.get(FX_KEY) ?? [];
+    return {
+      usdInrRate: usesUsdInr
+        ? (storedQuote(rows.get(FX_KEY))?.unitPriceInr ??
+          getFxRateToInrFromHistory(now, usdInrHistory, null))
+        : null,
+      usdInrHistory,
+      quoteByInstrumentKey: quotes,
+      nameByInstrumentKey: names,
       historyByInstrumentKey: histories,
     };
   },

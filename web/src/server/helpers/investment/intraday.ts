@@ -7,10 +7,12 @@ import {
   parseCategoryViewValue,
   parseViewValue,
 } from '@/lib/investment-selection';
+import type { InvestmentTimelineRangeValue } from '@/lib/investments';
 import { MS_PER_MINUTE, MS_PER_SECOND } from '@/types';
 
 import { getInvestmentsDashboard } from './dashboard';
 import { enrichInvestments } from './enrichment';
+import { buildInstrumentTimelineEntries } from './holdings';
 import { buildInvestmentMarketDataContext } from './market-data';
 import { parseIndianListing } from './providers/indian-listing';
 import { getTimeRangeBounds } from './range';
@@ -33,11 +35,7 @@ const CRYPTO_MEMO_MS = BUCKET_MS;
 const QUOTE_HISTORY_DAYS = 10;
 const CANDLE_CLOSE_INDEX = 4;
 
-export const fineTimelineRanges = ['1d', '1w', '1m'] as const;
-
-export type FineTimelineRange = (typeof fineTimelineRanges)[number];
-
-type WideRange = Exclude<FineTimelineRange, '1d'>;
+type WideRange = '1w' | '1m';
 
 const YAHOO_RANGES: Record<WideRange, string> = { '1w': '5d', '1m': '1mo' };
 
@@ -404,10 +402,92 @@ const buildRangeTimeline = async (
   });
 };
 
+const buildDailyTimeline = async (
+  investmentsList: InvestmentRow[],
+  view: string,
+  range: InvestmentTimelineRangeValue,
+) => {
+  const now = new Date();
+  const earliest = investmentsList.reduce<Date>((first, investment) => {
+    const day = startOfDay(investment.investmentDate);
+    return day.getTime() < first.getTime() ? day : first;
+  }, startOfDay(now));
+  const { startDate, endDate } = getTimeRangeBounds(range, earliest);
+  const context = await buildInvestmentMarketDataContext({
+    investmentsList,
+    historyStartDate: startDate,
+    historyEndDate: endDate,
+  });
+  const enriched = await enrichInvestments({ investmentsList, marketDataContext: context });
+  const selected = positionsForView(enriched, view);
+  if (selected.length === 0) {
+    return [];
+  }
+  const history = {
+    historyByInstrumentKey: context.historyByInstrumentKey,
+    usdInrHistory: context.usdInrHistory,
+  };
+  const isInstrument = parseViewValue(view) !== null;
+  const open = selected.filter((position) => !position.isClosedPosition);
+  const sum = (read: (position: EnrichedInvestment) => number) =>
+    open.reduce((total, position) => total + read(position), 0);
+  const current = isInstrument
+    ? {
+        value: sum((position) => position.valuationAmountDisplay ?? position.investedAmountDisplay),
+        base: sum((position) => position.investedAmountDisplay),
+      }
+    : {
+        value: sum((position) => position.valuationAmount ?? position.investedAmountInr),
+        base: sum((position) => position.investedAmountInr),
+      };
+  const points = isInstrument
+    ? (
+        await buildInstrumentTimelineEntries({
+          investmentsList: selected,
+          startDate,
+          endDate,
+          ...history,
+        })
+      )
+        .flatMap((entry) => entry.timeline.points)
+        .map((point) => ({
+          date: point.date,
+          value: point.holdingValue,
+          base: point.investedAmount,
+          unitPrice: point.unitPrice,
+        }))
+    : (
+        await getInvestmentsDashboard({
+          investmentsList: selected,
+          start: startDate,
+          end: endDate,
+          ...history,
+          includeExcludedFromPortfolio: true,
+        })
+      ).timeline.map((point) => ({
+        date: point.date,
+        value: point.valuationAmount,
+        base: point.investedAmount,
+        unitPrice: 0,
+      }));
+  const last = points.at(-1);
+  return open.length === 0 || last === undefined
+    ? points
+    : [...points.slice(0, -1), { ...last, ...current }];
+};
+
 export const buildFineTimeline = instrumentedFunction(
   'buildFineTimeline',
-  async (investmentsList: InvestmentRow[], view: string, range: FineTimelineRange) =>
-    range === '1d'
-      ? buildDayTimeline(investmentsList, view)
-      : buildRangeTimeline(investmentsList, view, range),
+  async (investmentsList: InvestmentRow[], view: string, range: InvestmentTimelineRangeValue) => {
+    if (range === '1d') {
+      return { points: await buildDayTimeline(investmentsList, view), intraday: true };
+    }
+    if (range === '1w' || range === '1m') {
+      const points = await buildRangeTimeline(investmentsList, view, range);
+      if (points.length > 0) {
+        return { points, intraday: true };
+      }
+    }
+    return { points: await buildDailyTimeline(investmentsList, view, range), intraday: false };
+  },
 );

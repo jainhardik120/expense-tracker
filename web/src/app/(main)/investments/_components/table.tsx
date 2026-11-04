@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -13,22 +13,16 @@ import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { toViewValue } from '@/lib/investment-selection';
+import { matchesSelection, toViewValue } from '@/lib/investment-selection';
 import {
-  compareInvestmentCategories,
-  getInvestmentCategory,
   investmentCategoryLabels,
   investmentCategoryValues,
-  investmentKindLabels,
-  investmentKindValues,
   type InvestmentCategoryValue,
-  type InvestmentKindValue,
-  mergeTimelines,
   type TimelineFilters,
 } from '@/lib/investments';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
-import { investmentParser, MS_PER_MINUTE, PERCENTAGE_DIVISOR } from '@/types';
+import { investmentParser, MS_PER_MINUTE } from '@/types';
 
 import { createGroupedColumns } from './grouped-columns';
 import { createInvestmentColumns } from './investment-columns';
@@ -37,224 +31,54 @@ import { InvestmentsOverview } from './investments-overview';
 import { MarketPanels } from './market-panels';
 
 type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialData'];
-type MarketDataResult = RouterOutput['investments']['getInvestmentsMarketDataByType'];
 
 const selectionParsers = {
   category: investmentParser.category,
   instrument: investmentParser.instrument,
   page: investmentParser.page,
+  perPage: investmentParser.perPage,
 };
-const LIVE_REFRESH = { refetchInterval: MS_PER_MINUTE };
-const LOCAL_CALCULATION_SOURCE = 'local calculation';
+const priceSources = [
+  'Stocks: Groww for India, Yahoo Finance for US',
+  'Mutual funds: Groww',
+  'Commodities: Groww and Hindustan Times',
+];
 
-const marketDataSources: Record<InvestmentKindValue, string> = {
-  fd: LOCAL_CALCULATION_SOURCE,
-  stocks: 'Groww for India, Yahoo Finance for US',
-  mutual_funds: 'Groww',
-  crypto: 'CoinGecko',
-  commodities: 'Upstox and Hindustan Times',
-  epfo: LOCAL_CALCULATION_SOURCE,
-  other: LOCAL_CALCULATION_SOURCE,
+const getAsOf = (positions: InvestmentsPageData['positions']) => {
+  const times = positions.flatMap((position) =>
+    position.normalizedKind === 'stocks' &&
+    !position.isExcludedFromPortfolioPosition &&
+    !position.isClosedPosition &&
+    position.valuationDate !== null
+      ? [position.valuationDate.getTime()]
+      : [],
+  );
+  return times.length === 0 ? null : new Date(Math.max(...times));
 };
 
-const getMarketDataStatus = (query: { isError: boolean; isSuccess: boolean }): string => {
-  if (query.isError) {
-    return 'unavailable';
+const getPriceStatus = (isError: boolean, isLive: boolean) => {
+  if (isError) {
+    return 'live prices unavailable, showing last saved';
   }
-  if (query.isSuccess) {
-    return 'updated';
-  }
-  return 'updating…';
-};
-
-const mergeDashboard = (
-  initialDashboard: InvestmentsPageData['dashboard'],
-  marketData: MarketDataResult[],
-  portfolioXirr: number | null,
-) => {
-  const updatedKinds = new Map(
-    marketData.flatMap((data) => data.dashboard.kindBreakdown.map((item) => [item.kind, item])),
-  );
-  const kindBreakdown = initialDashboard.kindBreakdown.map(
-    (item) => updatedKinds.get(item.kind) ?? item,
-  );
-  const updatedCategories = new Map(
-    marketData.flatMap((data) =>
-      data.dashboard.categoryBreakdown.map((item) => [item.category, item]),
-    ),
-  );
-  const categoryBreakdown = initialDashboard.categoryBreakdown.map(
-    (item) => updatedCategories.get(item.category) ?? item,
-  );
-  const updatedKindValues = new Set(
-    marketData.flatMap((data) =>
-      data.table.investments.map((investment) => investment.normalizedKind),
-    ),
-  );
-  const assetAllocation = [
-    ...initialDashboard.assetAllocation.filter((item) => !updatedKindValues.has(item.kind)),
-    ...marketData.flatMap((data) => data.dashboard.assetAllocation),
-  ];
-  const instrumentBreakdown = [
-    ...initialDashboard.instrumentBreakdown.filter((item) => !updatedKindValues.has(item.kind)),
-    ...marketData.flatMap((data) => data.dashboard.instrumentBreakdown),
-  ].sort((left, right) => {
-    const categoryComparison = compareInvestmentCategories(
-      getInvestmentCategory(left.kind, left.isRsu),
-      getInvestmentCategory(right.kind, right.isRsu),
-    );
-    return categoryComparison === 0 ? left.name.localeCompare(right.name) : categoryComparison;
-  });
-  const instrumentOptions = [
-    ...initialDashboard.instrumentOptions.filter((item) => !updatedKindValues.has(item.kind)),
-    ...marketData.flatMap((data) => data.dashboard.instrumentOptions),
-  ].sort((left, right) => left.name.localeCompare(right.name));
-  const summary = kindBreakdown.reduce(
-    (total, item) => ({
-      investedAmount: total.investedAmount + item.investedAmount,
-      valuationAmount: total.valuationAmount + item.valuationAmount,
-      realizedPnl: total.realizedPnl + item.realizedPnl,
-      dayChange: total.dayChange + item.dayChange,
-      openPositions: total.openPositions + item.openPositions,
-      closedPositions: total.closedPositions + item.closedPositions,
-      totalPositions: total.totalPositions + item.totalPositions,
-    }),
-    {
-      investedAmount: 0,
-      valuationAmount: 0,
-      realizedPnl: 0,
-      dayChange: 0,
-      openPositions: 0,
-      closedPositions: 0,
-      totalPositions: 0,
-    },
-  );
-  const pnl = summary.valuationAmount - summary.investedAmount;
-  const timeline =
-    marketData.length === investmentKindValues.length
-      ? mergeTimelines(marketData.flatMap((data) => data.dashboard.timeline))
-      : initialDashboard.timeline;
-
-  return {
-    ...initialDashboard,
-    summary: {
-      ...summary,
-      pnl,
-      pnlPercentage:
-        summary.investedAmount === 0 ? null : (pnl / summary.investedAmount) * PERCENTAGE_DIVISOR,
-      dayChangePercentage:
-        summary.valuationAmount === summary.dayChange
-          ? null
-          : (summary.dayChange / (summary.valuationAmount - summary.dayChange)) *
-            PERCENTAGE_DIVISOR,
-      xirr: portfolioXirr,
-    },
-    kindBreakdown,
-    categoryBreakdown,
-    assetAllocation,
-    instrumentBreakdown,
-    instrumentOptions,
-    timeline,
-  };
+  return isLive ? 'live' : 'updating…';
 };
 
 const Table = ({ data, filters }: { data: InvestmentsPageData; filters: TimelineFilters }) => {
   const router = useRouter();
-  const marketDataInput = {
-    start: filters.start,
-    end: filters.end,
-    investmentKind: filters.investmentKind,
-  };
-  const fixedDepositQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
-    ...marketDataInput,
-    investmentType: 'fd',
-  });
-  const stocksQuery = api.investments.getInvestmentsMarketDataByType.useQuery(
-    { ...marketDataInput, investmentType: 'stocks' },
-    LIVE_REFRESH,
+  const utils = api.useUtils();
+  const liveQuery = api.investments.getInvestmentsLive.useQuery(
+    { start: filters.start, end: filters.end, investmentKind: filters.investmentKind },
+    { refetchInterval: MS_PER_MINUTE },
   );
-  const mutualFundsQuery = api.investments.getInvestmentsMarketDataByType.useQuery(
-    { ...marketDataInput, investmentType: 'mutual_funds' },
-    LIVE_REFRESH,
-  );
-  const cryptoQuery = api.investments.getInvestmentsMarketDataByType.useQuery(
-    { ...marketDataInput, investmentType: 'crypto' },
-    LIVE_REFRESH,
-  );
-  const commoditiesQuery = api.investments.getInvestmentsMarketDataByType.useQuery(
-    { ...marketDataInput, investmentType: 'commodities' },
-    LIVE_REFRESH,
-  );
-  const epfoQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
-    ...marketDataInput,
-    investmentType: 'epfo',
-  });
-  const otherQuery = api.investments.getInvestmentsMarketDataByType.useQuery({
-    ...marketDataInput,
-    investmentType: 'other',
-  });
-  const marketQueries = [
-    ['fd', fixedDepositQuery],
-    ['stocks', stocksQuery],
-    ['mutual_funds', mutualFundsQuery],
-    ['crypto', cryptoQuery],
-    ['commodities', commoditiesQuery],
-    ['epfo', epfoQuery],
-    ['other', otherQuery],
-  ] as const;
-  const marketData = useMemo(
-    () => marketQueries.flatMap(([, query]) => (query.data === undefined ? [] : [query.data])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      fixedDepositQuery.data,
-      stocksQuery.data,
-      mutualFundsQuery.data,
-      cryptoQuery.data,
-      commoditiesQuery.data,
-      epfoQuery.data,
-      otherQuery.data,
-    ],
-  );
-  const enrichedById = useMemo(
-    () =>
-      new Map(
-        marketData.flatMap((result) => result.table.investments.map((item) => [item.id, item])),
-      ),
-    [marketData],
-  );
-  const tableData = useMemo(
-    () => data.table.investments.map((item) => enrichedById.get(item.id) ?? item),
-    [data.table.investments, enrichedById],
-  );
-  const asOf = useMemo(() => {
-    const times = marketData.flatMap((result) =>
-      result.table.investments.flatMap((investment) =>
-        investment.normalizedKind === 'stocks' &&
-        !investment.isExcludedFromPortfolioPosition &&
-        investment.valuationDate !== null &&
-        !investment.isClosedPosition
-          ? [investment.valuationDate.getTime()]
-          : [],
-      ),
-    );
-    return times.length === 0 ? null : new Date(Math.max(...times));
-  }, [marketData]);
-  const overviewQuery = api.investments.getOverview.useQuery(undefined, LIVE_REFRESH);
-  const portfolioXirr = overviewQuery.data?.summary.xirr ?? null;
-  const dashboard = useMemo(
-    () => mergeDashboard(data.dashboard, marketData, portfolioXirr),
-    [data.dashboard, marketData, portfolioXirr],
-  );
+  const { positions, dashboard } = liveQuery.data ?? data;
+  const isLive = liveQuery.data !== undefined;
+  const asOf = useMemo(() => getAsOf(positions), [positions]);
+  const refresh = useCallback(async () => {
+    await utils.investments.invalidate();
+    router.refresh();
+  }, [router, utils]);
   const zoned = useZonedFormat();
-  const categoryTimelines = useMemo(() => {
-    const updatedTimelines = new Map(
-      marketData.flatMap((result) =>
-        result.categoryTimelines.map((entry) => [entry.category, entry]),
-      ),
-    );
-    return data.categoryTimelines.map((entry) => updatedTimelines.get(entry.category) ?? entry);
-  }, [data.categoryTimelines, marketData]);
-  const [selection, setSelection] = useQueryStates(selectionParsers, { shallow: false });
+  const [selection, setSelection] = useQueryStates(selectionParsers);
   const instrumentOptions = useMemo(
     () =>
       dashboard.instrumentBreakdown.map((row) => ({
@@ -277,28 +101,31 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     () =>
       createInvestmentColumns(
         () => {
-          router.refresh();
+          void refresh();
         },
         zoned,
         { categoryOptions, instrumentOptions },
       ),
-    [router, zoned, categoryOptions, instrumentOptions],
+    [refresh, zoned, categoryOptions, instrumentOptions],
   );
-  const utils = api.useUtils();
   const groupedColumns = useMemo(
-    () =>
-      createGroupedColumns(instrumentOptions, async () => {
-        await utils.investments.getInvestmentsMarketDataByType.invalidate();
-        router.refresh();
-      }),
-    [instrumentOptions, router, utils],
+    () => createGroupedColumns(instrumentOptions, refresh),
+    [instrumentOptions, refresh],
+  );
+  const matchingPositions = useMemo(
+    () => positions.filter((position) => matchesSelection(position, selection)),
+    [positions, selection],
+  );
+  const pageStart = Math.max(selection.page - 1, 0) * selection.perPage;
+  const pagePositions = useMemo(
+    () => matchingPositions.slice(pageStart, pageStart + selection.perPage),
+    [matchingPositions, pageStart, selection.perPage],
   );
 
   const { table } = useDataTable({
-    data: tableData,
+    data: pagePositions,
     columns,
-    pageCount: data.table.pageCount,
-    shallow: false,
+    pageCount: Math.max(1, Math.ceil(matchingPositions.length / selection.perPage)),
     initialState: {
       columnVisibility: {
         category: false,
@@ -316,7 +143,6 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     columns: groupedColumns,
     pageCount: 1,
     manualFiltering: false,
-    shallow: false,
     initialState: {
       columnVisibility: {
         instrument: false,
@@ -360,10 +186,9 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
       </div>
       <InvestmentsOverview
         asOf={asOf}
-        categoryTimelines={categoryTimelines}
         dashboard={dashboard}
         filters={filters}
-        instrumentTimelines={data.instrumentTimelines}
+        isLive={isLive}
         selectedCategories={selectedCategories}
         selection={selection}
         onCategoryToggle={toggleCategory}
@@ -371,10 +196,9 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
       />
       <MarketPanels allocation={dashboard.assetAllocation} />
       <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs">
-        {marketQueries.map(([kind, query]) => (
-          <span key={kind}>
-            {investmentKindLabels[kind]} ({marketDataSources[kind]}): {getMarketDataStatus(query)}
-          </span>
+        <span>Prices: {getPriceStatus(liveQuery.isError, isLive)}</span>
+        {priceSources.map((source) => (
+          <span key={source}>{source}</span>
         ))}
         <span>
           Crypto market data provided by{' '}
@@ -405,7 +229,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
       </DataTable>
       <DataTable getItemValue={(item) => item.id} table={table}>
         <DataTableToolbar table={table}>
-          <CreateInvestmentForm />
+          <CreateInvestmentForm refresh={refresh} />
         </DataTableToolbar>
       </DataTable>
     </div>

@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { instrumentAssetClasses, investments } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { matchesSelection } from '@/lib/investment-selection';
 import {
   assetClassTagValues,
   canTagAssetClass,
@@ -21,13 +20,13 @@ import {
 } from '@/lib/investments';
 import {
   buildInstrumentChart,
-  buildInvestmentsPageData,
-  buildInvestmentsRangeTimelines,
+  buildLivePortfolio,
+  buildSavedPortfolio,
   searchInvestmentInstruments,
 } from '@/server/helpers/investment';
 import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
-import { buildFineTimeline, fineTimelineRanges } from '@/server/helpers/investment/intraday';
+import { buildFineTimeline } from '@/server/helpers/investment/intraday';
 import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
 import {
   getMetalCharts,
@@ -36,7 +35,7 @@ import {
 } from '@/server/helpers/investment/metal-prices';
 import { attachPaymentTotals } from '@/server/helpers/investment/payments';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
-import { amount, createInvestmentSchema, investmentParserSchema } from '@/types';
+import { amount, createInvestmentSchema } from '@/types';
 
 import { investmentPaymentsRouter } from './investment-payments';
 
@@ -104,6 +103,12 @@ const getFilteredInvestments = instrumentedFunction(
       )
       .orderBy(desc(investments.investmentDate)),
 );
+
+const portfolioFilterSchema = z.object({
+  start: z.date().optional(),
+  end: z.date().optional(),
+  investmentKind: z.string().array().optional().default([]),
+});
 
 const overviewFigures = {
   invested: z.number(),
@@ -299,66 +304,19 @@ export const investmentsRouter = createTRPCRouter({
     }),
 
   getInvestmentsInitialData: protectedProcedure
-    .input(investmentParserSchema)
+    .input(portfolioFilterSchema)
     .query(async ({ ctx, input }) => {
-      const investmentsListRaw = await getFilteredInvestments(ctx.db, ctx.user.id, input);
-      return attachPaymentTotals(
-        ctx.db,
-        await buildInvestmentsPageData({
-          investmentsListRaw,
-          page: input.page,
-          perPage: input.perPage,
-          tableFilter: (investment) => matchesSelection(investment, input),
-          endDate: input.end,
-          marketDataKinds: [],
-        }),
-      );
+      const rows = await getFilteredInvestments(ctx.db, ctx.user.id, input);
+      const { positions, dashboard } = await buildSavedPortfolio(rows, input.end);
+      return { positions: await attachPaymentTotals(ctx.db, positions), dashboard };
     }),
 
-  getInvestmentsMarketDataByType: protectedProcedure
-    .input(
-      investmentParserSchema.extend({
-        investmentType: z.enum(investmentKindValues),
-      }),
-    )
+  getInvestmentsLive: protectedProcedure
+    .input(portfolioFilterSchema)
     .query(async ({ ctx, input }) => {
-      const investmentsListRaw = await getFilteredInvestments(ctx.db, ctx.user.id, input);
-      const typeInvestments = investmentsListRaw.filter(
-        (investment) => normalizeInvestmentKind(investment.investmentKind) === input.investmentType,
-      );
-      return attachPaymentTotals(
-        ctx.db,
-        await buildInvestmentsPageData({
-          investmentsListRaw: typeInvestments,
-          page: 0,
-          perPage: Math.max(1, typeInvestments.length),
-          endDate: input.end,
-          marketDataKinds: [input.investmentType],
-        }),
-      );
-    }),
-
-  getInvestmentsTimelinesByType: protectedProcedure
-    .input(
-      z.object({
-        start: z.date().optional(),
-        end: z.date().optional(),
-        investmentKind: z.string().array().optional().default([]),
-        range: z.enum(investmentTimelineRangeValues),
-        investmentType: z.enum(investmentKindValues),
-      }),
-    )
-    .query(async ({ ctx, input }) => {
-      const investmentsListRaw = await getFilteredInvestments(ctx.db, ctx.user.id, input);
-      const typeInvestments = investmentsListRaw.filter(
-        (investment) => normalizeInvestmentKind(investment.investmentKind) === input.investmentType,
-      );
-      return buildInvestmentsRangeTimelines({
-        investmentsListRaw: typeInvestments,
-        range: input.range,
-        endDate: input.end,
-        marketDataKinds: [input.investmentType],
-      });
+      const rows = await getFilteredInvestments(ctx.db, ctx.user.id, input);
+      const { positions, dashboard } = await buildLivePortfolio(rows, input.end);
+      return { positions: await attachPaymentTotals(ctx.db, positions), dashboard };
     }),
 
   getMetalPrices: protectedProcedure.query(async ({ ctx }) => getMetalPrices(ctx.db, ctx.user.id)),
@@ -374,7 +332,7 @@ export const investmentsRouter = createTRPCRouter({
         end: z.date().optional(),
         investmentKind: z.string().array().optional().default([]),
         view: z.string(),
-        range: z.enum(fineTimelineRanges),
+        range: z.enum(investmentTimelineRangeValues),
       }),
     )
     .query(async ({ ctx, input }) => {

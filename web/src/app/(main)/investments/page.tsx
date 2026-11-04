@@ -17,7 +17,7 @@ export default async function Page({
 }: Readonly<{ searchParams: Promise<SearchParams> }>) {
   const pageParams = await loader(searchParams);
   const data = await api.investments.getInvestmentsInitialData({
-    ...pageParams,
+    investmentKind: pageParams.investmentKind,
     start: pageParams.date[0],
     end: pageParams.date[1],
   });

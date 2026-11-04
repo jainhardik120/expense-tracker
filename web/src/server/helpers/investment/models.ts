@@ -3,7 +3,6 @@ import type {
   AssetClassValue,
   InvestmentCategoryValue,
   InvestmentKindValue,
-  InvestmentTimelineRangeValue,
   StockMarketValue,
 } from '@/lib/investments';
 
@@ -16,11 +15,6 @@ type InvestmentTimelinePoint = {
   investedAmount: number;
   valuationAmount: number;
   pnl: number;
-};
-
-export type CategoryTimelineEntry = {
-  category: InvestmentCategoryValue;
-  timeline: InvestmentTimelinePoint[];
 };
 
 export type DashboardInstrumentOption = {
@@ -66,7 +60,7 @@ export type AssetAllocationEntry = {
   valuationAmount: number;
 };
 
-export type InvestmentsDashboard = {
+export type InvestmentsSummaryView = {
   summary: {
     investedAmount: number;
     valuationAmount: number;
@@ -109,9 +103,12 @@ export type InvestmentsDashboard = {
     totalPositions: number;
   }>;
   assetAllocation: AssetAllocationEntry[];
-  timeline: InvestmentTimelinePoint[];
   instrumentOptions: DashboardInstrumentOption[];
   instrumentBreakdown: DashboardInstrumentBreakdown[];
+};
+
+export type InvestmentsDashboard = InvestmentsSummaryView & {
+  timeline: InvestmentTimelinePoint[];
 };
 
 export type InstrumentHoldingTimelinePoint = {
@@ -144,31 +141,6 @@ export type InvestmentMarketDataContext = {
   quoteByInstrumentKey: Map<string, Quote>;
   nameByInstrumentKey: Map<string, string>;
   historyByInstrumentKey: Map<string, PriceHistoryPoint[]>;
-};
-
-export type InvestmentsPageData = {
-  table: {
-    investments: EnrichedInvestment[];
-    pageCount: number;
-    rowsCount: number;
-  };
-  dashboard: InvestmentsDashboard;
-  categoryTimelines: CategoryTimelineEntry[];
-  instrumentTimelines: InstrumentTimelineEntry[];
-  defaultRange: {
-    range: '1m';
-    startDate: Date;
-    endDate: Date;
-  };
-};
-
-export type InvestmentsRangeTimelines = {
-  range: InvestmentTimelineRangeValue;
-  startDate: Date;
-  endDate: Date;
-  timeline: InvestmentTimelinePoint[];
-  categoryTimelines: CategoryTimelineEntry[];
-  instrumentTimelines: InstrumentTimelineEntry[];
 };
 
 export type EnrichedInvestment = InvestmentRow & {

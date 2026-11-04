@@ -2,14 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import { isSameDay, startOfDay, subDays } from 'date-fns';
-
-import {
-  GainLossChart,
-  type GainLossPoint,
-  PriceChart,
-  ValueVsBaseChart,
-} from '@/components/gain-loss-chart';
+import { GainLossChart, PriceChart, ValueVsBaseChart } from '@/components/gain-loss-chart';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -22,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/format';
 import {
   PORTFOLIO_VIEW,
@@ -36,8 +30,6 @@ import {
   investmentKindLabels,
   type InvestmentKindValue,
   type InvestmentTimelineRangeValue,
-  investmentTimelineRangeDays,
-  mergeTimelines,
   type TimelineFilters,
 } from '@/lib/investments';
 import { cn } from '@/lib/utils';
@@ -50,15 +42,12 @@ import { getExcludedPortfolioDescription, getExcludedPortfolioTag } from './disp
 import { getSignedValueTone } from './investment-columns';
 
 type DashboardData = RouterOutput['investments']['getInvestmentsInitialData']['dashboard'];
-type CategoryTimelineEntry =
-  RouterOutput['investments']['getInvestmentsInitialData']['categoryTimelines'][number];
-type InstrumentTimelineEntry =
-  RouterOutput['investments']['getInvestmentsInitialData']['instrumentTimelines'][number];
 
 const POSITIVE_TONE = 'text-green-600';
 const NEGATIVE_TONE = 'text-red-600';
 const UNITS_DECIMALS = 4;
 const USD_CURRENCY = 'USD';
+const LIVE_RANGES = new Set<InvestmentTimelineRangeValue>(['1d', '1w', '1m']);
 
 type ChartTab = 'gain' | 'value' | 'price';
 
@@ -85,28 +74,6 @@ const INTRADAY_LABELS = {
   base: 'Previous close',
   difference: "Today's gain/loss",
   relative: "Today's return",
-};
-
-const currentTotalsFor = ({
-  isPortfolioView,
-  summary,
-  category,
-  instrument,
-}: {
-  isPortfolioView: boolean;
-  summary: DashboardData['summary'];
-  category: DashboardData['categoryBreakdown'][number] | undefined;
-  instrument: DashboardData['instrumentOptions'][number] | null;
-}) => {
-  if (isPortfolioView) {
-    return { value: summary.valuationAmount, invested: summary.investedAmount };
-  }
-  if (category !== undefined) {
-    return { value: category.valuationAmount, invested: category.investedAmount };
-  }
-  return instrument === null
-    ? null
-    : { value: instrument.valuationAmount, invested: instrument.investedAmount };
 };
 
 const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: string }> = [
@@ -137,19 +104,11 @@ const viewFromSelection = ({
   return PORTFOLIO_VIEW;
 };
 
-const asOfLabel = (asOf: Date) => {
-  const time = asOf.toLocaleTimeString('en-IN', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-  return isSameDay(asOf, new Date())
-    ? time
-    : `${asOf.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}, ${time}`;
-};
-
-const LiveStatus = ({ asOf }: { asOf: Date | null }) => {
-  const isOpen = isIndianMarketOpen(new Date());
+const LiveStatus = ({ asOf, isLive }: { asOf: Date | null; isLive: boolean }) => {
+  const zoned = useZonedFormat();
+  const isOpen = isLive && isIndianMarketOpen(new Date());
+  const isToday = zoned(asOf, 'yyyy-MM-dd') === zoned(new Date(), 'yyyy-MM-dd');
+  const closedLabel = isLive ? 'Market closed' : 'Last saved';
   return (
     <div className="text-muted-foreground mt-1 flex min-h-4 items-center gap-1.5 text-xs font-normal">
       {asOf === null ? null : (
@@ -160,7 +119,8 @@ const LiveStatus = ({ asOf }: { asOf: Date | null }) => {
               isOpen ? 'animate-pulse bg-green-600' : 'bg-muted-foreground',
             )}
           />
-          {isOpen ? 'Live' : 'Market closed'} · as of {asOfLabel(asOf)}
+          {isOpen ? 'Live' : closedLabel} · as of{' '}
+          {zoned(asOf, isToday ? 'h:mm a' : 'd MMM, h:mm a')}
         </>
       )}
     </div>
@@ -193,9 +153,8 @@ const ChartPlaceholder = ({ isLoading }: { isLoading: boolean }) =>
 
 export const InvestmentsOverview = ({
   asOf,
-  categoryTimelines,
+  isLive,
   dashboard,
-  instrumentTimelines,
   filters,
   selectedCategories,
   selection,
@@ -203,9 +162,8 @@ export const InvestmentsOverview = ({
   onSelect,
 }: {
   asOf: Date | null;
-  categoryTimelines: CategoryTimelineEntry[];
+  isLive: boolean;
   dashboard: DashboardData;
-  instrumentTimelines: InstrumentTimelineEntry[];
   filters: TimelineFilters;
   selectedCategories: Set<InvestmentCategoryValue>;
   selection: { category: string[]; instrument: string[] };
@@ -267,199 +225,25 @@ export const InvestmentsOverview = ({
   const isCategoryView = selectedCategory !== null;
   const isAggregateView = isPortfolioView || isCategoryView;
   const activeChart: ChartTab = chartTab === 'price' && isAggregateView ? 'gain' : chartTab;
-  const requiresRemoteTimeline =
-    timeRange === '3m' || timeRange === '6m' || timeRange === 'lifetime';
-
   const isToday = timeRange === '1d';
-  const fineRange =
-    timeRange === '1d' || timeRange === '1w' || timeRange === '1m' ? timeRange : null;
-  const fineQuery = api.investments.getFineTimeline.useQuery(
+  const timelineQuery = api.investments.getFineTimeline.useQuery(
     {
       start: filters.start,
       end: filters.end,
       investmentKind: filters.investmentKind,
       view: viewSelection,
-      range: fineRange ?? '1d',
+      range: timeRange,
     },
-    { enabled: fineRange !== null, refetchInterval: MS_PER_MINUTE },
+    { refetchInterval: LIVE_RANGES.has(timeRange) ? MS_PER_MINUTE : false },
   );
-  const finePoints = useMemo(
-    () => (fineRange === null ? [] : (fineQuery.data ?? [])),
-    [fineRange, fineQuery.data],
+  const timelinePoints = useMemo(() => timelineQuery.data?.points ?? [], [timelineQuery.data]);
+  const isIntraday = timelineQuery.data?.intraday ?? false;
+  const pricePoints = useMemo(
+    () => timelinePoints.map((point) => ({ date: point.date, price: point.unitPrice })),
+    [timelinePoints],
   );
-  const isFine = finePoints.length >= 2;
-
-  const rangeTimelineInput = {
-    start: filters.start,
-    end: filters.end,
-    investmentKind: filters.investmentKind,
-    range: timeRange,
-  };
-  const fixedDepositTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
-    { ...rangeTimelineInput, investmentType: 'fd' },
-    { enabled: requiresRemoteTimeline },
-  );
-  const stocksTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
-    { ...rangeTimelineInput, investmentType: 'stocks' },
-    { enabled: requiresRemoteTimeline },
-  );
-  const mutualFundsTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
-    { ...rangeTimelineInput, investmentType: 'mutual_funds' },
-    { enabled: requiresRemoteTimeline },
-  );
-  const cryptoTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
-    { ...rangeTimelineInput, investmentType: 'crypto' },
-    { enabled: requiresRemoteTimeline },
-  );
-  const commoditiesTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
-    { ...rangeTimelineInput, investmentType: 'commodities' },
-    { enabled: requiresRemoteTimeline },
-  );
-  const epfoTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
-    { ...rangeTimelineInput, investmentType: 'epfo' },
-    { enabled: requiresRemoteTimeline },
-  );
-  const otherTimelineQuery = api.investments.getInvestmentsTimelinesByType.useQuery(
-    { ...rangeTimelineInput, investmentType: 'other' },
-    { enabled: requiresRemoteTimeline },
-  );
-  const timelineQueries = [
-    fixedDepositTimelineQuery,
-    stocksTimelineQuery,
-    mutualFundsTimelineQuery,
-    cryptoTimelineQuery,
-    commoditiesTimelineQuery,
-    epfoTimelineQuery,
-    otherTimelineQuery,
-  ];
-  const remoteTimelineData = timelineQueries.flatMap((query) =>
-    query.data === undefined ? [] : [query.data],
-  );
-  const remotePortfolioTimeline = mergeTimelines(
-    remoteTimelineData.flatMap((data) => data.timeline),
-  ).sort((left, right) => left.date.getTime() - right.date.getTime());
-
-  let selectedTimelineEntries = instrumentTimelines;
-  let selectedCategoryTimelineEntries = categoryTimelines;
-  let portfolioTimeline = dashboard.timeline;
-  if (requiresRemoteTimeline) {
-    selectedTimelineEntries = remoteTimelineData.flatMap((data) => data.instrumentTimelines);
-    selectedCategoryTimelineEntries = remoteTimelineData.flatMap((data) => data.categoryTimelines);
-    if (remotePortfolioTimeline.length > 0) {
-      portfolioTimeline = remotePortfolioTimeline;
-    }
-  }
-
-  const instrumentTimelineMap = useMemo(() => {
-    const map = new Map<string, InstrumentTimelineEntry['timeline']>();
-    for (const entry of selectedTimelineEntries) {
-      map.set(toViewValue(entry.kind, entry.code, entry.stockMarket), entry.timeline);
-    }
-    return map;
-  }, [selectedTimelineEntries]);
-
-  const categoryTimelineMap = useMemo(() => {
-    return new Map(
-      selectedCategoryTimelineEntries.map((entry) => [entry.category, entry.timeline]),
-    );
-  }, [selectedCategoryTimelineEntries]);
-
-  const filteredPoints = useMemo(() => {
-    let aggregateTimeline: DashboardData['timeline'] | null = null;
-    if (isPortfolioView) {
-      aggregateTimeline = portfolioTimeline;
-    } else if (selectedCategory !== null) {
-      aggregateTimeline = categoryTimelineMap.get(selectedCategory) ?? [];
-    }
-    const days = investmentTimelineRangeDays[timeRange];
-    const cutoffDate =
-      requiresRemoteTimeline || days === undefined
-        ? null
-        : subDays(startOfDay(new Date()), days - 1).getTime();
-    const inRange = (date: Date) => cutoffDate === null || startOfDay(date).getTime() >= cutoffDate;
-    return {
-      aggregate:
-        aggregateTimeline === null
-          ? null
-          : aggregateTimeline.filter((point) => inRange(point.date)),
-      instrument: (instrumentTimelineMap.get(viewSelection)?.points ?? []).filter((point) =>
-        inRange(point.date),
-      ),
-    };
-  }, [
-    instrumentTimelineMap,
-    categoryTimelineMap,
-    isPortfolioView,
-    portfolioTimeline,
-    requiresRemoteTimeline,
-    selectedCategory,
-    timeRange,
-    viewSelection,
-  ]);
-
-  const currentTotals = useMemo(
-    () =>
-      currentTotalsFor({
-        isPortfolioView,
-        summary: dashboard.summary,
-        category: selectedCategorySummary,
-        instrument: selectedInstrument ?? null,
-      }),
-    [isPortfolioView, dashboard.summary, selectedCategorySummary, selectedInstrument],
-  );
-
-  const gainLossPoints = useMemo((): GainLossPoint[] => {
-    if (isFine) {
-      return finePoints;
-    }
-    if (isToday) {
-      return [];
-    }
-    const points =
-      filteredPoints.aggregate === null
-        ? filteredPoints.instrument.map((point) => ({
-            date: point.date,
-            value: point.holdingValue,
-            base: point.investedAmount,
-          }))
-        : filteredPoints.aggregate.map((point) => ({
-            date: point.date,
-            value: point.valuationAmount,
-            base: point.investedAmount,
-          }));
-    if (currentTotals === null) {
-      return points;
-    }
-    const today = startOfDay(new Date()).getTime();
-    const current = {
-      date: new Date(today),
-      value: currentTotals.value,
-      base: currentTotals.invested,
-    };
-    const last = points.at(-1);
-    return last !== undefined && startOfDay(last.date).getTime() >= today
-      ? [...points.slice(0, -1), current]
-      : [...points, current];
-  }, [
-    filteredPoints.aggregate,
-    filteredPoints.instrument,
-    currentTotals,
-    isFine,
-    isToday,
-    finePoints,
-  ]);
-
-  const isLoadingTimeline =
-    gainLossPoints.length < 2 &&
-    (isToday
-      ? fineQuery.isFetching
-      : requiresRemoteTimeline && timelineQueries.some((query) => query.isFetching));
   const chartLabels = isToday ? INTRADAY_LABELS : AGGREGATE_LABELS;
-  const pricePoints = (isFine ? finePoints : filteredPoints.instrument).map((point) => ({
-    date: point.date,
-    price: point.unitPrice,
-  }));
-  const hasChart = (activeChart === 'price' ? pricePoints : gainLossPoints).length >= 2;
+  const hasChart = timelinePoints.length >= 2;
   const selectedCurrency = selectedInstrument?.displayCurrency ?? 'INR';
   const chartCurrency = !isAggregateView && selectedCurrency === USD_CURRENCY ? 'USD' : 'INR';
 
@@ -480,7 +264,7 @@ export const InvestmentsOverview = ({
           </CardHeader>
           <CardContent className="text-xl font-semibold">
             {formatCurrency(dashboard.summary.valuationAmount)}
-            <LiveStatus asOf={asOf} />
+            <LiveStatus asOf={asOf} isLive={isLive} />
           </CardContent>
         </Card>
         <Card>
@@ -491,7 +275,7 @@ export const InvestmentsOverview = ({
             className={`text-xl font-semibold ${dashboard.summary.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}`}
           >
             {formatCurrency(dashboard.summary.pnl)}
-            <LiveStatus asOf={asOf} />
+            <LiveStatus asOf={asOf} isLive={isLive} />
           </CardContent>
         </Card>
         <Card>
@@ -515,7 +299,7 @@ export const InvestmentsOverview = ({
             className={`text-xl font-semibold ${dashboard.summary.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}`}
           >
             {formatCurrency(dashboard.summary.dayChange)}
-            <LiveStatus asOf={asOf} />
+            <LiveStatus asOf={asOf} isLive={isLive} />
           </CardContent>
         </Card>
         <Card>
@@ -658,13 +442,13 @@ export const InvestmentsOverview = ({
               ))}
             </div>
             <div className="h-64">
-              {hasChart ? null : <ChartPlaceholder isLoading={isLoadingTimeline} />}
-              {activeChart === 'gain' ? (
+              {hasChart ? null : <ChartPlaceholder isLoading={timelineQuery.isPending} />}
+              {hasChart && activeChart === 'gain' ? (
                 <GainLossChart
                   currency={chartCurrency}
-                  intraday={isFine}
+                  intraday={isIntraday}
                   labels={chartLabels}
-                  points={gainLossPoints}
+                  points={timelinePoints}
                   title={
                     isToday
                       ? {
@@ -675,19 +459,19 @@ export const InvestmentsOverview = ({
                   }
                 />
               ) : null}
-              {activeChart === 'value' ? (
+              {hasChart && activeChart === 'value' ? (
                 <ValueVsBaseChart
                   currency={chartCurrency}
-                  intraday={isFine}
+                  intraday={isIntraday}
                   labels={chartLabels}
-                  points={gainLossPoints}
+                  points={timelinePoints}
                 />
               ) : null}
-              {activeChart === 'price' ? (
+              {hasChart && activeChart === 'price' ? (
                 <PriceChart
                   averageBuyPrice={averageBuyPrice}
                   currency={chartCurrency}
-                  intraday={isFine}
+                  intraday={isIntraday}
                   points={pricePoints}
                 />
               ) : null}

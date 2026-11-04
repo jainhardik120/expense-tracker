@@ -25,8 +25,7 @@ import { PERCENTAGE_DIVISOR } from '@/types';
 import { CloseInvestmentForm, UpdateInvestmentForm } from './investment-forms';
 import { InvestmentPaymentsDialog } from './investment-payments-dialog';
 
-type InvestmentRow =
-  RouterOutput['investments']['getInvestmentsInitialData']['table']['investments'][number];
+type InvestmentRow = RouterOutput['investments']['getInvestmentsInitialData']['positions'][number];
 
 const getBuyPrice = (row: InvestmentRow) => {
   const units = Number(row.units);

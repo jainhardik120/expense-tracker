@@ -7,6 +7,7 @@ import {
   DEFAULT_USER_AGENT,
   fetchJson,
   fetchLiveJson,
+  fetchText,
   parseNumericString,
   startOfDay,
 } from '../shared';
@@ -53,6 +54,27 @@ type YahooChartResponse = {
   };
 };
 
+type GrowwGoldPage = {
+  goldRateData?: {
+    physicalGoldRate?: Record<
+      string,
+      {
+        date?: string;
+        price?: { TWENTY_FOUR?: number };
+        percentageChange?: { TWENTY_FOUR?: number };
+      }
+    >;
+  };
+};
+
+type GrowwSilverPage = {
+  snapshotDate?: string;
+  cityRates?: Array<{ slug?: string; todayPrice?: number; yesterdayPrice?: number }>;
+  silverHistoricalRates?: Array<{ date?: string; pricePerGram?: number }>;
+};
+
+type PhysicalRate = { price: number; previous: number | null; date: Date | null };
+
 type HindustanTimesGoldHistoryPoint = {
   date?: string;
   price24Cr?: string;
@@ -88,6 +110,9 @@ const MONTH_INDEX_OCTOBER = 9;
 const MONTH_INDEX_SEPTEMBER = 8;
 const UPSTOX_SOURCE = 'upstox';
 const YAHOO_SOURCE = 'yahoo-finance';
+const GROWW_SOURCE = 'groww';
+const PERCENT = 100;
+const NEXT_DATA_PATTERN = /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/;
 const US_DOLLAR = 'USD';
 const SECONDS_TO_MS = 1000;
 
@@ -189,6 +214,66 @@ const getHindustanTimesHistoryUrl = (definition: CommodityDefinition, days: numb
   return `https://api.hindustantimes.com/datainsight/goldsilver/gethistoricaldata/${definition.code}/${DEFAULT_COMMODITY_CITY}/${days}`;
 };
 
+const fetchGrowwPage = async <T>(path: string): Promise<T | null> => {
+  const html = await fetchText(`https://groww.in/${path}`, {
+    cache: 'no-store',
+    headers: { 'User-Agent': DEFAULT_USER_AGENT },
+  });
+  const json = NEXT_DATA_PATTERN.exec(html ?? '')?.[1];
+  if (json === undefined) {
+    return null;
+  }
+  try {
+    return (JSON.parse(json) as { props?: { pageProps?: T } }).props?.pageProps ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const fetchGrowwGoldRate = async (): Promise<PhysicalRate | null> => {
+  const page = await fetchGrowwPage<GrowwGoldPage>('gold-rates');
+  const rate = page?.goldRateData?.physicalGoldRate?.[DEFAULT_COMMODITY_CITY];
+  const price = parseFiniteNumber(rate?.price?.TWENTY_FOUR);
+  if (price === null) {
+    return null;
+  }
+  const change = rate?.percentageChange?.TWENTY_FOUR;
+  return {
+    price,
+    previous: change === undefined ? null : price / (1 + change / PERCENT),
+    date: rate?.date === undefined ? null : new Date(rate.date),
+  };
+};
+
+const fetchGrowwSilverPage = async () => fetchGrowwPage<GrowwSilverPage>('silver-rates');
+
+const fetchGrowwSilverRate = async (): Promise<PhysicalRate | null> => {
+  const page = await fetchGrowwSilverPage();
+  const rate = page?.cityRates?.find((city) => city.slug === DEFAULT_COMMODITY_CITY);
+  const price = parseFiniteNumber(rate?.todayPrice);
+  if (price === null) {
+    return null;
+  }
+  return {
+    price,
+    previous: parseFiniteNumber(rate?.yesterdayPrice),
+    date: page?.snapshotDate === undefined ? null : new Date(page.snapshotDate),
+  };
+};
+
+const fetchPhysicalRate = async (definition: CommodityDefinition) =>
+  definition.code === 'gold' ? fetchGrowwGoldRate() : fetchGrowwSilverRate();
+
+const fetchGrowwSilverHistory = async (): Promise<PriceHistoryPoint[]> => {
+  const page = await fetchGrowwSilverPage();
+  return (page?.silverHistoricalRates ?? []).flatMap((point) => {
+    const price = parseFiniteNumber(point.pricePerGram);
+    return point.date === undefined || price === null
+      ? []
+      : [{ date: new Date(point.date), price }];
+  });
+};
+
 const buildUpstoxHistoryPoints = (
   definition: CommodityDefinition,
   payload: UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse | null,
@@ -288,6 +373,18 @@ const mergeHistoryPoints = (
 export const fetchCommodityLiveQuote = instrumentedFunction(
   'fetchCommodityLiveQuote',
   async (definition: CommodityDefinition): Promise<Quote | null> => {
+    const physical = await fetchPhysicalRate(definition);
+    if (physical !== null) {
+      return {
+        unitPriceInr: physical.price,
+        unitPriceNative: physical.price,
+        nativeCurrency: INDIAN_RUPEE,
+        fxRateToInr: 1,
+        asOf: physical.date,
+        source: GROWW_SOURCE,
+        previousCloseInr: physical.previous,
+      };
+    }
     const payload = await fetchLiveJson<UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse>(
       getUpstoxOverviewUrl(definition),
       {
@@ -361,7 +458,7 @@ export const fetchCommodityHistoricalPrices = instrumentedFunction(
     startDate: Date,
     endDate: Date,
   ): Promise<PriceHistoryPoint[]> => {
-    const [upstoxOverview, hindustanTimesHistory] = await Promise.all([
+    const [upstoxOverview, hindustanTimesHistory, physical, silverHistory] = await Promise.all([
       fetchJson<UpstoxGoldOverviewResponse | UpstoxSilverOverviewResponse>(
         getUpstoxOverviewUrl(definition),
         {
@@ -376,10 +473,19 @@ export const fetchCommodityHistoricalPrices = instrumentedFunction(
           headers: HINDUSTAN_TIMES_HEADERS,
         },
       ),
+      fetchPhysicalRate(definition),
+      definition.code === 'silver' ? fetchGrowwSilverHistory() : Promise.resolve([]),
     ]);
 
     const historicalPoints = buildHindustanTimesHistoryPoints(definition, hindustanTimesHistory);
-    const exactRecentPoints = buildUpstoxHistoryPoints(definition, upstoxOverview);
+    const exactRecentPoints = [
+      ...(silverHistory.length > 0
+        ? silverHistory
+        : buildUpstoxHistoryPoints(definition, upstoxOverview)),
+      ...(physical?.date === null || physical?.date === undefined
+        ? []
+        : [{ date: physical.date, price: physical.price }]),
+    ];
 
     return mergeHistoryPoints(historicalPoints, exactRecentPoints, startDate, endDate);
   },

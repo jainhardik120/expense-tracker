@@ -487,14 +487,6 @@ export const statementParserSchema = z.object({
   line: z.string().array().optional().default([]),
 });
 
-export const investmentParserSchema = z.object({
-  ...dateSchema,
-  ...pageSchema,
-  investmentKind: z.string().array().optional().default([]),
-  category: z.string().array().optional().default([]),
-  instrument: z.string().array().optional().default([]),
-});
-
 export const emiParserSchema = z.object({
   ...pageSchema,
   creditId: z.string().array().optional().default([]),

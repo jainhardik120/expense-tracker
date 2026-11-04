@@ -201,6 +201,27 @@ export const cachedQuotes = instrumentedFunction(
   },
 );
 
+export const readStoredPrices = instrumentedFunction(
+  'readStoredPrices',
+  async (keys: string[], start: Date): Promise<Map<string, PriceHistoryPoint[]>> => {
+    const histories = new Map<string, PriceHistoryPoint[]>();
+    if (keys.length === 0) {
+      return histories;
+    }
+    const rows = await db
+      .select()
+      .from(marketPrices)
+      .where(and(inArray(marketPrices.instrumentKey, keys), gte(marketPrices.day, dayKey(start))))
+      .orderBy(marketPrices.day);
+    for (const row of rows) {
+      const points = histories.get(row.instrumentKey) ?? [];
+      points.push({ date: dayDate(row.day), price: Number.parseFloat(row.price) });
+      histories.set(row.instrumentKey, points);
+    }
+    return histories;
+  },
+);
+
 const storePrices = async (key: string, points: PriceHistoryPoint[]) => {
   const byDay = new Map<string, number>();
   for (const point of points) {

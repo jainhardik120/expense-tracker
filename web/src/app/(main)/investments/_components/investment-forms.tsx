@@ -2,8 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { useRouter } from 'next/navigation';
-
 import { type ControllerRenderProps, useFormContext, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -241,9 +239,8 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
   },
 ];
 
-export const CreateInvestmentForm = () => {
+export const CreateInvestmentForm = ({ refresh }: { refresh: () => Promise<void> }) => {
   const mutation = api.investments.createInvestment.useMutation();
-  const router = useRouter();
 
   return (
     <MutationModal
@@ -266,9 +263,7 @@ export const CreateInvestmentForm = () => {
       }}
       fields={investmentFormFields}
       mutation={mutation}
-      refresh={() => {
-        router.refresh();
-      }}
+      refresh={refresh}
       schema={createInvestmentSchema}
       successToast={(result) => `${result.length} investment(s) created`}
       titleText="Add Investment"

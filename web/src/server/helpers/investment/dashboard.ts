@@ -28,6 +28,7 @@ import type {
   DashboardInstrumentOption,
   EnrichedInvestment,
   InvestmentsDashboard,
+  InvestmentsSummaryView,
 } from './models';
 
 const getUnitsForInvestment = (investment: EnrichedInvestment): number => {
@@ -313,6 +314,107 @@ const buildInstrumentBreakdown = (
     });
 };
 
+const getPortfolioInvestments = (
+  investmentsList: EnrichedInvestment[],
+  includeExcludedFromPortfolio: boolean,
+) =>
+  includeExcludedFromPortfolio
+    ? investmentsList
+    : investmentsList.filter((investment) => !investment.isExcludedFromPortfolioPosition);
+
+export const summarizeInvestments = (
+  investmentsList: EnrichedInvestment[],
+  asOf: Date,
+  includeExcludedFromPortfolio = false,
+): InvestmentsSummaryView => {
+  const kindMap = new Map<InvestmentKindValue, BreakdownAggregate>();
+  const categoryMap = new Map<InvestmentCategoryValue, BreakdownAggregate>();
+  const portfolioInvestments = getPortfolioInvestments(
+    investmentsList,
+    includeExcludedFromPortfolio,
+  );
+  const instrumentBreakdown = buildInstrumentBreakdown(investmentsList, asOf);
+  const instrumentOptions: DashboardInstrumentOption[] = instrumentBreakdown.map((item) => ({
+    kind: item.kind,
+    code: item.code,
+    stockMarket: item.stockMarket,
+    name: item.name,
+    displayCurrency: item.displayCurrency,
+    isRsu: item.isRsu,
+    isExcludedFromPortfolio: item.isExcludedFromPortfolio,
+    positionsCount: item.positionsCount,
+    units: item.units,
+    investedAmount: item.investedAmount,
+    valuationAmount: item.valuationAmount,
+    pnl: item.pnl,
+    dayChange: item.dayChange,
+    dayChangePercentage: item.dayChangePercentage,
+  }));
+  let totalInvestedAmount = 0;
+  let totalValuationAmount = 0;
+  let totalRealizedPnl = 0;
+  let totalDayChange = 0;
+  let openPositions = 0;
+  let closedPositions = 0;
+  const portfolioFlows: CashFlow[] = [];
+
+  for (const investment of investmentsList) {
+    addInvestmentToBreakdown(
+      categoryMap,
+      getInvestmentCategory(investment.normalizedKind, investment.isRsuPosition),
+      investment,
+      asOf,
+    );
+  }
+
+  for (const investment of portfolioInvestments) {
+    const investedAmount = investment.investedAmountInr;
+    const valuationAmount = investment.valuationAmount ?? investedAmount;
+    if (investment.isClosedPosition) {
+      totalRealizedPnl += valuationAmount - investedAmount;
+      closedPositions += 1;
+    } else {
+      totalInvestedAmount += investedAmount;
+      totalValuationAmount += valuationAmount;
+      portfolioFlows.push(...investmentCashFlows(investment, asOf));
+      openPositions += 1;
+    }
+    totalDayChange += investment.dayChange ?? 0;
+    addInvestmentToBreakdown(kindMap, investment.normalizedKind, investment, asOf);
+  }
+
+  return {
+    summary: {
+      investedAmount: totalInvestedAmount,
+      valuationAmount: totalValuationAmount,
+      pnl: totalValuationAmount - totalInvestedAmount,
+      pnlPercentage: getPercentageChange(
+        totalValuationAmount - totalInvestedAmount,
+        totalInvestedAmount,
+      ),
+      realizedPnl: totalRealizedPnl,
+      dayChange: totalDayChange,
+      dayChangePercentage: getDayChangePercentageFromValuation(
+        totalValuationAmount,
+        totalDayChange,
+      ),
+      xirr: computeXirr(portfolioFlows),
+      openPositions,
+      closedPositions,
+      totalPositions: openPositions + closedPositions,
+    },
+    kindBreakdown: [...kindMap.entries()]
+      .map(([kind, summary]) => ({ kind, ...summarizeBreakdown(summary) }))
+      .sort((left, right) => right.valuationAmount - left.valuationAmount),
+    categoryBreakdown: [...categoryMap.entries()]
+      .map(([category, summary]) => ({ category, ...summarizeBreakdown(summary) }))
+      .sort((left, right) => compareInvestmentCategories(left.category, right.category)),
+    assetAllocation: buildAssetAllocation(portfolioInvestments),
+    instrumentOptions,
+    instrumentBreakdown,
+  };
+};
+
 export const getInvestmentsDashboard = instrumentedFunction(
   'getInvestmentsDashboard',
   async ({
@@ -330,77 +432,10 @@ export const getInvestmentsDashboard = instrumentedFunction(
     usdInrHistory?: Array<{ date: Date; price: number }>;
     includeExcludedFromPortfolio?: boolean;
   }): Promise<InvestmentsDashboard> => {
-    const kindMap = new Map<InvestmentKindValue, BreakdownAggregate>();
-    const categoryMap = new Map<InvestmentCategoryValue, BreakdownAggregate>();
-    const portfolioInvestments = includeExcludedFromPortfolio
-      ? investmentsList
-      : investmentsList.filter((investment) => !investment.isExcludedFromPortfolioPosition);
-    const asOf = end ?? new Date();
-    const instrumentBreakdown = buildInstrumentBreakdown(investmentsList, asOf);
-    const instrumentOptions: DashboardInstrumentOption[] = instrumentBreakdown.map((item) => ({
-      kind: item.kind,
-      code: item.code,
-      stockMarket: item.stockMarket,
-      name: item.name,
-      displayCurrency: item.displayCurrency,
-      isRsu: item.isRsu,
-      isExcludedFromPortfolio: item.isExcludedFromPortfolio,
-      positionsCount: item.positionsCount,
-      units: item.units,
-      investedAmount: item.investedAmount,
-      valuationAmount: item.valuationAmount,
-      pnl: item.pnl,
-      dayChange: item.dayChange,
-      dayChangePercentage: item.dayChangePercentage,
-    }));
-    let totalInvestedAmount = 0;
-    let totalValuationAmount = 0;
-    let totalRealizedPnl = 0;
-    let totalDayChange = 0;
-    let openPositions = 0;
-    let closedPositions = 0;
-    const portfolioFlows: CashFlow[] = [];
-
-    for (const investment of investmentsList) {
-      addInvestmentToBreakdown(
-        categoryMap,
-        getInvestmentCategory(investment.normalizedKind, investment.isRsuPosition),
-        investment,
-        asOf,
-      );
-    }
-
-    for (const investment of portfolioInvestments) {
-      const investedAmount = investment.investedAmountInr;
-      const valuationAmount = investment.valuationAmount ?? investedAmount;
-      const dayChange = investment.dayChange ?? 0;
-      if (investment.isClosedPosition) {
-        totalRealizedPnl += valuationAmount - investedAmount;
-      } else {
-        totalInvestedAmount += investedAmount;
-        totalValuationAmount += valuationAmount;
-      }
-      totalDayChange += dayChange;
-      if (!investment.isClosedPosition) {
-        portfolioFlows.push(...investmentCashFlows(investment, asOf));
-      }
-
-      if (investment.isClosedPosition) {
-        closedPositions += 1;
-      } else {
-        openPositions += 1;
-      }
-
-      addInvestmentToBreakdown(kindMap, investment.normalizedKind, investment, asOf);
-    }
-
-    const kindBreakdown = [...kindMap.entries()]
-      .map(([kind, summary]) => ({ kind, ...summarizeBreakdown(summary) }))
-      .sort((left, right) => right.valuationAmount - left.valuationAmount);
-
-    const categoryBreakdown = [...categoryMap.entries()]
-      .map(([category, summary]) => ({ category, ...summarizeBreakdown(summary) }))
-      .sort((left, right) => compareInvestmentCategories(left.category, right.category));
+    const portfolioInvestments = getPortfolioInvestments(
+      investmentsList,
+      includeExcludedFromPortfolio,
+    );
 
     const { startDate, endDate, days } = getDailyRangeFromInvestments({
       investmentsList: portfolioInvestments,
@@ -528,31 +563,8 @@ export const getInvestmentsDashboard = instrumentedFunction(
     });
 
     return {
-      summary: {
-        investedAmount: totalInvestedAmount,
-        valuationAmount: totalValuationAmount,
-        pnl: totalValuationAmount - totalInvestedAmount,
-        pnlPercentage: getPercentageChange(
-          totalValuationAmount - totalInvestedAmount,
-          totalInvestedAmount,
-        ),
-        realizedPnl: totalRealizedPnl,
-        dayChange: totalDayChange,
-        dayChangePercentage: getDayChangePercentageFromValuation(
-          totalValuationAmount,
-          totalDayChange,
-        ),
-        xirr: computeXirr(portfolioFlows),
-        openPositions,
-        closedPositions,
-        totalPositions: openPositions + closedPositions,
-      },
-      kindBreakdown,
-      categoryBreakdown,
-      assetAllocation: buildAssetAllocation(portfolioInvestments),
+      ...summarizeInvestments(investmentsList, end ?? new Date(), includeExcludedFromPortfolio),
       timeline,
-      instrumentOptions,
-      instrumentBreakdown,
     };
   },
 );

@@ -126,17 +126,24 @@ const moneyFormat = (currency: ChartCurrency): MoneyFormat => {
 
 const percentTick = (value: number) => `${value.toFixed(PERCENT_TICK_DECIMALS)}%`;
 
-const shortDate = (time: number) =>
-  new Date(time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+const SHORT_DATE = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' });
+const MONTH_DATE = new Intl.DateTimeFormat('en-IN', { month: 'short', year: '2-digit' });
+const FULL_DATE = new Intl.DateTimeFormat('en-IN', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const SHORT_TIME = new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit' });
 
-const monthDate = (time: number) =>
-  new Date(time).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+const shortDate = (time: number) => SHORT_DATE.format(time);
 
-const fullDate = (time: number) =>
-  new Date(time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+const monthDate = (time: number) => MONTH_DATE.format(time);
 
-const shortTime = (time: number) =>
-  new Date(time).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+const fullDate = (time: number) => FULL_DATE.format(time);
+
+const localDay = (time: number) => new Date(time).setHours(0, 0, 0, 0);
+
+const shortTime = (time: number) => SHORT_TIME.format(time);
 
 const fullDateTime = (time: number) => `${fullDate(time)}, ${shortTime(time)}`;
 
@@ -225,7 +232,7 @@ const xAxisProps = (rows: Array<{ time: number }>, intraday: boolean) => {
     return { dataKey: 'time', scale: 'time', tickFormatter: format } as const;
   }
   const dayStarts = rows.flatMap((row, index) =>
-    index === 0 || shortDate(rows[index - 1].time) !== shortDate(row.time) ? [index] : [],
+    index === 0 || localDay(rows[index - 1].time) !== localDay(row.time) ? [index] : [],
   );
   return {
     dataKey: 'index',
@@ -290,7 +297,7 @@ export const GainLossChart = ({
   const crossesZero = Math.max(...values) > 0 && Math.min(...values) < 0;
   const solid = Math.max(...values) > 0 ? AHEAD : BEHIND;
   const gradientId = useId().replaceAll(':', '');
-  const xAxis = xAxisProps(rows, intraday);
+  const xAxis = useMemo(() => xAxisProps(rows, intraday), [rows, intraday]);
   if (rows.length < 2) {
     return null;
   }
@@ -380,7 +387,7 @@ export const ValueVsBaseChart = ({
 }) => {
   const money = useMemo(() => moneyFormat(currency), [currency]);
   const rows = useMemo(() => toRows(points), [points]);
-  const xAxis = xAxisProps(rows, intraday);
+  const xAxis = useMemo(() => xAxisProps(rows, intraday), [rows, intraday]);
   if (rows.length < 2) {
     return null;
   }
@@ -524,7 +531,7 @@ export const PriceChart = ({
   }, [currency]);
   const highest = Math.max(0, ...rows.map((row) => row.price));
   const tick = highest >= COMPACT_PRICE_FROM ? money.compact : formatPrice;
-  const xAxis = xAxisProps(rows, intraday);
+  const xAxis = useMemo(() => xAxisProps(rows, intraday), [rows, intraday]);
   if (rows.length < 2) {
     return null;
   }
