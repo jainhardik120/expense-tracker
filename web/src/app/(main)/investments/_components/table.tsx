@@ -42,6 +42,8 @@ const priceSources = [
   'Stocks: Groww for India, Yahoo Finance for US',
   'Mutual funds: Groww',
   'Commodities: Groww and Hindustan Times',
+  'Indices: Groww',
+  'USD/INR: Yahoo Finance',
 ];
 
 const getAsOf = (positions: InvestmentsPageData['positions']) => {
@@ -175,7 +177,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
   };
 
   return (
-    <div className="grid gap-4">
+    <div className="grid grid-cols-1 gap-4">
       <div className="flex justify-end">
         <Button asChild size="sm" variant="outline">
           <Link href="/investments/mutual-funds">

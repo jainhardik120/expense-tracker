@@ -9,7 +9,7 @@ type AssetAllocation =
   RouterOutput['investments']['getInvestmentsInitialData']['dashboard']['assetAllocation'];
 
 export const MarketPanels = ({ allocation }: { allocation: AssetAllocation }) => (
-  <div className="grid gap-4 xl:grid-cols-2">
+  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
     <AssetAllocationCard allocation={allocation} />
     <MetalPricesCard />
   </div>

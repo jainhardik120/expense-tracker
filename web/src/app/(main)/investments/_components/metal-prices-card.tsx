@@ -8,7 +8,7 @@ import { LineChart as LineChartIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrency, formatPercent } from '@/lib/format';
+import { formatCurrency, formatNumber, formatPercent } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
@@ -19,6 +19,7 @@ import { MetalChartsDialog } from './metal-charts-dialog';
 
 type Metal = RouterOutput['investments']['getMetalPrices'][number];
 type MetalPrice = Metal['india'];
+type Indicator = RouterOutput['investments']['getMarketIndicators'][number];
 
 const PriceChange = ({ change }: { change: number | null }) =>
   change === null ? null : (
@@ -59,12 +60,14 @@ const PriceLine = ({
 );
 
 const LIVE_TIME = 'd MMM, HH:mm';
+const PANEL_SPACING =
+  'grid content-start gap-3 py-6 first:pt-0 last:pb-0 sm:py-0 sm:first:pr-6 sm:last:pl-6';
 
 const MetalPanel = ({ metal }: { metal: Metal }) => {
   const [open, setOpen] = useState(false);
   const unit = `/ ${metal.unit}`;
   return (
-    <div className="grid gap-3 rounded-md border p-3">
+    <div className={PANEL_SPACING}>
       <div className="flex items-center justify-between gap-2">
         <div className="font-semibold">{metal.name}</div>
         <MetalChartsDialog
@@ -116,25 +119,60 @@ const MetalPanel = ({ metal }: { metal: Metal }) => {
   );
 };
 
+const IndicatorFigure = ({ indicator }: { indicator: Indicator }) => {
+  const { label, isCurrency, price, changePercentage, asOf } = indicator;
+  const value = isCurrency ? formatCurrency(price ?? 0) : formatNumber(price ?? 0);
+  return (
+    <div className="min-w-0">
+      <div className="text-muted-foreground text-xs">{label}</div>
+      <div className="text-base font-semibold tabular-nums sm:text-lg">
+        {price === null ? '-' : value}
+      </div>
+      <PriceChange change={changePercentage} />
+      {asOf === null ? null : (
+        <div className="text-muted-foreground text-xs">{format(asOf, LIVE_TIME)}</div>
+      )}
+    </div>
+  );
+};
+
 export const MetalPricesCard = () => {
   const { data } = api.investments.getMetalPrices.useQuery(undefined, {
+    refetchInterval: MS_PER_MINUTE,
+  });
+  const { data: indicators } = api.investments.getMarketIndicators.useQuery(undefined, {
     refetchInterval: MS_PER_MINUTE,
   });
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Gold and silver prices</CardTitle>
+        <CardTitle>Markets</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-4 sm:grid-cols-2">
-        {data === undefined ? (
-          <>
-            <Skeleton className="h-80" />
-            <Skeleton className="h-80" />
-          </>
+      <CardContent className="grid gap-6">
+        {indicators === undefined ? (
+          <Skeleton className="h-20" />
         ) : (
-          data.map((metal) => <MetalPanel key={metal.code} metal={metal} />)
+          <div className="grid grid-cols-3 gap-3">
+            {indicators.map((indicator) => (
+              <IndicatorFigure key={indicator.label} indicator={indicator} />
+            ))}
+          </div>
         )}
+        <div className="grid divide-y border-t pt-6 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+          {data === undefined ? (
+            <>
+              <div className={PANEL_SPACING}>
+                <Skeleton className="h-80" />
+              </div>
+              <div className={PANEL_SPACING}>
+                <Skeleton className="h-80" />
+              </div>
+            </>
+          ) : (
+            data.map((metal) => <MetalPanel key={metal.code} metal={metal} />)
+          )}
+        </div>
       </CardContent>
     </Card>
   );

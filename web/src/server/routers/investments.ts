@@ -28,6 +28,7 @@ import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
 import { buildFineTimeline } from '@/server/helpers/investment/intraday';
 import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
+import { getMarketIndicators } from '@/server/helpers/investment/market-indicators';
 import {
   getMetalCharts,
   getMetalPrices,
@@ -318,6 +319,8 @@ export const investmentsRouter = createTRPCRouter({
       const { positions, dashboard } = await buildLivePortfolio(rows, input.end);
       return { positions: await attachPaymentTotals(ctx.db, positions), dashboard };
     }),
+
+  getMarketIndicators: protectedProcedure.query(async () => getMarketIndicators()),
 
   getMetalPrices: protectedProcedure.query(async ({ ctx }) => getMetalPrices(ctx.db, ctx.user.id)),
 

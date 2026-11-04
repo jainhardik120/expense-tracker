@@ -417,37 +417,41 @@ export const fetchCommodityLiveQuote = instrumentedFunction(
   },
 );
 
+export const fetchYahooChartQuote = async (
+  symbol: string,
+  nativeCurrency: string,
+): Promise<Quote | null> => {
+  const payload = await fetchLiveJson<YahooChartResponse>(
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m`,
+    {
+      cache: 'no-store',
+      headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'application/json' },
+    },
+  );
+  const meta = payload?.chart?.result?.[0]?.meta;
+  const unitPrice = parseFiniteNumber(meta?.regularMarketPrice);
+  if (unitPrice === null) {
+    return null;
+  }
+  return {
+    unitPriceInr: unitPrice,
+    unitPriceNative: unitPrice,
+    nativeCurrency,
+    fxRateToInr: null,
+    asOf:
+      meta?.regularMarketTime === undefined
+        ? null
+        : new Date(meta.regularMarketTime * SECONDS_TO_MS),
+    source: YAHOO_SOURCE,
+    previousCloseInr: parseFiniteNumber(meta?.chartPreviousClose),
+  };
+};
+
 export const fetchComexQuote = instrumentedFunction(
   'fetchComexQuote',
   async (definition: CommodityDefinition): Promise<Quote | null> => {
     const symbol = COMEX_SYMBOLS.get(definition.code);
-    if (symbol === undefined) {
-      return null;
-    }
-    const payload = await fetchLiveJson<YahooChartResponse>(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=5m`,
-      {
-        cache: 'no-store',
-        headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'application/json' },
-      },
-    );
-    const meta = payload?.chart?.result?.[0]?.meta;
-    const unitPrice = parseFiniteNumber(meta?.regularMarketPrice);
-    if (unitPrice === null) {
-      return null;
-    }
-    return {
-      unitPriceInr: unitPrice,
-      unitPriceNative: unitPrice,
-      nativeCurrency: US_DOLLAR,
-      fxRateToInr: null,
-      asOf:
-        meta?.regularMarketTime === undefined
-          ? null
-          : new Date(meta.regularMarketTime * SECONDS_TO_MS),
-      source: YAHOO_SOURCE,
-      previousCloseInr: parseFiniteNumber(meta?.chartPreviousClose),
-    };
+    return symbol === undefined ? null : fetchYahooChartQuote(symbol, US_DOLLAR);
   },
 );
 

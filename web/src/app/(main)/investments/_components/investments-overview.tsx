@@ -115,7 +115,7 @@ const LiveStatus = ({ asOf, isLive }: { asOf: Date | null; isLive: boolean }) =>
         <>
           <span
             className={cn(
-              'size-2 rounded-full',
+              'size-2 shrink-0 rounded-full',
               isOpen ? 'animate-pulse bg-green-600' : 'bg-muted-foreground',
             )}
           />
@@ -126,6 +126,27 @@ const LiveStatus = ({ asOf, isLive }: { asOf: Date | null; isLive: boolean }) =>
     </div>
   );
 };
+
+const StatCard = ({
+  title,
+  tone,
+  className,
+  children,
+}: {
+  title: string;
+  tone?: string;
+  className?: string;
+  children: React.ReactNode;
+}) => (
+  <Card className={cn('gap-2 py-3 sm:gap-6 sm:py-6', className)}>
+    <CardHeader className="px-3 sm:px-6 sm:pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+    </CardHeader>
+    <CardContent className={cn('px-3 text-lg font-semibold sm:px-6 sm:text-xl', tone)}>
+      {children}
+    </CardContent>
+  </Card>
+);
 
 const CategoryFigure = ({
   label,
@@ -248,89 +269,45 @@ export const InvestmentsOverview = ({
   const chartCurrency = !isAggregateView && selectedCurrency === USD_CURRENCY ? 'USD' : 'INR';
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-rows-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Invested</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold">
-            {formatCurrency(dashboard.summary.investedAmount)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Current Value</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold">
-            {formatCurrency(dashboard.summary.valuationAmount)}
-            <LiveStatus asOf={asOf} isLive={isLive} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Unrealised P/L</CardTitle>
-          </CardHeader>
-          <CardContent
-            className={`text-xl font-semibold ${dashboard.summary.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}`}
-          >
-            {formatCurrency(dashboard.summary.pnl)}
-            <LiveStatus asOf={asOf} isLive={isLive} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Realised P/L</CardTitle>
-          </CardHeader>
-          <CardContent
-            className={cn(
-              'text-xl font-semibold',
-              getSignedValueTone(dashboard.summary.realizedPnl),
-            )}
-          >
-            {formatCurrency(dashboard.summary.realizedPnl)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">1D Change</CardTitle>
-          </CardHeader>
-          <CardContent
-            className={`text-xl font-semibold ${dashboard.summary.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}`}
-          >
-            {formatCurrency(dashboard.summary.dayChange)}
-            <LiveStatus asOf={asOf} isLive={isLive} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">XIRR</CardTitle>
-          </CardHeader>
-          <CardContent
-            className={cn(
-              'text-xl font-semibold',
-              dashboard.summary.xirr !== null && getSignedValueTone(dashboard.summary.xirr),
-            )}
-          >
-            {dashboard.summary.xirr === null ? '-' : formatPercent(dashboard.summary.xirr)}
-          </CardContent>
-        </Card>
-        <Card className="sm:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Open Positions</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold">
-            {dashboard.summary.openPositions}
-            {dashboard.summary.closedPositions === 0 ? null : (
-              <span className="text-muted-foreground ml-2 text-sm font-normal">
-                · {dashboard.summary.closedPositions} closed
-              </span>
-            )}
-          </CardContent>
-        </Card>
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 xl:grid-rows-4">
+        <StatCard title="Total Invested">
+          {formatCurrency(dashboard.summary.investedAmount)}
+        </StatCard>
+        <StatCard title="Current Value">
+          {formatCurrency(dashboard.summary.valuationAmount)}
+          <LiveStatus asOf={asOf} isLive={isLive} />
+        </StatCard>
+        <StatCard title="Unrealised P/L" tone={getSignedValueTone(dashboard.summary.pnl)}>
+          {formatCurrency(dashboard.summary.pnl)}
+          <LiveStatus asOf={asOf} isLive={isLive} />
+        </StatCard>
+        <StatCard title="Realised P/L" tone={getSignedValueTone(dashboard.summary.realizedPnl)}>
+          {formatCurrency(dashboard.summary.realizedPnl)}
+        </StatCard>
+        <StatCard title="1D Change" tone={getSignedValueTone(dashboard.summary.dayChange)}>
+          {formatCurrency(dashboard.summary.dayChange)}
+          <LiveStatus asOf={asOf} isLive={isLive} />
+        </StatCard>
+        <StatCard
+          title="XIRR"
+          tone={
+            dashboard.summary.xirr === null ? undefined : getSignedValueTone(dashboard.summary.xirr)
+          }
+        >
+          {dashboard.summary.xirr === null ? '-' : formatPercent(dashboard.summary.xirr)}
+        </StatCard>
+        <StatCard className="col-span-2" title="Open Positions">
+          {dashboard.summary.openPositions}
+          {dashboard.summary.closedPositions === 0 ? null : (
+            <span className="text-muted-foreground ml-2 text-sm font-normal">
+              · {dashboard.summary.closedPositions} closed
+            </span>
+          )}
+        </StatCard>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         <Card>
           <CardHeader className="gap-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -477,12 +454,12 @@ export const InvestmentsOverview = ({
               ) : null}
             </div>
 
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
               {TIME_RANGE_OPTIONS.map((option) => (
                 <Button
                   key={option.value}
                   aria-pressed={option.value === timeRange}
-                  className="h-7 rounded-full px-3 text-xs"
+                  className="h-7 rounded-full px-2.5 text-xs sm:px-3"
                   size="sm"
                   variant={option.value === timeRange ? 'default' : 'outline'}
                   onClick={() => {
@@ -496,7 +473,7 @@ export const InvestmentsOverview = ({
           </CardContent>
         </Card>
 
-        <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {dashboard.categoryBreakdown.map((categoryItem) => {
             const isSelected = selectedCategories.has(categoryItem.category);
             return (

@@ -27,6 +27,8 @@ const RANGES: Array<{ value: Range; label: string }> = [
 const LINE_STROKE = '#2563eb';
 const PERCENT = 100;
 const SYNC_ID = 'metal-prices';
+const SHEET_HEIGHT =
+  'pb-4 data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:h-[96dvh] data-[vaul-drawer-direction=bottom]:max-h-[96dvh]';
 const GRID_MINUTES = 5;
 const GRID_MS = GRID_MINUTES * MS_PER_MINUTE;
 
@@ -55,6 +57,8 @@ const axisTicks = (start: number, end: number, range: Range) => {
     return start + index * step;
   });
 };
+
+const hour = (time: number) => new Date(time).toLocaleTimeString('en-IN', { hour: 'numeric' });
 
 const clock = (time: number) =>
   new Date(time).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
@@ -112,7 +116,7 @@ const SeriesChart = ({
   const change =
     first === undefined || last === undefined ? null : (last.price / first.price - 1) * PERCENT;
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex min-h-0 flex-1 flex-col gap-1 md:flex-none">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
         <span className="font-medium">{title}</span>
         {last === undefined ? (
@@ -125,8 +129,11 @@ const SeriesChart = ({
           </span>
         )}
       </div>
-      <ChartContainer className="aspect-auto h-28 w-full" config={{}}>
-        <LineChart data={rows} margin={{ left: 4, right: 8, top: 4, bottom: 0 }} syncId={SYNC_ID}>
+      <ChartContainer
+        className="aspect-auto min-h-16 w-full flex-1 md:h-28 md:flex-none"
+        config={{}}
+      >
+        <LineChart data={rows} margin={{ left: 4, right: 16, top: 4, bottom: 0 }} syncId={SYNC_ID}>
           <CartesianGrid strokeOpacity={0.4} vertical={false} />
           <XAxis
             axisLine={false}
@@ -135,7 +142,7 @@ const SeriesChart = ({
             interval={0}
             scale="time"
             tick={{ fontSize: 10 }}
-            tickFormatter={range === '1d' ? clock : day}
+            tickFormatter={range === '1d' ? hour : day}
             tickLine={false}
             ticks={axisTicks(start, end, range)}
             type="number"
@@ -194,12 +201,13 @@ export const MetalChartsDialog = ({
     <Modal
       className="max-h-[90vh] overflow-y-auto sm:max-w-3xl"
       description="The same clock runs across all four, so you can see which market moves first."
+      drawerClassName={SHEET_HEIGHT}
       open={open}
       setOpen={setOpen}
       title={`${name} price movement`}
       trigger={trigger}
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         <div className="flex gap-2">
           {RANGES.map((option) => (
             <Button
@@ -217,7 +225,7 @@ export const MetalChartsDialog = ({
           ))}
         </div>
         {data === undefined ? (
-          <Skeleton className="h-[34rem]" />
+          <Skeleton className="min-h-0 flex-1 md:h-[34rem] md:flex-none" />
         ) : (
           <>
             <SeriesChart

@@ -27,6 +27,7 @@ const Modal = ({
   children,
   description,
   className,
+  drawerClassName,
 }: {
   open: boolean;
   setOpen: React.Dispatch<boolean>;
@@ -35,13 +36,14 @@ const Modal = ({
   description?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  drawerClassName?: string;
 }) => {
   const isMobile = useIsMobile();
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-        <DrawerContent className="p-4 pb-8">
+        <DrawerContent className={cn('p-4 pb-8', drawerClassName)}>
           {title === undefined && description === undefined ? null : (
             <DrawerHeader className="text-left">
               {title === undefined ? null : <DrawerTitle>{title}</DrawerTitle>}
