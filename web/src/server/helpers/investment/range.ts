@@ -13,6 +13,19 @@ export const clampDateInRange = (date: Date, rangeStart: Date, rangeEnd: Date): 
   return date;
 };
 
+export const endAtLastPriceDay = <T extends { date: Date }>(
+  points: T[],
+  priceDates: Array<Date | null | undefined>,
+): T[] => {
+  const days = priceDates.flatMap((date) =>
+    date === null || date === undefined ? [] : [dateToDayKey(date)],
+  );
+  const lastDay = days.toSorted((left, right) => left.localeCompare(right)).at(-1);
+  const kept =
+    lastDay === undefined ? points : points.filter(({ date }) => dateToDayKey(date) <= lastDay);
+  return kept.length === 0 ? points : kept;
+};
+
 export const buildDailyRange = (startDate: Date, endDate: Date): Date[] => {
   const normalizedStart = startOfDay(startDate);
   const normalizedEnd = startOfDay(endDate);

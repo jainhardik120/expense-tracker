@@ -15,7 +15,7 @@ import { enrichInvestments } from './enrichment';
 import { buildInstrumentTimelineEntries } from './holdings';
 import { buildInvestmentMarketDataContext } from './market-data';
 import { parseIndianListing } from './providers/indian-listing';
-import { getTimeRangeBounds } from './range';
+import { endAtLastPriceDay, getTimeRangeBounds } from './range';
 import {
   createInstrumentKey,
   DEFAULT_USER_AGENT,
@@ -470,10 +470,21 @@ const buildDailyTimeline = async (
         base: point.investedAmount,
         unitPrice: 0,
       }));
-  const last = points.at(-1);
+  const priced = selected.every((position) => position.normalizedKind === 'mutual_funds')
+    ? endAtLastPriceDay(
+        points,
+        open.map(
+          (position) =>
+            context.quoteByInstrumentKey.get(
+              createInstrumentKey('mutual_funds', position.instrumentCode?.trim() ?? ''),
+            )?.asOf,
+        ),
+      )
+    : points;
+  const last = priced.at(-1);
   return open.length === 0 || last === undefined
-    ? points
-    : [...points.slice(0, -1), { ...last, ...current }];
+    ? priced
+    : [...priced.slice(0, -1), { ...last, ...current }];
 };
 
 export const buildFineTimeline = instrumentedFunction(
