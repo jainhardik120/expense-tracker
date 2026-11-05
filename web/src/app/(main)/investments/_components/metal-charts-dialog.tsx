@@ -10,12 +10,18 @@ import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/format';
 import { type AssetClassTagValue } from '@/lib/investments';
+import { SESSION_GAP_MS } from '@/server/helpers/investment/metal-estimates';
 import { api } from '@/server/react';
 import { MS_PER_HOUR, MS_PER_MINUTE } from '@/types';
 
 type Point = { time: number; price: number };
 
-type GridRow = { time: number; price: number | null; shown: number | null };
+type GridRow = {
+  time: number;
+  price: number | null;
+  estimate: number | null;
+  shown: number | null;
+};
 
 type Range = '1d' | '1w';
 
@@ -25,6 +31,8 @@ const RANGES: Array<{ value: Range; label: string }> = [
 ];
 
 const LINE_STROKE = '#2563eb';
+const ESTIMATE_STROKE = '#f59e0b';
+const NO_ESTIMATES: Point[] = [];
 const PERCENT = 100;
 const SYNC_ID = 'metal-prices';
 const SHEET_HEIGHT =
@@ -34,18 +42,45 @@ const GRID_MS = GRID_MINUTES * MS_PER_MINUTE;
 
 const toGridTime = (time: number) => Math.floor(time / GRID_MS) * GRID_MS;
 
-const buildGrid = (series: Point[][]) =>
-  [...new Set(series.flat().map((point) => toGridTime(point.time)))].sort(
+const buildGrid = (series: Point[][]) => {
+  const times = [...new Set(series.flat().map((point) => toGridTime(point.time)))].sort(
     (left, right) => left - right,
   );
+  return times.flatMap((time, index) => {
+    const next = times.at(index + 1);
+    return next !== undefined && next - time > SESSION_GAP_MS ? [time, time + GRID_MS] : [time];
+  });
+};
 
-const alignToGrid = (points: Point[], grid: number[]): GridRow[] => {
-  const priceByTime = new Map(points.map((point) => [toGridTime(point.time), point.price]));
-  let shown: number | null = null;
+const toLine = (points: Point[], grid: number[]) => {
+  const buckets = points.map((point) => ({ ...point, time: toGridTime(point.time) }));
+  let nextIndex = 0;
   return grid.map((time) => {
-    const price = priceByTime.get(time) ?? null;
-    shown = price ?? shown;
-    return { time, price, shown };
+    while ((buckets.at(nextIndex)?.time ?? time) < time) {
+      nextIndex += 1;
+    }
+    const next = buckets.at(nextIndex);
+    if (next?.time === time) {
+      return next.price;
+    }
+    const previous = nextIndex === 0 ? undefined : buckets.at(nextIndex - 1);
+    return previous !== undefined &&
+      next !== undefined &&
+      next.time - previous.time <= SESSION_GAP_MS
+      ? previous.price
+      : null;
+  });
+};
+
+const alignToGrid = (points: Point[], estimates: Point[], grid: number[]): GridRow[] => {
+  const prices = toLine(points, grid);
+  const estimated = toLine(estimates, grid);
+  let shown: number | null = null;
+  return grid.map((time, index) => {
+    const price = prices.at(index) ?? null;
+    const estimate = estimated.at(index) ?? null;
+    shown = price ?? estimate ?? shown;
+    return { time, price, estimate, shown };
   });
 };
 
@@ -84,6 +119,7 @@ const SeriesTooltip = ({
   return (
     <div className="bg-background rounded-md border px-2 py-1 text-xs shadow-sm">
       {day(point.time)}, {clock(point.time)} ·{' '}
+      {point.price === null && point.estimate !== null ? 'Est. ' : ''}
       {point.shown === null ? 'No price yet' : formatCurrency(point.shown, currency)}
     </div>
   );
@@ -93,6 +129,7 @@ const SeriesChart = ({
   title,
   unit,
   points,
+  estimates = NO_ESTIMATES,
   grid,
   start,
   end,
@@ -103,6 +140,7 @@ const SeriesChart = ({
   title: string;
   unit: string;
   points: Point[];
+  estimates?: Point[];
   grid: number[];
   start: number;
   end: number;
@@ -110,9 +148,13 @@ const SeriesChart = ({
   currency?: 'INR' | 'USD';
   stepped?: boolean;
 }) => {
-  const rows = useMemo(() => alignToGrid(points, grid), [points, grid]);
-  const first = points.at(0);
-  const last = points.at(-1);
+  const rows = useMemo(() => alignToGrid(points, estimates, grid), [points, estimates, grid]);
+  const traded = points.at(-1);
+  const series = [...points, ...estimates].sort((left, right) => left.time - right.time);
+  const first = series.at(0);
+  const last = series.at(-1);
+  const isEstimated = last !== undefined && last.time > (traded?.time ?? 0);
+  const lastLabel = isEstimated ? 'traded' : 'move';
   const change =
     first === undefined || last === undefined ? null : (last.price / first.price - 1) * PERCENT;
   return (
@@ -123,9 +165,12 @@ const SeriesChart = ({
           <span className="text-muted-foreground">No data for this period</span>
         ) : (
           <span className="text-muted-foreground tabular-nums">
+            {isEstimated ? 'Est. ' : ''}
             {formatCurrency(last.price, currency)} / {unit}
             {change === null ? '' : ` · ${signedChange(change)}`}
-            {stepped ? '' : ` · last move ${day(last.time)}, ${clock(last.time)}`}
+            {stepped || traded === undefined
+              ? ''
+              : ` · last ${lastLabel} ${day(traded.time)}, ${clock(traded.time)}`}
           </span>
         )}
       </div>
@@ -161,13 +206,22 @@ const SeriesChart = ({
             isAnimationActive={false}
           />
           <Line
-            connectNulls
+            connectNulls={stepped}
             dataKey="price"
             dot={false}
             isAnimationActive={false}
             stroke={LINE_STROKE}
             strokeWidth={2}
             type={stepped ? 'stepAfter' : 'linear'}
+          />
+          <Line
+            dataKey="estimate"
+            dot={false}
+            isAnimationActive={false}
+            stroke={ESTIMATE_STROKE}
+            strokeDasharray="4 3"
+            strokeWidth={2}
+            type="linear"
           />
         </LineChart>
       </ChartContainer>
@@ -194,13 +248,23 @@ export const MetalChartsDialog = ({
     { enabled: open, refetchInterval: MS_PER_MINUTE },
   );
   const grid = useMemo(
-    () => (data === undefined ? [] : buildGrid([data.etf, data.mcx, data.india, data.comex])),
+    () =>
+      data === undefined
+        ? []
+        : buildGrid([
+            data.etf,
+            data.etfEstimate,
+            data.mcx,
+            data.mcxEstimate,
+            data.india,
+            data.comex,
+          ]),
     [data],
   );
   return (
     <Modal
       className="max-h-[90vh] overflow-y-auto sm:max-w-3xl"
-      description="The same clock runs across all four, so you can see which market moves first."
+      description="One clock across all four. Dashed amber lines are estimates while that market is closed."
       drawerClassName={SHEET_HEIGHT}
       open={open}
       setOpen={setOpen}
@@ -230,6 +294,7 @@ export const MetalChartsDialog = ({
           <>
             <SeriesChart
               end={data.end}
+              estimates={data.etfEstimate}
               grid={grid}
               points={data.etf}
               range={range}
@@ -239,6 +304,7 @@ export const MetalChartsDialog = ({
             />
             <SeriesChart
               end={data.end}
+              estimates={data.mcxEstimate}
               grid={grid}
               points={data.mcx}
               range={range}

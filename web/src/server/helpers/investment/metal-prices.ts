@@ -15,6 +15,7 @@ import {
 } from './intraday';
 import { cachedQuotes } from './market-cache';
 import { isIndianMarketOpen } from './market-hours';
+import { estimateClosedHours, mergeSeries } from './metal-estimates';
 import {
   fetchCommodityHistoricalPrices,
   fetchCommodityLiveQuote,
@@ -46,6 +47,7 @@ const CANDLE_MINUTES = 5;
 const DAILY_CANDLE_MINUTES = 1440;
 const CONVERSION_WINDOW_DAYS = 35;
 const CHART_WINDOW_DAYS = 7;
+const COMEX_HISTORY_RANGE = '1mo';
 const IST_OFFSET_MINUTES = 330;
 const IST_OFFSET_MS = IST_OFFSET_MINUTES * MS_PER_MINUTE;
 const DAY_KEY_LENGTH = 10;
@@ -357,19 +359,27 @@ export const getMetalCharts = instrumentedFunction(
     const [etf, mcx, comex, india, conversion] = await Promise.all([
       fetchIndianRangePrices(code, windowStart, now),
       mcxCandles(metal, windowStart.getTime(), end, CANDLE_MINUTES, LIVE_TTL_MS),
-      fetchUsPrices(comexSymbol, '5d'),
+      fetchUsPrices(comexSymbol, COMEX_HISTORY_RANGE),
       fetchCommodityHistoricalPrices(definitionOf(metal), subDays(windowStart, 1), now),
       getEtfConversion(metal, code),
     ]);
     const latest = mcx.at(-1)?.date.getTime() ?? end;
     const start = range === '1d' ? istDayStart(latest) : istDayStart(windowStart.getTime());
+    const from = windowStart.getTime();
+    const mcxRates = toSeries(mcx, from);
+    const etfRates = conversion === null ? [] : toSeries(etf, from, conversion);
+    const mcxEstimate = estimateClosedHours(mcxRates, toSeries(comex, from));
+    const etfEstimate = estimateClosedHours(etfRates, mergeSeries(mcxRates, mcxEstimate));
+    const inRange = ({ time }: { time: number }) => time >= start;
     return {
       unit,
       etfSymbol: parseIndianListing(code).symbol,
       start,
       end,
-      etf: toSeries(etf, start, conversion ?? 0),
-      mcx: toSeries(mcx, start),
+      etf: etfRates.filter(inRange),
+      etfEstimate: etfEstimate.filter(inRange),
+      mcx: mcxRates.filter(inRange),
+      mcxEstimate: mcxEstimate.filter(inRange),
       comex: toSeries(comex, start),
       india: toStepSeries(india, start, end, gramsPerUnit),
     };
