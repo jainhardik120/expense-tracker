@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -45,9 +46,14 @@ import com.jainhardik120.expensetracker.data.entity.IndividualPosition
 import com.jainhardik120.expensetracker.data.entity.InvestmentHolding
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
+import com.jainhardik120.expensetracker.data.entity.MarketItem
 import com.jainhardik120.expensetracker.data.entity.TodayEstimate
 import com.jainhardik120.expensetracker.ui.theme.Green400
 import com.jainhardik120.expensetracker.ui.theme.Green600
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import java.text.NumberFormat
 import java.time.Instant
 import java.time.ZoneId
@@ -60,6 +66,15 @@ import kotlin.math.abs
 fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
     val overview = viewModel.overview
     BackHandler(enabled = viewModel.selectedCategory != null) { viewModel.selectCategory(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                delay(MARKET_REFRESH_MS)
+                viewModel.refreshMarkets()
+            }
+        }
+    }
     PullToRefreshBox(
         isRefreshing = viewModel.isLoading && overview != null,
         onRefresh = { viewModel.loadInvestments() },
@@ -97,7 +112,31 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
                 onToggleClosed = viewModel::toggleClosed,
                 onCycleMetric = viewModel::cycleMetric,
                 onOpenHolding = viewModel::openChart,
-                onOpenAllocation = viewModel::openAllocation
+                onOpenAllocation = viewModel::openAllocation,
+                markets = viewModel.markets,
+                onOpenMarket = viewModel::openMarketChart
+            )
+        }
+    }
+    viewModel.openMarket?.let { item ->
+        if (item.key == "gold" || item.key == "silver") {
+            MetalChartsSheet(
+                item = item,
+                charts = viewModel.metalCharts,
+                buyPrice = viewModel.metalBuyPrices.firstOrNull { it.code == item.key },
+                error = viewModel.marketError,
+                range = viewModel.marketRange,
+                onSelectRange = viewModel::selectMarketRange,
+                onDismiss = viewModel::closeMarketChart
+            )
+        } else {
+            MarketChartSheet(
+                item = item,
+                points = viewModel.marketPoints,
+                error = viewModel.marketError,
+                range = viewModel.marketRange,
+                onSelectRange = viewModel::selectMarketRange,
+                onDismiss = viewModel::closeMarketChart
             )
         }
     }
@@ -122,6 +161,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
     }
 }
 
+private const val MARKET_REFRESH_MS = 60_000L
 private const val MUTUAL_FUNDS = "mutual_funds"
 private const val STOCKS = "stocks"
 private val INDIVIDUAL_CATEGORIES = setOf("fd", "epfo")
@@ -189,7 +229,9 @@ private fun InvestmentsContent(
     onToggleClosed: () -> Unit,
     onCycleMetric: () -> Unit,
     onOpenHolding: (InvestmentHolding) -> Unit,
-    onOpenAllocation: () -> Unit
+    onOpenAllocation: () -> Unit,
+    markets: List<MarketItem>,
+    onOpenMarket: (MarketItem) -> Unit
 ) {
     val categories = overview.categories.sortedByDescending { it.invested }
     val category = categories.firstOrNull { it.category == selectedCategory }
@@ -288,102 +330,110 @@ private fun InvestmentsContent(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
-    ) {
-        item(key = "header") {
-            PortfolioHeader(
-                count = if (isIndividual) shownPositions.size else holdings.size,
-                figures = figures,
-                dayLabel = dayLabel,
-                estimate = estimate,
-                estimateLabel = estimateLabel,
-                onClick = if (category == null) onOpenAllocation else null
-            )
-        }
-        item(key = "chips") {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(top = 4.dp)
-            ) {
-                item {
-                    FilterChip(
-                        selected = category == null,
-                        onClick = { onSelectCategory(null) },
-                        label = { Text("All") }
-                    )
-                }
-                items(categories, key = { it.category }) { item ->
-                    FilterChip(
-                        selected = category?.category == item.category,
-                        onClick = { onSelectCategory(item.category) },
-                        label = { Text(item.label) }
-                    )
-                }
-                if (hasClosed) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            item(key = "header") {
+                PortfolioHeader(
+                    count = if (isIndividual) shownPositions.size else holdings.size,
+                    figures = figures,
+                    dayLabel = dayLabel,
+                    estimate = estimate,
+                    estimateLabel = estimateLabel,
+                    onClick = if (category == null) onOpenAllocation else null
+                )
+            }
+            item(key = "chips") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
                     item {
                         FilterChip(
-                            selected = showClosed,
-                            onClick = onToggleClosed,
-                            label = { Text("Closed") }
+                            selected = category == null,
+                            onClick = { onSelectCategory(null) },
+                            label = { Text("All") }
+                        )
+                    }
+                    items(categories, key = { it.category }) { item ->
+                        FilterChip(
+                            selected = category?.category == item.category,
+                            onClick = { onSelectCategory(item.category) },
+                            label = { Text(item.label) }
+                        )
+                    }
+                    if (hasClosed) {
+                        item {
+                            FilterChip(
+                                selected = showClosed,
+                                onClick = onToggleClosed,
+                                label = { Text("Closed") }
+                            )
+                        }
+                    }
+                }
+            }
+            item(key = "metric") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 8.dp, top = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "By invested amount",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .clickable(onClick = onCycleMetric)
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.UnfoldMore,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .rotate(90f)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = metric.label,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
                 }
             }
-        }
-        item(key = "metric") {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 8.dp, top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "By invested amount",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-                Row(
-                    modifier = Modifier
-                        .clickable(onClick = onCycleMetric)
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.UnfoldMore,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(16.dp)
-                            .rotate(90f)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
+            if (rows.isEmpty()) {
+                item(key = "empty") {
                     Text(
-                        text = metric.label,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
+                        text = "Nothing itemised here",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
             }
-        }
-        if (rows.isEmpty()) {
-            item(key = "empty") {
-                Text(
-                    text = "Nothing itemised here",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp)
+            items(rows, key = { it.key }) { row ->
+                PositionRow(row = row, metric = metric)
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 )
             }
         }
-        items(rows, key = { it.key }) { row ->
-            PositionRow(row = row, metric = metric)
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
+        if (category == null) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+            MarketTiles(items = markets, onOpen = onOpenMarket)
         }
     }
 }

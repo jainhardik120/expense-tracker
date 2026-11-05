@@ -66,6 +66,50 @@ data class AllocationView(
 )
 
 @Serializable
+data class MarketItem(
+    val key: String,
+    val label: String,
+    val unit: String? = null,
+    val isCurrency: Boolean = false,
+    val price: Double? = null,
+    val changePercentage: Double? = null
+)
+
+@Serializable
+data class MarketSnapshot(val items: List<MarketItem> = emptyList())
+
+@Serializable
+data class MarketPoint(val date: String, val price: Double)
+
+@Serializable
+data class MarketChart(val points: List<MarketPoint> = emptyList())
+
+@Serializable
+data class SeriesPoint(val time: Long, val price: Double)
+
+@Serializable
+data class MetalCharts(
+    val unit: String,
+    val etfSymbol: String,
+    val start: Long,
+    val end: Long,
+    val etf: List<SeriesPoint> = emptyList(),
+    val etfEstimate: List<SeriesPoint> = emptyList(),
+    val mcx: List<SeriesPoint> = emptyList(),
+    val mcxEstimate: List<SeriesPoint> = emptyList(),
+    val comex: List<SeriesPoint> = emptyList(),
+    val india: List<SeriesPoint> = emptyList()
+)
+
+@Serializable
+data class MetalBuyPrice(
+    val code: String,
+    val etf: Double? = null,
+    val mcx: Double? = null,
+    val mcxCoverage: Double = 0.0
+)
+
+@Serializable
 data class EtfEstimate(
     val percents: Map<String, Double> = emptyMap()
 )

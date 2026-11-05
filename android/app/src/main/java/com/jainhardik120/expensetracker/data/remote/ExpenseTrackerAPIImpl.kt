@@ -10,6 +10,10 @@ import com.jainhardik120.expensetracker.data.entity.InstrumentChart
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
+import com.jainhardik120.expensetracker.data.entity.MarketChart
+import com.jainhardik120.expensetracker.data.entity.MarketSnapshot
+import com.jainhardik120.expensetracker.data.entity.MetalBuyPrice
+import com.jainhardik120.expensetracker.data.entity.MetalCharts
 import com.jainhardik120.expensetracker.data.entity.TodayEstimate
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
@@ -232,6 +236,42 @@ class ExpenseTrackerAPIImpl(
             requestBuilder<AllocationView>(
                 url = APIRoutes.ALLOCATION, method = HttpMethod.Get
             )
+        }
+    }
+
+    override suspend fun getMetalCharts(metal: String, range: String): Result<MetalCharts, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.METAL_CHARTS) {
+                method = HttpMethod.Get
+                parameter("metal", metal)
+                parameter("range", range)
+            }.body()
+        }
+    }
+
+    override suspend fun getMetalBuyPrices(): Result<List<MetalBuyPrice>, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.METAL_BUY_PRICES) {
+                method = HttpMethod.Get
+            }.body()
+        }
+    }
+
+    override suspend fun getMarkets(): Result<MarketSnapshot, MessageError> {
+        return performApiRequest {
+            requestBuilder<MarketSnapshot>(
+                url = APIRoutes.MARKETS, method = HttpMethod.Get
+            )
+        }
+    }
+
+    override suspend fun getMarketChart(key: String, range: String): Result<MarketChart, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.MARKET_CHART) {
+                method = HttpMethod.Get
+                parameter("key", key)
+                parameter("range", range)
+            }.body()
         }
     }
 

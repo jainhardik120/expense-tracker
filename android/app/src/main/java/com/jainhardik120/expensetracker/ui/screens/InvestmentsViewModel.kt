@@ -9,6 +9,10 @@ import com.jainhardik120.expensetracker.data.entity.InvestmentHolding
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
+import com.jainhardik120.expensetracker.data.entity.MarketItem
+import com.jainhardik120.expensetracker.data.entity.MarketPoint
+import com.jainhardik120.expensetracker.data.entity.MetalBuyPrice
+import com.jainhardik120.expensetracker.data.entity.MetalCharts
 import com.jainhardik120.expensetracker.data.entity.TodayEstimate
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
 import com.jainhardik120.expensetracker.ui.BaseViewModel
@@ -21,6 +25,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 private const val LIVE_CHART_INTERVAL_MS = 60_000L
+private val METAL_KEYS = setOf("gold", "silver")
 
 enum class HoldingMetric(val label: String) {
     CURRENT("Current (Invested)"),
@@ -96,8 +101,116 @@ class InvestmentsViewModel @Inject constructor(
 
     private var liveChartJob: Job? = null
 
+    var markets by mutableStateOf<List<MarketItem>>(emptyList())
+        private set
+
+    var openMarket by mutableStateOf<MarketItem?>(null)
+        private set
+
+    var marketRange by mutableStateOf(ChartRange.DAY)
+        private set
+
+    var marketPoints by mutableStateOf<List<MarketPoint>?>(null)
+        private set
+
+    var marketError by mutableStateOf<String?>(null)
+        private set
+
+    var metalCharts by mutableStateOf<MetalCharts?>(null)
+        private set
+
+    var metalBuyPrices by mutableStateOf<List<MetalBuyPrice>>(emptyList())
+        private set
+
+    private var liveMarketJob: Job? = null
+
     init {
         loadInvestments()
+    }
+
+    fun refreshMarkets() {
+        makeApiCall(
+            call = { api.getMarkets() },
+            preExecuting = null,
+            onDoneExecuting = null,
+            onException = {}
+        ) { response ->
+            markets = response.items
+        }
+    }
+
+    fun openMarketChart(item: MarketItem) {
+        refreshMarkets()
+        openMarket = item
+        marketRange = ChartRange.DAY
+        if (item.key in METAL_KEYS) {
+            makeApiCall(
+                call = { api.getMetalBuyPrices() },
+                preExecuting = null,
+                onDoneExecuting = null,
+                onException = {}
+            ) { response ->
+                metalBuyPrices = response
+            }
+        }
+        loadMarketChart()
+    }
+
+    fun closeMarketChart() {
+        liveMarketJob?.cancel()
+        openMarket = null
+        marketPoints = null
+        metalCharts = null
+    }
+
+    fun selectMarketRange(range: ChartRange) {
+        if (range == marketRange) return
+        marketRange = range
+        loadMarketChart()
+    }
+
+    private fun loadMarketChart() {
+        requestMarketChart(showLoading = true)
+        liveMarketJob?.cancel()
+        if (marketRange == ChartRange.DAY || openMarket?.key in METAL_KEYS) {
+            liveMarketJob = viewModelScope.launch {
+                while (isActive) {
+                    delay(LIVE_CHART_INTERVAL_MS)
+                    requestMarketChart(showLoading = false)
+                }
+            }
+        }
+    }
+
+    private fun requestMarketChart(showLoading: Boolean) {
+        val item = openMarket ?: return
+        val range = marketRange
+        if (showLoading) {
+            marketError = null
+        }
+        if (item.key in METAL_KEYS) {
+            makeApiCall(
+                call = { api.getMetalCharts(item.key, range.value) },
+                preExecuting = { if (showLoading) metalCharts = null },
+                onDoneExecuting = null,
+                onException = { message -> if (showLoading) marketError = message }
+            ) { response ->
+                if (openMarket == item && marketRange == range) {
+                    metalCharts = response
+                }
+            }
+            return
+        }
+        makeApiCall(
+            call = { api.getMarketChart(item.key, range.value) },
+            preExecuting = { if (showLoading) marketPoints = null },
+            onDoneExecuting = null,
+            onException = { message -> if (showLoading) marketError = message }
+        ) { response ->
+            if (openMarket == item && marketRange == range) {
+                marketPoints = response.points
+            }
+        }
     }
 
     fun openAllocation() {
@@ -207,5 +320,6 @@ class InvestmentsViewModel @Inject constructor(
         ) { response ->
             etfEstimate = response
         }
+        refreshMarkets()
     }
 }

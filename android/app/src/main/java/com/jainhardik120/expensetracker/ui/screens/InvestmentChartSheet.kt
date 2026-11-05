@@ -376,7 +376,7 @@ private fun StatRow(
 }
 
 @Composable
-private fun TrendLine(
+internal fun TrendLine(
     series: List<Double>,
     invested: List<Double>?,
     colour: Color,
@@ -458,7 +458,7 @@ private fun TrendLine(
 }
 
 @Composable
-private fun trendColour(amount: Double): Color = when {
+internal fun trendColour(amount: Double): Color = when {
     abs(amount) < 0.005 -> MaterialTheme.colorScheme.onSurface
     amount < 0 -> MaterialTheme.colorScheme.error
     isSystemInDarkTheme() -> Green400
@@ -474,7 +474,7 @@ private fun ChartRange.sinceLabel(): String = when (this) {
     ChartRange.ALL -> "since first buy"
 }
 
-private fun formatChartMoment(value: String): String =
+internal fun formatChartMoment(value: String): String =
     runCatching {
         OffsetDateTime.parse(value).atZoneSameInstant(chartZone).format(chartMomentFormat)
     }.getOrDefault(value)

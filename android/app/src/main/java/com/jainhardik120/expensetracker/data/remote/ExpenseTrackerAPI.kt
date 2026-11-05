@@ -10,6 +10,10 @@ import com.jainhardik120.expensetracker.data.entity.InstrumentChart
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
+import com.jainhardik120.expensetracker.data.entity.MarketChart
+import com.jainhardik120.expensetracker.data.entity.MarketSnapshot
+import com.jainhardik120.expensetracker.data.entity.MetalBuyPrice
+import com.jainhardik120.expensetracker.data.entity.MetalCharts
 import com.jainhardik120.expensetracker.data.entity.TodayEstimate
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
@@ -58,6 +62,10 @@ interface ExpenseTrackerAPI {
     suspend fun getTodayEstimate(): Result<TodayEstimate, MessageError>
     suspend fun getEtfEstimate(): Result<EtfEstimate, MessageError>
     suspend fun getAllocation(): Result<AllocationView, MessageError>
+    suspend fun getMarkets(): Result<MarketSnapshot, MessageError>
+    suspend fun getMetalCharts(metal: String, range: String): Result<MetalCharts, MessageError>
+    suspend fun getMetalBuyPrices(): Result<List<MetalBuyPrice>, MessageError>
+    suspend fun getMarketChart(key: String, range: String): Result<MarketChart, MessageError>
     suspend fun getInstrumentChart(
         kind: String,
         code: String,
