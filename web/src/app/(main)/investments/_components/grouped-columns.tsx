@@ -78,6 +78,7 @@ const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
 
 export const createGroupedColumns = (
   instrumentOptions: FilterOption[],
+  statusOptions: FilterOption[],
   refresh: () => Promise<void>,
 ): ColumnDef<GroupedInvestmentRow>[] => [
   {
@@ -235,6 +236,15 @@ export const createGroupedColumns = (
         toViewValue(row.original.kind, row.original.code, row.original.stockMarket),
       ),
     meta: { label: 'Investment', variant: 'multiSelect', options: instrumentOptions },
+    enableColumnFilter: true,
+  },
+  {
+    id: 'status',
+    accessorFn: (row) => (row.openPositions > 0 ? 'open' : 'closed'),
+    enableHiding: false,
+    header: 'Status',
+    filterFn: () => true,
+    meta: { label: 'Status', variant: 'multiSelect', options: statusOptions },
     enableColumnFilter: true,
   },
   {

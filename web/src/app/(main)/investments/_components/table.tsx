@@ -13,7 +13,7 @@ import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { matchesSelection, toViewValue } from '@/lib/investment-selection';
+import { matchesSelection, matchesStatus, toViewValue } from '@/lib/investment-selection';
 import {
   investmentCategoryLabels,
   investmentCategoryValues,
@@ -35,6 +35,7 @@ type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialDat
 const selectionParsers = {
   category: investmentParser.category,
   instrument: investmentParser.instrument,
+  status: investmentParser.status,
   page: investmentParser.page,
   perPage: investmentParser.perPage,
 };
@@ -107,6 +108,13 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
       })),
     [dashboard.categoryBreakdown],
   );
+  const statusOptions = useMemo(() => {
+    const closed = positions.filter((position) => position.isClosedPosition).length;
+    return [
+      { label: 'Open', value: 'open', count: positions.length - closed },
+      { label: 'Closed', value: 'closed', count: closed },
+    ];
+  }, [positions]);
   const columns = useMemo(
     () =>
       createInvestmentColumns(
@@ -114,17 +122,35 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
           void refresh();
         },
         zoned,
-        { categoryOptions, instrumentOptions },
+        { categoryOptions, instrumentOptions, statusOptions },
       ),
-    [refresh, zoned, categoryOptions, instrumentOptions],
+    [refresh, zoned, categoryOptions, instrumentOptions, statusOptions],
   );
   const groupedColumns = useMemo(
-    () => createGroupedColumns(instrumentOptions, refresh),
-    [instrumentOptions, refresh],
+    () => createGroupedColumns(instrumentOptions, statusOptions, refresh),
+    [instrumentOptions, statusOptions, refresh],
   );
   const matchingPositions = useMemo(
-    () => positions.filter((position) => matchesSelection(position, selection)),
+    () =>
+      positions.filter(
+        (position) =>
+          matchesSelection(position, selection) &&
+          matchesStatus(
+            { hasOpen: !position.isClosedPosition, hasClosed: position.isClosedPosition },
+            selection,
+          ),
+      ),
     [positions, selection],
+  );
+  const visibleInstruments = useMemo(
+    () =>
+      dashboard.instrumentBreakdown.filter((row) =>
+        matchesStatus(
+          { hasOpen: row.openPositions > 0, hasClosed: row.closedPositions > 0 },
+          selection,
+        ),
+      ),
+    [dashboard.instrumentBreakdown, selection],
   );
   const pageStart = Math.max(selection.page - 1, 0) * selection.perPage;
   const pagePositions = useMemo(
@@ -149,7 +175,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     },
   });
   const { table: groupedTable } = useDataTable({
-    data: dashboard.instrumentBreakdown,
+    data: visibleInstruments,
     columns: groupedColumns,
     pageCount: 1,
     manualFiltering: false,
@@ -158,6 +184,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
         instrument: false,
         assetClass: false,
         positionCounts: false,
+        status: false,
         fxDetails: false,
       },
     },

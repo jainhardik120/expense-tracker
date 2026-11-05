@@ -93,7 +93,11 @@ type FilterOption = { label: string; value: string; count: number };
 export const createInvestmentColumns = (
   refresh: () => void,
   zoned: ZonedFormat,
-  filters: { categoryOptions: FilterOption[]; instrumentOptions: FilterOption[] },
+  filters: {
+    categoryOptions: FilterOption[];
+    instrumentOptions: FilterOption[];
+    statusOptions: FilterOption[];
+  },
 ): ColumnDef<InvestmentRow>[] => [
   {
     id: 'category',
@@ -270,8 +274,10 @@ export const createInvestmentColumns = (
   },
   {
     id: 'status',
+    accessorFn: (row) => (row.isClosedPosition ? 'closed' : 'open'),
     header: 'Status',
-    meta: { label: 'Status' },
+    meta: { label: 'Status', variant: 'multiSelect', options: filters.statusOptions },
+    enableColumnFilter: true,
     cell: ({ row }) => (
       <Badge variant={row.original.isClosedPosition ? 'secondary' : 'default'}>
         {row.original.isClosedPosition ? 'Closed' : 'Open'}

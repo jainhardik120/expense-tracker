@@ -67,3 +67,13 @@ export const matchesSelection = (
     );
   return categoryOk && instrumentOk;
 };
+
+export const matchesStatus = (
+  { hasOpen, hasClosed }: { hasOpen: boolean; hasClosed: boolean },
+  { status, instrument }: { status: string[]; instrument: string[] },
+) => {
+  if (status.length === 0) {
+    return hasOpen || instrument.length > 0;
+  }
+  return (status.includes('open') && hasOpen) || (status.includes('closed') && hasClosed);
+};

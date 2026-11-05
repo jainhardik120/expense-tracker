@@ -458,6 +458,7 @@ export const investmentParser = {
   investmentKind: parseAsArrayOf(parseAsString, ',').withDefault([]),
   category: parseAsArrayOf(parseAsString, ',').withDefault([]),
   instrument: parseAsArrayOf(parseAsString, ',').withDefault([]),
+  status: parseAsArrayOf(parseAsString, ',').withDefault([]),
 };
 
 export const emiParser = {
