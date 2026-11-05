@@ -303,6 +303,7 @@ const reconcileRecord = (record: ImportRecord, ledger: ReviewLedgerRow[], claime
       ),
     ),
     period: { start: record.periodStart, end: record.periodEnd },
+    isCreditCard: (record.summary.kind ?? 'credit_card') === 'credit_card',
   });
 
 const appBalanceBefore = async (

@@ -269,4 +269,57 @@ describe('reconcile', () => {
     ]);
     expect(result.residual).toBe(0);
   });
+
+  describe('reversals on a credit card', () => {
+    const reversalsFor = (rows: Parameters<typeof statementRows>[0], isCreditCard = true) =>
+      reconcile({
+        period: { start: '2025-11-23', end: '2026-01-22' },
+        statement: statementRows(rows),
+        ledger: [],
+        isCreditCard,
+      }).groups.filter((group) => group.kind === 'reversal');
+
+    test('pairs a credit with no merchant name to the earlier charge', () => {
+      const reversals = reversalsFor([
+        ['2025-12-23', 29_500, 'debit', 'UPI/SWIGGY/upiswiggy@icici/ainhardik120@pingpay'],
+        ['2025-12-27', 29_500, 'credit', 'UPICC/CRADJ/976915313575/23-12-2025'],
+      ]);
+      expect(reversals).toHaveLength(1);
+    });
+
+    test('pairs a refund that says payment but names a UPI handle', () => {
+      const reversals = reversalsFor([
+        ['2025-12-04', 750_700, 'debit', 'UPI/INDIGO/indigo2.payu@hdfcbank/ainhardik120@pingpay'],
+        ['2025-12-15', 750_700, 'credit', 'UPI PAYMENT RECEIVED/indigo2.payu@hdfcbank/6530470'],
+      ]);
+      expect(reversals).toHaveLength(1);
+    });
+
+    test('leaves a plain bill payment of the same amount alone', () => {
+      const reversals = reversalsFor([
+        ['2025-12-04', 50_000, 'debit', 'UPI/BLINKIT/blinkit949346.rzp@hdfcbank'],
+        ['2025-12-20', 50_000, 'credit', 'BBPS Payment Received - BD015327BAJAAADVAVBT'],
+      ]);
+      expect(reversals).toEqual([]);
+    });
+
+    test('does not pair a credit that came before the charge', () => {
+      const reversals = reversalsFor([
+        ['2025-12-01', 8900, 'credit', 'CASHBACK CREDIT'],
+        ['2025-12-20', 8900, 'debit', 'YOUTUBEGOOGLE MUMBAI MAH'],
+      ]);
+      expect(reversals).toEqual([]);
+    });
+
+    test('still needs a shared name on a bank account', () => {
+      const reversals = reversalsFor(
+        [
+          ['2025-12-01', 2_000_000, 'debit', 'UPI/MUTUAL FUN/groww.iccl1.br/Paid'],
+          ['2025-12-24', 2_000_000, 'credit', 'UPI/VINITA AGR/ujjwalagrahari/UPI'],
+        ],
+        false,
+      );
+      expect(reversals).toEqual([]);
+    });
+  });
 });

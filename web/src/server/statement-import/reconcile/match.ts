@@ -48,6 +48,7 @@ export type ReconcileInput = {
   statement: StatementEntry[];
   ledger: LedgerEntry[];
   period: { start: string; end: string };
+  isCreditCard?: boolean;
 };
 
 type Side = 'statement' | 'ledger';
@@ -173,6 +174,7 @@ const nearest = (anchor: Item, pool: Item[], days: number, limit: number) =>
     .slice(0, limit);
 
 const PAYMENT_PATTERN = /\b(?:payment|bbps|autopay)\b/i;
+const UPI_HANDLE_PATTERN = /@[a-z]/i;
 const EMI_PATTERN = /\bEMI\b/i;
 
 const TOKEN_MIN_LENGTH = 4;
@@ -216,6 +218,11 @@ const tokensOf = (description: string) =>
 const shareCounterparty = (first: Item, second: Item) => {
   const tokens = tokensOf(first.description);
   return [...tokensOf(second.description)].some((token) => tokens.has(token));
+};
+
+const creditFollowsDebit = (first: Item, second: Item) => {
+  const [debit, credit] = first.direction === 'debit' ? [first, second] : [second, first];
+  return credit.day >= debit.day;
 };
 
 const directions = (items: Item[]) => new Set(items.map((item) => item.direction)).size;
@@ -290,10 +297,12 @@ class Matcher {
   private readonly items: Item[];
   private readonly matched = new Set<string>();
   private readonly narrow: { start: number; end: number };
+  private readonly isCreditCard: boolean;
   wide = false;
   readonly groups: MatchGroup[] = [];
 
   constructor(input: ReconcileInput) {
+    this.isCreditCard = input.isCreditCard ?? false;
     this.narrow = {
       start: dayNumber(input.period.start) - EXACT_DAYS,
       end: dayNumber(input.period.end) + EXACT_DAYS,
@@ -427,7 +436,7 @@ class Matcher {
   reversals(conversionsOnly: boolean) {
     for (const side of ['statement', 'ledger'] as const) {
       const pool = this.free(side).filter(
-        (item) => item.side === 'ledger' || !PAYMENT_PATTERN.test(item.description),
+        (item) => item.side === 'ledger' || !this.isBillPayment(item),
       );
       const candidates: Candidate[] = [];
       for (const [position, first] of pool.entries()) {
@@ -441,7 +450,8 @@ class Matcher {
             conversion ||
             side === 'ledger' ||
             gap(first, second) <= EXACT_DAYS ||
-            shareCounterparty(first, second);
+            shareCounterparty(first, second) ||
+            (this.isCreditCard && creditFollowsDebit(first, second));
           if (
             related &&
             first.direction !== second.direction &&
@@ -458,6 +468,13 @@ class Matcher {
       }
       this.acceptAll(candidates);
     }
+  }
+
+  private isBillPayment(item: Item) {
+    return (
+      PAYMENT_PATTERN.test(item.description) &&
+      !(this.isCreditCard && UPI_HANDLE_PATTERN.test(item.description))
+    );
   }
 
   private leftoverFor(side: Side, first: Item, second: Item) {
