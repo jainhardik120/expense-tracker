@@ -1,0 +1,126 @@
+otelcol.receiver.otlp "app" {
+  http {
+    endpoint = "0.0.0.0:4318"
+  }
+
+  output {
+    traces = [
+      otelcol.exporter.otlphttp.jaeger.input,
+      otelcol.processor.filter.requests.input,
+    ]
+  }
+}
+
+otelcol.exporter.otlphttp "jaeger" {
+  client {
+    endpoint = "http://jaeger:4318"
+  }
+}
+
+otelcol.processor.filter "requests" {
+  error_mode = "ignore"
+
+  traces {
+    span = [
+      "kind.string != \"Server\"",
+      "attributes[\"http.route\"] == nil",
+      "attributes[\"http.route\"] == \"/privacy\"",
+    ]
+  }
+
+  output {
+    traces = [otelcol.connector.spanmetrics.requests.input]
+  }
+}
+
+otelcol.connector.spanmetrics "requests" {
+  metrics_flush_interval = "30s"
+
+  dimension {
+    name = "http.method"
+  }
+
+  dimension {
+    name = "http.route"
+  }
+
+  dimension {
+    name = "http.status_code"
+  }
+
+  histogram {
+    unit = "ms"
+
+    explicit {
+      buckets = ["50ms", "100ms", "250ms", "500ms", "1s", "2500ms", "5s", "10s", "30s"]
+    }
+  }
+
+  output {
+    metrics = [otelcol.exporter.prometheus.requests.input]
+  }
+}
+
+otelcol.exporter.prometheus "requests" {
+  forward_to = [prometheus.remote_write.local.receiver]
+}
+
+prometheus.exporter.cadvisor "containers" {
+  docker_only = true
+  store_container_labels = false
+  allowlisted_container_labels = ["com.docker.compose.service", "com.docker.compose.project"]
+}
+
+prometheus.scrape "containers" {
+  targets         = prometheus.exporter.cadvisor.containers.targets
+  forward_to      = [prometheus.relabel.containers.receiver]
+  scrape_interval = "30s"
+}
+
+prometheus.relabel "containers" {
+  forward_to = [prometheus.remote_write.local.receiver]
+
+  rule {
+    source_labels = ["container_label_com_docker_compose_project"]
+    regex         = "expense-tracker-prod"
+    action        = "keep"
+  }
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "app_logs" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "expense-tracker-prod"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "app_logs" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.app_logs.output
+  relabel_rules = discovery.relabel.app_logs.rules
+  forward_to    = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

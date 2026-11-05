@@ -1,0 +1,115 @@
+name: expense-tracker-prod
+
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE is set by deploy.sh}
+    container_name: expense-tracker-app
+    env_file:
+      - ${ET_CONFIG_DIR:?ET_CONFIG_DIR is set by deploy.sh}/prod.env
+    ports:
+      - '127.0.0.1:3010:3000'
+    mem_limit: 3g
+    security_opt:
+      - no-new-privileges:true
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: '5'
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.21.3
+    container_name: expense-tracker-alloy
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./observability/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
+      - /:/rootfs:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    privileged: true
+    logging: *logging
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:2.11.0
+    container_name: expense-tracker-prod-jaeger
+    user: '0'
+    command:
+      - --config=/etc/jaeger/jaeger.yml
+    ports:
+      - '127.0.0.1:16687:16686'
+    volumes:
+      - ./observability/jaeger.yml:/etc/jaeger/jaeger.yml:ro
+      - jaeger_data:/badger
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    container_name: expense-tracker-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=400d
+      - --storage.tsdb.retention.size=8GB
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.7.9
+    container_name: expense-tracker-loki
+    command:
+      - -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./observability/loki.yml:/etc/loki/loki.yml:ro
+      - loki_data:/loki
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.3.0
+    container_name: expense-tracker-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_password
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+    ports:
+      - '127.0.0.1:3030:3000'
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+      - ${ET_CONFIG_DIR}/grafana-password:/run/secrets/grafana_password:ro
+    depends_on:
+      - prometheus
+      - loki
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+    restart: unless-stopped
+
+volumes:
+  alloy_data:
+  jaeger_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:

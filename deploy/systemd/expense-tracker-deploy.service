@@ -1,0 +1,11 @@
+[Unit]
+Description=Deploy expense-tracker when master changes
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jainhardik120
+ExecStart=/home/jainhardik120/deploy/expense-tracker/deploy/deploy.sh
+TimeoutStartSec=30min
+Nice=10
