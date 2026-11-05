@@ -141,16 +141,23 @@ const buildAssetAllocation = (investmentsList: EnrichedInvestment[]): AssetAlloc
       investment.instrumentCode,
       investment.assetClass,
     );
-    const key = `${investment.normalizedKind}:${assetClass}`;
-    const entry = entries.get(key) ?? {
+    const instrumentKey = createInstrumentKey(
+      investment.normalizedKind,
+      investment.instrumentCode?.trim() ?? '',
+      investment.normalizedStockMarket,
+    );
+    const entry = entries.get(instrumentKey) ?? {
+      instrumentKey,
       kind: investment.normalizedKind,
       assetClass,
       investedAmount: 0,
       valuationAmount: 0,
+      dayChange: 0,
     };
     entry.investedAmount += investment.investedAmountInr;
     entry.valuationAmount += investment.valuationAmount ?? investment.investedAmountInr;
-    entries.set(key, entry);
+    entry.dayChange += investment.dayChange ?? 0;
+    entries.set(instrumentKey, entry);
   }
   return [...entries.values()];
 };

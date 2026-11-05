@@ -18,7 +18,7 @@ export type FundPosition = {
   navDate: Date | null;
 };
 
-type CapBucket = 'Large cap' | 'Mid cap' | 'Small cap' | 'Unknown size' | 'Not equity';
+export type CapBucket = 'Large cap' | 'Mid cap' | 'Small cap' | 'Unknown size' | 'Not equity';
 
 type Slice = { name: string; value: number; share: number };
 

@@ -54,10 +54,12 @@ export type DashboardInstrumentBreakdown = DashboardInstrumentOption & {
 };
 
 export type AssetAllocationEntry = {
+  instrumentKey: string;
   kind: InvestmentKindValue;
   assetClass: AssetClassValue;
   investedAmount: number;
   valuationAmount: number;
+  dayChange: number;
 };
 
 export type InvestmentsSummaryView = {

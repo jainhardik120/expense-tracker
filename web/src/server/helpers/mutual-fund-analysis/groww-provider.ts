@@ -1,7 +1,7 @@
 import { growwSearch } from '@/server/helpers/groww/client';
-import { fetchJson } from '@/server/helpers/investment/shared';
+import { fetchJson, fetchText } from '@/server/helpers/investment/shared';
 
-import { parseCroreValue, toNumber } from './parse';
+import { parseCroreValue, parseEtfPage, toNumber } from './parse';
 
 import type {
   FundPortfolio,
@@ -11,6 +11,8 @@ import type {
 } from './provider';
 
 const BASE_URL = 'https://groww.in/v1/api';
+const ETF_PAGE_URL = 'https://groww.in/etfs';
+const ETF_ENTITY = 'ETF';
 const REQUEST_INIT: RequestInit = {
   cache: 'no-store',
   headers: {
@@ -70,6 +72,11 @@ const searchQueries = (schemeName: string) => {
   return [...new Set([schemeName, base, `${base} Direct Growth`])];
 };
 
+const findListing = async (symbol: string) => {
+  const hits = await growwSearch(symbol, 'listed');
+  return hits.find((hit) => hit.nse_scrip_code === symbol || hit.bse_scrip_code === symbol);
+};
+
 export const growwFundPortfolioProvider: FundPortfolioProvider = {
   resolveFund: async (schemeCode, schemeName) => {
     for (const query of searchQueries(schemeName)) {
@@ -82,6 +89,12 @@ export const growwFundPortfolioProvider: FundPortfolioProvider = {
       }
     }
     return null;
+  },
+  resolveListing: async (symbol) => {
+    const hit = await findListing(symbol);
+    return hit?.search_id === undefined
+      ? null
+      : { ref: hit.search_id, isFund: hit.entity_type === ETF_ENTITY };
   },
   fetchFund: async (providerId) => {
     const response = await fetchJson<SchemeResponse>(
@@ -152,5 +165,14 @@ export const growwFundPortfolioProvider: FundPortfolioProvider = {
       bseCode: response.header?.bseScriptCode ?? null,
     };
     return profile;
+  },
+};
+
+export const growwEtfPortfolioProvider: FundPortfolioProvider = {
+  ...growwFundPortfolioProvider,
+  resolveFund: async (symbol) => (await findListing(symbol))?.search_id ?? null,
+  fetchFund: async (providerId) => {
+    const html = await fetchText(`${ETF_PAGE_URL}/${encodeURIComponent(providerId)}`, REQUEST_INIT);
+    return html === null ? null : parseEtfPage(html);
   },
 };

@@ -35,6 +35,7 @@ import {
   metalChartRanges,
 } from '@/server/helpers/investment/metal-prices';
 import { attachPaymentTotals } from '@/server/helpers/investment/payments';
+import { getMarketSplits } from '@/server/helpers/mutual-fund-analysis/market-split-loader';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema } from '@/types';
 
@@ -321,6 +322,13 @@ export const investmentsRouter = createTRPCRouter({
     }),
 
   getMarketIndicators: protectedProcedure.query(async () => getMarketIndicators()),
+
+  getMarketSplits: protectedProcedure.query(async ({ ctx }) =>
+    getMarketSplits(
+      ctx.db,
+      await getFilteredInvestments(ctx.db, ctx.user.id, { investmentKind: [] }),
+    ),
+  ),
 
   getMetalPrices: protectedProcedure.query(async ({ ctx }) => getMetalPrices(ctx.db, ctx.user.id)),
 

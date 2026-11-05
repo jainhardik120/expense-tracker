@@ -38,8 +38,11 @@ export type StockProfile = {
   bseCode: string | null;
 };
 
+type ListedInstrument = { ref: string; isFund: boolean };
+
 export type FundPortfolioProvider = {
   resolveFund: (schemeCode: string, schemeName: string) => Promise<string | null>;
+  resolveListing: (symbol: string) => Promise<ListedInstrument | null>;
   fetchFund: (providerId: string) => Promise<FundPortfolio | null>;
   fetchStock: (stockRef: string) => Promise<StockProfile | null>;
 };

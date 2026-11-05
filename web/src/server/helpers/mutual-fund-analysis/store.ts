@@ -1,6 +1,6 @@
 import { after } from 'next/server';
 
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 
 import { mutualFundHoldings, mutualFundSchemes, stockProfiles } from '@/db/schema';
 import type { Database } from '@/lib/db';
@@ -243,5 +243,65 @@ export const loadFundPortfolios = instrumentedFunction(
       ]),
     );
     return { funds: stored, stocks };
+  },
+);
+
+export const loadListedStocks = instrumentedFunction(
+  'loadListedStocks',
+  async (
+    db: Database,
+    symbols: string[],
+    provider: FundPortfolioProvider = growwFundPortfolioProvider,
+  ): Promise<{ stocks: Map<string, StoredStock>; etfs: string[] }> => {
+    if (symbols.length === 0) {
+      return { stocks: new Map(), etfs: [] };
+    }
+    const readProfiles = async () =>
+      db
+        .select()
+        .from(stockProfiles)
+        .where(
+          and(inArray(stockProfiles.nseSymbol, symbols), isNotNull(stockProfiles.marketCapCrore)),
+        );
+    const [profiles, knownEtfs] = await Promise.all([
+      readProfiles(),
+      db
+        .select({ schemeCode: mutualFundSchemes.schemeCode })
+        .from(mutualFundSchemes)
+        .where(inArray(mutualFundSchemes.schemeCode, symbols)),
+    ]);
+    const etfs = new Set(knownEtfs.map((row) => row.schemeCode));
+    const profiled = new Set(profiles.map((row) => row.nseSymbol));
+    const unknown = symbols.filter((symbol) => !etfs.has(symbol) && !profiled.has(symbol));
+    const listings = await Promise.all(
+      unknown.map(async (symbol) => ({ symbol, listing: await provider.resolveListing(symbol) })),
+    );
+    for (const { symbol, listing } of listings) {
+      if (listing?.isFund === true) {
+        etfs.add(symbol);
+      }
+    }
+    const newStocks = listings.flatMap(({ listing }) =>
+      listing === null || listing.isFund ? [] : [listing.ref],
+    );
+    if (newStocks.length > 0) {
+      await refreshStocks(db, provider, newStocks);
+    }
+    const rows = newStocks.length > 0 ? await readProfiles() : profiles;
+    const stale = rows
+      .filter((row) => isStale(row.fetchedAt, STOCK_STALE_DAYS))
+      .map((row) => row.stockRef);
+    if (stale.length > 0) {
+      after(() => refreshStocks(db, provider, stale));
+    }
+    return {
+      stocks: new Map(
+        rows.map((row) => [
+          row.nseSymbol ?? row.stockRef,
+          { name: row.name, industry: row.industry, marketCapCrore: toNumber(row.marketCapCrore) },
+        ]),
+      ),
+      etfs: [...etfs],
+    };
   },
 );

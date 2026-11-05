@@ -41,6 +41,19 @@ export const assetClassLabels: Record<AssetClassValue, string> = {
   other: 'Other',
 };
 
+export const marketBucketValues = [
+  'Large cap',
+  'Mid cap',
+  'Small cap',
+  'International',
+  'Debt',
+  'Cash',
+  'Real estate',
+  'Other',
+] as const;
+
+export type MarketBucket = (typeof marketBucketValues)[number];
+
 export const canTagAssetClass = (kind: InvestmentKindValue): boolean => {
   return kind === 'stocks' || kind === 'mutual_funds';
 };
