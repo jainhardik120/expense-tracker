@@ -7,7 +7,10 @@ import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
 import com.jainhardik120.expensetracker.data.entity.InstrumentChart
+import com.jainhardik120.expensetracker.data.entity.AllocationView
+import com.jainhardik120.expensetracker.data.entity.EtfEstimate
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
+import com.jainhardik120.expensetracker.data.entity.TodayEstimate
 import com.jainhardik120.expensetracker.data.entity.MessageError
 import com.jainhardik120.expensetracker.data.entity.Result
 import com.jainhardik120.expensetracker.data.entity.SMSNotificationBody
@@ -204,6 +207,30 @@ class ExpenseTrackerAPIImpl(
         return performApiRequest {
             requestBuilder<InvestmentsOverview>(
                 url = APIRoutes.INVESTMENTS, method = HttpMethod.Get
+            )
+        }
+    }
+
+    override suspend fun getTodayEstimate(): Result<TodayEstimate, MessageError> {
+        return performApiRequest {
+            requestBuilder<TodayEstimate>(
+                url = APIRoutes.TODAY_ESTIMATE, method = HttpMethod.Get
+            )
+        }
+    }
+
+    override suspend fun getEtfEstimate(): Result<EtfEstimate, MessageError> {
+        return performApiRequest {
+            requestBuilder<EtfEstimate>(
+                url = APIRoutes.ETF_ESTIMATE, method = HttpMethod.Get
+            )
+        }
+    }
+
+    override suspend fun getAllocation(): Result<AllocationView, MessageError> {
+        return performApiRequest {
+            requestBuilder<AllocationView>(
+                url = APIRoutes.ALLOCATION, method = HttpMethod.Get
             )
         }
     }

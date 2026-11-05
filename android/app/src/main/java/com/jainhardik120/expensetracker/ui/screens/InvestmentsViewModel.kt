@@ -6,11 +6,21 @@ import androidx.compose.runtime.setValue
 import com.jainhardik120.expensetracker.data.entity.InstrumentChartPoint
 import com.jainhardik120.expensetracker.data.entity.InstrumentPosition
 import com.jainhardik120.expensetracker.data.entity.InvestmentHolding
+import com.jainhardik120.expensetracker.data.entity.AllocationView
+import com.jainhardik120.expensetracker.data.entity.EtfEstimate
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
+import com.jainhardik120.expensetracker.data.entity.TodayEstimate
 import com.jainhardik120.expensetracker.data.remote.ExpenseTrackerAPI
 import com.jainhardik120.expensetracker.ui.BaseViewModel
+import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val LIVE_CHART_INTERVAL_MS = 60_000L
 
 enum class HoldingMetric(val label: String) {
     CURRENT("Current (Invested)"),
@@ -20,6 +30,7 @@ enum class HoldingMetric(val label: String) {
 }
 
 enum class ChartRange(val label: String, val value: String) {
+    DAY("1D", "1d"),
     WEEK("1W", "1w"),
     MONTH("1M", "1m"),
     QUARTER("3M", "3m"),
@@ -44,6 +55,24 @@ class InvestmentsViewModel @Inject constructor(
     var selectedCategory by mutableStateOf<String?>(null)
         private set
 
+    var showClosed by mutableStateOf(false)
+        private set
+
+    var todayEstimate by mutableStateOf<TodayEstimate?>(null)
+        private set
+
+    var etfEstimate by mutableStateOf<EtfEstimate?>(null)
+        private set
+
+    var showAllocation by mutableStateOf(false)
+        private set
+
+    var allocation by mutableStateOf<AllocationView?>(null)
+        private set
+
+    var allocationError by mutableStateOf<String?>(null)
+        private set
+
     var metric by mutableStateOf(HoldingMetric.CURRENT)
         private set
 
@@ -62,8 +91,30 @@ class InvestmentsViewModel @Inject constructor(
     var chartPositions by mutableStateOf<List<InstrumentPosition>>(emptyList())
         private set
 
+    var chartIntraday by mutableStateOf(false)
+        private set
+
+    private var liveChartJob: Job? = null
+
     init {
         loadInvestments()
+    }
+
+    fun openAllocation() {
+        showAllocation = true
+        allocationError = null
+        makeApiCall(
+            call = { api.getAllocation() },
+            preExecuting = null,
+            onDoneExecuting = null,
+            onException = { message -> allocationError = message }
+        ) { response ->
+            allocation = response
+        }
+    }
+
+    fun closeAllocation() {
+        showAllocation = false
     }
 
     fun openChart(holding: InvestmentHolding) {
@@ -73,6 +124,7 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     fun closeChart() {
+        liveChartJob?.cancel()
         openHolding = null
         chartPoints = null
     }
@@ -84,17 +136,33 @@ class InvestmentsViewModel @Inject constructor(
     }
 
     private fun loadChart() {
+        requestChart(showLoading = true)
+        liveChartJob?.cancel()
+        if (chartRange == ChartRange.DAY) {
+            liveChartJob = viewModelScope.launch {
+                while (isActive) {
+                    delay(LIVE_CHART_INTERVAL_MS)
+                    requestChart(showLoading = false)
+                }
+            }
+        }
+    }
+
+    private fun requestChart(showLoading: Boolean) {
         val holding = openHolding ?: return
         val range = chartRange
-        chartError = null
+        if (showLoading) {
+            chartError = null
+        }
         makeApiCall(
             call = { api.getInstrumentChart(holding.kind, holding.code, holding.isRsu, range.value) },
-            preExecuting = { chartPoints = null },
+            preExecuting = { if (showLoading) chartPoints = null },
             onDoneExecuting = null,
-            onException = { message -> chartError = message }
+            onException = { message -> if (showLoading) chartError = message }
         ) { response ->
             if (openHolding == holding && chartRange == range) {
                 chartPoints = response.points
+                chartIntraday = response.intraday
                 chartPositions = response.positions
             }
         }
@@ -102,6 +170,10 @@ class InvestmentsViewModel @Inject constructor(
 
     fun selectCategory(category: String?) {
         selectedCategory = category
+    }
+
+    fun toggleClosed() {
+        showClosed = !showClosed
     }
 
     fun cycleMetric() {
@@ -118,6 +190,22 @@ class InvestmentsViewModel @Inject constructor(
             onException = { message -> errorMessage = message }
         ) { response ->
             overview = response
+        }
+        makeApiCall(
+            call = { api.getTodayEstimate() },
+            preExecuting = null,
+            onDoneExecuting = null,
+            onException = {}
+        ) { response ->
+            todayEstimate = response
+        }
+        makeApiCall(
+            call = { api.getEtfEstimate() },
+            preExecuting = null,
+            onDoneExecuting = null,
+            onException = {}
+        ) { response ->
+            etfEstimate = response
         }
     }
 }

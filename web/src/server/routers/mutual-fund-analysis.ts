@@ -1,5 +1,6 @@
 import { subDays } from 'date-fns';
 import { and, eq } from 'drizzle-orm';
+import { z } from 'zod';
 
 import { investments } from '@/db/schema';
 import { normalizeInvestmentKind } from '@/lib/investments';
@@ -135,5 +136,20 @@ export const mutualFundAnalysisRouter = createTRPCRouter({
     };
   }),
   getLivePrices: protectedProcedure.query(({ ctx }) => getLiveFundPrices(ctx.db, ctx.user.id)),
-  getTodayEstimate: protectedProcedure.query(({ ctx }) => getTodayEstimate(ctx.db, ctx.user.id)),
+  getTodayEstimate: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/today-estimate',
+      },
+    })
+    .input(z.void())
+    .output(
+      z.object({
+        marketOpen: z.boolean(),
+        navDate: z.date().nullable(),
+        percents: z.record(z.string(), z.number()),
+      }),
+    )
+    .query(({ ctx }) => getTodayEstimate(ctx.db, ctx.user.id)),
 });

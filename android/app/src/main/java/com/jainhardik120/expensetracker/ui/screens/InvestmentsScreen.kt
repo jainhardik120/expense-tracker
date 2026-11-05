@@ -41,11 +41,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jainhardik120.expensetracker.data.entity.IndividualPosition
 import com.jainhardik120.expensetracker.data.entity.InvestmentHolding
+import com.jainhardik120.expensetracker.data.entity.EtfEstimate
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
+import com.jainhardik120.expensetracker.data.entity.TodayEstimate
 import com.jainhardik120.expensetracker.ui.theme.Green400
 import com.jainhardik120.expensetracker.ui.theme.Green600
 import java.text.NumberFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 
@@ -83,17 +89,30 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
             else -> InvestmentsContent(
                 overview = overview,
                 selectedCategory = viewModel.selectedCategory,
+                showClosed = viewModel.showClosed,
+                todayEstimate = viewModel.todayEstimate,
+                etfEstimate = viewModel.etfEstimate,
                 metric = viewModel.metric,
                 onSelectCategory = viewModel::selectCategory,
+                onToggleClosed = viewModel::toggleClosed,
                 onCycleMetric = viewModel::cycleMetric,
-                onOpenHolding = viewModel::openChart
+                onOpenHolding = viewModel::openChart,
+                onOpenAllocation = viewModel::openAllocation
             )
         }
+    }
+    if (viewModel.showAllocation) {
+        AllocationSheet(
+            allocation = viewModel.allocation,
+            error = viewModel.allocationError,
+            onDismiss = viewModel::closeAllocation
+        )
     }
     viewModel.openHolding?.let { holding ->
         InvestmentChartSheet(
             holding = holding,
             points = viewModel.chartPoints,
+            intraday = viewModel.chartIntraday,
             positions = viewModel.chartPositions,
             error = viewModel.chartError,
             range = viewModel.chartRange,
@@ -101,6 +120,51 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
             onDismiss = viewModel::closeChart
         )
     }
+}
+
+private const val MUTUAL_FUNDS = "mutual_funds"
+private const val STOCKS = "stocks"
+private val INDIVIDUAL_CATEGORIES = setOf("fd", "epfo")
+private val positionDateFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+private const val USD_CURRENCY = "USD"
+private const val PERCENT = 100.0
+private val navDayFormat = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+private val istZone = ZoneId.of("Asia/Kolkata")
+
+private data class EstimatedMove(val amount: Double, val percentage: Double?)
+
+private fun estimateToday(
+    holdings: List<InvestmentHolding>,
+    percents: Map<String, Double>?,
+    base: Double? = null
+): EstimatedMove? {
+    if (percents == null) {
+        return null
+    }
+    val open = holdings.filter { it.openPositions > 0 }
+    val estimated = open.filter { it.code in percents }
+    if (estimated.isEmpty()) {
+        return null
+    }
+    val amount = estimated.sumOf { it.valuationInr * (percents[it.code] ?: 0.0) / PERCENT }
+    val valuation = base ?: open.sumOf { it.valuationInr }
+    return EstimatedMove(amount, if (valuation == 0.0) null else amount / valuation * PERCENT)
+}
+
+private fun positionDate(value: String): String =
+    runCatching { Instant.parse(value).atZone(istZone).format(positionDateFormat) }.getOrDefault(value)
+
+private fun positionTags(position: IndividualPosition): List<String> = listOfNotNull(
+    if (position.isClosed) "Closed" else null,
+    position.annualRate?.let { "$it%" },
+    position.maturityDate?.takeIf { position.annualRate != null }?.let { "Till ${positionDate(it)}" }
+        ?: positionDate(position.date)
+)
+
+private fun navDayLabel(estimate: TodayEstimate?): String {
+    val date = estimate?.navDate ?: return "1D, last NAV"
+    val day = runCatching { Instant.parse(date).atZone(istZone).format(navDayFormat) }.getOrNull()
+    return if (day == null) "1D, last NAV" else "1D, $day NAV"
 }
 
 private data class Figures(
@@ -117,10 +181,15 @@ private data class Figures(
 private fun InvestmentsContent(
     overview: InvestmentsOverview,
     selectedCategory: String?,
+    showClosed: Boolean,
+    todayEstimate: TodayEstimate?,
+    etfEstimate: EtfEstimate?,
     metric: HoldingMetric,
     onSelectCategory: (String?) -> Unit,
+    onToggleClosed: () -> Unit,
     onCycleMetric: () -> Unit,
-    onOpenHolding: (InvestmentHolding) -> Unit
+    onOpenHolding: (InvestmentHolding) -> Unit,
+    onOpenAllocation: () -> Unit
 ) {
     val categories = overview.categories.sortedByDescending { it.invested }
     val category = categories.firstOrNull { it.category == selectedCategory }
@@ -134,15 +203,46 @@ private fun InvestmentsContent(
             category.dayChange, category.dayChangePercentage, category.xirr
         )
     }
-    val holdings = overview.holdings.filter { category == null || it.category == category.category }
+    val inCategory = overview.holdings.filter { category == null || it.category == category.category }
+    val isIndividual = category?.category in INDIVIDUAL_CATEGORIES
+    val individual = overview.positions.filter { it.category == category?.category }
+    val hasClosed = if (isIndividual) {
+        individual.any { it.isClosed }
+    } else {
+        category != null && inCategory.any { it.openPositions == 0 }
+    }
+    val holdings = inCategory.filter { showClosed || it.openPositions > 0 }
+    val shownPositions = individual.filter { showClosed || !it.isClosed }.sortedByDescending { it.date }
+    val isFunds = category?.category == MUTUAL_FUNDS
+    val estimatePercents = when (category?.category) {
+        MUTUAL_FUNDS -> todayEstimate?.percents
+        STOCKS -> etfEstimate?.percents
+        else -> null
+    }
+    val estimate = if (category == null) {
+        estimateToday(
+            overview.holdings,
+            todayEstimate?.percents.orEmpty() + etfEstimate?.percents.orEmpty(),
+            overview.summary.valuation
+        )
+    } else {
+        estimateToday(inCategory, estimatePercents)
+    }
+    val estimateLabel = if (category?.category == STOCKS) "After hours, estimated" else "Today, estimated"
+    val dayLabel = if (isFunds) navDayLabel(todayEstimate) else "1D returns"
     val rows = if (category == null) {
         categories.map { item ->
-            val within = overview.holdings.filter { it.category == item.category }
+            val within = overview.holdings.filter { it.category == item.category && it.openPositions > 0 }
+            val count = if (item.category in INDIVIDUAL_CATEGORIES) {
+                overview.positions.count { it.category == item.category && !it.isClosed }
+            } else {
+                within.size
+            }
             PositionFigures(
                 key = item.category,
                 title = item.label,
                 tags = listOfNotNull(
-                    "${within.size} ${if (within.size == 1) "holding" else "holdings"}",
+                    "$count ${if (count == 1) "holding" else "holdings"}",
                     if (within.isNotEmpty() && within.all { it.isExcludedFromPortfolio }) "Not in totals" else null
                 ),
                 invested = item.invested,
@@ -152,19 +252,38 @@ private fun InvestmentsContent(
                 onClick = { onSelectCategory(item.category) }
             )
         }
+    } else if (isIndividual) {
+        shownPositions.map { position ->
+            PositionFigures(
+                key = position.id,
+                title = position.name,
+                tags = positionTags(position),
+                invested = position.invested,
+                valuation = position.valuation,
+                dayChange = position.dayChange,
+                xirr = null,
+                onClick = null
+            )
+        }
     } else {
         holdings.sortedByDescending { it.investedInr }.map { holding ->
+            val isUsd = holding.currency == USD_CURRENCY
             PositionFigures(
                 key = "${holding.kind}:${holding.code}:${holding.isRsu}",
                 title = holding.name.ifBlank { holding.code },
                 tags = listOfNotNull(
+                    if (holding.openPositions == 0) "Closed" else null,
                     if (holding.isExcludedFromPortfolio) "Not in totals" else null
                 ),
-                invested = holding.investedInr,
-                valuation = holding.valuationInr,
-                dayChange = holding.dayChangeInr,
+                invested = if (isUsd) holding.invested else holding.investedInr,
+                valuation = if (isUsd) holding.valuation else holding.valuationInr,
+                dayChange = if (isUsd) holding.dayChange else holding.dayChangeInr,
                 xirr = holding.xirr,
-                onClick = { onOpenHolding(holding) }
+                onClick = { onOpenHolding(holding) },
+                whole = if (isUsd) ::wholeDollars else ::wholeRupees,
+                exact = if (isUsd) ::formatDollars else ::formatAmount,
+                estimatePercent = estimatePercents?.get(holding.code)
+                    ?.takeIf { holding.openPositions > 0 }
             )
         }
     }
@@ -174,7 +293,14 @@ private fun InvestmentsContent(
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         item(key = "header") {
-            PortfolioHeader(count = holdings.size, figures = figures)
+            PortfolioHeader(
+                count = if (isIndividual) shownPositions.size else holdings.size,
+                figures = figures,
+                dayLabel = dayLabel,
+                estimate = estimate,
+                estimateLabel = estimateLabel,
+                onClick = if (category == null) onOpenAllocation else null
+            )
         }
         item(key = "chips") {
             LazyRow(
@@ -195,6 +321,15 @@ private fun InvestmentsContent(
                         onClick = { onSelectCategory(item.category) },
                         label = { Text(item.label) }
                     )
+                }
+                if (hasClosed) {
+                    item {
+                        FilterChip(
+                            selected = showClosed,
+                            onClick = onToggleClosed,
+                            label = { Text("Closed") }
+                        )
+                    }
                 }
             }
         }
@@ -254,8 +389,19 @@ private fun InvestmentsContent(
 }
 
 @Composable
-private fun PortfolioHeader(count: Int, figures: Figures) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+private fun PortfolioHeader(
+    count: Int,
+    figures: Figures,
+    dayLabel: String,
+    estimate: EstimatedMove?,
+    estimateLabel: String,
+    onClick: (() -> Unit)?
+) {
+    Column(
+        modifier = Modifier
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
         Text(
             text = "HOLDINGS ($count)",
             style = MaterialTheme.typography.labelMedium,
@@ -269,11 +415,19 @@ private fun PortfolioHeader(count: Int, figures: Figures) {
             fontWeight = FontWeight.SemiBold
         )
         Spacer(modifier = Modifier.height(12.dp))
-        HeaderRow("1D returns") {
+        HeaderRow(dayLabel) {
             Text(
                 text = gainLabel(figures.dayChange, figures.dayChangePercentage, ::formatAmount),
                 color = movementColour(figures.dayChange)
             )
+        }
+        estimate?.let { today ->
+            HeaderRow(estimateLabel) {
+                Text(
+                    text = gainLabel(today.amount, today.percentage, ::formatAmount),
+                    color = movementColour(today.amount)
+                )
+            }
         }
         HeaderRow("Total returns") {
             Text(
@@ -305,6 +459,7 @@ private fun HeaderRow(label: String, value: @Composable () -> Unit) {
 }
 
 private val VALUE_COLUMN_WIDTH = 120.dp
+private val ESTIMATE_COLUMN_WIDTH = 88.dp
 private val ROW_HEIGHT = 80.dp
 
 private data class PositionFigures(
@@ -315,8 +470,12 @@ private data class PositionFigures(
     val valuation: Double,
     val dayChange: Double,
     val xirr: Double?,
-    val onClick: (() -> Unit)?
+    val onClick: (() -> Unit)?,
+    val whole: (Double) -> String = ::wholeRupees,
+    val exact: (Double) -> String = ::formatAmount,
+    val estimatePercent: Double? = null
 ) {
+    val estimateChange get() = estimatePercent?.let { valuation * it / PERCENT }
     val pnl get() = valuation - invested
     val pnlPercentage get() = if (invested == 0.0) null else pnl / abs(invested) * 100
     val dayChangePercentage get() = (valuation - dayChange).let { if (it == 0.0) null else dayChange / abs(it) * 100 }
@@ -349,6 +508,29 @@ private fun PositionRow(row: PositionFigures, metric: HoldingMetric) {
             }
         }
         Spacer(modifier = Modifier.width(16.dp))
+        row.estimateChange?.let { change ->
+            if (metric == HoldingMetric.CURRENT || metric == HoldingMetric.DAY_CHANGE) {
+                Column(
+                    modifier = Modifier.width(ESTIMATE_COLUMN_WIDTH),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    SecondaryValue("Est.")
+                    SecondaryValue(
+                        if (metric == HoldingMetric.CURRENT) {
+                            row.whole(row.valuation + change)
+                        } else {
+                            signed(change, row.whole)
+                        },
+                        movementColour(change)
+                    )
+                    if (metric == HoldingMetric.DAY_CHANGE) {
+                        row.estimatePercent?.let {
+                            SecondaryValue("(${signedPercentage(it)})", movementColour(change))
+                        }
+                    }
+                }
+            }
+        }
         Column(
             modifier = Modifier.width(VALUE_COLUMN_WIDTH),
             horizontalAlignment = Alignment.End
@@ -356,22 +538,22 @@ private fun PositionRow(row: PositionFigures, metric: HoldingMetric) {
             when (metric) {
                 HoldingMetric.CURRENT -> {
                     Text(
-                        text = wholeRupees(row.valuation),
+                        text = row.whole(row.valuation),
                         style = MaterialTheme.typography.bodyLarge,
                         color = movementColour(row.pnl)
                     )
-                    SecondaryValue("(${wholeRupees(row.invested)})")
+                    SecondaryValue("(${row.whole(row.invested)})")
                 }
 
                 HoldingMetric.RETURNS -> {
-                    Text(text = signed(row.pnl, ::wholeRupees), style = MaterialTheme.typography.bodyLarge)
+                    Text(text = signed(row.pnl, row.whole), style = MaterialTheme.typography.bodyLarge)
                     row.pnlPercentage?.let {
                         SecondaryValue("(${signedPercentage(it)})", movementColour(row.pnl))
                     }
                 }
 
                 HoldingMetric.DAY_CHANGE -> {
-                    Text(text = signed(row.dayChange, ::formatAmount), style = MaterialTheme.typography.bodyLarge)
+                    Text(text = signed(row.dayChange, row.exact), style = MaterialTheme.typography.bodyLarge)
                     row.dayChangePercentage?.let {
                         SecondaryValue("(${signedPercentage(it)})", movementColour(row.dayChange))
                     }

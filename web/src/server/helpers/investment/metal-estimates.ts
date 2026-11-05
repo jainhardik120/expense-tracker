@@ -1,6 +1,7 @@
 import { MS_PER_MINUTE } from '@/types';
 
 const SESSION_GAP_MINUTES = 15;
+const PERCENT = 100;
 
 export const SESSION_GAP_MS = SESSION_GAP_MINUTES * MS_PER_MINUTE;
 
@@ -50,4 +51,15 @@ export const mergeSeries = (actual: SeriesPoint[], estimates: SeriesPoint[]) => 
   return [...actual, ...estimates.filter((point) => !times.has(point.time))].sort(
     (left, right) => left.time - right.time,
   );
+};
+
+export const latestEstimatePercent = (actual: SeriesPoint[], estimates: SeriesPoint[]) => {
+  const close = actual.at(-1);
+  const estimate = estimates.at(-1);
+  return close === undefined ||
+    estimate === undefined ||
+    estimate.time <= close.time ||
+    close.price <= 0
+    ? null
+    : (estimate.price / close.price - 1) * PERCENT;
 };

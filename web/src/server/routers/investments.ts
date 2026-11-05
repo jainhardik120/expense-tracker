@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { instrumentAssetClasses, investments } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
+import { toViewValue } from '@/lib/investment-selection';
 import {
   assetClassTagValues,
   canTagAssetClass,
@@ -30,13 +31,17 @@ import { buildFineTimeline } from '@/server/helpers/investment/intraday';
 import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
 import { getMarketIndicators } from '@/server/helpers/investment/market-indicators';
 import {
+  getEtfEstimates,
   getMetalBuyPrices,
   getMetalCharts,
   getMetalPrices,
   metalChartRanges,
 } from '@/server/helpers/investment/metal-prices';
 import { attachPaymentTotals } from '@/server/helpers/investment/payments';
-import { getMarketSplits } from '@/server/helpers/mutual-fund-analysis/market-split-loader';
+import {
+  getAllocationView,
+  getMarketSplits,
+} from '@/server/helpers/mutual-fund-analysis/market-split-loader';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema } from '@/types';
 
@@ -45,6 +50,12 @@ import { investmentPaymentsRouter } from './investment-payments';
 const SEARCH_QUERY_MAX_LENGTH = 120;
 
 const HISTORY_DAYS = 10;
+
+const MIN_CHART_POINTS = 2;
+
+const INDIVIDUAL_KINDS = new Set<string>(['fd', 'epfo']);
+
+const FINE_CHART_RANGES = new Set<string>(['1d', '1w', '1m']);
 
 const optionalToNull = (value: string | undefined): string | null => {
   if (value === undefined || value.trim() === '') {
@@ -123,6 +134,16 @@ const overviewFigures = {
   xirr: z.number().nullable(),
 };
 
+const allocationSliceSchema = z.object({
+  key: z.string(),
+  colorKey: z.string(),
+  label: z.string(),
+  share: z.number(),
+  invested: z.number(),
+  value: z.number(),
+  dayChange: z.number(),
+});
+
 const investmentsOverviewSchema = z.object({
   asOf: z.date(),
   summary: z.object({
@@ -157,6 +178,21 @@ const investmentsOverviewSchema = z.object({
       dayChangeInr: z.number(),
       openPositions: z.number(),
       totalPositions: z.number(),
+    }),
+  ),
+  positions: z.array(
+    z.object({
+      id: z.string(),
+      category: z.enum(investmentCategoryValues),
+      name: z.string(),
+      date: z.date(),
+      invested: z.number(),
+      valuation: z.number(),
+      dayChange: z.number(),
+      annualRate: z.number().nullable(),
+      maturityDate: z.date().nullable(),
+      isClosed: z.boolean(),
+      isExcludedFromPortfolio: z.boolean(),
     }),
   ),
 });
@@ -246,6 +282,22 @@ export const investmentsRouter = createTRPCRouter({
           openPositions: row.openPositions,
           totalPositions: row.totalPositions,
         })),
+        positions: enriched
+          .filter((position) => INDIVIDUAL_KINDS.has(position.normalizedKind))
+          .map((position) => ({
+            id: position.id,
+            category: getInvestmentCategory(position.normalizedKind, position.isRsuPosition),
+            name: position.instrumentName ?? position.instrumentCode ?? position.investmentKind,
+            date: position.investmentDate,
+            invested: position.investedAmountInr,
+            valuation: position.valuationAmount ?? position.investedAmountInr,
+            dayChange: position.dayChange ?? 0,
+            annualRate:
+              position.annualRate === null ? null : Number.parseFloat(position.annualRate),
+            maturityDate: position.maturityDate,
+            isClosed: position.isClosedPosition,
+            isExcludedFromPortfolio: position.isExcludedFromPortfolioPosition,
+          })),
       };
     }),
 
@@ -272,8 +324,11 @@ export const investmentsRouter = createTRPCRouter({
             unitPrice: z.number(),
             holdingValue: z.number(),
             investedAmount: z.number(),
+            unitPriceDisplay: z.number(),
+            holdingValueDisplay: z.number(),
           }),
         ),
+        intraday: z.boolean(),
         positions: z.array(
           z.object({
             id: z.string(),
@@ -281,6 +336,8 @@ export const investmentsRouter = createTRPCRouter({
             units: z.number().nullable(),
             investedAmount: z.number(),
             valuationAmount: z.number(),
+            investedDisplay: z.number(),
+            valuationDisplay: z.number(),
             isClosed: z.boolean(),
             closedAt: z.date().nullable(),
           }),
@@ -299,11 +356,34 @@ export const investmentsRouter = createTRPCRouter({
           normalizeInvestmentKind(row.investmentKind) === input.kind &&
           (input.kind !== 'stocks' || row.isRsu === input.isRsu),
       );
-      return buildInstrumentChart({
-        investmentsListRaw: matching,
-        range: input.range,
-        marketDataKinds: [input.kind],
-      });
+      const view = toViewValue(
+        input.kind,
+        input.code,
+        input.kind === 'stocks' ? normalizeStockMarket(matching.at(0)?.stockMarket) : null,
+      );
+      const [chart, fine] = await Promise.all([
+        buildInstrumentChart({
+          investmentsListRaw: matching,
+          range: input.range,
+          marketDataKinds: [input.kind],
+        }),
+        FINE_CHART_RANGES.has(input.range) ? buildFineTimeline(matching, view, input.range) : null,
+      ]);
+      if (fine?.intraday !== true || fine.points.length < MIN_CHART_POINTS) {
+        return { points: chart.points, positions: chart.positions, intraday: false };
+      }
+      return {
+        points: fine.points.map((point) => ({
+          date: point.date,
+          unitPrice: point.unitPrice * chart.displayFxToInr,
+          holdingValue: point.value * chart.displayFxToInr,
+          investedAmount: point.base * chart.displayFxToInr,
+          unitPriceDisplay: point.unitPrice,
+          holdingValueDisplay: point.value,
+        })),
+        positions: chart.positions,
+        intraday: true,
+      };
     }),
 
   getInvestmentsInitialData: protectedProcedure
@@ -332,6 +412,43 @@ export const investmentsRouter = createTRPCRouter({
   ),
 
   getMetalPrices: protectedProcedure.query(async ({ ctx }) => getMetalPrices(ctx.db, ctx.user.id)),
+
+  getAllocation: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/allocation',
+      },
+    })
+    .input(z.void())
+    .output(
+      z.object({
+        groups: z.array(
+          allocationSliceSchema.extend({
+            kinds: z.array(allocationSliceSchema),
+            buckets: z.array(allocationSliceSchema),
+          }),
+        ),
+        holdingsDate: z.date().nullable(),
+      }),
+    )
+    .query(async ({ ctx }) =>
+      getAllocationView(
+        ctx.db,
+        await getFilteredInvestments(ctx.db, ctx.user.id, { investmentKind: [] }),
+      ),
+    ),
+
+  getEtfEstimates: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/etf-estimate',
+      },
+    })
+    .input(z.void())
+    .output(z.object({ percents: z.record(z.string(), z.number()) }))
+    .query(async ({ ctx }) => getEtfEstimates(ctx.db, ctx.user.id)),
 
   getMetalBuyPrices: protectedProcedure.query(async ({ ctx }) =>
     getMetalBuyPrices(ctx.db, ctx.user.id),

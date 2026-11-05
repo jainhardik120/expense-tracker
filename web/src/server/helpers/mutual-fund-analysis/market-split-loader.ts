@@ -1,7 +1,9 @@
+import { buildAllocation } from '@/lib/asset-allocation';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { getAssetClass, normalizeInvestmentKind } from '@/lib/investments';
 import { loadInstrumentRows } from '@/server/helpers/investment/market-cache';
+import { buildLivePortfolio } from '@/server/helpers/investment/page-data';
 import { parseIndianListing } from '@/server/helpers/investment/providers/indian-listing';
 import { createInstrumentKey } from '@/server/helpers/investment/shared';
 import type { InvestmentRow } from '@/server/helpers/investment/types';
@@ -67,5 +69,16 @@ export const getMarketSplits = instrumentedFunction(
       splits,
       holdingsDate: portfolioDates.length === 0 ? null : new Date(Math.min(...portfolioDates)),
     };
+  },
+);
+
+export const getAllocationView = instrumentedFunction(
+  'getAllocationView',
+  async (db: Database, rows: InvestmentRow[]) => {
+    const [{ dashboard }, { splits, holdingsDate }] = await Promise.all([
+      buildLivePortfolio(rows),
+      getMarketSplits(db, rows),
+    ]);
+    return { groups: buildAllocation(dashboard.assetAllocation, splits), holdingsDate };
   },
 );

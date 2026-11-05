@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MS_PER_MINUTE } from '@/types';
 
-import { estimateClosedHours, mergeSeries } from './metal-estimates';
+import { estimateClosedHours, latestEstimatePercent, mergeSeries } from './metal-estimates';
 
 const at = (minute: number, price: number) => ({ time: minute * MS_PER_MINUTE, price });
 
@@ -49,4 +49,19 @@ describe('mergeSeries', () => {
       at(10, 3),
     ]);
   });
+});
+
+it('reports the move since the last trade while the market is shut', () => {
+  const actual = [{ time: 100, price: 200 }];
+  const estimates = [
+    { time: 100, price: 200 },
+    { time: 500, price: 203 },
+  ];
+  expect(latestEstimatePercent(actual, estimates)).toBeCloseTo(1.5);
+});
+
+it('reports nothing once the market has traded past the estimate', () => {
+  const actual = [{ time: 600, price: 200 }];
+  expect(latestEstimatePercent(actual, [{ time: 500, price: 203 }])).toBeNull();
+  expect(latestEstimatePercent(actual, [])).toBeNull();
 });

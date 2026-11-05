@@ -15,3 +15,16 @@ fun formatAmount(value: String): String = value.toDoubleOrNull()?.let(::formatAm
 
 fun formatSignedAmount(value: Double): String =
     if (value > 0) "+${formatAmount(value)}" else formatAmount(value)
+
+private val dollarFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale.US).apply {
+    minimumFractionDigits = 2
+    maximumFractionDigits = 2
+}
+
+private val wholeDollarFormat: NumberFormat = NumberFormat.getCurrencyInstance(Locale.US).apply {
+    maximumFractionDigits = 0
+}
+
+fun formatDollars(value: Double): String = synchronized(dollarFormat) { dollarFormat.format(value) }
+
+fun wholeDollars(value: Double): String = synchronized(wholeDollarFormat) { wholeDollarFormat.format(value) }

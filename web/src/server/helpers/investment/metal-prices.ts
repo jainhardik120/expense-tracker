@@ -17,7 +17,7 @@ import {
 import { cachedQuotes } from './market-cache';
 import { isIndianMarketOpen } from './market-hours';
 import { averageBuyPrices, type MetalBuy } from './metal-buy-prices';
-import { estimateClosedHours, mergeSeries } from './metal-estimates';
+import { estimateClosedHours, latestEstimatePercent, mergeSeries } from './metal-estimates';
 import {
   fetchCommodityHistoricalPrices,
   fetchCommodityLiveQuote,
@@ -477,5 +477,64 @@ export const getMetalCharts = instrumentedFunction(
       comex: toSeries(comex, start),
       india: toStepSeries(india, start, end, gramsPerUnit),
     };
+  },
+);
+
+export const getEtfEstimates = instrumentedFunction(
+  'getEtfEstimates',
+  async (db: Database, userId: string) => {
+    const now = new Date();
+    const end = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
+    const windowStart = startOfDay(subDays(now, CHART_WINDOW_DAYS));
+    const from = windowStart.getTime();
+    const held = await db
+      .selectDistinct({
+        metal: instrumentAssetClasses.assetClass,
+        code: investments.instrumentCode,
+      })
+      .from(investments)
+      .innerJoin(
+        instrumentAssetClasses,
+        and(
+          eq(instrumentAssetClasses.userId, investments.userId),
+          eq(instrumentAssetClasses.investmentKind, investments.investmentKind),
+          eq(instrumentAssetClasses.instrumentCode, investments.instrumentCode),
+        ),
+      )
+      .where(
+        and(
+          eq(investments.userId, userId),
+          eq(investments.investmentKind, 'stocks'),
+          eq(investments.isClosed, false),
+          inArray(instrumentAssetClasses.assetClass, [...METAL_CODES]),
+        ),
+      );
+    const percents = await Promise.all(
+      METAL_CODES.map(async (metal) => {
+        const codes = held.flatMap((row) =>
+          row.metal === metal && row.code !== null ? [row.code] : [],
+        );
+        if (codes.length === 0) {
+          return [];
+        }
+        const [mcx, comex] = await Promise.all([
+          mcxCandles(metal, from, end, CANDLE_MINUTES, LIVE_TTL_MS),
+          fetchUsPrices(METALS[metal].comexSymbol, COMEX_HISTORY_RANGE),
+        ]);
+        const mcxRates = toSeries(mcx, from);
+        const reference = mergeSeries(
+          mcxRates,
+          estimateClosedHours(mcxRates, toSeries(comex, from)),
+        );
+        return Promise.all(
+          codes.map(async (code) => {
+            const etf = toSeries(await fetchIndianRangePrices(code, windowStart, now), from);
+            const percent = latestEstimatePercent(etf, estimateClosedHours(etf, reference));
+            return percent === null ? [] : [[code, percent] as const];
+          }),
+        ).then((entries) => entries.flat());
+      }),
+    );
+    return { percents: Object.fromEntries(percents.flat()) };
   },
 );

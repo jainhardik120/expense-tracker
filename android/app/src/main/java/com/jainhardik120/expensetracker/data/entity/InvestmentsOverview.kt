@@ -7,7 +7,67 @@ data class InvestmentsOverview(
     val asOf: String,
     val summary: PortfolioSummary,
     val categories: List<InvestmentCategory>,
-    val holdings: List<InvestmentHolding>
+    val holdings: List<InvestmentHolding>,
+    val positions: List<IndividualPosition> = emptyList()
+)
+
+@Serializable
+data class IndividualPosition(
+    val id: String,
+    val category: String,
+    val name: String,
+    val date: String,
+    val invested: Double,
+    val valuation: Double,
+    val dayChange: Double,
+    val annualRate: Double? = null,
+    val maturityDate: String? = null,
+    val isClosed: Boolean,
+    val isExcludedFromPortfolio: Boolean
+)
+
+@Serializable
+data class TodayEstimate(
+    val marketOpen: Boolean,
+    val navDate: String? = null,
+    val percents: Map<String, Double> = emptyMap()
+)
+
+@Serializable
+data class AllocationSlice(
+    val key: String,
+    val colorKey: String,
+    val label: String,
+    val share: Double,
+    val invested: Double,
+    val value: Double,
+    val dayChange: Double
+)
+
+@Serializable
+data class AllocationGroup(
+    val key: String,
+    val colorKey: String,
+    val label: String,
+    val share: Double,
+    val invested: Double,
+    val value: Double,
+    val dayChange: Double,
+    val kinds: List<AllocationSlice> = emptyList(),
+    val buckets: List<AllocationSlice> = emptyList()
+) {
+    val slice get() = AllocationSlice(key, colorKey, label, share, invested, value, dayChange)
+}
+
+@Serializable
+data class AllocationView(
+    val groups: List<AllocationGroup> = emptyList(),
+    val holdingsDate: String? = null
+)
+
+@Serializable
+data class EtfEstimate(
+    val percents: Map<String, Double> = emptyMap()
 )
 
 @Serializable
@@ -67,7 +127,8 @@ data class InvestmentHolding(
 @Serializable
 data class InstrumentChart(
     val points: List<InstrumentChartPoint>,
-    val positions: List<InstrumentPosition> = emptyList()
+    val positions: List<InstrumentPosition> = emptyList(),
+    val intraday: Boolean = false
 )
 
 @Serializable
@@ -77,6 +138,8 @@ data class InstrumentPosition(
     val units: Double? = null,
     val investedAmount: Double,
     val valuationAmount: Double,
+    val investedDisplay: Double? = null,
+    val valuationDisplay: Double? = null,
     val isClosed: Boolean,
     val closedAt: String? = null
 )
@@ -86,5 +149,7 @@ data class InstrumentChartPoint(
     val date: String,
     val unitPrice: Double,
     val holdingValue: Double,
-    val investedAmount: Double
+    val investedAmount: Double,
+    val unitPriceDisplay: Double? = null,
+    val holdingValueDisplay: Double? = null
 )

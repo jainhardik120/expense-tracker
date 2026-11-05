@@ -52,18 +52,22 @@ import com.jainhardik120.expensetracker.ui.theme.Green400
 import com.jainhardik120.expensetracker.ui.theme.Green600
 import java.text.NumberFormat
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val chartDateFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+private val chartMomentFormat = DateTimeFormatter.ofPattern("d MMM, h:mm a", Locale.ENGLISH)
+private val chartZone = ZoneId.of("Asia/Kolkata")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InvestmentChartSheet(
     holding: InvestmentHolding,
     points: List<InstrumentChartPoint>?,
+    intraday: Boolean,
     positions: List<InstrumentPosition>,
     error: String?,
     range: ChartRange,
@@ -75,8 +79,16 @@ fun InvestmentChartSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
         val unitBased = holding.units > 0
-        var selected by remember(points) { mutableStateOf<Int?>(null) }
-        val series = points.orEmpty().map { if (unitBased) it.unitPrice else it.holdingValue }
+        var selected by remember(range) { mutableStateOf<Int?>(null) }
+        val isUsd = unitBased && holding.currency == "USD"
+        val money: (Double) -> String = if (isUsd) ::formatDollars else ::sheetRupees
+        val series = points.orEmpty().map {
+            when {
+                isUsd -> it.unitPriceDisplay ?: it.unitPrice
+                unitBased -> it.unitPrice
+                else -> it.holdingValue
+            }
+        }
         val shownIndex = selected ?: series.lastIndex.takeIf { it >= 0 }
         val shown = shownIndex?.let(series::getOrNull)
         val base = if (unitBased) {
@@ -107,16 +119,27 @@ fun InvestmentChartSheet(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = shown?.let(::sheetRupees) ?: "—",
+                    text = shown?.let(money) ?: "—",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold
                 )
-                val dateLabel = selected?.let { points?.getOrNull(it) }?.let { formatChartDate(it.date) }
+                if (isUsd) {
+                    shownIndex?.let { points?.getOrNull(it) }?.let { point ->
+                        Text(
+                            text = sheetRupees(point.unitPrice),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                val dateLabel = selected?.let { points?.getOrNull(it) }?.let {
+                    if (intraday) formatChartMoment(it.date) else formatChartDate(it.date)
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (change != null) {
                         Text(
                             text = buildString {
-                                append(sheetSigned(change))
+                                append(sheetSigned(change, money))
                                 changePercent?.let { append(" (%+.2f%%)".format(Locale.getDefault(), it)) }
                             },
                             style = MaterialTheme.typography.bodyMedium,
@@ -205,29 +228,43 @@ fun InvestmentChartSheet(
             )
 
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                val pnl = holding.valuationInr - holding.investedInr
-                StatRow("Current value", sheetRupees(holding.valuationInr))
-                StatRow("Invested", sheetRupees(holding.investedInr))
+                val value = if (isUsd) holding.valuation else holding.valuationInr
+                val invested = if (isUsd) holding.invested else holding.investedInr
+                val dayChange = if (isUsd) holding.dayChange else holding.dayChangeInr
+                val pnl = value - invested
+                val pnlInr = holding.valuationInr - holding.investedInr
+                StatRow(
+                    "Current value",
+                    money(value),
+                    secondary = if (isUsd) sheetRupees(holding.valuationInr) else null
+                )
+                StatRow(
+                    "Invested",
+                    money(invested),
+                    secondary = if (isUsd) sheetRupees(holding.investedInr) else null
+                )
                 StatRow(
                     "Total returns",
                     buildString {
-                        append(sheetSigned(pnl))
-                        if (holding.investedInr != 0.0) {
-                            append(" (%+.2f%%)".format(Locale.getDefault(), pnl / abs(holding.investedInr) * 100))
+                        append(sheetSigned(pnl, money))
+                        if (invested != 0.0) {
+                            append(" (%+.2f%%)".format(Locale.getDefault(), pnl / abs(invested) * 100))
                         }
                     },
-                    trendColour(pnl)
+                    trendColour(pnl),
+                    secondary = if (isUsd) sheetSigned(pnlInr) else null
                 )
                 StatRow(
                     "1D returns",
                     buildString {
-                        append(sheetSigned(holding.dayChangeInr))
-                        val base = holding.valuationInr - holding.dayChangeInr
+                        append(sheetSigned(dayChange, money))
+                        val base = value - dayChange
                         if (base != 0.0) {
-                            append(" (%+.2f%%)".format(Locale.getDefault(), holding.dayChangeInr / abs(base) * 100))
+                            append(" (%+.2f%%)".format(Locale.getDefault(), dayChange / abs(base) * 100))
                         }
                     },
-                    trendColour(holding.dayChangeInr)
+                    trendColour(dayChange),
+                    secondary = if (isUsd) sheetSigned(holding.dayChangeInr) else null
                 )
                 StatRow("XIRR", holding.xirr?.let { "%.2f%%".format(Locale.getDefault(), it) } ?: "—")
                 if (unitBased) {
@@ -244,7 +281,7 @@ fun InvestmentChartSheet(
                     modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 4.dp)
                 )
                 positions.forEachIndexed { index, position ->
-                    PositionLine(position)
+                    PositionLine(position, isUsd)
                     if (index < positions.lastIndex) {
                         HorizontalDivider(
                             modifier = Modifier.padding(horizontal = 20.dp),
@@ -258,8 +295,11 @@ fun InvestmentChartSheet(
 }
 
 @Composable
-private fun PositionLine(position: InstrumentPosition) {
-    val pnl = position.valuationAmount - position.investedAmount
+private fun PositionLine(position: InstrumentPosition, isUsd: Boolean) {
+    val valuation = if (isUsd) position.valuationDisplay ?: position.valuationAmount else position.valuationAmount
+    val invested = if (isUsd) position.investedDisplay ?: position.investedAmount else position.investedAmount
+    val money: (Double) -> String = if (isUsd) ::formatDollars else ::sheetRupees
+    val pnl = valuation - invested
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -270,7 +310,7 @@ private fun PositionLine(position: InstrumentPosition) {
             Text(text = formatChartDate(position.date), style = MaterialTheme.typography.bodyLarge)
             val units = position.units?.takeIf { it > 0 }
             val detail = listOfNotNull(
-                units?.let { "${formatUnits(it)} units @ ${sheetRupees(position.investedAmount / it)}" },
+                units?.let { "${formatUnits(it)} units @ ${money(invested / it)}" },
                 if (position.isClosed) {
                     "Closed" + (position.closedAt?.let { " on ${formatChartDate(it)}" } ?: "")
                 } else {
@@ -288,13 +328,13 @@ private fun PositionLine(position: InstrumentPosition) {
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = sheetRupees(position.valuationAmount),
+                text = money(valuation),
                 style = MaterialTheme.typography.bodyLarge,
                 color = trendColour(pnl)
             )
             Text(
                 text = buildString {
-                    append("(${sheetRupees(position.investedAmount)})")
+                    append("(${money(invested)})")
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -305,7 +345,12 @@ private fun PositionLine(position: InstrumentPosition) {
 }
 
 @Composable
-private fun StatRow(label: String, value: String, colour: Color = MaterialTheme.colorScheme.onSurface) {
+private fun StatRow(
+    label: String,
+    value: String,
+    colour: Color = MaterialTheme.colorScheme.onSurface,
+    secondary: String? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -317,7 +362,16 @@ private fun StatRow(label: String, value: String, colour: Color = MaterialTheme.
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
         )
-        Text(text = value, style = MaterialTheme.typography.bodyMedium, color = colour)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(text = value, style = MaterialTheme.typography.bodyMedium, color = colour)
+            if (secondary != null) {
+                Text(
+                    text = secondary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
@@ -412,12 +466,18 @@ private fun trendColour(amount: Double): Color = when {
 }
 
 private fun ChartRange.sinceLabel(): String = when (this) {
+    ChartRange.DAY -> "today"
     ChartRange.WEEK -> "past week"
     ChartRange.MONTH -> "past month"
     ChartRange.QUARTER -> "past 3 months"
     ChartRange.HALF -> "past 6 months"
     ChartRange.ALL -> "since first buy"
 }
+
+private fun formatChartMoment(value: String): String =
+    runCatching {
+        OffsetDateTime.parse(value).atZoneSameInstant(chartZone).format(chartMomentFormat)
+    }.getOrDefault(value)
 
 private fun formatChartDate(value: String): String =
     runCatching { OffsetDateTime.parse(value).toLocalDate().format(chartDateFormat) }.getOrDefault(value)
@@ -430,8 +490,8 @@ private val sheetRupeeFormat: NumberFormat =
 
 private fun sheetRupees(value: Double): String = synchronized(sheetRupeeFormat) { sheetRupeeFormat.format(value) }
 
-private fun sheetSigned(value: Double): String {
-    val formatted = sheetRupees(abs(value))
+private fun sheetSigned(value: Double, money: (Double) -> String = ::sheetRupees): String {
+    val formatted = money(abs(value))
     return when {
         abs(value) < 0.005 -> formatted
         value < 0 -> "-$formatted"
