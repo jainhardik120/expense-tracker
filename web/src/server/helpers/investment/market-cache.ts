@@ -248,6 +248,19 @@ const storePrices = async (key: string, points: PriceHistoryPoint[]) => {
 const spanDays = (start: string, end: string) =>
   Math.round((dayDate(end).getTime() - dayDate(start).getTime()) / DAY_IN_MS);
 
+export const nextCoveredEnd = (
+  coveredEnd: string | null,
+  settledEnd: string,
+  points: PriceHistoryPoint[],
+) => {
+  const received = points.map(({ date }) => dayKey(date)).reduce(maxDay, '');
+  if (received === '') {
+    return coveredEnd ?? settledEnd;
+  }
+  const reached = minDay(settledEnd, received);
+  return coveredEnd === null ? reached : maxDay(coveredEnd, reached);
+};
+
 export const cachedHistories = instrumentedFunction(
   'cachedHistories',
   async (
@@ -321,9 +334,8 @@ export const cachedHistories = instrumentedFunction(
           continue;
         }
         await storePrices(request.key, points);
-        const gapSettledEnd = minDay(gapEnd, settledEnd);
         coveredStart = coveredStart === null ? gapStart : minDay(coveredStart, gapStart);
-        coveredEnd = coveredEnd === null ? gapSettledEnd : maxDay(coveredEnd, gapSettledEnd);
+        coveredEnd = nextCoveredEnd(coveredEnd, minDay(gapEnd, settledEnd), points);
       }
       coverage.push({
         instrumentKey: request.key,
