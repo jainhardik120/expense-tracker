@@ -30,6 +30,7 @@ import { buildFineTimeline } from '@/server/helpers/investment/intraday';
 import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
 import { getMarketIndicators } from '@/server/helpers/investment/market-indicators';
 import {
+  getMetalBuyPrices,
   getMetalCharts,
   getMetalPrices,
   metalChartRanges,
@@ -331,6 +332,10 @@ export const investmentsRouter = createTRPCRouter({
   ),
 
   getMetalPrices: protectedProcedure.query(async ({ ctx }) => getMetalPrices(ctx.db, ctx.user.id)),
+
+  getMetalBuyPrices: protectedProcedure.query(async ({ ctx }) =>
+    getMetalBuyPrices(ctx.db, ctx.user.id),
+  ),
 
   getMetalCharts: protectedProcedure
     .input(z.object({ metal: z.enum(assetClassTagValues), range: z.enum(metalChartRanges) }))

@@ -19,13 +19,17 @@ import { MetalChartsDialog } from './metal-charts-dialog';
 
 type Metal = RouterOutput['investments']['getMetalPrices'][number];
 type MetalPrice = Metal['india'];
+type MetalBuyPrice = RouterOutput['investments']['getMetalBuyPrices'][number];
 type Indicator = RouterOutput['investments']['getMarketIndicators'][number];
 
-const PriceChange = ({ change }: { change: number | null }) =>
+const PriceChange = ({ change, suffix }: { change: number | null; suffix?: string }) =>
   change === null ? null : (
-    <div className={cn('text-sm tabular-nums', getSignedValueTone(change))}>
+    <div className={cn('text-sm whitespace-nowrap tabular-nums', getSignedValueTone(change))}>
       {change > 0 ? '+' : ''}
       {formatPercent(change)}
+      {suffix === undefined ? null : (
+        <span className="text-muted-foreground text-xs"> {suffix}</span>
+      )}
     </div>
   );
 
@@ -35,12 +39,14 @@ const PriceLine = ({
   currency,
   unit,
   asOfFormat,
+  changeSuffix,
 }: {
   label: string;
   price: MetalPrice;
   currency: 'INR' | 'USD';
   unit: string;
   asOfFormat: string;
+  changeSuffix?: string;
 }) => (
   <div className="flex items-baseline justify-between gap-3">
     <div className="min-w-0">
@@ -55,15 +61,27 @@ const PriceLine = ({
         <span className="text-muted-foreground ml-1 text-xs font-normal">{unit}</span>
       </div>
     </div>
-    <PriceChange change={price?.changePercentage ?? null} />
+    <PriceChange change={price?.changePercentage ?? null} suffix={changeSuffix} />
   </div>
 );
 
 const LIVE_TIME = 'd MMM, HH:mm';
+const PERCENT = 100;
+const FULL_COVERAGE = 99.5;
+const BUY_PRICE_STALE_MINUTES = 60;
 const PANEL_SPACING =
   'grid content-start gap-3 py-6 first:pt-0 last:pb-0 sm:py-0 sm:first:pr-6 sm:last:pl-6';
 
-const MetalPanel = ({ metal }: { metal: Metal }) => {
+const buyPriceAgainst = (average: number | null | undefined, current: number | null) =>
+  average === null || average === undefined
+    ? null
+    : {
+        price: average,
+        changePercentage: current === null ? null : ((current - average) / average) * PERCENT,
+        asOf: null,
+      };
+
+const MetalPanel = ({ metal, buyPrice }: { metal: Metal; buyPrice: MetalBuyPrice | undefined }) => {
   const [open, setOpen] = useState(false);
   const unit = `/ ${metal.unit}`;
   return (
@@ -115,6 +133,30 @@ const MetalPanel = ({ metal }: { metal: Metal }) => {
         price={metal.comex}
         unit="/ oz"
       />
+      {buyPrice === undefined ? null : (
+        <div className="grid gap-3 border-t pt-3">
+          <PriceLine
+            asOfFormat={LIVE_TIME}
+            changeSuffix="now"
+            currency="INR"
+            label="Your average buy, ETF based"
+            price={buyPriceAgainst(buyPrice.etf, metal.etf?.price ?? null)}
+            unit={unit}
+          />
+          <PriceLine
+            asOfFormat={LIVE_TIME}
+            changeSuffix="now"
+            currency="INR"
+            label={`Your average buy, MCX based${
+              buyPrice.mcxCoverage < FULL_COVERAGE
+                ? ` · ${formatPercent(buyPrice.mcxCoverage, 0)} of buys`
+                : ''
+            }`}
+            price={buyPriceAgainst(buyPrice.mcx, metal.mcx?.price ?? null)}
+            unit={unit}
+          />
+        </div>
+      )}
     </div>
   );
 };
@@ -143,6 +185,9 @@ export const MetalPricesCard = () => {
   const { data: indicators } = api.investments.getMarketIndicators.useQuery(undefined, {
     refetchInterval: MS_PER_MINUTE,
   });
+  const { data: buyPrices } = api.investments.getMetalBuyPrices.useQuery(undefined, {
+    staleTime: BUY_PRICE_STALE_MINUTES * MS_PER_MINUTE,
+  });
 
   return (
     <Card>
@@ -170,7 +215,13 @@ export const MetalPricesCard = () => {
               </div>
             </>
           ) : (
-            data.map((metal) => <MetalPanel key={metal.code} metal={metal} />)
+            data.map((metal) => (
+              <MetalPanel
+                key={metal.code}
+                buyPrice={buyPrices?.find((item) => item.code === metal.code)}
+                metal={metal}
+              />
+            ))
           )}
         </div>
       </CardContent>

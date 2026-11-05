@@ -1,10 +1,11 @@
 import { subDays } from 'date-fns';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
-import { instrumentAssetClasses, investments } from '@/db/schema';
+import { instrumentAssetClasses, investments, marketPrices } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import type { AssetClassTagValue } from '@/lib/investments';
+import { istDay } from '@/server/helpers/groww/client';
 import { MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND } from '@/types';
 
 import {
@@ -15,6 +16,7 @@ import {
 } from './intraday';
 import { cachedQuotes } from './market-cache';
 import { isIndianMarketOpen } from './market-hours';
+import { averageBuyPrices, type MetalBuy } from './metal-buy-prices';
 import { estimateClosedHours, mergeSeries } from './metal-estimates';
 import {
   fetchCommodityHistoricalPrices,
@@ -47,6 +49,7 @@ const CANDLE_MINUTES = 5;
 const DAILY_CANDLE_MINUTES = 1440;
 const CONVERSION_WINDOW_DAYS = 35;
 const CHART_WINDOW_DAYS = 7;
+const MCX_LOOKBACK_DAYS = 7;
 const COMEX_HISTORY_RANGE = '1mo';
 const IST_OFFSET_MINUTES = 330;
 const IST_OFFSET_MS = IST_OFFSET_MINUTES * MS_PER_MINUTE;
@@ -321,6 +324,97 @@ export const getMetalPrices = instrumentedFunction(
         comex: scaled(comexQuotes.get(comexKey(metal))),
       };
     });
+  },
+);
+
+const istDayKey = (date: Date) => dayOf(istDay(date.getTime()));
+
+const loadMcxCloses = async (db: Database, metal: AssetClassTagValue, earliest: number) => {
+  const instrumentKey = mcxKey(metal);
+  const now = Math.floor(Date.now() / MS_PER_HOUR) * MS_PER_HOUR;
+  const [saved, candles] = await Promise.all([
+    db
+      .select({ day: marketPrices.day, price: marketPrices.price })
+      .from(marketPrices)
+      .where(eq(marketPrices.instrumentKey, instrumentKey)),
+    mcxCandles(
+      metal,
+      subDays(new Date(earliest), MCX_LOOKBACK_DAYS).getTime(),
+      now,
+      DAILY_CANDLE_MINUTES,
+      MS_PER_HOUR,
+    ),
+  ]);
+  const closes = new Map(saved.map((row) => [row.day, Number.parseFloat(row.price)]));
+  const today = istDayKey(new Date());
+  const fresh = candles.flatMap(({ date, price }) => {
+    const day = istDayKey(date);
+    return closes.has(day) ? [] : [{ instrumentKey, day, price }];
+  });
+  const finished = fresh.filter(({ day }) => day !== today);
+  if (finished.length > 0) {
+    await db
+      .insert(marketPrices)
+      .values(finished.map((row) => ({ ...row, price: row.price.toString() })))
+      .onConflictDoNothing();
+  }
+  for (const { day, price } of fresh) {
+    closes.set(day, price);
+  }
+  return closes;
+};
+
+export const getMetalBuyPrices = instrumentedFunction(
+  'getMetalBuyPrices',
+  async (db: Database, userId: string) => {
+    const rows = await db
+      .select({
+        metal: instrumentAssetClasses.assetClass,
+        code: investments.instrumentCode,
+        date: investments.investmentDate,
+        units: investments.units,
+        amount: investments.investmentAmount,
+      })
+      .from(investments)
+      .innerJoin(
+        instrumentAssetClasses,
+        and(
+          eq(instrumentAssetClasses.userId, investments.userId),
+          eq(instrumentAssetClasses.investmentKind, investments.investmentKind),
+          eq(instrumentAssetClasses.instrumentCode, investments.instrumentCode),
+        ),
+      )
+      .where(
+        and(
+          eq(investments.userId, userId),
+          eq(investments.investmentKind, 'stocks'),
+          eq(investments.isClosed, false),
+          isNotNull(investments.units),
+          inArray(instrumentAssetClasses.assetClass, [...METAL_CODES]),
+        ),
+      );
+    return Promise.all(
+      METAL_CODES.flatMap((metal) => {
+        const held = rows.filter((row) => row.metal === metal);
+        return held.length === 0 ? [] : [{ metal, held }];
+      }).map(async ({ metal, held }) => {
+        const codes = [...new Set(held.map((row) => row.code ?? ''))];
+        const earliest = Math.min(...held.map((row) => row.date.getTime()));
+        const [conversions, mcxCloses] = await Promise.all([
+          Promise.all(
+            codes.map(async (code) => [code, await getEtfConversion(metal, code)] as const),
+          ),
+          loadMcxCloses(db, metal, earliest),
+        ]);
+        const buys: MetalBuy[] = held.map((row) => ({
+          code: row.code ?? '',
+          day: istDayKey(row.date),
+          units: Number.parseFloat(row.units ?? '0'),
+          amount: Number.parseFloat(row.amount),
+        }));
+        return { code: metal, ...averageBuyPrices(buys, new Map(conversions), mcxCloses) };
+      }),
+    );
   },
 );
 
