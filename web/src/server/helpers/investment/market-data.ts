@@ -442,7 +442,11 @@ export const getUnitInstrumentOneDayMetricsByKey = ({
     const isUsStock =
       instrument.kind === 'stocks' && normalizeStockMarket(instrument.stockMarket) === 'US';
     const currentUnitPriceInr = quote?.unitPriceInr ?? currentPointFromHistory?.price ?? null;
-    const previousUnitPriceInr = previousPointFromHistory?.price ?? null;
+    const quotedPreviousClose = isUsStock ? null : (quote?.previousCloseInr ?? null);
+    const previousUnitPriceInr =
+      quotedPreviousClose !== null && quotedPreviousClose > 0
+        ? quotedPreviousClose
+        : (previousPointFromHistory?.price ?? null);
 
     const currentUnitPriceNative = (() => {
       if (!isUsStock) {

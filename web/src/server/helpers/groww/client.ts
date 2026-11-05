@@ -30,6 +30,7 @@ export type GrowwLivePoint = {
   dayChange?: number | null;
   dayChangePerc?: number | null;
   tsInMillis?: number | null;
+  lastTradeTime?: number | null;
 };
 
 export type DailyPoint = { date: Date; price: number };
@@ -100,8 +101,10 @@ export const growwLatestPrices = instrumentedFunction(
   },
 );
 
-export const livePointTime = (point: GrowwLivePoint) =>
-  typeof point.tsInMillis === 'number' ? new Date(point.tsInMillis * MS_PER_SECOND) : null;
+export const livePointTime = (point: GrowwLivePoint) => {
+  const seconds = point.lastTradeTime ?? point.tsInMillis;
+  return typeof seconds === 'number' ? new Date(seconds * MS_PER_SECOND) : null;
+};
 
 export const growwDailyCandles = instrumentedFunction(
   'growwDailyCandles',
