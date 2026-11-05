@@ -39,6 +39,7 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { MS_PER_MINUTE } from '@/types';
 
+import { AssetAllocationCard } from './asset-allocation-card';
 import { getExcludedPortfolioDescription, getExcludedPortfolioTag } from './display';
 import { getSignedValueTone } from './investment-columns';
 
@@ -129,52 +130,24 @@ const LiveStatus = ({ asOf, isLive }: { asOf: Date | null; isLive: boolean }) =>
   );
 };
 
-const StatCard = ({
-  title,
-  tone,
-  className,
-  note,
-  children,
-}: {
-  title: string;
-  tone?: string;
-  className?: string;
-  note?: string;
-  children: React.ReactNode;
-}) => (
-  <Card className={cn('gap-2 py-3 sm:gap-6 sm:py-6', className)}>
-    <CardHeader className="px-3 sm:px-6 sm:pb-2">
-      <CardTitle className="text-sm font-medium">{title}</CardTitle>
-    </CardHeader>
-    <CardContent className={cn('px-3 text-lg font-semibold sm:px-6 sm:text-xl', tone)}>
-      {children}
-    </CardContent>
-    {note === undefined ? null : (
-      <div className="text-muted-foreground mt-auto px-3 text-right text-xs sm:px-6">{note}</div>
-    )}
-  </Card>
-);
-
-const CategoryFigure = ({
+const NumberRow = ({
   label,
   value,
   tone,
+  note,
 }: {
   label: string;
   value: string;
   tone?: string;
+  note?: string;
 }) => (
-  <div className="flex items-baseline justify-between gap-2">
-    <span className="text-muted-foreground">{label}</span>
-    <span className={cn('text-right tabular-nums', tone)}>{value}</span>
-  </div>
-);
-
-const DayFigure = ({ label, value }: { label: string; value: number | null | undefined }) => (
-  <div className="flex flex-wrap items-baseline justify-between gap-x-2">
-    <span className="text-muted-foreground whitespace-nowrap">{label}</span>
-    <span className={cn('ml-auto tabular-nums', getSignedValueTone(value ?? null))}>
-      {value === null || value === undefined ? '-' : formatCurrency(value)}
+  <div className="flex items-baseline justify-between gap-3 py-2 first:pt-0 last:pb-0">
+    <span className="text-muted-foreground text-sm">{label}</span>
+    <span className="text-right">
+      <span className={cn('font-semibold tabular-nums', tone)}>{value}</span>
+      {note === undefined ? null : (
+        <span className="text-muted-foreground block text-xs">{note}</span>
+      )}
     </span>
   </div>
 );
@@ -294,298 +267,258 @@ export const InvestmentsOverview = ({
     todayEstimate?.navDate === null || todayEstimate === undefined
       ? 'last NAV'
       : `${zoned(todayEstimate.navDate, 'd MMM')} NAV`;
+  const categories = dashboard.categoryBreakdown.map((item) => ({
+    key: item.category,
+    label: investmentCategoryLabels[item.category],
+    value: item.valuationAmount,
+    invested: item.investedAmount,
+    dayChange: item.dayChange,
+    xirr: item.xirr,
+    openPositions: item.openPositions,
+    closedPositions: item.closedPositions,
+    selected: selectedCategories.has(item.category),
+    onToggle: () => {
+      onCategoryToggle(item.category);
+    },
+  }));
   const chartLabels = isToday ? INTRADAY_LABELS : AGGREGATE_LABELS;
   const hasChart = timelinePoints.length >= 2;
   const selectedCurrency = selectedInstrument?.displayCurrency ?? 'INR';
   const chartCurrency = !isAggregateView && selectedCurrency === USD_CURRENCY ? 'USD' : 'INR';
 
   return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-      <div className="grid grid-cols-2 gap-3 xl:grid-rows-4">
-        <StatCard
-          note={totalCharges > 0 ? `+ ${formatCurrency(totalCharges)} charges` : undefined}
-          title="Total Invested"
-        >
-          {formatCurrency(dashboard.summary.investedAmount)}
-        </StatCard>
-        <StatCard title="Current Value">
-          {formatCurrency(dashboard.summary.valuationAmount)}
-          <LiveStatus asOf={asOf} isLive={isLive} />
-        </StatCard>
-        <StatCard title="Unrealised P/L" tone={getSignedValueTone(dashboard.summary.pnl)}>
-          {formatCurrency(dashboard.summary.pnl)}
-          <LiveStatus asOf={asOf} isLive={isLive} />
-        </StatCard>
-        <StatCard title="Realised P/L" tone={getSignedValueTone(dashboard.summary.realizedPnl)}>
-          {formatCurrency(dashboard.summary.realizedPnl)}
-        </StatCard>
-        <StatCard title="1D Change">
-          {fundsCategory === undefined ? (
-            <span className={getSignedValueTone(dashboard.summary.dayChange)}>
-              {formatCurrency(dashboard.summary.dayChange)}
-            </span>
-          ) : (
-            <div className="grid gap-1 text-xs font-medium sm:text-sm">
-              <DayFigure
-                label="Stocks and others"
-                value={dashboard.summary.dayChange - fundsCategory.dayChange}
-              />
-              <DayFigure label={`Funds, ${navLabel}`} value={fundsCategory.dayChange} />
-              {fundsToday === null ? null : (
-                <DayFigure label="Funds today, est." value={fundsToday} />
-              )}
-            </div>
-          )}
-          <LiveStatus asOf={asOf} isLive={isLive} />
-        </StatCard>
-        <StatCard
-          title="XIRR"
-          tone={
-            dashboard.summary.xirr === null ? undefined : getSignedValueTone(dashboard.summary.xirr)
-          }
-        >
-          {dashboard.summary.xirr === null ? '-' : formatPercent(dashboard.summary.xirr)}
-        </StatCard>
-        <StatCard className="col-span-2" title="Open Positions">
-          {dashboard.summary.openPositions}
-          {dashboard.summary.closedPositions === 0 ? null : (
-            <span className="text-muted-foreground ml-2 text-sm font-normal">
-              · {dashboard.summary.closedPositions} closed
-            </span>
-          )}
-        </StatCard>
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-4">
-        <Card>
-          <CardHeader className="gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <CardTitle>Investment Timeline</CardTitle>
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-                <Select value={viewSelection} onValueChange={setViewSelection}>
-                  <SelectTrigger className="w-full sm:w-[22rem]">
-                    <SelectValue placeholder="Select portfolio or instrument" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Portfolio</SelectLabel>
-                      <SelectItem value={PORTFOLIO_VIEW}>All Investments</SelectItem>
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>Categories</SelectLabel>
-                      {dashboard.categoryBreakdown.map((item) => (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <Card className="min-w-0">
+        <CardHeader className="gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CardTitle>Investment Timeline</CardTitle>
+            <div className="flex w-full flex-wrap items-center gap-2">
+              <Select value={viewSelection} onValueChange={setViewSelection}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select portfolio or instrument" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Portfolio</SelectLabel>
+                    <SelectItem value={PORTFOLIO_VIEW}>All Investments</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Categories</SelectLabel>
+                    {dashboard.categoryBreakdown.map((item) => (
+                      <SelectItem
+                        key={toCategoryViewValue(item.category)}
+                        value={toCategoryViewValue(item.category)}
+                      >
+                        {investmentCategoryLabels[item.category]}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                  {[...groupedOptions.entries()].map(([kind, options]) => (
+                    <SelectGroup key={kind}>
+                      <SelectLabel>{investmentKindLabels[kind]}</SelectLabel>
+                      {options.map((option) => (
                         <SelectItem
-                          key={toCategoryViewValue(item.category)}
-                          value={toCategoryViewValue(item.category)}
+                          key={toViewValue(option.kind, option.code, option.stockMarket)}
+                          value={toViewValue(option.kind, option.code, option.stockMarket)}
                         >
-                          {investmentCategoryLabels[item.category]}
+                          {option.name} ({option.code}
+                          {option.kind === 'stocks' && option.stockMarket !== null
+                            ? ` - ${option.stockMarket}`
+                            : ''}
+                          ){getExcludedPortfolioTag(option)}
                         </SelectItem>
                       ))}
                     </SelectGroup>
-                    {[...groupedOptions.entries()].map(([kind, options]) => (
-                      <SelectGroup key={kind}>
-                        <SelectLabel>{investmentKindLabels[kind]}</SelectLabel>
-                        {options.map((option) => (
-                          <SelectItem
-                            key={toViewValue(option.kind, option.code, option.stockMarket)}
-                            value={toViewValue(option.kind, option.code, option.stockMarket)}
-                          >
-                            {option.name} ({option.code}
-                            {option.kind === 'stocks' && option.stockMarket !== null
-                              ? ` - ${option.stockMarket}`
-                              : ''}
-                            ){getExcludedPortfolioTag(option)}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="xl:min-h-10">
-              {isCategoryView && selectedCategorySummary !== undefined ? (
-                <div className="text-muted-foreground text-sm">
-                  {investmentCategoryLabels[selectedCategorySummary.category]} -{' '}
-                  {selectedCategorySummary.openPositions} open /{' '}
-                  {selectedCategorySummary.closedPositions} closed - Invested{' '}
-                  {formatCurrency(selectedCategorySummary.investedAmount)} - Value{' '}
-                  {formatCurrency(selectedCategorySummary.valuationAmount)} - P/L{' '}
-                  <span
-                    className={selectedCategorySummary.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}
-                  >
-                    {formatCurrency(selectedCategorySummary.pnl)}
-                  </span>
-                  {selectedCategorySummary.realizedPnl === 0 ? null : (
-                    <>
-                      {' '}
-                      - Realised{' '}
-                      <span className={getSignedValueTone(selectedCategorySummary.realizedPnl)}>
-                        {formatCurrency(selectedCategorySummary.realizedPnl)}
-                      </span>
-                    </>
-                  )}
-                </div>
-              ) : null}
-              {!isPortfolioView &&
-              selectedInstrument !== null &&
-              selectedInstrument !== undefined ? (
-                <div className="text-muted-foreground text-sm">
-                  {selectedInstrument.name} ({selectedInstrument.code}
-                  {selectedInstrument.kind === 'stocks' && selectedInstrument.stockMarket !== null
-                    ? ` - ${selectedInstrument.stockMarket}`
-                    : ''}
-                  ) - Units {formatNumber(selectedInstrument.units, UNITS_DECIMALS)} - Value{' '}
-                  {formatCurrency(selectedInstrument.valuationAmount, selectedCurrency)} - P/L{' '}
-                  <span className={selectedInstrument.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                    {formatCurrency(selectedInstrument.pnl, selectedCurrency)}
-                  </span>{' '}
-                  - 1D{' '}
-                  <span
-                    className={selectedInstrument.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}
-                  >
-                    {formatCurrency(selectedInstrument.dayChange, selectedCurrency)}
-                  </span>
-                  {getExcludedPortfolioDescription(selectedInstrument)}
-                </div>
-              ) : null}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex [scrollbar-width:none] gap-1 overflow-x-auto">
-              {(isAggregateView ? AGGREGATE_CHARTS : INSTRUMENT_CHARTS).map((item) => (
-                <Button
-                  key={item.key}
-                  className="shrink-0"
-                  size="sm"
-                  variant={item.key === activeChart ? 'secondary' : 'ghost'}
-                  onClick={() => {
-                    setChartTab(item.key);
-                  }}
-                >
-                  {item.label}
-                </Button>
-              ))}
-            </div>
-            <div className="h-64">
-              {hasChart ? null : <ChartPlaceholder isLoading={timelineQuery.isPending} />}
-              {hasChart && activeChart === 'gain' ? (
-                <GainLossChart
-                  currency={chartCurrency}
-                  intraday={isIntraday}
-                  labels={chartLabels}
-                  points={timelinePoints}
-                  title={
-                    isToday
-                      ? {
-                          rupees: "Today's gain or loss, in ₹",
-                          percent: "Today's gain or loss, as % of previous close",
-                        }
-                      : { rupees: 'Gain or loss, in ₹', percent: 'Gain or loss, as % of invested' }
-                  }
-                />
-              ) : null}
-              {hasChart && activeChart === 'value' ? (
-                <ValueVsBaseChart
-                  currency={chartCurrency}
-                  intraday={isIntraday}
-                  labels={chartLabels}
-                  points={timelinePoints}
-                />
-              ) : null}
-              {hasChart && activeChart === 'price' ? (
-                <PriceChart
-                  averageBuyPrice={averageBuyPrice}
-                  currency={chartCurrency}
-                  intraday={isIntraday}
-                  points={pricePoints}
-                />
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
-              {TIME_RANGE_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  aria-pressed={option.value === timeRange}
-                  className="h-7 rounded-full px-2.5 text-xs sm:px-3"
-                  size="sm"
-                  variant={option.value === timeRange ? 'default' : 'outline'}
-                  onClick={() => {
-                    setTimeRange(option.value);
-                  }}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {dashboard.categoryBreakdown.map((categoryItem) => {
-            const isSelected = selectedCategories.has(categoryItem.category);
-            return (
-              <button
-                key={categoryItem.category}
-                aria-pressed={isSelected}
-                className={cn(
-                  'bg-muted/40 hover:bg-muted/70 focus-visible:ring-ring flex flex-col gap-1 rounded-md border p-3 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none xl:max-[1400px]:text-xs',
-                  isSelected && 'border-primary bg-primary/10 hover:bg-primary/15',
+          </div>
+          <div className="xl:min-h-10">
+            {isCategoryView && selectedCategorySummary !== undefined ? (
+              <div className="text-muted-foreground text-sm">
+                {investmentCategoryLabels[selectedCategorySummary.category]} -{' '}
+                {selectedCategorySummary.openPositions} open /{' '}
+                {selectedCategorySummary.closedPositions} closed - Invested{' '}
+                {formatCurrency(selectedCategorySummary.investedAmount)} - Value{' '}
+                {formatCurrency(selectedCategorySummary.valuationAmount)} - P/L{' '}
+                <span className={selectedCategorySummary.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                  {formatCurrency(selectedCategorySummary.pnl)}
+                </span>
+                {selectedCategorySummary.realizedPnl === 0 ? null : (
+                  <>
+                    {' '}
+                    - Realised{' '}
+                    <span className={getSignedValueTone(selectedCategorySummary.realizedPnl)}>
+                      {formatCurrency(selectedCategorySummary.realizedPnl)}
+                    </span>
+                  </>
                 )}
-                type="button"
+              </div>
+            ) : null}
+            {!isPortfolioView && selectedInstrument !== null && selectedInstrument !== undefined ? (
+              <div className="text-muted-foreground text-sm">
+                {selectedInstrument.name} ({selectedInstrument.code}
+                {selectedInstrument.kind === 'stocks' && selectedInstrument.stockMarket !== null
+                  ? ` - ${selectedInstrument.stockMarket}`
+                  : ''}
+                ) - Units {formatNumber(selectedInstrument.units, UNITS_DECIMALS)} - Value{' '}
+                {formatCurrency(selectedInstrument.valuationAmount, selectedCurrency)} - P/L{' '}
+                <span className={selectedInstrument.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                  {formatCurrency(selectedInstrument.pnl, selectedCurrency)}
+                </span>{' '}
+                - 1D{' '}
+                <span className={selectedInstrument.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                  {formatCurrency(selectedInstrument.dayChange, selectedCurrency)}
+                </span>
+                {getExcludedPortfolioDescription(selectedInstrument)}
+              </div>
+            ) : null}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex [scrollbar-width:none] gap-1 overflow-x-auto">
+            {(isAggregateView ? AGGREGATE_CHARTS : INSTRUMENT_CHARTS).map((item) => (
+              <Button
+                key={item.key}
+                className="shrink-0"
+                size="sm"
+                variant={item.key === activeChart ? 'secondary' : 'ghost'}
                 onClick={() => {
-                  onCategoryToggle(categoryItem.category);
+                  setChartTab(item.key);
                 }}
               >
-                <div className="flex flex-col whitespace-nowrap">
-                  <span className="font-semibold">
-                    {investmentCategoryLabels[categoryItem.category]}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {categoryItem.openPositions} open / {categoryItem.closedPositions} closed
-                  </span>
-                </div>
-                <CategoryFigure
-                  label="Invested"
-                  value={formatCurrency(categoryItem.investedAmount)}
+                {item.label}
+              </Button>
+            ))}
+          </div>
+          <div className="h-64">
+            {hasChart ? null : <ChartPlaceholder isLoading={timelineQuery.isPending} />}
+            {hasChart && activeChart === 'gain' ? (
+              <GainLossChart
+                currency={chartCurrency}
+                intraday={isIntraday}
+                labels={chartLabels}
+                points={timelinePoints}
+                title={
+                  isToday
+                    ? {
+                        rupees: "Today's gain or loss, in ₹",
+                        percent: "Today's gain or loss, as % of previous close",
+                      }
+                    : { rupees: 'Gain or loss, in ₹', percent: 'Gain or loss, as % of invested' }
+                }
+              />
+            ) : null}
+            {hasChart && activeChart === 'value' ? (
+              <ValueVsBaseChart
+                currency={chartCurrency}
+                intraday={isIntraday}
+                labels={chartLabels}
+                points={timelinePoints}
+              />
+            ) : null}
+            {hasChart && activeChart === 'price' ? (
+              <PriceChart
+                averageBuyPrice={averageBuyPrice}
+                currency={chartCurrency}
+                intraday={isIntraday}
+                points={pricePoints}
+              />
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2">
+            {TIME_RANGE_OPTIONS.map((option) => (
+              <Button
+                key={option.value}
+                aria-pressed={option.value === timeRange}
+                className="h-7 rounded-full px-2.5 text-xs sm:px-3"
+                size="sm"
+                variant={option.value === timeRange ? 'default' : 'outline'}
+                onClick={() => {
+                  setTimeRange(option.value);
+                }}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      <AssetAllocationCard allocation={dashboard.assetAllocation} categories={categories} />
+      <Card className="md:col-span-2 xl:col-span-1">
+        <CardHeader>
+          <CardTitle>Your numbers</CardTitle>
+          <LiveStatus asOf={asOf} isLive={isLive} />
+        </CardHeader>
+        <CardContent className="divide-y">
+          <NumberRow
+            label="Total invested"
+            note={totalCharges > 0 ? `+ ${formatCurrency(totalCharges)} charges` : undefined}
+            value={formatCurrency(dashboard.summary.investedAmount)}
+          />
+          <NumberRow
+            label="Current value"
+            value={formatCurrency(dashboard.summary.valuationAmount)}
+          />
+          <NumberRow
+            label="Unrealised P/L"
+            tone={getSignedValueTone(dashboard.summary.pnl)}
+            value={formatCurrency(dashboard.summary.pnl)}
+          />
+          <NumberRow
+            label="Realised P/L"
+            tone={getSignedValueTone(dashboard.summary.realizedPnl)}
+            value={formatCurrency(dashboard.summary.realizedPnl)}
+          />
+          {fundsCategory === undefined ? (
+            <NumberRow
+              label="1D change"
+              tone={getSignedValueTone(dashboard.summary.dayChange)}
+              value={formatCurrency(dashboard.summary.dayChange)}
+            />
+          ) : (
+            <>
+              <NumberRow
+                label="1D, stocks and others"
+                tone={getSignedValueTone(dashboard.summary.dayChange - fundsCategory.dayChange)}
+                value={formatCurrency(dashboard.summary.dayChange - fundsCategory.dayChange)}
+              />
+              <NumberRow
+                label={`1D, funds at ${navLabel}`}
+                tone={getSignedValueTone(fundsCategory.dayChange)}
+                value={formatCurrency(fundsCategory.dayChange)}
+              />
+              {fundsToday === null || fundsToday === undefined ? null : (
+                <NumberRow
+                  label="Funds today, est."
+                  tone={getSignedValueTone(fundsToday)}
+                  value={formatCurrency(fundsToday)}
                 />
-                <CategoryFigure
-                  label="Current Value"
-                  value={formatCurrency(categoryItem.valuationAmount)}
-                />
-                <CategoryFigure
-                  label="PNL"
-                  tone={categoryItem.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}
-                  value={formatCurrency(categoryItem.pnl)}
-                />
-                {categoryItem.realizedPnl === 0 ? null : (
-                  <CategoryFigure
-                    label="Realised"
-                    tone={getSignedValueTone(categoryItem.realizedPnl)}
-                    value={formatCurrency(categoryItem.realizedPnl)}
-                  />
-                )}
-                <CategoryFigure
-                  label={categoryItem.category === MUTUAL_FUNDS ? `1D, ${navLabel}` : '1D'}
-                  tone={categoryItem.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}
-                  value={formatCurrency(categoryItem.dayChange)}
-                />
-                {categoryItem.category === MUTUAL_FUNDS && fundsToday !== null ? (
-                  <DayFigure label="Today, est." value={fundsToday} />
-                ) : null}
-                {categoryItem.xirr === null ? null : (
-                  <CategoryFigure
-                    label="XIRR"
-                    tone={getSignedValueTone(categoryItem.xirr)}
-                    value={formatPercent(categoryItem.xirr)}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+              )}
+            </>
+          )}
+          <NumberRow
+            label="XIRR"
+            tone={
+              dashboard.summary.xirr === null
+                ? undefined
+                : getSignedValueTone(dashboard.summary.xirr)
+            }
+            value={dashboard.summary.xirr === null ? '-' : formatPercent(dashboard.summary.xirr)}
+          />
+          <NumberRow
+            label="Open positions"
+            note={
+              dashboard.summary.closedPositions === 0
+                ? undefined
+                : `${String(dashboard.summary.closedPositions)} closed`
+            }
+            value={String(dashboard.summary.openPositions)}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 };

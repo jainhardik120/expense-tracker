@@ -20,8 +20,14 @@ const REQUEST_INIT: RequestInit = {
 };
 
 const INDICES = [
-  { key: 'markets:nifty', label: 'Nifty 50', exchange: 'NSE', symbol: 'NIFTY' },
-  { key: 'markets:sensex', label: 'Sensex', exchange: 'BSE', symbol: 'SENSEX' },
+  { key: 'markets:nifty', id: 'nifty', label: 'Nifty 50', exchange: 'NSE', symbol: 'NIFTY' },
+  { key: 'markets:sensex', id: 'sensex', label: 'Sensex', exchange: 'BSE', symbol: 'SENSEX' },
+] as const;
+
+const US_INDICES = [
+  { key: 'markets:sp500', id: 'sp500', label: 'S&P 500', symbol: '^GSPC' },
+  { key: 'markets:nasdaq', id: 'nasdaq', label: 'Nasdaq', symbol: '^IXIC' },
+  { key: 'markets:dow', id: 'dow', label: 'Dow Jones', symbol: '^DJI' },
 ] as const;
 
 const fetchIndexQuote = async ({
@@ -72,9 +78,27 @@ const loadUsdInrQuote = async () =>
     return new Map(quote === null ? [] : [[USD_INR_KEY, quote]]);
   });
 
-const toIndicator = (label: string, isCurrency: boolean, quote: Quote | undefined) => {
+const loadUsIndexQuotes = async () =>
+  cachedQuotes(
+    US_INDICES.map(({ key }) => ({ key, ttlMs: LIVE_TTL_MS })),
+    async (keys) => {
+      const quotes = new Map<string, Quote>();
+      await Promise.all(
+        US_INDICES.filter(({ key }) => keys.includes(key)).map(async ({ key, symbol }) => {
+          const quote = await fetchYahooChartQuote(symbol, 'USD');
+          if (quote !== null) {
+            quotes.set(key, quote);
+          }
+        }),
+      );
+      return quotes;
+    },
+  );
+
+const toIndicator = (id: string, label: string, isCurrency: boolean, quote: Quote | undefined) => {
   const previous = quote?.previousCloseInr ?? null;
   return {
+    id,
     label,
     isCurrency,
     price: quote?.unitPriceNative ?? null,
@@ -87,9 +111,14 @@ const toIndicator = (label: string, isCurrency: boolean, quote: Quote | undefine
 };
 
 export const getMarketIndicators = instrumentedFunction('getMarketIndicators', async () => {
-  const [indexQuotes, usdInrQuotes] = await Promise.all([loadIndexQuotes(), loadUsdInrQuote()]);
+  const [indexQuotes, usQuotes, usdInrQuotes] = await Promise.all([
+    loadIndexQuotes(),
+    loadUsIndexQuotes(),
+    loadUsdInrQuote(),
+  ]);
   return [
-    ...INDICES.map(({ key, label }) => toIndicator(label, false, indexQuotes.get(key))),
-    toIndicator('USD/INR', true, usdInrQuotes.get(USD_INR_KEY)),
+    ...INDICES.map(({ key, id, label }) => toIndicator(id, label, false, indexQuotes.get(key))),
+    ...US_INDICES.map(({ key, id, label }) => toIndicator(id, label, false, usQuotes.get(key))),
+    toIndicator('usdinr', 'USD/INR', true, usdInrQuotes.get(USD_INR_KEY)),
   ];
 });

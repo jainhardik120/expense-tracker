@@ -113,7 +113,6 @@ const YAHOO_SOURCE = 'yahoo-finance';
 const GROWW_SOURCE = 'groww';
 const PERCENT = 100;
 const NEXT_DATA_PATTERN = /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/;
-const US_DOLLAR = 'USD';
 const SECONDS_TO_MS = 1000;
 
 const UPSTOX_HEADERS: HeadersInit = {
@@ -140,11 +139,6 @@ const monthByShortName = new Map<string, number>([
   ['Oct', MONTH_INDEX_OCTOBER],
   ['Nov', MONTH_INDEX_NOVEMBER],
   ['Dec', MONTH_INDEX_DECEMBER],
-]);
-
-const COMEX_SYMBOLS = new Map([
-  ['gold', 'GC=F'],
-  ['silver', 'SI=F'],
 ]);
 
 const commodityDefinitions = new Map<string, CommodityDefinition>([
@@ -446,14 +440,6 @@ export const fetchYahooChartQuote = async (
     previousCloseInr: parseFiniteNumber(meta?.chartPreviousClose),
   };
 };
-
-export const fetchComexQuote = instrumentedFunction(
-  'fetchComexQuote',
-  async (definition: CommodityDefinition): Promise<Quote | null> => {
-    const symbol = COMEX_SYMBOLS.get(definition.code);
-    return symbol === undefined ? null : fetchYahooChartQuote(symbol, US_DOLLAR);
-  },
-);
 
 export const fetchCommodityHistoricalPrices = instrumentedFunction(
   'fetchCommodityHistoricalPrices',

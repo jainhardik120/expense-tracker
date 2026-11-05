@@ -28,7 +28,7 @@ import { createGroupedColumns } from './grouped-columns';
 import { createInvestmentColumns } from './investment-columns';
 import { CreateInvestmentForm } from './investment-forms';
 import { InvestmentsOverview } from './investments-overview';
-import { MarketPanels } from './market-panels';
+import { MarketStrip } from './market-strip';
 
 type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialData'];
 
@@ -221,6 +221,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
           </Link>
         </Button>
       </div>
+      <MarketStrip />
       <InvestmentsOverview
         asOf={asOf}
         dashboard={dashboard}
@@ -232,7 +233,6 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
         onCategoryToggle={toggleCategory}
         onSelect={select}
       />
-      <MarketPanels allocation={dashboard.assetAllocation} />
       <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs">
         <span>Prices: {getPriceStatus(liveQuery.isError, isLive)}</span>
         {priceSources.map((source) => (

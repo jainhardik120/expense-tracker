@@ -17,6 +17,19 @@ import { getSignedValueTone } from './investment-columns';
 
 export type ColouredSlice = AllocationSlice & { fill: string };
 
+export type CategoryFigures = {
+  key: string;
+  label: string;
+  value: number;
+  invested: number;
+  dayChange: number;
+  xirr: number | null;
+  openPositions: number;
+  closedPositions: number;
+  selected: boolean;
+  onToggle: () => void;
+};
+
 export type ColouredGroup = ColouredSlice & { kinds: ColouredSlice[]; buckets: ColouredSlice[] };
 
 const PERCENT = 100;
@@ -52,8 +65,9 @@ const AllocationRow = ({
   nested = false,
   bold = false,
 }: {
-  slice: Pick<ColouredSlice, 'label' | 'value' | 'share' | 'invested' | 'dayChange'> & {
+  slice: Pick<ColouredSlice, 'label' | 'value' | 'invested' | 'dayChange'> & {
     fill?: string;
+    share?: number;
   };
   nested?: boolean;
   bold?: boolean;
@@ -75,9 +89,11 @@ const AllocationRow = ({
     <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
       <span className="flex flex-col">
         <span>{wholeRupees(slice.value)}</span>
-        <span className="text-muted-foreground text-[11px]">
-          {formatPercent(slice.share, SHARE_DECIMALS)}
-        </span>
+        {slice.share === undefined ? null : (
+          <span className="text-muted-foreground text-[11px]">
+            {formatPercent(slice.share, SHARE_DECIMALS)}
+          </span>
+        )}
       </span>
     </TableCell>
     <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>{wholeRupees(slice.invested)}</TableCell>
@@ -86,6 +102,36 @@ const AllocationRow = ({
     </TableCell>
     <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
       <SignedFigure base={slice.value - slice.dayChange} value={slice.dayChange} />
+    </TableCell>
+  </TableRow>
+);
+
+const CategoryRow = ({
+  category,
+  selected,
+  onToggle,
+}: {
+  category: CategoryFigures;
+  selected: boolean;
+  onToggle: () => void;
+}) => (
+  <TableRow className={cn('cursor-pointer', selected && 'bg-muted')} onClick={onToggle}>
+    <TableCell className={cn(CELL_SPACING, 'align-top whitespace-normal')}>
+      <div>{category.label}</div>
+      <div className="text-muted-foreground text-[11px]">
+        {category.openPositions} open / {category.closedPositions} closed
+        {category.xirr === null ? '' : ` · XIRR ${formatPercent(category.xirr)}`}
+      </div>
+    </TableCell>
+    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>{wholeRupees(category.value)}</TableCell>
+    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
+      {wholeRupees(category.invested)}
+    </TableCell>
+    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
+      <SignedFigure base={category.invested} value={category.value - category.invested} />
+    </TableCell>
+    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
+      <SignedFigure base={category.value - category.dayChange} value={category.dayChange} />
     </TableCell>
   </TableRow>
 );
@@ -113,12 +159,14 @@ const groupRows = (group: ColouredGroup): React.ReactNode[] => [
 
 export const AssetAllocationDialog = ({
   groups,
+  categories,
   description,
   open,
   setOpen,
   trigger,
 }: {
   groups: ColouredGroup[];
+  categories: CategoryFigures[];
   description?: string;
   open: boolean;
   setOpen: React.Dispatch<boolean>;
@@ -155,6 +203,22 @@ export const AssetAllocationDialog = ({
           <TableBody>
             {groups.flatMap(groupRows)}
             <AllocationRow bold slice={total} />
+            <TableRow className="hover:bg-transparent">
+              <TableCell
+                className="text-muted-foreground pt-4 pb-0.5 text-[11px]"
+                colSpan={COLUMN_COUNT}
+              >
+                By category · tap to filter the page
+              </TableCell>
+            </TableRow>
+            {categories.map((category) => (
+              <CategoryRow
+                key={category.key}
+                category={category}
+                selected={category.selected}
+                onToggle={category.onToggle}
+              />
+            ))}
           </TableBody>
         </Table>
       </div>

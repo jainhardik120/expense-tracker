@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 
-import { buildDailyPriceSeries, endAtLastPriceDay } from './range';
+import { buildDailyPriceSeries, endAtLastPriceDay, latestSession } from './range';
 
 vi.mock('@/lib/env', () => ({ env: {} }));
 
@@ -45,4 +45,26 @@ test('a range starting on a closed day opens at the last real close, not the fal
 
 test('uses the fallback only when no earlier price exists', () => {
   expect(series([{ date: day('2026-05-11'), price: 98.72 }], 66.45)).toEqual([66.45, 98.72, 98.72]);
+});
+
+const time = (value: string) => ({ date: new Date(`${value}Z`) });
+
+test('keeps the last session and the close before it', () => {
+  const points = [
+    time('2026-11-04T09:00:00'),
+    time('2026-11-04T10:00:00'),
+    time('2026-11-05T03:45:00'),
+    time('2026-11-05T03:50:00'),
+  ];
+  expect(latestSession(points)).toEqual(points.slice(1));
+});
+
+test('falls back to the last day for a market with no overnight break', () => {
+  const points = [
+    time('2026-11-03T10:00:00'),
+    time('2026-11-03T12:00:00'),
+    time('2026-11-04T09:00:00'),
+    time('2026-11-04T11:00:00'),
+  ];
+  expect(latestSession(points)).toEqual(points.slice(1));
 });

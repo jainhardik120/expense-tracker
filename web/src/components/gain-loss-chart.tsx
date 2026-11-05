@@ -72,7 +72,7 @@ const toneFor = (value: number) => {
   return value > 0 ? 'text-green-600' : 'text-red-600';
 };
 
-export type ChartCurrency = 'INR' | 'USD';
+export type ChartCurrency = 'INR' | 'USD' | 'NONE';
 
 type MoneyFormat = {
   symbol: string;
@@ -110,17 +110,24 @@ const compactDollars = (value: number) => {
   return `${prefix}${absolute.toFixed(0)}`;
 };
 
+const compactFor = (currency: ChartCurrency) => {
+  if (currency === 'NONE') {
+    return (value: number) => compactIndian(value).replace('₹', '');
+  }
+  return currency === 'USD' ? compactDollars : compactIndian;
+};
+
 const moneyFormat = (currency: ChartCurrency): MoneyFormat => {
   const formatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'en-IN', {
-    style: 'currency',
-    currency,
+    ...(currency === 'NONE' ? {} : { style: 'currency', currency }),
     maximumFractionDigits: 0,
   });
+  const symbols: Record<ChartCurrency, string> = { USD: '$', INR: '₹', NONE: '' };
   return {
-    symbol: currency === 'USD' ? '$' : '₹',
+    symbol: symbols[currency],
     full: (value) => formatter.format(value),
     signed: (value) => `${sign(value)}${formatter.format(Math.abs(value))}`,
-    compact: currency === 'USD' ? compactDollars : compactIndian,
+    compact: compactFor(currency),
   };
 };
 
@@ -466,12 +473,14 @@ const PriceTooltip = ({
   formatPrice,
   formatDate,
   averageBuyPrice,
+  label,
 }: {
   active?: boolean;
   payload?: Array<{ payload: { time: number; price: number } }>;
   formatPrice: (value: number) => string;
   formatDate: (time: number) => string;
   averageBuyPrice: number | null;
+  label: string;
 }) => {
   const row = payload?.[0]?.payload;
   if (active !== true || row === undefined) {
@@ -480,7 +489,7 @@ const PriceTooltip = ({
   return (
     <div className="bg-background flex min-w-40 flex-col gap-1 rounded-md border px-3 py-2 text-xs shadow-sm">
       <span className="font-medium">{formatDate(row.time)}</span>
-      <Line2 label="Unit price" value={formatPrice(row.price)} />
+      <Line2 label={label} value={formatPrice(row.price)} />
       {averageBuyPrice === null ? null : (
         <Line2 label="Avg buy price" value={formatPrice(averageBuyPrice)} />
       )}
@@ -508,12 +517,14 @@ export const PriceChart = ({
   className,
   intraday = false,
   averageBuyPrice = null,
+  label = 'Unit price',
 }: {
   points: PricePoint[];
   currency?: ChartCurrency;
   className?: string;
   intraday?: boolean;
   averageBuyPrice?: number | null;
+  label?: string;
 }) => {
   const money = useMemo(() => moneyFormat(currency), [currency]);
   const rows = useMemo(
@@ -522,8 +533,7 @@ export const PriceChart = ({
   );
   const formatPrice = useMemo(() => {
     const formatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'en-IN', {
-      style: 'currency',
-      currency,
+      ...(currency === 'NONE' ? {} : { style: 'currency', currency }),
       minimumFractionDigits: PRICE_DECIMALS,
       maximumFractionDigits: PRICE_DECIMALS,
     });
@@ -538,7 +548,7 @@ export const PriceChart = ({
   return (
     <div className={cn(CHART_WRAPPER, className)}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <span className="text-sm font-medium">Unit price</span>
+        <span className="text-sm font-medium">{label}</span>
         {averageBuyPrice === null ? null : (
           <span className="flex items-center gap-1.5 text-xs">
             <span className="w-4 border-t-2 border-dashed" style={{ borderColor: BASE_STROKE }} />
@@ -570,6 +580,7 @@ export const PriceChart = ({
                 averageBuyPrice={averageBuyPrice}
                 formatDate={intraday ? fullDateTime : fullDate}
                 formatPrice={formatPrice}
+                label={label}
               />
             }
             cursor={{ strokeDasharray: '3 3' }}

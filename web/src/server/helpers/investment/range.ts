@@ -1,7 +1,11 @@
 import { investmentTimelineRangeDays, type InvestmentTimelineRangeValue } from '@/lib/investments';
+import { MS_PER_HOUR } from '@/types';
 
 import { DAY_IN_MS, startOfDay } from './shared';
 import { dateToDayKey } from './utils';
+
+const SESSION_BREAK_HOURS = 3;
+const SESSION_BREAK_MS = SESSION_BREAK_HOURS * MS_PER_HOUR;
 
 export const clampDateInRange = (date: Date, rangeStart: Date, rangeEnd: Date): Date => {
   if (date.getTime() < rangeStart.getTime()) {
@@ -24,6 +28,23 @@ export const endAtLastPriceDay = <T extends { date: Date }>(
   const kept =
     lastDay === undefined ? points : points.filter(({ date }) => dateToDayKey(date) <= lastDay);
   return kept.length === 0 ? points : kept;
+};
+
+export const latestSession = <T extends { date: Date }>(points: T[]): T[] => {
+  const last = points.at(-1);
+  if (last === undefined) {
+    return points;
+  }
+  const breakIndex = points.findLastIndex(
+    (point, index) =>
+      index > 0 &&
+      point.date.getTime() - (points.at(index - 1)?.date.getTime() ?? 0) >= SESSION_BREAK_MS,
+  );
+  const start =
+    breakIndex > 0
+      ? breakIndex - 1
+      : points.findIndex((point) => last.date.getTime() - point.date.getTime() < DAY_IN_MS);
+  return points.slice(Math.max(start, 0));
 };
 
 export const buildDailyRange = (startDate: Date, endDate: Date): Date[] => {

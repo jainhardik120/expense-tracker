@@ -8,11 +8,14 @@ import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatPercent } from '@/lib/format';
 import { type AssetClassTagValue } from '@/lib/investments';
+import { cn } from '@/lib/utils';
 import { SESSION_GAP_MS } from '@/server/helpers/investment/metal-estimates';
 import { api } from '@/server/react';
 import { MS_PER_HOUR, MS_PER_MINUTE } from '@/types';
+
+import { getSignedValueTone } from './investment-columns';
 
 type Point = { time: number; price: number };
 
@@ -35,6 +38,8 @@ const ESTIMATE_STROKE = '#f59e0b';
 const NO_ESTIMATES: Point[] = [];
 const PERCENT = 100;
 const SYNC_ID = 'metal-prices';
+const FULL_COVERAGE = 99.5;
+const BUY_PRICE_STALE_MINUTES = 60;
 const SHEET_HEIGHT =
   'pb-4 data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:h-[96dvh] data-[vaul-drawer-direction=bottom]:max-h-[96dvh]';
 const GRID_MINUTES = 5;
@@ -229,6 +234,36 @@ const SeriesChart = ({
   );
 };
 
+const BuyPriceFigure = ({
+  label,
+  average,
+  current,
+  unit,
+}: {
+  label: string;
+  average: number | null;
+  current: number | null;
+  unit: string;
+}) => {
+  const change = average === null || current === null ? null : (current / average - 1) * PERCENT;
+  return (
+    <div className="min-w-0">
+      <div className="text-muted-foreground text-xs">{label}</div>
+      <div className="font-semibold tabular-nums">
+        {average === null ? '-' : formatCurrency(average)}
+        <span className="text-muted-foreground ml-1 text-xs font-normal">/ {unit}</span>
+      </div>
+      {change === null ? null : (
+        <div className={cn('text-xs tabular-nums', getSignedValueTone(change))}>
+          {change > 0 ? '+' : ''}
+          {formatPercent(change)}
+          <span className="text-muted-foreground"> now</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const MetalChartsDialog = ({
   metal,
   name,
@@ -247,6 +282,11 @@ export const MetalChartsDialog = ({
     { metal, range },
     { enabled: open, refetchInterval: MS_PER_MINUTE },
   );
+  const { data: buyPrices } = api.investments.getMetalBuyPrices.useQuery(undefined, {
+    enabled: open,
+    staleTime: BUY_PRICE_STALE_MINUTES * MS_PER_MINUTE,
+  });
+  const buyPrice = buyPrices?.find((item) => item.code === metal);
   const grid = useMemo(
     () =>
       data === undefined
@@ -292,6 +332,26 @@ export const MetalChartsDialog = ({
           <Skeleton className="min-h-0 flex-1 md:h-[34rem] md:flex-none" />
         ) : (
           <>
+            {buyPrice === undefined ? null : (
+              <div className="grid grid-cols-2 gap-3">
+                <BuyPriceFigure
+                  average={buyPrice.etf}
+                  current={data.etf.at(-1)?.price ?? null}
+                  label="Your average buy, ETF based"
+                  unit={data.unit}
+                />
+                <BuyPriceFigure
+                  average={buyPrice.mcx}
+                  current={data.mcx.at(-1)?.price ?? null}
+                  label={`Your average buy, MCX based${
+                    buyPrice.mcxCoverage < FULL_COVERAGE
+                      ? ` · ${formatPercent(buyPrice.mcxCoverage, 0)} of buys`
+                      : ''
+                  }`}
+                  unit={data.unit}
+                />
+              </div>
+            )}
             <SeriesChart
               end={data.end}
               estimates={data.etfEstimate}

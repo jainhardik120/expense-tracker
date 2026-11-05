@@ -29,12 +29,14 @@ import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
 import { buildFineTimeline } from '@/server/helpers/investment/intraday';
 import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
-import { getMarketIndicators } from '@/server/helpers/investment/market-indicators';
 import {
   getEtfEstimates,
+  getMarketChart,
+  getMarketSnapshot,
   getMetalBuyPrices,
   getMetalCharts,
-  getMetalPrices,
+  marketChartKeys,
+  marketChartRanges,
   metalChartRanges,
 } from '@/server/helpers/investment/metal-prices';
 import { attachPaymentTotals } from '@/server/helpers/investment/payments';
@@ -133,6 +135,8 @@ const overviewFigures = {
   dayChangePercentage: z.number().nullable(),
   xirr: z.number().nullable(),
 };
+
+const seriesPointSchema = z.object({ time: z.number(), price: z.number() });
 
 const allocationSliceSchema = z.object({
   key: z.string(),
@@ -402,16 +406,12 @@ export const investmentsRouter = createTRPCRouter({
       return { positions: await attachPaymentTotals(ctx.db, positions), dashboard };
     }),
 
-  getMarketIndicators: protectedProcedure.query(async () => getMarketIndicators()),
-
   getMarketSplits: protectedProcedure.query(async ({ ctx }) =>
     getMarketSplits(
       ctx.db,
       await getFilteredInvestments(ctx.db, ctx.user.id, { investmentKind: [] }),
     ),
   ),
-
-  getMetalPrices: protectedProcedure.query(async ({ ctx }) => getMetalPrices(ctx.db, ctx.user.id)),
 
   getAllocation: protectedProcedure
     .meta({
@@ -439,6 +439,41 @@ export const investmentsRouter = createTRPCRouter({
       ),
     ),
 
+  getMarketSnapshot: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/markets',
+      },
+    })
+    .input(z.void())
+    .output(
+      z.object({
+        items: z.array(
+          z.object({
+            key: z.enum(marketChartKeys),
+            label: z.string(),
+            unit: z.string().nullable(),
+            isCurrency: z.boolean(),
+            price: z.number().nullable(),
+            changePercentage: z.number().nullable(),
+          }),
+        ),
+      }),
+    )
+    .query(async () => getMarketSnapshot()),
+
+  getMarketChart: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/markets/chart',
+      },
+    })
+    .input(z.object({ key: z.enum(marketChartKeys), range: z.enum(marketChartRanges) }))
+    .output(z.object({ points: z.array(z.object({ date: z.date(), price: z.number() })) }))
+    .query(async ({ input }) => getMarketChart(input.key, input.range)),
+
   getEtfEstimates: protectedProcedure
     .meta({
       openapi: {
@@ -450,12 +485,48 @@ export const investmentsRouter = createTRPCRouter({
     .output(z.object({ percents: z.record(z.string(), z.number()) }))
     .query(async ({ ctx }) => getEtfEstimates(ctx.db, ctx.user.id)),
 
-  getMetalBuyPrices: protectedProcedure.query(async ({ ctx }) =>
-    getMetalBuyPrices(ctx.db, ctx.user.id),
-  ),
+  getMetalBuyPrices: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/metal-buy-prices',
+      },
+    })
+    .input(z.void())
+    .output(
+      z.array(
+        z.object({
+          code: z.enum(assetClassTagValues),
+          etf: z.number().nullable(),
+          mcx: z.number().nullable(),
+          mcxCoverage: z.number(),
+        }),
+      ),
+    )
+    .query(async ({ ctx }) => getMetalBuyPrices(ctx.db, ctx.user.id)),
 
   getMetalCharts: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/metal-charts',
+      },
+    })
     .input(z.object({ metal: z.enum(assetClassTagValues), range: z.enum(metalChartRanges) }))
+    .output(
+      z.object({
+        unit: z.string(),
+        etfSymbol: z.string(),
+        start: z.number(),
+        end: z.number(),
+        etf: z.array(seriesPointSchema),
+        etfEstimate: z.array(seriesPointSchema),
+        mcx: z.array(seriesPointSchema),
+        mcxEstimate: z.array(seriesPointSchema),
+        comex: z.array(seriesPointSchema),
+        india: z.array(seriesPointSchema),
+      }),
+    )
     .query(async ({ ctx, input }) => getMetalCharts(ctx.db, ctx.user.id, input.metal, input.range)),
 
   getFineTimeline: protectedProcedure

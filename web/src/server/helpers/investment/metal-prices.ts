@@ -15,34 +15,21 @@ import {
   type GrowwCandle,
 } from './intraday';
 import { cachedQuotes } from './market-cache';
-import { isIndianMarketOpen } from './market-hours';
+import { getMarketIndicators } from './market-indicators';
 import { averageBuyPrices, type MetalBuy } from './metal-buy-prices';
 import { estimateClosedHours, latestEstimatePercent, mergeSeries } from './metal-estimates';
 import {
   fetchCommodityHistoricalPrices,
-  fetchCommodityLiveQuote,
-  fetchComexQuote,
   getCommodityDefinition,
   type CommodityDefinition,
 } from './providers/commodity-market-data';
-import { IndiaStockInvestmentProvider } from './providers/india-stock-investment-provider';
 import { parseIndianListing } from './providers/indian-listing';
-import {
-  createInstrumentKey,
-  DAY_IN_MS,
-  DEFAULT_USER_AGENT,
-  fetchLiveJson,
-  fetchText,
-  startOfDay,
-} from './shared';
+import { latestSession } from './range';
+import { DAY_IN_MS, DEFAULT_USER_AGENT, fetchLiveJson, fetchText, startOfDay } from './shared';
 
 import type { PriceHistoryPoint, Quote } from './types';
 
-const INDIA_RATE_TTL_MINUTES = 5;
-const INDIA_RATE_TTL_MS = INDIA_RATE_TTL_MINUTES * MS_PER_MINUTE;
 const LIVE_TTL_MS = MS_PER_MINUTE;
-const CLOSED_ETF_TTL_MINUTES = 30;
-const CLOSED_ETF_TTL_MS = CLOSED_ETF_TTL_MINUTES * MS_PER_MINUTE;
 const PERCENT = 100;
 const GROWW_API = 'https://groww.in/v1/api';
 const CANDLE_MINUTES = 5;
@@ -62,6 +49,49 @@ const REQUEST_INIT: RequestInit = {
 };
 
 export const metalChartRanges = ['1d', '1w'] as const;
+
+export const marketChartKeys = [
+  'nifty',
+  'sensex',
+  'gold',
+  'silver',
+  'sp500',
+  'nasdaq',
+  'dow',
+  'usdinr',
+] as const;
+
+export const marketChartRanges = ['1d', '1w', '1m'] as const;
+
+type MarketChartKey = (typeof marketChartKeys)[number];
+
+type MarketChartRange = (typeof marketChartRanges)[number];
+
+const MARKET_CHART_WINDOWS: Record<MarketChartRange, { days: number; minutes: number }> = {
+  '1d': { days: 6, minutes: 5 },
+  '1w': { days: 7, minutes: 5 },
+  '1m': { days: 30, minutes: 30 },
+};
+
+const YAHOO_CHART_SYMBOLS: Partial<Record<MarketChartKey, string>> = {
+  sp500: '^GSPC',
+  nasdaq: '^IXIC',
+  dow: '^DJI',
+  usdinr: 'USDINR=X',
+};
+
+const YAHOO_CHART_RANGES: Record<MarketChartRange, string> = {
+  '1d': '5d',
+  '1w': '5d',
+  '1m': '1mo',
+};
+
+const YAHOO_MONTH_STEP = 6;
+
+const INDEX_CHART_PATHS: Partial<Record<MarketChartKey, string>> = {
+  nifty: 'charting_service/v4/chart/exchange/NSE/segment/CASH/NIFTY',
+  sensex: 'charting_service/v4/chart/exchange/BSE/segment/CASH/SENSEX',
+};
 
 type MetalChartRange = (typeof metalChartRanges)[number];
 
@@ -86,8 +116,6 @@ const METALS: Record<
 };
 
 const METAL_CODES = ['gold', 'silver'] as const;
-
-const indiaStocks = new IndiaStockInvestmentProvider();
 
 const definitionOf = (metal: AssetClassTagValue) =>
   getCommodityDefinition(metal) as CommodityDefinition;
@@ -236,20 +264,6 @@ const getReferenceEtf = async (db: Database, userId: string, metal: AssetClassTa
   return holdings.at(0)?.code ?? METALS[metal].defaultEtf;
 };
 
-const etfKey = (code: string) => createInstrumentKey('stocks', code, 'IN');
-
-const loadEtfQuotes = async (codes: string[]) =>
-  cachedQuotes(
-    codes.map((code) => ({
-      key: etfKey(code),
-      ttlMs: isIndianMarketOpen(new Date()) ? LIVE_TTL_MS : CLOSED_ETF_TTL_MS,
-    })),
-    () =>
-      indiaStocks.getLiveQuotes(
-        codes.map((code) => ({ kind: 'stocks' as const, code, stockMarket: 'IN' as const })),
-      ),
-  );
-
 const loadMetalQuotes = async <T>(
   ttlMs: number,
   keyOf: (metal: AssetClassTagValue) => string,
@@ -271,61 +285,7 @@ const loadMetalQuotes = async <T>(
     },
   );
 
-const indiaKey = (metal: AssetClassTagValue) => createInstrumentKey('commodities', metal);
-
-const comexKey = (metal: AssetClassTagValue) => `commodities:comex:${metal}`;
-
 const mcxKey = (metal: AssetClassTagValue) => `commodities:mcx:${metal}`;
-
-export const getMetalPrices = instrumentedFunction(
-  'getMetalPrices',
-  async (db: Database, userId: string) => {
-    const etfCodes = await Promise.all(
-      METAL_CODES.map(async (metal) => getReferenceEtf(db, userId, metal)),
-    );
-    const [indiaQuotes, comexQuotes, mcxQuotes, etfQuotes, conversions, contracts] =
-      await Promise.all([
-        loadMetalQuotes(INDIA_RATE_TTL_MS, indiaKey, async (metal) =>
-          fetchCommodityLiveQuote(definitionOf(metal)),
-        ),
-        loadMetalQuotes(LIVE_TTL_MS, comexKey, async (metal) =>
-          fetchComexQuote(definitionOf(metal)),
-        ),
-        loadMetalQuotes(LIVE_TTL_MS, mcxKey, fetchMcxQuote),
-        loadEtfQuotes(etfCodes),
-        Promise.all(
-          METAL_CODES.map(async (metal, index) =>
-            getEtfConversion(metal, etfCodes[index] as string),
-          ),
-        ),
-        Promise.all(METAL_CODES.map(findMcxContract)),
-      ]);
-    return METAL_CODES.map((metal, index) => {
-      const { unit, gramsPerUnit } = METALS[metal];
-      const code = etfCodes[index] as string;
-      const quote = etfQuotes.get(etfKey(code));
-      const conversion = conversions[index] ?? null;
-      const etfRate = conversion === null ? null : scaled(quote, conversion);
-      return {
-        code: metal,
-        name: definitionOf(metal).name,
-        unit,
-        etf:
-          etfRate === null
-            ? null
-            : {
-                ...etfRate,
-                symbol: parseIndianListing(code).symbol,
-                unitPrice: quote?.unitPriceNative ?? 0,
-              },
-        mcx: scaled(mcxQuotes.get(mcxKey(metal))),
-        contract: contracts[index]?.name ?? '',
-        india: scaled(indiaQuotes.get(indiaKey(metal)), gramsPerUnit),
-        comex: scaled(comexQuotes.get(comexKey(metal))),
-      };
-    });
-  },
-);
 
 const istDayKey = (date: Date) => dayOf(istDay(date.getTime()));
 
@@ -418,6 +378,16 @@ export const getMetalBuyPrices = instrumentedFunction(
   },
 );
 
+const withLatestPrice = <T extends { price: number }>(
+  points: T[],
+  price: number | null | undefined,
+): T[] => {
+  const last = points.at(-1);
+  return last === undefined || price === null || price === undefined
+    ? points
+    : [...points.slice(0, -1), { ...last, price }];
+};
+
 const toSeries = (points: PriceHistoryPoint[], from: number, multiplier = 1) =>
   points
     .filter(({ date }) => date.getTime() >= from)
@@ -450,7 +420,8 @@ export const getMetalCharts = instrumentedFunction(
     const windowStart = startOfDay(subDays(now, CHART_WINDOW_DAYS));
     const { unit, gramsPerUnit, comexSymbol } = METALS[metal];
     const code = await getReferenceEtf(db, userId, metal);
-    const [etf, mcx, comex, india, conversion] = await Promise.all([
+    const [mcxQuotes, etf, mcx, comex, india, conversion] = await Promise.all([
+      loadMetalQuotes(LIVE_TTL_MS, mcxKey, fetchMcxQuote),
       fetchIndianRangePrices(code, windowStart, now),
       mcxCandles(metal, windowStart.getTime(), end, CANDLE_MINUTES, LIVE_TTL_MS),
       fetchUsPrices(comexSymbol, COMEX_HISTORY_RANGE),
@@ -460,7 +431,10 @@ export const getMetalCharts = instrumentedFunction(
     const latest = mcx.at(-1)?.date.getTime() ?? end;
     const start = range === '1d' ? istDayStart(latest) : istDayStart(windowStart.getTime());
     const from = windowStart.getTime();
-    const mcxRates = toSeries(mcx, from);
+    const mcxRates = withLatestPrice(
+      toSeries(mcx, from),
+      mcxQuotes.get(mcxKey(metal))?.unitPriceNative,
+    );
     const etfRates = conversion === null ? [] : toSeries(etf, from, conversion);
     const mcxEstimate = estimateClosedHours(mcxRates, toSeries(comex, from));
     const etfEstimate = estimateClosedHours(etfRates, mergeSeries(mcxRates, mcxEstimate));
@@ -536,5 +510,76 @@ export const getEtfEstimates = instrumentedFunction(
       }),
     );
     return { percents: Object.fromEntries(percents.flat()) };
+  },
+);
+
+const loadMarketCandles = async (key: MarketChartKey, range: MarketChartRange) => {
+  const symbol = YAHOO_CHART_SYMBOLS[key];
+  if (symbol !== undefined) {
+    const prices = await fetchUsPrices(symbol, YAHOO_CHART_RANGES[range]);
+    return range === '1m'
+      ? prices.filter((_, index) => index % YAHOO_MONTH_STEP === 0 || index === prices.length - 1)
+      : prices;
+  }
+  const now = new Date();
+  const end = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
+  const { days, minutes } = MARKET_CHART_WINDOWS[range];
+  const start = startOfDay(subDays(now, days)).getTime();
+  const path = INDEX_CHART_PATHS[key];
+  return path === undefined
+    ? mcxCandles(key as AssetClassTagValue, start, end, minutes, LIVE_TTL_MS)
+    : fetchGrowwCandles(path, start, end, minutes, LIVE_TTL_MS);
+};
+
+export const getMarketSnapshot = instrumentedFunction('getMarketSnapshot', async () => {
+  const [indicators, mcxQuotes] = await Promise.all([
+    getMarketIndicators(),
+    loadMetalQuotes(LIVE_TTL_MS, mcxKey, fetchMcxQuote),
+  ]);
+  const indicatorItem = (key: MarketChartKey) => {
+    const indicator = indicators.find((item) => item.id === key);
+    return {
+      key,
+      label: indicator?.label ?? key,
+      unit: null,
+      isCurrency: indicator?.isCurrency ?? false,
+      price: indicator?.price ?? null,
+      changePercentage: indicator?.changePercentage ?? null,
+    };
+  };
+  const metalItem = (metal: AssetClassTagValue, label: string) => {
+    const quote = scaled(mcxQuotes.get(mcxKey(metal)));
+    return {
+      key: metal,
+      label,
+      unit: METALS[metal].unit,
+      isCurrency: true,
+      price: quote?.price ?? null,
+      changePercentage: quote?.changePercentage ?? null,
+    };
+  };
+  return {
+    items: [
+      indicatorItem('nifty'),
+      indicatorItem('sensex'),
+      metalItem('gold', 'Gold MCX'),
+      metalItem('silver', 'Silver MCX'),
+      indicatorItem('sp500'),
+      indicatorItem('nasdaq'),
+      indicatorItem('dow'),
+      indicatorItem('usdinr'),
+    ],
+  };
+});
+
+export const getMarketChart = instrumentedFunction(
+  'getMarketChart',
+  async (key: MarketChartKey, range: MarketChartRange) => {
+    const [points, snapshot] = await Promise.all([
+      loadMarketCandles(key, range),
+      getMarketSnapshot(),
+    ]);
+    const live = snapshot.items.find((item) => item.key === key)?.price;
+    return { points: withLatestPrice(range === '1d' ? latestSession(points) : points, live) };
   },
 );

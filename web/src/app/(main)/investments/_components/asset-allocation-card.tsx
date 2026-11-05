@@ -21,6 +21,7 @@ import { MS_PER_MINUTE } from '@/types';
 
 import {
   AssetAllocationDialog,
+  type CategoryFigures,
   type ColouredGroup,
   type ColouredSlice,
 } from './asset-allocation-dialog';
@@ -64,7 +65,7 @@ const colourSlice = <T extends AllocationSlice>(slice: T) => ({
 });
 
 const RING_SIZES = {
-  desktop: { hole: 22, kinds: 36, market: 51, outer: 66, gap: 18 },
+  desktop: { hole: 15, kinds: 28, market: 40, outer: 52, gap: 12 },
   phone: { hole: 16, kinds: 30, market: 44, outer: 58, gap: 12 },
 };
 
@@ -168,7 +169,7 @@ const OuterLabel = ({
         strokeWidth={1}
       />
       <text
-        className="fill-foreground text-[10px] sm:text-[11px]"
+        className="fill-foreground text-[10px]"
         textAnchor={isRight ? 'start' : 'end'}
         x={textX}
         y={position.y + LABEL_NAME_OFFSET}
@@ -176,7 +177,7 @@ const OuterLabel = ({
         {slice.label}
       </text>
       <text
-        className="fill-muted-foreground text-[10px] font-semibold tabular-nums sm:text-[11px]"
+        className="fill-muted-foreground text-[10px] font-semibold tabular-nums"
         textAnchor={isRight ? 'start' : 'end'}
         x={textX}
         y={position.y + LABEL_SHARE_OFFSET}
@@ -187,7 +188,13 @@ const OuterLabel = ({
   );
 };
 
-export const AssetAllocationCard = ({ allocation }: { allocation: AssetAllocation }) => {
+export const AssetAllocationCard = ({
+  allocation,
+  categories,
+}: {
+  allocation: AssetAllocation;
+  categories: CategoryFigures[];
+}) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const rings = RING_SIZES[useIsMobile() ? 'phone' : 'desktop'];
   const { data } = api.investments.getMarketSplits.useQuery(undefined, {
@@ -216,6 +223,7 @@ export const AssetAllocationCard = ({ allocation }: { allocation: AssetAllocatio
         <CardTitle>Asset allocation</CardTitle>
         <CardAction>
           <AssetAllocationDialog
+            categories={categories}
             description={holdingsNote}
             groups={groups}
             open={detailsOpen}
