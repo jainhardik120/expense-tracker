@@ -18,7 +18,11 @@ export type Today = {
   totalPercent: number;
   marketOpen: boolean;
   asOf: Date | null;
+  estimatedFunds: number;
+  awaitingNav: Set<string>;
 };
+
+const DAY_KEY_LENGTH = 10;
 
 export const toneFor = (value: number) => {
   if (value > 0) {
@@ -51,17 +55,31 @@ export const buildToday = (analysis: Analysis, live: LiveData): Today => {
   const impactByCompany = new Map<string, number>();
   const fundPercent = new Map<string, number>();
   const quotes = new Map(Object.entries(live.quotes));
+  const awaitingNav = new Set(
+    analysis.funds
+      .filter(
+        (fund) =>
+          live.tradingDay !== null &&
+          (fund.navDate?.toISOString().slice(0, DAY_KEY_LENGTH) ?? '') < live.tradingDay,
+      )
+      .map((fund) => fund.schemeCode),
+  );
   for (const company of analysis.companies) {
     const change = quotes.get(company.key)?.dayChangePercent ?? null;
     if (change === null) {
       continue;
     }
-    impactByCompany.set(company.key, (company.value * change) / PERCENT);
     for (const fund of company.funds) {
-      fundPercent.set(
-        fund.schemeCode,
-        (fundPercent.get(fund.schemeCode) ?? 0) + (fund.weightPercent * change) / PERCENT,
-      );
+      if (awaitingNav.has(fund.schemeCode)) {
+        impactByCompany.set(
+          company.key,
+          (impactByCompany.get(company.key) ?? 0) + (fund.value * change) / PERCENT,
+        );
+        fundPercent.set(
+          fund.schemeCode,
+          (fundPercent.get(fund.schemeCode) ?? 0) + (fund.weightPercent * change) / PERCENT,
+        );
+      }
     }
   }
   const totalRupees = analysis.funds.reduce(
@@ -76,6 +94,8 @@ export const buildToday = (analysis: Analysis, live: LiveData): Today => {
     totalPercent: analysis.totals.value === 0 ? 0 : (totalRupees / analysis.totals.value) * PERCENT,
     marketOpen: live.marketOpen,
     asOf: live.asOf,
+    estimatedFunds: fundPercent.size,
+    awaitingNav,
   };
 };
 

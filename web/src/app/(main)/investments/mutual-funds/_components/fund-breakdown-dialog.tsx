@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import Modal from '@/components/modal';
 import MultiColorPieChart from '@/components/multi-color-pie-chart';
 
-import { assetTypeLabel, rupees, shortFundName } from './format';
+import { assetTypeLabel, rupees } from './format';
 import { type Analysis, type Company, type Fund } from './today';
 
 const EQUITY = 'EQUITY';
@@ -35,13 +35,12 @@ const DIMENSIONS: Dimension[] = [
 const slicesFor = (holdings: Array<{ company: Company; value: number }>, dimension: Dimension) => {
   const totals = new Map<string, number>();
   for (const { company, value } of holdings) {
-    if (value > 0) {
-      const name = dimension.pick(company);
-      totals.set(name, (totals.get(name) ?? 0) + value);
-    }
+    const name = dimension.pick(company);
+    totals.set(name, (totals.get(name) ?? 0) + value);
   }
   return [...totals.entries()]
     .map(([name, value]) => ({ name, value }))
+    .filter(({ value }) => value > 0)
     .toSorted((left, right) => right.value - left.value);
 };
 
@@ -83,7 +82,7 @@ export const FundBreakdownDialog = ({
           onClose();
         }
       }}
-      title={fund === null ? undefined : shortFundName(fund.schemeName)}
+      title={fund === null ? undefined : fund.schemeName}
       trigger={<span className="hidden" />}
     >
       <div className="grid max-h-[75vh] gap-6 overflow-y-auto sm:grid-cols-2">

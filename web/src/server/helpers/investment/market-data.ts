@@ -35,10 +35,8 @@ import type {
 } from './types';
 
 const FX_KEY = 'fx:USDINR';
-const FX_TTL_MINUTES = 10;
 const SLOW_QUOTE_TTL_MINUTES = 30;
 const COMMODITY_TTL_MINUTES = 5;
-const FX_TTL_MS = FX_TTL_MINUTES * MS_PER_MINUTE;
 const FUND_QUOTE_TTL_MS = SLOW_QUOTE_TTL_MINUTES * MS_PER_MINUTE;
 const CLOSED_MARKET_TTL_MS = SLOW_QUOTE_TTL_MINUTES * MS_PER_MINUTE;
 const HISTORY_LOOKBACK_DAYS = 10;
@@ -116,6 +114,52 @@ const resolveInstrumentNames = async (
   }
 
   return resolved;
+};
+
+export const loadFundQuotes = async (codes: string[]) => {
+  const now = new Date();
+  const instruments = codes.map((code) => ({
+    kind: 'mutual_funds' as const,
+    code,
+    stockMarket: null,
+  }));
+  const instrumentByKey = byKey(instruments);
+  return cachedQuotes(
+    instruments.map((instrument) => ({
+      key: instrumentKeyOf(instrument),
+      ttlMs: quoteTtlMs(instrument, now),
+    })),
+    async (keys) =>
+      fromProviders<Quote>(
+        keys.flatMap((key) => instrumentByKey.get(key) ?? []),
+        (provider, group) => provider.getLiveQuotes(group, { usdInrRate: null, usdInrHistory: [] }),
+      ),
+  );
+};
+
+export const namePastInstruments = async (
+  rows: Array<Pick<InvestmentRow, 'investmentKind' | 'instrumentCode' | 'stockMarket'>>,
+) => {
+  const instruments = new Map<string, InstrumentIdentity>();
+  for (const row of rows) {
+    const code = row.instrumentCode?.trim() ?? '';
+    if (code !== '') {
+      const instrument = {
+        kind: normalizeInvestmentKind(row.investmentKind),
+        code,
+        stockMarket: getStockMarketFromInvestment(row),
+      };
+      const key = instrumentKeyOf(instrument);
+      if (!instruments.has(key)) {
+        instruments.set(key, instrument);
+      }
+    }
+  }
+  const names = await loadInstrumentRows([...instruments.keys()]);
+  return [...instruments.entries()].map(([key, instrument]) => ({
+    ...instrument,
+    name: names.get(key)?.name ?? instrument.code,
+  }));
 };
 
 export const searchInvestmentInstruments = instrumentedFunction(
@@ -265,7 +309,7 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
             key: instrumentKeyOf(instrument),
             ttlMs: quoteTtlMs(instrument, now),
           })),
-          ...(requiresUsdInrData ? [{ key: FX_KEY, ttlMs: FX_TTL_MS }] : []),
+          ...(requiresUsdInrData ? [{ key: FX_KEY, ttlMs: LIVE_TTL_MS }] : []),
         ],
         async (keys) => {
           const fetched = new Map<string, Quote>();

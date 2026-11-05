@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import DynamicForm, { type DynamicFormProps } from '@/components/dynamic-form/dynamic-form';
 import { errorMessage } from '@/lib/utils';
 
-import Modal from './modal';
+import Modal, { type DialogControl } from './modal';
 
 type Mutation<Input, Result> = {
   mutateAsync: (values: Input) => Promise<Result>;
@@ -29,7 +29,8 @@ type Props<
   MutationResult,
 > = Omit<DynamicFormProps<Input, Output>, 'showSubmitButton'> &
   MutationProps<Output, MutationInput, MutationResult> & {
-    button: React.ReactNode;
+    button?: React.ReactNode;
+    dialog?: DialogControl;
     titleText?: string;
     refresh?: (values: MutationResult) => Promise<void> | void;
     successToast: (mutationResult: MutationResult) => string;
@@ -49,7 +50,9 @@ const submit = <Output, MutationInput, MutationResult>(
 const MutationModal = <T extends FieldValues, U extends FieldValues, MutationInput, MutationResult>(
   props: Props<T, U, MutationInput, MutationResult>,
 ) => {
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = props.dialog?.open ?? localOpen;
+  const setOpen = props.dialog?.onOpenChange ?? setLocalOpen;
   const onSubmit = (values: U) => {
     submit(props, values)
       .then((result) => {

@@ -22,6 +22,17 @@ import { getCommonPinningStyles } from '@/lib/data-table';
 import type { Column, Row, Table as TanstackTable } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
+import { RowContextMenu, type RowMenuAction } from './row-context-menu';
+
+const RowMenuIf = ({
+  actions,
+  children,
+}: {
+  actions: RowMenuAction[] | undefined;
+  children: React.ReactElement;
+}) =>
+  actions === undefined ? children : <RowContextMenu actions={actions}>{children}</RowContextMenu>;
+
 const alignmentClass = <TData extends RowData, TValue>(column: Column<TData, TValue>) =>
   column.columnDef.meta?.align === 'right' ? 'text-right tabular-nums' : undefined;
 
@@ -51,6 +62,7 @@ type DataTableProps<TData extends RowData> = React.ComponentProps<'div'> & {
   fill?: boolean;
   enableCellSelection?: boolean;
   getRowClassName?: (item: TData) => string | undefined;
+  rowMenu?: (row: TData) => RowMenuAction[];
 };
 
 const SortableContentIf = ({
@@ -96,6 +108,7 @@ export const DataTable = <TData extends RowData>({
   fill = false,
   enableCellSelection = false,
   getRowClassName,
+  rowMenu,
   ...props
 }: DataTableProps<TData>) => {
   const { rows } = table.getRowModel();
@@ -141,54 +154,56 @@ export const DataTable = <TData extends RowData>({
                   enabled={sortable}
                   value={getItemValue(row.original)}
                 >
-                  <TableRow
-                    className={cn(onRowClick !== undefined && 'hover:bg-muted/50 cursor-pointer')}
-                    data-state={row.getIsSelected() && 'selected'}
-                    onClick={
-                      onRowClick === undefined
-                        ? undefined
-                        : (event) => {
-                            if (
-                              (event.target as HTMLElement).closest(INTERACTIVE_SELECTOR) !== null
-                            ) {
-                              return;
+                  <RowMenuIf actions={rowMenu?.(row.original)}>
+                    <TableRow
+                      className={cn(onRowClick !== undefined && 'hover:bg-muted/50 cursor-pointer')}
+                      data-state={row.getIsSelected() && 'selected'}
+                      onClick={
+                        onRowClick === undefined
+                          ? undefined
+                          : (event) => {
+                              if (
+                                (event.target as HTMLElement).closest(INTERACTIVE_SELECTOR) !== null
+                              ) {
+                                return;
+                              }
+                              onRowClick(row.original);
                             }
-                            onRowClick(row.original);
+                      }
+                    >
+                      {row.getVisibleCells().map((cell, columnIndex) => (
+                        <TableCell
+                          key={cell.id}
+                          className={cn(
+                            'relative h-10 py-1',
+                            getRowClassName?.(row.original) ??
+                              (background ? 'bg-background' : undefined),
+                            alignmentClass(cell.column),
+                            enableCellSelection &&
+                              cell.column.columnDef.meta?.selectable !== false &&
+                              cellSelection.isSelected(row.index, columnIndex) &&
+                              'bg-primary/15',
+                          )}
+                          data-cell-col={
+                            enableCellSelection && cell.column.columnDef.meta?.selectable !== false
+                              ? columnIndex
+                              : undefined
                           }
-                    }
-                  >
-                    {row.getVisibleCells().map((cell, columnIndex) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cn(
-                          'relative h-10 py-1',
-                          getRowClassName?.(row.original) ??
-                            (background ? 'bg-background' : undefined),
-                          alignmentClass(cell.column),
-                          enableCellSelection &&
-                            cell.column.columnDef.meta?.selectable !== false &&
-                            cellSelection.isSelected(row.index, columnIndex) &&
-                            'bg-primary/15',
-                        )}
-                        data-cell-col={
-                          enableCellSelection && cell.column.columnDef.meta?.selectable !== false
-                            ? columnIndex
-                            : undefined
-                        }
-                        data-cell-row={
-                          enableCellSelection && cell.column.columnDef.meta?.selectable !== false
-                            ? row.index
-                            : undefined
-                        }
-                        style={{
-                          ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
-                          ...widthStyle(cell.column, layout),
-                        }}
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                          data-cell-row={
+                            enableCellSelection && cell.column.columnDef.meta?.selectable !== false
+                              ? row.index
+                              : undefined
+                          }
+                          style={{
+                            ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
+                            ...widthStyle(cell.column, layout),
+                          }}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </RowMenuIf>
                 </SortableItemIf>
               ))
             ) : (

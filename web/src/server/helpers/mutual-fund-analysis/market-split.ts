@@ -9,7 +9,6 @@ const ROUNDING_TOLERANCE = 0.01;
 const EQUITY = 'EQUITY';
 const OTHER = 'Other';
 export const INTERNATIONAL = 'International';
-const FOREIGN_EQUITY_INSTRUMENTS = new Set(['Foreign - Equity', 'ADS/ADR']);
 const ASSET_TYPE_BUCKETS: Record<string, MarketBucket> = {
   DEBT: 'Debt',
   CASH: 'Cash',
@@ -31,11 +30,8 @@ const holdingBucket = (
   if (holding.assetType !== EQUITY) {
     return ASSET_TYPE_BUCKETS[holding.assetType ?? ''] ?? OTHER;
   }
-  if (FOREIGN_EQUITY_INSTRUMENTS.has(holding.instrument ?? '')) {
-    return INTERNATIONAL;
-  }
   const stock = holding.stockRef === null ? undefined : stocks.get(holding.stockRef);
-  return capToBucket(capBucketFor(EQUITY, stock?.marketCapCrore ?? null));
+  return capToBucket(capBucketFor(EQUITY, stock?.marketCapCrore ?? null, holding.instrument));
 };
 
 export const splitFund = (

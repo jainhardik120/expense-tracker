@@ -92,7 +92,7 @@ export const buildDailyInstrumentTimeline = instrumentedFunction(
           if (day.getTime() < investmentDay.getTime()) {
             continue;
           }
-          if (closedDay !== null && day.getTime() > closedDay.getTime()) {
+          if (closedDay !== null && day.getTime() >= closedDay.getTime()) {
             continue;
           }
           if (kind === 'fd') {

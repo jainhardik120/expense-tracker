@@ -9,6 +9,25 @@ import {
 } from '@/lib/investments';
 
 export const PORTFOLIO_VIEW = '__portfolio__';
+
+export const lastStockPriceTime = (
+  positions: Array<{
+    normalizedKind: string;
+    isExcludedFromPortfolioPosition: boolean;
+    isClosedPosition: boolean;
+    valuationDate: Date | null;
+  }>,
+) => {
+  const times = positions.flatMap((position) =>
+    position.normalizedKind === 'stocks' &&
+    !position.isExcludedFromPortfolioPosition &&
+    !position.isClosedPosition &&
+    position.valuationDate !== null
+      ? [position.valuationDate.getTime()]
+      : [],
+  );
+  return times.length === 0 ? null : new Date(Math.max(...times));
+};
 const CATEGORY_VIEW_PREFIX = '__category__|';
 
 export const toCategoryViewValue = (category: InvestmentCategoryValue) =>

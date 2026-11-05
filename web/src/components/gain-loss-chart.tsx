@@ -120,7 +120,8 @@ const compactFor = (currency: ChartCurrency) => {
 const moneyFormat = (currency: ChartCurrency): MoneyFormat => {
   const formatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'en-IN', {
     ...(currency === 'NONE' ? {} : { style: 'currency', currency }),
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
   const symbols: Record<ChartCurrency, string> = { USD: '$', INR: '₹', NONE: '' };
   return {
@@ -232,17 +233,20 @@ const tickFormatFor = (times: number[], intraday: boolean) => {
   return spanDays(times) > LONG_RANGE_DAYS ? monthDate : shortDate;
 };
 
+const END_PADDING = { right: 10 };
+
 const xAxisProps = (rows: Array<{ time: number }>, intraday: boolean) => {
   const times = rows.map((row) => row.time);
   const format = tickFormatFor(times, intraday);
   if (!intraday) {
-    return { dataKey: 'time', scale: 'time', tickFormatter: format } as const;
+    return { dataKey: 'time', scale: 'time', tickFormatter: format, padding: END_PADDING } as const;
   }
   const dayStarts = rows.flatMap((row, index) =>
     index === 0 || localDay(rows[index - 1].time) !== localDay(row.time) ? [index] : [],
   );
   return {
     dataKey: 'index',
+    padding: END_PADDING,
     scale: 'linear',
     ticks: spanDays(times) < INTRADAY_TICK_MAX_DAYS ? undefined : dayStarts,
     tickFormatter: (index: number) => format(rows[index]?.time ?? 0),

@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { api } from '@/server/react';
 
-import { assetTypeLabel, percent, rupees, shortFundName } from './format';
+import { assetTypeLabel, percent, rupees } from './format';
 import { FundBreakdownDialog } from './fund-breakdown-dialog';
 import { HoldingsTable } from './holdings-table';
 import { IndexComparison } from './index-comparison';
@@ -85,15 +85,26 @@ const Movement = ({
   </div>
 );
 
+const navDetail = (analysis: Analysis) => {
+  const latest = shortDate(analysis.totals.latestNavDate);
+  const current = analysis.funds.filter((fund) => shortDate(fund.navDate) === latest).length;
+  return current === analysis.funds.length
+    ? `Official, from the NAVs published for ${latest}`
+    : `Official, ${String(current)} of ${String(analysis.funds.length)} funds at ${latest}, the rest at their last NAV`;
+};
+
+const estimateDay = (asOf: Date | null) =>
+  asOf === null || shortDate(asOf) === shortDate(new Date()) ? 'Today' : shortDate(asOf);
+
 const MovementBanner = ({ analysis, today }: { analysis: Analysis; today: Today | null }) => (
   <div className="grid gap-4 rounded-lg border px-4 py-3 sm:grid-cols-2">
     <Movement
-      detail={`Official, from the NAVs published for ${shortDate(analysis.totals.latestNavDate)}`}
+      detail={navDetail(analysis)}
       label={`Last NAV change · ${shortDate(analysis.totals.latestNavDate)}`}
       percentChange={analysis.totals.navChangePercent}
       rupeeChange={analysis.totals.navChange}
     />
-    {today === null ? null : (
+    {today === null || today.estimatedFunds === 0 ? null : (
       <Movement
         detail={
           <>
@@ -108,7 +119,7 @@ const MovementBanner = ({ analysis, today }: { analysis: Analysis; today: Today 
             {' · from each stock’s move; NAV is published in the evening'}
           </>
         }
-        label="Today, estimated"
+        label={`${estimateDay(today.asOf)}, estimated`}
         percentChange={today.totalPercent}
         rupeeChange={today.totalRupees}
       />
@@ -292,8 +303,8 @@ const Overlap = ({
       ) : (
         <CardContent className="flex flex-col gap-3 overflow-x-auto">
           <CardDescription>
-            Share of each pair&apos;s equity portfolio that is the same stocks at the same weights.
-            High overlap means paying two fund houses for one portfolio.
+            Share of each pair&apos;s portfolio that is the same stocks at the same weights. High
+            overlap means paying two fund houses for one portfolio.
           </CardDescription>
           <table className="w-full min-w-120 border-separate border-spacing-1 text-xs">
             <thead>
@@ -416,7 +427,7 @@ const FundCard = ({
       }}
     >
       <CardHeader>
-        <CardTitle className="text-base leading-snug">{shortFundName(fund.schemeName)}</CardTitle>
+        <CardTitle className="text-base leading-snug">{fund.schemeName}</CardTitle>
         <CardDescription className="flex flex-wrap gap-1.5">
           {[fund.subCategory, fund.fundHouse].map((tag) =>
             tag === null ? null : (
@@ -523,10 +534,7 @@ const FundAnalysis = () => {
     [analysis, live],
   );
   const fundNames = useMemo(
-    () =>
-      new Map(
-        (analysis?.funds ?? []).map((fund) => [fund.schemeCode, shortFundName(fund.schemeName)]),
-      ),
+    () => new Map((analysis?.funds ?? []).map((fund) => [fund.schemeCode, fund.schemeName])),
     [analysis?.funds],
   );
 

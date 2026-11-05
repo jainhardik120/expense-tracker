@@ -102,6 +102,7 @@ const toIndicator = (id: string, label: string, isCurrency: boolean, quote: Quot
     label,
     isCurrency,
     price: quote?.unitPriceNative ?? null,
+    previousClose: previous,
     changePercentage:
       quote === undefined || previous === null
         ? null

@@ -5,11 +5,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { type ControllerRenderProps, useFormContext, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 
+import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
 import { type FormField } from '@/components/dynamic-form/dynamic-form-fields';
+import { type DialogControl } from '@/components/modal';
 import MutationModal from '@/components/mutation-modal';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useDebouncedCallback } from '@/hooks/use-debounced-callback';
+import { formatCurrency } from '@/lib/format';
 import {
   assetClassLabels,
   assetClassTagValues,
@@ -27,6 +31,15 @@ import { api } from '@/server/react';
 import { amount, createInvestmentSchema, type Investment } from '@/types';
 
 const SEARCH_DEBOUNCE_MS = 300;
+const NOON_HOUR = 12;
+const MAX_UNITS = 9999999999;
+const UNIT_STEP = 0.00000001;
+
+const todayAtNoon = () => {
+  const today = new Date();
+  today.setHours(NOON_HOUR, 0, 0, 0);
+  return today;
+};
 
 const investmentKindOptions = investmentKindValues.map((kind) => ({
   label: investmentKindLabels[kind],
@@ -54,31 +67,6 @@ const instrumentCodePlaceholders: Record<InvestmentKindValue, string> = {
   other: 'Enter instrument code',
 };
 
-const stockSearchHelperTextByMarket: Record<(typeof stockMarketValues)[number], string> = {
-  IN: 'Searches NSE and BSE stocks on Groww.',
-  US: 'Searches Yahoo Finance symbols for US exchanges (NYSE/NASDAQ).',
-};
-
-const getInstrumentSearchHelperText = (
-  kind: InvestmentKindValue,
-  stockMarket: (typeof stockMarketValues)[number],
-) => {
-  if (kind === 'stocks') {
-    return stockSearchHelperTextByMarket[stockMarket];
-  }
-  return instrumentSearchHelperText[kind];
-};
-
-const instrumentSearchHelperText: Record<InvestmentKindValue, string> = {
-  stocks: stockSearchHelperTextByMarket.IN,
-  mutual_funds: 'Searches mutual funds on Groww.',
-  crypto: 'Searches CoinGecko coin ids.',
-  commodities: 'Searches supported commodities like gold and silver.',
-  fd: 'Searches preset Indian FD issuers.',
-  epfo: 'Optional custom EPFO label. EPFO is excluded from portfolio totals and timeline.',
-  other: 'Enter a custom instrument code.',
-};
-
 const InstrumentCodeAutocomplete = ({
   field,
 }: {
@@ -99,7 +87,8 @@ const InstrumentCodeAutocomplete = ({
     debouncedSetSearchQuery(currentValue);
   }, [currentValue, debouncedSetSearchQuery]);
 
-  const { data, isFetching } = api.investments.searchInstruments.useQuery(
+  const { data: pastInstruments } = api.investments.getPastInstruments.useQuery();
+  const { data } = api.investments.searchInstruments.useQuery(
     {
       kind: normalizedKind,
       stockMarket: normalizedStockMarket,
@@ -111,21 +100,23 @@ const InstrumentCodeAutocomplete = ({
   );
 
   const options = useMemo(() => {
-    const results = data ?? [];
+    const past = (pastInstruments ?? []).filter(
+      (item) =>
+        item.kind === normalizedKind &&
+        (normalizedKind !== 'stocks' || item.stockMarket === normalizedStockMarket),
+    );
     const deduped = new Map<string, string>();
-    for (const item of results) {
-      if (item.code === '') {
-        continue;
+    for (const item of [...past, ...(data ?? [])]) {
+      if (item.code !== '' && !deduped.has(item.code)) {
+        deduped.set(item.code, `${item.name} (${item.code})`);
       }
-      deduped.set(item.code, `${item.name} (${item.code})`);
     }
     return [...deduped.entries()].map(([value, label]) => ({
       value,
       label,
     }));
-  }, [data]);
+  }, [data, normalizedKind, normalizedStockMarket, pastInstruments]);
 
-  const helperText = getInstrumentSearchHelperText(normalizedKind, normalizedStockMarket);
   let placeholder = instrumentCodePlaceholders[normalizedKind];
   if (normalizedKind === 'stocks') {
     placeholder =
@@ -135,18 +126,44 @@ const InstrumentCodeAutocomplete = ({
   }
 
   return (
+    <Autocomplete
+      keepOrder
+      options={options}
+      placeholder={placeholder}
+      value={currentValue}
+      onValueChange={(nextValue) => {
+        field.onChange(nextValue);
+      }}
+    />
+  );
+};
+
+const UnitsInput = ({ field }: { field: ControllerRenderProps<InvestmentFormInput, 'units'> }) => {
+  const { control } = useFormContext<InvestmentFormInput>();
+  const [investmentAmount, investmentKind, stockMarket] = useWatch({
+    control,
+    name: ['investmentAmount', 'investmentKind', 'stockMarket'],
+  });
+  const units = Number(field.value);
+  const total = Number(investmentAmount);
+  const isUs =
+    normalizeInvestmentKind(investmentKind) === 'stocks' &&
+    normalizeStockMarket(stockMarket) === 'US';
+  return (
     <div className="grid gap-2">
-      <Autocomplete
-        options={options}
-        placeholder={placeholder}
-        value={currentValue}
-        onValueChange={(nextValue) => {
-          field.onChange(nextValue);
-        }}
+      <Input
+        max={MAX_UNITS}
+        min={0}
+        placeholder="Number of units"
+        step={UNIT_STEP}
+        type="number"
+        {...field}
       />
-      <p className="text-muted-foreground text-xs">
-        {isFetching ? 'Searching instruments...' : helperText}
-      </p>
+      {units > 0 && total > 0 ? (
+        <p className="text-muted-foreground text-xs">
+          {formatCurrency(total / units, isUs ? 'USD' : 'INR')} per unit
+        </p>
+      ) : null}
     </div>
   );
 };
@@ -170,8 +187,6 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
     name: 'instrumentCode',
     label: 'Instrument Code',
     type: 'custom',
-    description:
-      'Search and select code by type. Stocks: choose market first, Mutual Funds: scheme code, Crypto: CoinGecko id, Commodities: gold/silver, FD: issuer code.',
     render: (field) => (
       <InstrumentCodeAutocomplete
         field={field as ControllerRenderProps<InvestmentFormInput, 'instrumentCode'>}
@@ -187,14 +202,12 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
   {
     name: 'investmentDate',
     label: 'Investment Date',
-    type: 'datetime',
+    type: 'date',
   },
   {
     name: 'investmentAmount',
     label: 'Investment Amount',
     type: 'number',
-    description:
-      'Enter INR for Indian investments. For US stocks, enter USD amount (auto-converted to INR in dashboard/table).',
     placeholder: 'Investment Amount',
     min: 0,
     max: 9999999999,
@@ -203,7 +216,7 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
   {
     name: 'maturityDate',
     label: 'Maturity Date',
-    type: 'datetime',
+    type: 'date',
     displayCondition: (values) => normalizeInvestmentKind(values.investmentKind) === 'fd',
   },
   {
@@ -229,38 +242,54 @@ const investmentFormFields: FormField<InvestmentFormInput>[] = [
   {
     name: 'units',
     label: 'Units / Quantity',
-    type: 'number',
-    placeholder: 'Number of units',
-    min: 0,
-    max: 9999999999,
-    step: 0.00000001,
+    type: 'custom',
+    render: (field) => (
+      <UnitsInput field={field as ControllerRenderProps<InvestmentFormInput, 'units'>} />
+    ),
     displayCondition: (values) =>
       requiresInstrumentCode(normalizeInvestmentKind(values.investmentKind)),
   },
 ];
 
-export const CreateInvestmentForm = ({ refresh }: { refresh: () => Promise<void> }) => {
+export const CreateInvestmentForm = ({
+  refresh,
+  prefill,
+  dialog,
+}: {
+  refresh: () => Promise<void> | void;
+  prefill?: {
+    investmentKind: InvestmentKindValue;
+    instrumentCode: string;
+    stockMarket: (typeof stockMarketValues)[number];
+    isRsu: boolean;
+  };
+  dialog?: DialogControl;
+}) => {
   const mutation = api.investments.createInvestment.useMutation();
 
   return (
     <MutationModal
       button={
-        <Button className="h-8" variant="outline">
-          New Investment
-        </Button>
+        dialog === undefined ? (
+          <Button className="h-8" variant="outline">
+            New Investment
+          </Button>
+        ) : undefined
       }
       defaultValues={{
         investmentKind: 'stocks',
         instrumentCode: '',
         stockMarket: 'IN',
         isRsu: false,
-        investmentDate: new Date(),
+        investmentDate: todayAtNoon(),
         investmentAmount: '',
-        maturityDate: new Date(),
+        maturityDate: todayAtNoon(),
         maturityAmount: '',
         units: '',
         annualRate: '',
+        ...prefill,
       }}
+      dialog={dialog}
       fields={investmentFormFields}
       mutation={mutation}
       refresh={refresh}
@@ -275,14 +304,14 @@ export const UpdateInvestmentForm = ({
   refresh,
   investmentId,
   initialData,
-  trigger,
+  dialog,
 }: {
   refresh?: () => void;
   investmentId: string;
   initialData: Investment & {
     normalizedKind?: string;
   };
-  trigger: React.ReactNode;
+  dialog: DialogControl;
 }) => {
   const mutation = api.investments.updateInvestment.useMutation();
   const normalizedKind = normalizeInvestmentKind(
@@ -291,7 +320,6 @@ export const UpdateInvestmentForm = ({
 
   return (
     <MutationModal
-      button={trigger}
       defaultValues={{
         investmentKind: normalizedKind,
         instrumentCode: initialData.instrumentCode ?? '',
@@ -304,6 +332,7 @@ export const UpdateInvestmentForm = ({
         units: initialData.units ?? '',
         annualRate: initialData.annualRate ?? '',
       }}
+      dialog={dialog}
       fields={investmentFormFields}
       mapInput={(values) => ({
         id: investmentId,
@@ -341,21 +370,21 @@ const closeInvestmentFields: FormField<z.input<typeof closeInvestmentSchema>>[] 
 export const CloseInvestmentForm = ({
   investmentId,
   refresh,
-  trigger,
+  dialog,
 }: {
   investmentId: string;
   refresh?: () => void;
-  trigger: React.ReactNode;
+  dialog: DialogControl;
 }) => {
   const closeMutation = api.investments.closeInvestment.useMutation();
 
   return (
     <MutationModal
-      button={trigger}
       defaultValues={{
         closedAt: new Date(),
         closedAmount: '',
       }}
+      dialog={dialog}
       fields={closeInvestmentFields}
       mapInput={(values) => ({
         id: investmentId,
@@ -366,6 +395,26 @@ export const CloseInvestmentForm = ({
       schema={closeInvestmentSchema}
       successToast={() => 'Investment closed'}
       titleText="Close Investment"
+    />
+  );
+};
+
+export const DeleteInvestmentDialog = ({
+  investmentId,
+  refresh,
+  dialog,
+}: {
+  investmentId: string;
+  refresh: () => void;
+  dialog: DialogControl;
+}) => {
+  const mutation = api.investments.deleteInvestment.useMutation();
+  return (
+    <DeleteConfirmationDialog
+      dialog={dialog}
+      mutation={mutation}
+      mutationInput={{ id: investmentId }}
+      refresh={refresh}
     />
   );
 };
@@ -396,22 +445,22 @@ export const AssetClassForm = ({
   name,
   assetClass,
   refresh,
-  trigger,
+  dialog,
 }: {
   kind: InvestmentKindValue;
   code: string;
   name: string;
   assetClass: AssetClassTagValue | null;
   refresh?: () => Promise<void> | void;
-  trigger: React.ReactNode;
+  dialog: DialogControl;
 }) => {
   const mutation = api.investments.setAssetClass.useMutation();
   const selected: (typeof assetClassChoices)[number] = assetClass ?? UNTAGGED_ASSET_CLASS;
 
   return (
     <MutationModal
-      button={trigger}
       defaultValues={{ assetClass: selected }}
+      dialog={dialog}
       fields={assetClassFields}
       mapInput={(values) => ({
         kind,

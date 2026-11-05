@@ -9,6 +9,7 @@ import { enrichInvestments } from '@/server/helpers/investment/enrichment';
 import {
   buildInvestmentMarketDataContext,
   getHistoricalUnitPrices,
+  loadFundQuotes,
 } from '@/server/helpers/investment/market-data';
 import { createInstrumentKey } from '@/server/helpers/investment/shared';
 import { computeXirr, investmentCashFlows } from '@/server/helpers/investment/xirr';
@@ -16,6 +17,8 @@ import { analyseMutualFunds } from '@/server/helpers/mutual-fund-analysis/analys
 import {
   benchmarkTimeline,
   compareWithBenchmark,
+  extendToLastNav,
+  withLatestNav,
 } from '@/server/helpers/mutual-fund-analysis/benchmark';
 import { getLiveFundPrices, getTodayEstimate } from '@/server/helpers/mutual-fund-analysis/live';
 import { loadFundPortfolios } from '@/server/helpers/mutual-fund-analysis/store';
@@ -81,20 +84,26 @@ export const mutualFundAnalysisRouter = createTRPCRouter({
       subDays(earliest, BENCHMARK_LOOKBACK_DAYS),
       today,
     );
-    const latest = indexHistory.at(-1);
-    if (latest === undefined) {
+    if (indexHistory.length === 0) {
       return { ...analysis, benchmark: null };
     }
     const historyStart = subDays(earliest, BENCHMARK_LOOKBACK_DAYS);
     const schemeCodes = [...new Set(positions.map((position) => position.schemeCode))];
-    const fundHistories = new Map(
-      await Promise.all(
+    const [navQuotes, histories] = await Promise.all([
+      loadFundQuotes([...schemeCodes, BENCHMARK_SCHEME_CODE]),
+      Promise.all(
         schemeCodes.map(
           async (code) =>
             [code, await getHistoricalUnitPrices(MUTUAL_FUNDS, code, historyStart, today)] as const,
         ),
       ),
+    ]);
+    const quoteOf = (code: string) => navQuotes.get(createInstrumentKey(MUTUAL_FUNDS, code, null));
+    const fundHistories = new Map(
+      histories.map(([code, history]) => [code, withLatestNav(history, quoteOf(code))]),
     );
+    const pricedIndex = withLatestNav(indexHistory, quoteOf(BENCHMARK_SCHEME_CODE));
+    const latest = pricedIndex.at(-1) ?? { date: today, price: 0 };
     const timeline = benchmarkTimeline(
       enriched.map((investment) => ({
         schemeCode: investment.instrumentCode ?? '',
@@ -103,7 +112,7 @@ export const mutualFundAnalysisRouter = createTRPCRouter({
         units: investment.units === null ? null : Number.parseFloat(investment.units),
       })),
       fundHistories,
-      indexHistory,
+      extendToLastNav(pricedIndex, [...fundHistories.values()]),
     );
     const comparison = compareWithBenchmark(
       enriched.map((investment) => ({
@@ -111,7 +120,7 @@ export const mutualFundAnalysisRouter = createTRPCRouter({
         date: investment.investmentDate,
         amount: investment.investedAmountInr,
       })),
-      indexHistory,
+      pricedIndex,
       latest.price,
       today,
     );
@@ -148,6 +157,8 @@ export const mutualFundAnalysisRouter = createTRPCRouter({
       z.object({
         marketOpen: z.boolean(),
         navDate: z.date().nullable(),
+        oldestNavDate: z.date().nullable(),
+        estimateDate: z.date().nullable(),
         percents: z.record(z.string(), z.number()),
       }),
     )

@@ -72,6 +72,29 @@ export const compareWithBenchmark = (
   };
 };
 
+export const withLatestNav = (
+  history: BenchmarkPoint[],
+  quote: { asOf: Date | null; unitPriceInr: number } | undefined,
+): BenchmarkPoint[] => {
+  const last = history.at(-1);
+  return quote?.asOf === null ||
+    quote?.asOf === undefined ||
+    (last !== undefined && quote.asOf.getTime() <= last.date.getTime())
+    ? history
+    : [...history, { date: quote.asOf, price: quote.unitPriceInr }];
+};
+
+export const extendToLastNav = (
+  index: BenchmarkPoint[],
+  funds: BenchmarkPoint[][],
+): BenchmarkPoint[] => {
+  const last = index.at(-1);
+  const newest = Math.max(...funds.map((history) => history.at(-1)?.date.getTime() ?? 0));
+  return last === undefined || newest <= last.date.getTime()
+    ? index
+    : [...index, { date: new Date(newest), price: last.price }];
+};
+
 export type TimelineLot = BenchmarkLot & { units: number | null };
 
 export type BenchmarkTimelinePoint = {

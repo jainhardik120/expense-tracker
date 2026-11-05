@@ -1,9 +1,9 @@
 'use client';
 
-import { CircleOff, Info, ReceiptIndianRupee, SquarePen, Trash } from 'lucide-react';
+import { CircleOff, Info, Plus, ReceiptIndianRupee, SquarePen, Trash } from 'lucide-react';
 
-import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
-import DeleteConfirmationDialog from '@/components/delete-confirmation-dialog';
+import { type RowMenuAction } from '@/components/data-table/row-context-menu';
+import { type DialogControl } from '@/components/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -16,13 +16,22 @@ import {
   formatNumber,
 } from '@/lib/format';
 import { toViewValue } from '@/lib/investment-selection';
-import { FX_RATE_DECIMALS, getInvestmentCategory, investmentKindLabels } from '@/lib/investments';
+import {
+  FX_RATE_DECIMALS,
+  getInvestmentCategory,
+  investmentKindLabels,
+  normalizeStockMarket,
+} from '@/lib/investments';
 import type { ColumnDef } from '@/lib/table';
-import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { PERCENTAGE_DIVISOR } from '@/types';
 
-import { CloseInvestmentForm, UpdateInvestmentForm } from './investment-forms';
+import {
+  CloseInvestmentForm,
+  CreateInvestmentForm,
+  DeleteInvestmentDialog,
+  UpdateInvestmentForm,
+} from './investment-forms';
 import { InvestmentPaymentsDialog } from './investment-payments-dialog';
 
 type InvestmentRow = RouterOutput['investments']['getInvestmentsInitialData']['positions'][number];
@@ -91,7 +100,6 @@ const CurrencyDetailsPopover = ({ row }: { row: InvestmentRow }) => {
 type FilterOption = { label: string; value: string; count: number };
 
 export const createInvestmentColumns = (
-  refresh: () => void,
   zoned: ZonedFormat,
   filters: {
     categoryOptions: FilterOption[];
@@ -127,20 +135,10 @@ export const createInvestmentColumns = (
     cell: ({ row }) => investmentKindLabels[row.original.normalizedKind],
   },
   {
-    accessorKey: 'instrumentCode',
-    header: 'Code',
-    meta: { label: 'Code' },
-    cell: ({ row }) => {
-      const code = row.original.instrumentCode ?? '-';
-      const marketSuffix =
-        row.original.normalizedKind === 'stocks' && row.original.normalizedStockMarket !== null
-          ? ` [${row.original.normalizedStockMarket}]`
-          : '';
-      if (row.original.instrumentName === null) {
-        return `${code}${marketSuffix}`;
-      }
-      return `${row.original.instrumentName} (${code})${marketSuffix}`;
-    },
+    id: 'instrumentCode',
+    accessorFn: (row) => row.instrumentName ?? row.instrumentCode ?? '-',
+    header: 'Instrument',
+    meta: { label: 'Instrument' },
   },
   {
     id: 'rsu',
@@ -284,43 +282,71 @@ export const createInvestmentColumns = (
       </Badge>
     ),
   },
-  {
-    id: 'actions',
-    cell: ({ row }) => {
-      const deleteMutation = api.investments.deleteInvestment.useMutation();
+];
 
-      return (
-        <RowActions>
-          <InvestmentPaymentsDialog
-            investmentId={row.original.id}
-            title={`Payments · ${row.original.instrumentName ?? row.original.instrumentCode ?? investmentKindLabels[row.original.normalizedKind]}`}
-            trigger={<RowActionTrigger icon={ReceiptIndianRupee} label="Payments" />}
-            onChanged={refresh}
-          />
-          <UpdateInvestmentForm
-            initialData={row.original}
-            investmentId={row.original.id}
-            refresh={refresh}
-            trigger={<RowActionTrigger icon={SquarePen} label="Edit" />}
-          />
-          {row.original.isClosedPosition ? null : (
-            <CloseInvestmentForm
-              investmentId={row.original.id}
-              refresh={refresh}
-              trigger={<RowActionTrigger icon={CircleOff} label="Close position" />}
-            />
-          )}
-          <DeleteConfirmationDialog
-            mutation={deleteMutation}
-            mutationInput={{ id: row.original.id }}
-            refresh={() => {
-              refresh();
-            }}
-          >
-            <RowActionTrigger destructive icon={Trash} label="Delete" />
-          </DeleteConfirmationDialog>
-        </RowActions>
-      );
-    },
+export const investmentRowActions = (row: InvestmentRow, refresh: () => void): RowMenuAction[] => [
+  {
+    key: 'new',
+    label: 'New investment',
+    icon: Plus,
+    dialog: (dialog) => (
+      <CreateInvestmentForm
+        dialog={dialog}
+        prefill={{
+          investmentKind: row.normalizedKind,
+          instrumentCode: row.instrumentCode ?? '',
+          stockMarket: normalizeStockMarket(row.normalizedStockMarket),
+          isRsu: row.isRsuPosition,
+        }}
+        refresh={refresh}
+      />
+    ),
+  },
+  {
+    key: 'payments',
+    label: 'Payments',
+    icon: ReceiptIndianRupee,
+    dialog: (dialog) => (
+      <InvestmentPaymentsDialog
+        dialog={dialog}
+        investmentId={row.id}
+        title={`Payments · ${row.instrumentName ?? row.instrumentCode ?? investmentKindLabels[row.normalizedKind]}`}
+        onChanged={refresh}
+      />
+    ),
+  },
+  {
+    key: 'edit',
+    label: 'Edit',
+    icon: SquarePen,
+    dialog: (dialog) => (
+      <UpdateInvestmentForm
+        dialog={dialog}
+        initialData={row}
+        investmentId={row.id}
+        refresh={refresh}
+      />
+    ),
+  },
+  ...(row.isClosedPosition
+    ? []
+    : [
+        {
+          key: 'close',
+          label: 'Close position',
+          icon: CircleOff,
+          dialog: (dialog: DialogControl) => (
+            <CloseInvestmentForm dialog={dialog} investmentId={row.id} refresh={refresh} />
+          ),
+        },
+      ]),
+  {
+    key: 'delete',
+    label: 'Delete',
+    icon: Trash,
+    destructive: true,
+    dialog: (dialog) => (
+      <DeleteInvestmentDialog dialog={dialog} investmentId={row.id} refresh={refresh} />
+    ),
   },
 ];

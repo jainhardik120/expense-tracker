@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { instrumentAssetClasses, investments } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { toViewValue } from '@/lib/investment-selection';
+import { lastStockPriceTime, toViewValue } from '@/lib/investment-selection';
 import {
   assetClassTagValues,
   canTagAssetClass,
@@ -28,7 +28,10 @@ import {
 import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
 import { buildFineTimeline } from '@/server/helpers/investment/intraday';
-import { buildInvestmentMarketDataContext } from '@/server/helpers/investment/market-data';
+import {
+  buildInvestmentMarketDataContext,
+  namePastInstruments,
+} from '@/server/helpers/investment/market-data';
 import {
   getEtfEstimates,
   getMarketChart,
@@ -150,8 +153,10 @@ const allocationSliceSchema = z.object({
 
 const investmentsOverviewSchema = z.object({
   asOf: z.date(),
+  pricesAsOf: z.date().nullable(),
   summary: z.object({
     ...overviewFigures,
+    realizedPnl: z.number(),
     openPositions: z.number(),
     closedPositions: z.number(),
     totalPositions: z.number(),
@@ -161,6 +166,7 @@ const investmentsOverviewSchema = z.object({
       category: z.enum(investmentCategoryValues),
       label: z.string(),
       ...overviewFigures,
+      realizedPnl: z.number(),
       openPositions: z.number(),
       totalPositions: z.number(),
     }),
@@ -238,11 +244,13 @@ export const investmentsRouter = createTRPCRouter({
 
       return {
         asOf: today,
+        pricesAsOf: lastStockPriceTime(enriched),
         summary: {
           invested: dashboard.summary.investedAmount,
           valuation: dashboard.summary.valuationAmount,
           pnl: dashboard.summary.pnl,
           pnlPercentage: dashboard.summary.pnlPercentage,
+          realizedPnl: dashboard.summary.realizedPnl,
           dayChange: dashboard.summary.dayChange,
           dayChangePercentage: dashboard.summary.dayChangePercentage,
           xirr: dashboard.summary.xirr,
@@ -257,6 +265,7 @@ export const investmentsRouter = createTRPCRouter({
           valuation: row.valuationAmount,
           pnl: row.pnl,
           pnlPercentage: row.pnlPercentage,
+          realizedPnl: row.realizedPnl,
           dayChange: row.dayChange,
           dayChangePercentage: row.dayChangePercentage,
           xirr: row.xirr,
@@ -376,15 +385,19 @@ export const investmentsRouter = createTRPCRouter({
       if (fine?.intraday !== true || fine.points.length < MIN_CHART_POINTS) {
         return { points: chart.points, positions: chart.positions, intraday: false };
       }
+      const lastIndex = fine.points.length - 1;
       return {
-        points: fine.points.map((point) => ({
-          date: point.date,
-          unitPrice: point.unitPrice * chart.displayFxToInr,
-          holdingValue: point.value * chart.displayFxToInr,
-          investedAmount: point.base * chart.displayFxToInr,
-          unitPriceDisplay: point.unitPrice,
-          holdingValueDisplay: point.value,
-        })),
+        points: fine.points.map((point, index) => {
+          const fx = index === lastIndex ? chart.displayFxToInr : chart.fxOn(point.date);
+          return {
+            date: point.date,
+            unitPrice: point.unitPrice * fx,
+            holdingValue: point.value * fx,
+            investedAmount: point.base * fx,
+            unitPriceDisplay: point.unitPrice,
+            holdingValueDisplay: point.value,
+          };
+        }),
         positions: chart.positions,
         intraday: true,
       };
@@ -456,6 +469,7 @@ export const investmentsRouter = createTRPCRouter({
             unit: z.string().nullable(),
             isCurrency: z.boolean(),
             price: z.number().nullable(),
+            previousClose: z.number().nullable(),
             changePercentage: z.number().nullable(),
           }),
         ),
@@ -471,7 +485,12 @@ export const investmentsRouter = createTRPCRouter({
       },
     })
     .input(z.object({ key: z.enum(marketChartKeys), range: z.enum(marketChartRanges) }))
-    .output(z.object({ points: z.array(z.object({ date: z.date(), price: z.number() })) }))
+    .output(
+      z.object({
+        points: z.array(z.object({ date: z.date(), price: z.number() })),
+        previousClose: z.number().nullable(),
+      }),
+    )
     .query(async ({ input }) => getMarketChart(input.key, input.range)),
 
   getEtfEstimates: protectedProcedure
@@ -517,8 +536,12 @@ export const investmentsRouter = createTRPCRouter({
       z.object({
         unit: z.string(),
         etfSymbol: z.string(),
+        etfName: z.string(),
         start: z.number(),
         end: z.number(),
+        etfNow: z.number().nullable(),
+        etfBase: z.number().nullable(),
+        mcxBase: z.number().nullable(),
         etf: z.array(seriesPointSchema),
         etfEstimate: z.array(seriesPointSchema),
         mcx: z.array(seriesPointSchema),
@@ -579,6 +602,20 @@ export const investmentsRouter = createTRPCRouter({
           set: { assetClass: input.assetClass },
         });
     }),
+
+  getPastInstruments: protectedProcedure.query(async ({ ctx }) =>
+    namePastInstruments(
+      await ctx.db
+        .select({
+          investmentKind: investments.investmentKind,
+          instrumentCode: investments.instrumentCode,
+          stockMarket: investments.stockMarket,
+        })
+        .from(investments)
+        .where(eq(investments.userId, ctx.user.id))
+        .orderBy(desc(investments.investmentDate)),
+    ),
+  ),
 
   searchInstruments: protectedProcedure
     .input(

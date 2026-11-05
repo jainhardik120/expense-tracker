@@ -532,7 +532,7 @@ export const getInvestmentsDashboard = instrumentedFunction(
         if (day.getTime() < investmentDay.getTime()) {
           continue;
         }
-        if (closeDay !== null && day.getTime() > closeDay.getTime()) {
+        if (closeDay !== null && day.getTime() >= closeDay.getTime()) {
           continue;
         }
         let value = parseOptionalNumber(investment.investmentAmount) ?? 0;

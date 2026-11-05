@@ -13,7 +13,12 @@ import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
 import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
-import { matchesSelection, matchesStatus, toViewValue } from '@/lib/investment-selection';
+import {
+  lastStockPriceTime,
+  matchesSelection,
+  matchesStatus,
+  toViewValue,
+} from '@/lib/investment-selection';
 import {
   investmentCategoryLabels,
   investmentCategoryValues,
@@ -24,8 +29,8 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { investmentParser, MS_PER_MINUTE } from '@/types';
 
-import { createGroupedColumns } from './grouped-columns';
-import { createInvestmentColumns } from './investment-columns';
+import { createGroupedColumns, groupedRowActions } from './grouped-columns';
+import { createInvestmentColumns, investmentRowActions } from './investment-columns';
 import { CreateInvestmentForm } from './investment-forms';
 import { InvestmentsOverview } from './investments-overview';
 import { MarketStrip } from './market-strip';
@@ -46,18 +51,6 @@ const priceSources = [
   'Indices: Groww',
   'USD/INR: Yahoo Finance',
 ];
-
-const getAsOf = (positions: InvestmentsPageData['positions']) => {
-  const times = positions.flatMap((position) =>
-    position.normalizedKind === 'stocks' &&
-    !position.isExcludedFromPortfolioPosition &&
-    !position.isClosedPosition &&
-    position.valuationDate !== null
-      ? [position.valuationDate.getTime()]
-      : [],
-  );
-  return times.length === 0 ? null : new Date(Math.max(...times));
-};
 
 const getTotalCharges = (positions: InvestmentsPageData['positions']) =>
   positions.reduce(
@@ -82,7 +75,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
   );
   const { positions, dashboard } = liveQuery.data ?? data;
   const isLive = liveQuery.data !== undefined;
-  const asOf = useMemo(() => getAsOf(positions), [positions]);
+  const asOf = useMemo(() => lastStockPriceTime(positions), [positions]);
   const totalCharges = useMemo(() => getTotalCharges(positions), [positions]);
   const refresh = useCallback(async () => {
     await utils.investments.invalidate();
@@ -93,7 +86,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
   const instrumentOptions = useMemo(
     () =>
       dashboard.instrumentBreakdown.map((row) => ({
-        label: row.name === row.code ? row.name : `${row.name} (${row.code})`,
+        label: row.name,
         value: toViewValue(row.kind, row.code, row.stockMarket),
         count: row.positionsCount,
       })),
@@ -116,19 +109,12 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     ];
   }, [positions]);
   const columns = useMemo(
-    () =>
-      createInvestmentColumns(
-        () => {
-          void refresh();
-        },
-        zoned,
-        { categoryOptions, instrumentOptions, statusOptions },
-      ),
-    [refresh, zoned, categoryOptions, instrumentOptions, statusOptions],
+    () => createInvestmentColumns(zoned, { categoryOptions, instrumentOptions, statusOptions }),
+    [zoned, categoryOptions, instrumentOptions, statusOptions],
   );
   const groupedColumns = useMemo(
-    () => createGroupedColumns(instrumentOptions, statusOptions, refresh),
-    [instrumentOptions, statusOptions, refresh],
+    () => createGroupedColumns(instrumentOptions, statusOptions),
+    [instrumentOptions, statusOptions],
   );
   const matchingPositions = useMemo(
     () =>
@@ -255,6 +241,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
         getItemValue={(item) =>
           `${item.kind}:${item.stockMarket ?? 'NA'}:${item.code}:${item.isRsu ? 'RSU' : 'REG'}`
         }
+        rowMenu={(row) => groupedRowActions(row, refresh)}
         table={groupedTable}
         onRowClick={(row) => {
           const value = toViewValue(row.kind, row.code, row.stockMarket);
@@ -265,7 +252,15 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
       >
         <DataTableToolbar table={groupedTable} />
       </DataTable>
-      <DataTable getItemValue={(item) => item.id} table={table}>
+      <DataTable
+        getItemValue={(item) => item.id}
+        rowMenu={(row) =>
+          investmentRowActions(row, () => {
+            void refresh();
+          })
+        }
+        table={table}
+      >
         <DataTableToolbar table={table}>
           <CreateInvestmentForm refresh={refresh} />
         </DataTableToolbar>

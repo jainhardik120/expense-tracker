@@ -17,9 +17,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { errorMessage } from '@/lib/utils';
 
+import { type DialogControl } from './modal';
+
 type DeleteConfirmationDialogProps<T, MutationResult> = {
   mutationInput: T;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  dialog?: DialogControl;
   title?: string;
   description?: string;
   onCancel?: () => void;
@@ -31,6 +34,7 @@ type DeleteConfirmationDialogProps<T, MutationResult> = {
 const DeleteConfirmationDialog = <T, MutationResult>({
   mutationInput,
   children,
+  dialog,
   title = 'Are you absolutely sure?',
   description = 'This action cannot be undone. This will permanently delete the selected item.',
   onCancel,
@@ -38,7 +42,9 @@ const DeleteConfirmationDialog = <T, MutationResult>({
   refresh,
   successToast = () => 'Deleted successfully',
 }: DeleteConfirmationDialogProps<T, MutationResult>) => {
-  const [open, setOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(false);
+  const open = dialog?.open ?? localOpen;
+  const setOpen = dialog?.onOpenChange ?? setLocalOpen;
 
   const handleCancel = () => {
     onCancel?.();
@@ -47,7 +53,7 @@ const DeleteConfirmationDialog = <T, MutationResult>({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+      {children === undefined ? null : <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

@@ -1,8 +1,9 @@
 'use client';
 
-import { Info, SquarePen } from 'lucide-react';
+import { Info, Plus, SquarePen } from 'lucide-react';
 
-import { RowActions, RowActionTrigger } from '@/components/data-table/row-actions';
+import { type RowMenuAction } from '@/components/data-table/row-context-menu';
+import { type DialogControl } from '@/components/modal';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatCurrency, formatSignedCurrency, formatPercent, formatNumber } from '@/lib/format';
@@ -15,12 +16,13 @@ import {
   investmentCategoryLabels,
   investmentCategoryValues,
   FX_RATE_DECIMALS,
+  normalizeStockMarket,
 } from '@/lib/investments';
 import type { ColumnDef } from '@/lib/table';
 import { type RouterOutput } from '@/server/routers';
 
 import { getSignedValueTone } from './investment-columns';
-import { AssetClassForm } from './investment-forms';
+import { AssetClassForm, CreateInvestmentForm } from './investment-forms';
 
 type GroupedInvestmentRow =
   RouterOutput['investments']['getInvestmentsInitialData']['dashboard']['instrumentBreakdown'][number];
@@ -79,7 +81,6 @@ const GroupedFxPopover = ({ row }: { row: GroupedInvestmentRow }) => {
 export const createGroupedColumns = (
   instrumentOptions: FilterOption[],
   statusOptions: FilterOption[],
-  refresh: () => Promise<void>,
 ): ColumnDef<GroupedInvestmentRow>[] => [
   {
     id: 'category',
@@ -247,20 +248,46 @@ export const createGroupedColumns = (
     meta: { label: 'Status', variant: 'multiSelect', options: statusOptions },
     enableColumnFilter: true,
   },
+];
+
+export const groupedRowActions = (
+  row: GroupedInvestmentRow,
+  refresh: () => Promise<void>,
+): RowMenuAction[] => [
   {
-    id: 'actions',
-    cell: ({ row }) =>
-      canTagAssetClass(row.original.kind) && !row.original.isRsu ? (
-        <RowActions collapse="always">
-          <AssetClassForm
-            assetClass={row.original.assetClass}
-            code={row.original.code}
-            kind={row.original.kind}
-            name={row.original.name}
-            refresh={refresh}
-            trigger={<RowActionTrigger icon={SquarePen} label="Edit asset class" />}
-          />
-        </RowActions>
-      ) : null,
+    key: 'new',
+    label: 'New investment',
+    icon: Plus,
+    dialog: (dialog) => (
+      <CreateInvestmentForm
+        dialog={dialog}
+        prefill={{
+          investmentKind: row.kind,
+          instrumentCode: row.code,
+          stockMarket: normalizeStockMarket(row.stockMarket),
+          isRsu: row.isRsu,
+        }}
+        refresh={refresh}
+      />
+    ),
   },
+  ...(canTagAssetClass(row.kind) && !row.isRsu
+    ? [
+        {
+          key: 'asset-class',
+          label: 'Edit asset class',
+          icon: SquarePen,
+          dialog: (dialog: DialogControl) => (
+            <AssetClassForm
+              assetClass={row.assetClass}
+              code={row.code}
+              dialog={dialog}
+              kind={row.kind}
+              name={row.name}
+              refresh={refresh}
+            />
+          ),
+        },
+      ]
+    : []),
 ];

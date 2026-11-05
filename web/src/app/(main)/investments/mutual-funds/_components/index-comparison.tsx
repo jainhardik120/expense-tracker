@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 
-import { percent, rupees, shortFundName } from './format';
+import { percent, rupees } from './format';
 import { type Analysis, signedRupees, toneFor } from './today';
 
 type Benchmark = NonNullable<Analysis['benchmark']>;
@@ -117,7 +117,7 @@ export const IndexComparison = ({
                 key={fund.schemeCode}
                 indexValue={result.indexValue}
                 indexXirr={result.indexXirr}
-                label={shortFundName(fund.schemeName)}
+                label={fund.schemeName}
                 value={fund.value}
                 xirr={fund.xirr}
               />

@@ -19,6 +19,8 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
+export type DialogControl = { open: boolean; onOpenChange: (open: boolean) => void };
+
 const Modal = ({
   open,
   setOpen,
@@ -30,8 +32,8 @@ const Modal = ({
   drawerClassName,
 }: {
   open: boolean;
-  setOpen: React.Dispatch<boolean>;
-  trigger: React.ReactNode;
+  setOpen: (open: boolean) => void;
+  trigger?: React.ReactNode;
   title?: React.ReactNode;
   description?: React.ReactNode;
   children: React.ReactNode;
@@ -42,7 +44,7 @@ const Modal = ({
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+        {trigger === undefined ? null : <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
         <DrawerContent className={cn('p-4 pb-8', drawerClassName)}>
           {title === undefined && description === undefined ? null : (
             <DrawerHeader className="text-left">
@@ -59,7 +61,7 @@ const Modal = ({
   }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger === undefined ? null : <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className={cn('sm:max-w-106.25', className)}>
         {title === undefined && description === undefined ? null : (
           <DialogHeader>

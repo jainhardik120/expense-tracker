@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Link2, Unlink } from 'lucide-react';
 import { toast } from 'sonner';
 
-import Modal from '@/components/modal';
+import Modal, { type DialogControl } from '@/components/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ZonedDate } from '@/components/zoned-date';
@@ -315,23 +315,22 @@ const PaymentsContent = ({
 export const InvestmentPaymentsDialog = ({
   investmentId,
   title,
-  trigger,
+  dialog,
   onChanged,
 }: {
   investmentId: string;
   title: string;
-  trigger: React.ReactNode;
+  dialog: DialogControl;
   onChanged: () => void;
 }) => {
-  const [open, setOpen] = useState(false);
+  const { open, onOpenChange } = dialog;
   return (
     <Modal
       className="sm:max-w-2xl"
       description="The payments that funded this investment, and what was lost to fees on the way."
       open={open}
-      setOpen={setOpen}
+      setOpen={onOpenChange}
       title={title}
-      trigger={trigger}
     >
       {open ? <PaymentsContent investmentId={investmentId} onChanged={onChanged} /> : null}
     </Modal>

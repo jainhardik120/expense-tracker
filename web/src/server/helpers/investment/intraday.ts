@@ -269,14 +269,23 @@ const buildDayTimeline = async (investmentsList: InvestmentRow[], view: string) 
   }
   const sessionStart = Math.min(...firstPrices);
   const times = bucketTimes(session, sessionStart);
+  const lastTime = times.at(-1);
   return [
     toPoint(new Date(sessionStart - BUCKET_MS), previousClose),
-    ...times.map((time) =>
+    ...times.slice(0, -1).map((time) =>
       toPoint(
         new Date(time),
         total((holding) => valueAt(holding, time + BUCKET_MS)),
       ),
     ),
+    ...(lastTime === undefined
+      ? []
+      : [
+          toPoint(
+            new Date(lastTime),
+            total((holding) => holding.value),
+          ),
+        ]),
   ];
 };
 
@@ -296,6 +305,46 @@ const pricesAt = (prices: PriceHistoryPoint[], times: number[]) => {
     }
     return prices[index]?.price ?? 0;
   });
+};
+
+const currentFigures = (positions: EnrichedInvestment[], isInstrument: boolean) => {
+  const sum = (read: (position: EnrichedInvestment) => number) =>
+    positions.reduce((total, position) => total + read(position), 0);
+  return isInstrument
+    ? {
+        value: sum((position) => position.valuationAmountDisplay ?? position.investedAmountDisplay),
+        base: sum((position) => position.investedAmountDisplay),
+      }
+    : {
+        value: sum((position) => position.valuationAmount ?? position.investedAmountInr),
+        base: sum((position) => position.investedAmountInr),
+      };
+};
+
+const endOnCurrentValue = <
+  T extends { date: Date; value: number; base: number; unitPrice: number },
+>(
+  points: T[],
+  selected: EnrichedInvestment[],
+  isInstrument: boolean,
+) => {
+  const open = selected.filter((position) => !position.isClosedPosition);
+  const last = points.at(-1);
+  if (open.length === 0 || last === undefined) {
+    return points;
+  }
+  const pricedAt = Math.min(
+    Date.now(),
+    Math.max(...open.map((position) => position.valuationDate?.getTime() ?? 0)),
+  );
+  const closing = {
+    ...last,
+    ...currentFigures(open, isInstrument),
+    unitPrice: isInstrument ? (open.at(0)?.liveUnitPriceDisplay ?? last.unitPrice) : last.unitPrice,
+  };
+  return pricedAt > last.date.getTime()
+    ? [...points, { ...closing, date: new Date(pricedAt) }]
+    : [...points.slice(0, -1), closing];
 };
 
 const buildRangeTimeline = async (
@@ -379,7 +428,7 @@ const buildRangeTimeline = async (
       ? (getFxRateToInrFromHistory(date, context.usdInrHistory, position.currentFxRateToInr) ?? 1)
       : 1;
 
-  return times.map((time, timeIndex) => {
+  const points = times.map((time, timeIndex) => {
     const date = new Date(time);
     const daily = dailyByDay.get(dateToDayKey(date));
     let value = daily?.valuationAmount ?? 0;
@@ -400,6 +449,7 @@ const buildRangeTimeline = async (
     }
     return { date, value, base, unitPrice: units > 0 || useDisplayCurrency ? unitPrice : 0 };
   });
+  return endOnCurrentValue(points, selected, useDisplayCurrency);
 };
 
 const buildDailyTimeline = async (
@@ -429,17 +479,7 @@ const buildDailyTimeline = async (
   };
   const isInstrument = parseViewValue(view) !== null;
   const open = selected.filter((position) => !position.isClosedPosition);
-  const sum = (read: (position: EnrichedInvestment) => number) =>
-    open.reduce((total, position) => total + read(position), 0);
-  const current = isInstrument
-    ? {
-        value: sum((position) => position.valuationAmountDisplay ?? position.investedAmountDisplay),
-        base: sum((position) => position.investedAmountDisplay),
-      }
-    : {
-        value: sum((position) => position.valuationAmount ?? position.investedAmountInr),
-        base: sum((position) => position.investedAmountInr),
-      };
+  const current = currentFigures(open, isInstrument);
   const points = isInstrument
     ? (
         await buildInstrumentTimelineEntries({

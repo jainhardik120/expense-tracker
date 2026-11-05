@@ -50,7 +50,6 @@ const MUTUAL_FUNDS = 'mutual_funds';
 const NEGATIVE_TONE = 'text-red-600';
 const UNITS_DECIMALS = 4;
 const USD_CURRENCY = 'USD';
-const LIVE_RANGES = new Set<InvestmentTimelineRangeValue>(['1d', '1w', '1m']);
 
 type ChartTab = 'gain' | 'value' | 'price';
 
@@ -65,19 +64,32 @@ const INSTRUMENT_CHARTS: Array<{ key: ChartTab; label: string }> = [
   { key: 'price', label: 'Unit price' },
 ];
 
+const CURRENT_VALUE = 'Current value';
+
 const AGGREGATE_LABELS = {
-  value: 'Current value',
+  value: CURRENT_VALUE,
   base: 'Invested',
   difference: 'Gain/loss',
   relative: 'Return on invested',
 };
 
 const INTRADAY_LABELS = {
-  value: 'Current value',
+  value: CURRENT_VALUE,
   base: 'Previous close',
-  difference: "Today's gain/loss",
-  relative: "Today's return",
+  difference: '1D gain/loss',
+  relative: '1D return',
 };
+
+const NAV_LABELS = {
+  value: CURRENT_VALUE,
+  base: 'Previous NAV value',
+  difference: 'Last NAV change',
+  relative: 'Last NAV return',
+};
+
+const CURRENCY_SYMBOLS = { INR: '₹', USD: '$' };
+const DAY_FORMAT = 'd MMM';
+const DAY_KEY_FORMAT = 'yyyy-MM-dd';
 
 const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: string }> = [
   { value: '1d', label: '1D' },
@@ -109,8 +121,8 @@ const viewFromSelection = ({
 
 const LiveStatus = ({ asOf, isLive }: { asOf: Date | null; isLive: boolean }) => {
   const zoned = useZonedFormat();
-  const isOpen = isLive && isIndianMarketOpen(new Date());
-  const isToday = zoned(asOf, 'yyyy-MM-dd') === zoned(new Date(), 'yyyy-MM-dd');
+  const isToday = zoned(asOf, DAY_KEY_FORMAT) === zoned(new Date(), DAY_KEY_FORMAT);
+  const isOpen = isLive && isToday && isIndianMarketOpen(new Date());
   const closedLabel = isLive ? 'Market closed' : 'Last saved';
   return (
     <div className="text-muted-foreground mt-1 flex min-h-4 items-center gap-1.5 text-xs font-normal">
@@ -220,14 +232,6 @@ export const InvestmentsOverview = ({
     });
   }, [dashboard.instrumentOptions, viewSelection]);
 
-  const averageBuyPrice =
-    dashboard.instrumentBreakdown.find(
-      (item) =>
-        item.kind === selectedInstrument?.kind &&
-        item.code === selectedInstrument.code &&
-        item.stockMarket === selectedInstrument.stockMarket,
-    )?.averageBuyPrice ?? null;
-
   const selectedCategory = parseCategoryViewValue(viewSelection);
   const selectedCategorySummary = dashboard.categoryBreakdown.find(
     (item) => item.category === selectedCategory,
@@ -246,7 +250,7 @@ export const InvestmentsOverview = ({
       view: viewSelection,
       range: timeRange,
     },
-    { refetchInterval: LIVE_RANGES.has(timeRange) ? MS_PER_MINUTE : false },
+    { refetchInterval: MS_PER_MINUTE },
   );
   const timelinePoints = useMemo(() => timelineQuery.data?.points ?? [], [timelineQuery.data]);
   const isIntraday = timelineQuery.data?.intraday ?? false;
@@ -256,17 +260,42 @@ export const InvestmentsOverview = ({
   );
   const zoned = useZonedFormat();
   const { data: todayEstimate } = api.mutualFundAnalysis.getTodayEstimate.useQuery(undefined, {
-    refetchInterval: (current) => (current.state.data?.marketOpen === true ? MS_PER_MINUTE : false),
+    refetchInterval: MS_PER_MINUTE,
   });
   const fundsCategory = dashboard.categoryBreakdown.find((item) => item.category === MUTUAL_FUNDS);
   const fundsToday =
     todayEstimate === undefined
       ? undefined
       : estimateFundsToday(dashboard.instrumentBreakdown, todayEstimate.percents);
+  const navDay = zoned(todayEstimate?.navDate ?? null, DAY_FORMAT);
+  const oldestNavDay = zoned(todayEstimate?.oldestNavDate ?? null, DAY_FORMAT);
+  const navSpan = oldestNavDay === navDay ? navDay : `${oldestNavDay} to ${navDay}`;
   const navLabel =
-    todayEstimate?.navDate === null || todayEstimate === undefined
-      ? 'last NAV'
-      : `${zoned(todayEstimate.navDate, 'd MMM')} NAV`;
+    todayEstimate?.navDate === null || todayEstimate === undefined ? 'last NAV' : `${navSpan} NAV`;
+  const estimateDate = todayEstimate?.estimateDate ?? null;
+  const estimateDay =
+    zoned(estimateDate, DAY_KEY_FORMAT) === zoned(new Date(), DAY_KEY_FORMAT)
+      ? 'today'
+      : zoned(estimateDate, DAY_FORMAT);
+  const selectedRow = dashboard.instrumentBreakdown.find(
+    (item) =>
+      item.kind === selectedInstrument?.kind &&
+      item.code === selectedInstrument.code &&
+      item.stockMarket === selectedInstrument.stockMarket,
+  );
+  const isClosedInstrument = selectedRow?.openPositions === 0;
+  const excludedPositions =
+    dashboard.categoryBreakdown.reduce((total, item) => total + item.openPositions, 0) -
+    dashboard.summary.openPositions;
+  const positionNotes = [
+    ...(dashboard.summary.closedPositions === 0
+      ? []
+      : [`${String(dashboard.summary.closedPositions)} closed`]),
+    ...(excludedPositions === 0 ? [] : [`${String(excludedPositions)} not in totals`]),
+  ];
+  const isMultiSelect =
+    viewSelection === PORTFOLIO_VIEW &&
+    (selection.category.length > 1 || selection.instrument.length > 1);
   const categories = dashboard.categoryBreakdown.map((item) => ({
     key: item.category,
     label: investmentCategoryLabels[item.category],
@@ -281,10 +310,15 @@ export const InvestmentsOverview = ({
       onCategoryToggle(item.category);
     },
   }));
-  const chartLabels = isToday ? INTRADAY_LABELS : AGGREGATE_LABELS;
+  const isNavView = selectedCategory === MUTUAL_FUNDS || selectedInstrument?.kind === MUTUAL_FUNDS;
+  const intradayLabels = isNavView ? NAV_LABELS : INTRADAY_LABELS;
+  const chartLabels = isToday ? intradayLabels : AGGREGATE_LABELS;
+  const averageBuyPrice = selectedRow?.averageBuyPrice ?? null;
   const hasChart = timelinePoints.length >= 2;
   const selectedCurrency = selectedInstrument?.displayCurrency ?? 'INR';
   const chartCurrency = !isAggregateView && selectedCurrency === USD_CURRENCY ? 'USD' : 'INR';
+  const chartSymbol = CURRENCY_SYMBOLS[chartCurrency];
+  const intradayTitle = isNavView ? 'Last NAV change' : '1D gain or loss';
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -321,11 +355,8 @@ export const InvestmentsOverview = ({
                           key={toViewValue(option.kind, option.code, option.stockMarket)}
                           value={toViewValue(option.kind, option.code, option.stockMarket)}
                         >
-                          {option.name} ({option.code}
-                          {option.kind === 'stocks' && option.stockMarket !== null
-                            ? ` - ${option.stockMarket}`
-                            : ''}
-                          ){getExcludedPortfolioTag(option)}
+                          {option.name}
+                          {getExcludedPortfolioTag(option)}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -337,7 +368,6 @@ export const InvestmentsOverview = ({
           <div className="xl:min-h-10">
             {isCategoryView && selectedCategorySummary !== undefined ? (
               <div className="text-muted-foreground text-sm">
-                {investmentCategoryLabels[selectedCategorySummary.category]} -{' '}
                 {selectedCategorySummary.openPositions} open /{' '}
                 {selectedCategorySummary.closedPositions} closed - Invested{' '}
                 {formatCurrency(selectedCategorySummary.investedAmount)} - Value{' '}
@@ -358,20 +388,36 @@ export const InvestmentsOverview = ({
             ) : null}
             {!isPortfolioView && selectedInstrument !== null && selectedInstrument !== undefined ? (
               <div className="text-muted-foreground text-sm">
-                {selectedInstrument.name} ({selectedInstrument.code}
-                {selectedInstrument.kind === 'stocks' && selectedInstrument.stockMarket !== null
-                  ? ` - ${selectedInstrument.stockMarket}`
-                  : ''}
-                ) - Units {formatNumber(selectedInstrument.units, UNITS_DECIMALS)} - Value{' '}
-                {formatCurrency(selectedInstrument.valuationAmount, selectedCurrency)} - P/L{' '}
-                <span className={selectedInstrument.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                  {formatCurrency(selectedInstrument.pnl, selectedCurrency)}
-                </span>{' '}
-                - 1D{' '}
-                <span className={selectedInstrument.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
-                  {formatCurrency(selectedInstrument.dayChange, selectedCurrency)}
-                </span>
+                {isClosedInstrument ? (
+                  <>
+                    Closed - Proceeds{' '}
+                    {formatCurrency(selectedInstrument.valuationAmount, selectedCurrency)} -
+                    Realised{' '}
+                    <span className={selectedInstrument.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                      {formatCurrency(selectedInstrument.pnl, selectedCurrency)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Units {formatNumber(selectedInstrument.units, UNITS_DECIMALS)} - Value{' '}
+                    {formatCurrency(selectedInstrument.valuationAmount, selectedCurrency)} - P/L{' '}
+                    <span className={selectedInstrument.pnl >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}>
+                      {formatCurrency(selectedInstrument.pnl, selectedCurrency)}
+                    </span>{' '}
+                    - 1D{' '}
+                    <span
+                      className={selectedInstrument.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}
+                    >
+                      {formatCurrency(selectedInstrument.dayChange, selectedCurrency)}
+                    </span>
+                  </>
+                )}
                 {getExcludedPortfolioDescription(selectedInstrument)}
+              </div>
+            ) : null}
+            {isMultiSelect ? (
+              <div className="text-muted-foreground text-sm">
+                Chart shows all investments. Pick one category or instrument to chart it.
               </div>
             ) : null}
           </div>
@@ -403,10 +449,13 @@ export const InvestmentsOverview = ({
                 title={
                   isToday
                     ? {
-                        rupees: "Today's gain or loss, in ₹",
-                        percent: "Today's gain or loss, as % of previous close",
+                        rupees: `${intradayTitle}, in ${chartSymbol}`,
+                        percent: `${intradayTitle}, as % of previous close`,
                       }
-                    : { rupees: 'Gain or loss, in ₹', percent: 'Gain or loss, as % of invested' }
+                    : {
+                        rupees: `Gain or loss, in ${chartSymbol}`,
+                        percent: 'Gain or loss, as % of invested',
+                      }
                 }
               />
             ) : null}
@@ -492,7 +541,7 @@ export const InvestmentsOverview = ({
               />
               {fundsToday === null || fundsToday === undefined ? null : (
                 <NumberRow
-                  label="Funds today, est."
+                  label={`Funds ${estimateDay}, est.`}
                   tone={getSignedValueTone(fundsToday)}
                   value={formatCurrency(fundsToday)}
                 />
@@ -510,11 +559,7 @@ export const InvestmentsOverview = ({
           />
           <NumberRow
             label="Open positions"
-            note={
-              dashboard.summary.closedPositions === 0
-                ? undefined
-                : `${String(dashboard.summary.closedPositions)} closed`
-            }
+            note={positionNotes.length === 0 ? undefined : positionNotes.join(' · ')}
             value={String(dashboard.summary.openPositions)}
           />
         </CardContent>

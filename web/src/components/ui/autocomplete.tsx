@@ -25,12 +25,14 @@ type AutocompleteProps = {
   options: AutocompleteOption[];
   value: string;
   onValueChange: (value: string) => void;
+  keepOrder?: boolean;
 } & React.ComponentProps<'input'>;
 
 const Autocomplete = ({
   options,
   value = '',
   onValueChange,
+  keepOrder = false,
   placeholder = 'Select or type...',
   disabled = false,
   className,
@@ -47,18 +49,19 @@ const Autocomplete = ({
   }
 
   const filteredOptions = React.useMemo(() => {
+    const ordered = keepOrder
+      ? options
+      : options.toSorted((a, b) => a.label.localeCompare(b.label));
     if (searchValue === '') {
-      return options.sort((a, b) => a.label.localeCompare(b.label));
+      return ordered;
     }
 
-    return options
-      .filter(
-        (option) =>
-          option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
-          option.value.toLowerCase().includes(searchValue.toLowerCase()),
-      )
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [options, searchValue]);
+    return ordered.filter(
+      (option) =>
+        option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
+        option.value.toLowerCase().includes(searchValue.toLowerCase()),
+    );
+  }, [keepOrder, options, searchValue]);
 
   const displayLabel = React.useMemo(() => {
     const option = options.find((opt) => opt.value === internalValue);
@@ -118,13 +121,15 @@ const Autocomplete = ({
           variant="outline"
           onClick={handleButtonClick}
         >
-          <span className="truncate">{internalValue === '' ? placeholder : displayLabel}</span>
+          <span className="w-0 flex-1 truncate text-left">
+            {internalValue === '' ? placeholder : displayLabel}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-full p-0"
+        className="w-(--radix-popover-trigger-width) p-0"
         onWheel={(e) => {
           e.stopPropagation();
         }}

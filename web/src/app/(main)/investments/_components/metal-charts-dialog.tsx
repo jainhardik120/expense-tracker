@@ -141,6 +141,7 @@ const SeriesChart = ({
   range,
   currency = 'INR',
   stepped = false,
+  base = null,
 }: {
   title: string;
   unit: string;
@@ -152,16 +153,17 @@ const SeriesChart = ({
   range: Range;
   currency?: 'INR' | 'USD';
   stepped?: boolean;
+  base?: number | null;
 }) => {
   const rows = useMemo(() => alignToGrid(points, estimates, grid), [points, estimates, grid]);
   const traded = points.at(-1);
   const series = [...points, ...estimates].sort((left, right) => left.time - right.time);
-  const first = series.at(0);
+  const first = base ?? series.at(0)?.price;
   const last = series.at(-1);
   const isEstimated = last !== undefined && last.time > (traded?.time ?? 0);
   const lastLabel = isEstimated ? 'traded' : 'move';
   const change =
-    first === undefined || last === undefined ? null : (last.price / first.price - 1) * PERCENT;
+    first === undefined || last === undefined ? null : (last.price / first - 1) * PERCENT;
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1 md:flex-none">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
@@ -336,7 +338,7 @@ export const MetalChartsDialog = ({
               <div className="grid grid-cols-2 gap-3">
                 <BuyPriceFigure
                   average={buyPrice.etf}
-                  current={data.etf.at(-1)?.price ?? null}
+                  current={data.etfNow}
                   label="Your average buy, ETF based"
                   unit={data.unit}
                 />
@@ -353,16 +355,18 @@ export const MetalChartsDialog = ({
               </div>
             )}
             <SeriesChart
+              base={data.etfBase}
               end={data.end}
               estimates={data.etfEstimate}
               grid={grid}
               points={data.etf}
               range={range}
               start={data.start}
-              title={`${data.etfSymbol} ETF, as a rate`}
+              title={`${data.etfName}, as a rate`}
               unit={data.unit}
             />
             <SeriesChart
+              base={data.mcxBase}
               end={data.end}
               estimates={data.mcxEstimate}
               grid={grid}

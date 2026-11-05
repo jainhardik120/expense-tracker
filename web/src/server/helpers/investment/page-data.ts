@@ -116,6 +116,7 @@ export type InstrumentChart = {
   points: InstrumentChartPoint[];
   positions: InstrumentChartPosition[];
   displayFxToInr: number;
+  fxOn: (date: Date) => number;
 };
 
 const endOnLivePrice = (series: InstrumentChartPoint[], investments: EnrichedInvestment[]) => {
@@ -160,7 +161,7 @@ export const buildInstrumentChart = instrumentedFunction(
     marketDataKinds,
   }: RangeViewRequest): Promise<InstrumentChart> => {
     if (investmentsListRaw.length === 0) {
-      return { points: [], positions: [], displayFxToInr: 1 };
+      return { points: [], positions: [], displayFxToInr: 1, fxOn: () => 1 };
     }
     const view = await buildInstrumentView({ investmentsListRaw, range, marketDataKinds });
     const points = view.instrumentTimelines[0]?.timeline.points ?? [];
@@ -168,11 +169,11 @@ export const buildInstrumentChart = instrumentedFunction(
     const fallbackFx =
       view.enrichedAll.find((position) => position.currentFxRateToInr !== null)
         ?.currentFxRateToInr ?? null;
+    const fxOn = (date: Date) =>
+      isUsd ? (getFxRateToInrFromHistory(date, view.usdInrHistory, fallbackFx) ?? 1) : 1;
     const series = points.map((point) => {
       const day = startOfDay(point.date).getTime();
-      const fx = isUsd
-        ? (getFxRateToInrFromHistory(point.date, view.usdInrHistory, fallbackFx) ?? 1)
-        : 1;
+      const fx = fxOn(point.date);
       const investedAmount = view.enrichedAll.reduce((total, position) => {
         const opened = startOfDay(position.investmentDate).getTime() <= day;
         const closed = position.closedAt !== null && startOfDay(position.closedAt).getTime() <= day;
@@ -204,6 +205,7 @@ export const buildInstrumentChart = instrumentedFunction(
       points: endOnLivePrice(series, view.enrichedAll),
       positions,
       displayFxToInr: isUsd ? (fallbackFx ?? 1) : 1,
+      fxOn,
     };
   },
 );

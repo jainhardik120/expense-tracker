@@ -34,10 +34,10 @@ const MarketChartBody = ({ item, open }: { item: MarketItem; open: boolean }) =>
   const [range, setRange] = useState<ChartRange>('1d');
   const { data } = api.investments.getMarketChart.useQuery(
     { key: item.key, range },
-    { enabled: open, refetchInterval: range === '1d' ? MS_PER_MINUTE : false },
+    { enabled: open, refetchInterval: MS_PER_MINUTE },
   );
   const points = useMemo(() => data?.points ?? [], [data]);
-  const first = points.at(0)?.price;
+  const first = data?.previousClose ?? points.at(0)?.price;
   const last = points.at(-1)?.price;
   const change = first === undefined || last === undefined ? null : last - first;
   return (

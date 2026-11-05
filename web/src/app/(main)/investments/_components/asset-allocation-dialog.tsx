@@ -208,7 +208,7 @@ export const AssetAllocationDialog = ({
                 className="text-muted-foreground pt-4 pb-0.5 text-[11px]"
                 colSpan={COLUMN_COUNT}
               >
-                By category · tap to filter the page
+                By category, including anything left out of Total · tap to filter the page
               </TableCell>
             </TableRow>
             {categories.map((category) => (

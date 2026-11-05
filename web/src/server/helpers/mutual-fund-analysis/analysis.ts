@@ -18,7 +18,8 @@ export type FundPosition = {
   navDate: Date | null;
 };
 
-export type CapBucket = 'Large cap' | 'Mid cap' | 'Small cap' | 'Unknown size' | 'Not equity';
+export type CapBucket =
+  'Large cap' | 'Mid cap' | 'Small cap' | 'International' | 'Unknown size' | 'Not equity';
 
 type Slice = { name: string; value: number; share: number };
 
@@ -95,9 +96,18 @@ const latestDate = (dates: Array<Date | null>) => {
   return times.length === 0 ? null : new Date(Math.max(...times));
 };
 
-export const capBucketFor = (assetType: string, marketCapCrore: number | null): CapBucket => {
+const FOREIGN_EQUITY_INSTRUMENTS = new Set(['Foreign - Equity', 'ADS/ADR']);
+
+export const capBucketFor = (
+  assetType: string,
+  marketCapCrore: number | null,
+  instrument?: string | null,
+): CapBucket => {
   if (assetType !== EQUITY) {
     return 'Not equity';
+  }
+  if (FOREIGN_EQUITY_INSTRUMENTS.has(instrument ?? '')) {
+    return 'International';
   }
   if (marketCapCrore === null) {
     return 'Unknown size';
@@ -181,7 +191,7 @@ export const analyseMutualFunds = (
           const assetType = holding.assetType ?? UNSPECIFIED;
           const stock = holding.stockRef === null ? undefined : stocks.get(holding.stockRef);
           const marketCapCrore = stock?.marketCapCrore ?? null;
-          const capBucket = capBucketFor(assetType, marketCapCrore);
+          const capBucket = capBucketFor(assetType, marketCapCrore, holding.instrument);
           const sector = holding.sector ?? UNSPECIFIED;
           addTo(sectors, assetType === EQUITY ? sector : assetType, value);
           addTo(assetTypes, assetType, value);

@@ -5,11 +5,8 @@ import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { normalizeInvestmentKind } from '@/lib/investments';
 import { istDay } from '@/server/helpers/groww/client';
-import {
-  cachedQuotes,
-  loadInstrumentRows,
-  storedQuote,
-} from '@/server/helpers/investment/market-cache';
+import { cachedQuotes } from '@/server/helpers/investment/market-cache';
+import { loadFundQuotes } from '@/server/helpers/investment/market-data';
 import { isIndianMarketOpen } from '@/server/helpers/investment/market-hours';
 import { IndiaStockInvestmentProvider } from '@/server/helpers/investment/providers/india-stock-investment-provider';
 import { createInstrumentKey } from '@/server/helpers/investment/shared';
@@ -114,9 +111,11 @@ export const getLiveFundPrices = instrumentedFunction(
       };
       latest = Math.max(latest, quote.asOf?.getTime() ?? 0);
     }
+    const tradingDay = latest === 0 ? null : dayKey(istDay(latest));
     return {
-      marketOpen,
+      marketOpen: marketOpen && tradingDay === dayKey(istDay(now.getTime())),
       asOf: latest === 0 ? null : new Date(latest),
+      tradingDay,
       quotes,
     };
   },
@@ -126,7 +125,7 @@ export const getTodayEstimate = instrumentedFunction(
   'getTodayEstimate',
   async (db: Database, userId: string) => {
     const codes = await heldFundCodes(db, userId);
-    const [live, holdings, navRows] = await Promise.all([
+    const [live, holdings, navQuotes] = await Promise.all([
       getLiveFundPrices(db, userId),
       codes.length === 0
         ? []
@@ -144,11 +143,11 @@ export const getTodayEstimate = instrumentedFunction(
                 isNotNull(mutualFundHoldings.stockRef),
               ),
             ),
-      loadInstrumentRows(codes.map((code) => createInstrumentKey(MUTUAL_FUNDS, code))),
+      loadFundQuotes(codes),
     ]);
     const navDates = new Map(
       codes.flatMap((code) => {
-        const asOf = storedQuote(navRows.get(createInstrumentKey(MUTUAL_FUNDS, code)))?.asOf;
+        const asOf = navQuotes.get(createInstrumentKey(MUTUAL_FUNDS, code))?.asOf;
         return asOf === null || asOf === undefined ? [] : [[code, asOf] as const];
       }),
     );
@@ -161,6 +160,8 @@ export const getTodayEstimate = instrumentedFunction(
     return {
       marketOpen: live.marketOpen,
       navDate: times.length === 0 ? null : new Date(Math.max(...times)),
+      oldestNavDate: times.length === 0 ? null : new Date(Math.min(...times)),
+      estimateDate: live.asOf,
       percents:
         live.asOf === null
           ? {}
@@ -172,7 +173,7 @@ export const getTodayEstimate = instrumentedFunction(
               })),
               changeByRef,
               new Map([...navDates].map(([code, date]) => [code, dayKey(date)])),
-              dayKey(istDay(live.asOf.getTime())),
+              live.tradingDay ?? '',
             ),
     };
   },

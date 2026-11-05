@@ -67,9 +67,12 @@ const sortRows = (rows: HoldingRow[], sort: HoldingSort, byFund: boolean) => {
     .toSorted((left, right) => direction * ((impactOf(right) ?? 0) - (impactOf(left) ?? 0)));
 };
 
+const NO_FUNDS = new Set<string>();
+
 const withFundFigures = (
   row: Omit<HoldingRow, 'fundValue' | 'fundWeight' | 'fundImpact' | 'fundImpactPoints'>,
   selectedFunds: string[],
+  awaitingNav: Set<string>,
 ): HoldingRow => {
   const within = row.funds.filter((fund) => selectedFunds.includes(fund.schemeCode));
   if (within.length === 0) {
@@ -77,12 +80,14 @@ const withFundFigures = (
   }
   const fundValue = within.reduce((total, fund) => total + fund.value, 0);
   const fundWeight = within.length === 1 ? (within[0]?.weightPercent ?? null) : null;
-  const change = row.changePercent;
+  const moving = within.filter((fund) => awaitingNav.has(fund.schemeCode));
+  const change = moving.length === 0 ? null : row.changePercent;
+  const movingValue = moving.reduce((total, fund) => total + fund.value, 0);
   return {
     ...row,
     fundValue,
     fundWeight,
-    fundImpact: change === null ? null : (fundValue * change) / PERCENT,
+    fundImpact: change === null ? null : (movingValue * change) / PERCENT,
     fundImpactPoints:
       change === null || fundWeight === null ? null : (fundWeight * change) / PERCENT,
   };
@@ -385,6 +390,7 @@ export const HoldingsTable = ({
             impact: today?.impactByCompany.get(company.key) ?? null,
           },
           selectedFunds,
+          today?.awaitingNav ?? NO_FUNDS,
         );
       }),
     [analysis.companies, today, selectedFunds],
