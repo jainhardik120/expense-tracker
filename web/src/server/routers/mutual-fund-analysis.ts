@@ -16,7 +16,7 @@ import {
   benchmarkTimeline,
   compareWithBenchmark,
 } from '@/server/helpers/mutual-fund-analysis/benchmark';
-import { getLiveFundPrices } from '@/server/helpers/mutual-fund-analysis/live';
+import { getLiveFundPrices, getTodayEstimate } from '@/server/helpers/mutual-fund-analysis/live';
 import { loadFundPortfolios } from '@/server/helpers/mutual-fund-analysis/store';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 
@@ -135,4 +135,5 @@ export const mutualFundAnalysisRouter = createTRPCRouter({
     };
   }),
   getLivePrices: protectedProcedure.query(({ ctx }) => getLiveFundPrices(ctx.db, ctx.user.id)),
+  getTodayEstimate: protectedProcedure.query(({ ctx }) => getTodayEstimate(ctx.db, ctx.user.id)),
 });

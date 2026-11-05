@@ -17,6 +17,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/format';
+import { estimateFundsToday } from '@/lib/fund-estimate';
 import {
   PORTFOLIO_VIEW,
   parseCategoryViewValue,
@@ -44,6 +45,7 @@ import { getSignedValueTone } from './investment-columns';
 type DashboardData = RouterOutput['investments']['getInvestmentsInitialData']['dashboard'];
 
 const POSITIVE_TONE = 'text-green-600';
+const MUTUAL_FUNDS = 'mutual_funds';
 const NEGATIVE_TONE = 'text-red-600';
 const UNITS_DECIMALS = 4;
 const USD_CURRENCY = 'USD';
@@ -163,6 +165,15 @@ const CategoryFigure = ({
   </div>
 );
 
+const DayFigure = ({ label, value }: { label: string; value: number | null | undefined }) => (
+  <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+    <span className="text-muted-foreground whitespace-nowrap">{label}</span>
+    <span className={cn('ml-auto tabular-nums', getSignedValueTone(value ?? null))}>
+      {value === null || value === undefined ? '-' : formatCurrency(value)}
+    </span>
+  </div>
+);
+
 const ChartPlaceholder = ({ isLoading }: { isLoading: boolean }) =>
   isLoading ? (
     <Skeleton className="size-full" />
@@ -263,6 +274,19 @@ export const InvestmentsOverview = ({
     () => timelinePoints.map((point) => ({ date: point.date, price: point.unitPrice })),
     [timelinePoints],
   );
+  const zoned = useZonedFormat();
+  const { data: todayEstimate } = api.mutualFundAnalysis.getTodayEstimate.useQuery(undefined, {
+    refetchInterval: (current) => (current.state.data?.marketOpen === true ? MS_PER_MINUTE : false),
+  });
+  const fundsCategory = dashboard.categoryBreakdown.find((item) => item.category === MUTUAL_FUNDS);
+  const fundsToday =
+    todayEstimate === undefined
+      ? undefined
+      : estimateFundsToday(dashboard.instrumentBreakdown, todayEstimate.percents);
+  const navLabel =
+    todayEstimate?.navDate === null || todayEstimate === undefined
+      ? 'last NAV'
+      : `${zoned(todayEstimate.navDate, 'd MMM')} NAV`;
   const chartLabels = isToday ? INTRADAY_LABELS : AGGREGATE_LABELS;
   const hasChart = timelinePoints.length >= 2;
   const selectedCurrency = selectedInstrument?.displayCurrency ?? 'INR';
@@ -285,8 +309,23 @@ export const InvestmentsOverview = ({
         <StatCard title="Realised P/L" tone={getSignedValueTone(dashboard.summary.realizedPnl)}>
           {formatCurrency(dashboard.summary.realizedPnl)}
         </StatCard>
-        <StatCard title="1D Change" tone={getSignedValueTone(dashboard.summary.dayChange)}>
-          {formatCurrency(dashboard.summary.dayChange)}
+        <StatCard title="1D Change">
+          {fundsCategory === undefined ? (
+            <span className={getSignedValueTone(dashboard.summary.dayChange)}>
+              {formatCurrency(dashboard.summary.dayChange)}
+            </span>
+          ) : (
+            <div className="grid gap-1 text-xs font-medium sm:text-sm">
+              <DayFigure
+                label="Stocks and others"
+                value={dashboard.summary.dayChange - fundsCategory.dayChange}
+              />
+              <DayFigure label={`Funds, ${navLabel}`} value={fundsCategory.dayChange} />
+              {fundsToday === null ? null : (
+                <DayFigure label="Funds today, est." value={fundsToday} />
+              )}
+            </div>
+          )}
           <LiveStatus asOf={asOf} isLive={isLive} />
         </StatCard>
         <StatCard
@@ -518,10 +557,13 @@ export const InvestmentsOverview = ({
                   />
                 )}
                 <CategoryFigure
-                  label="1D"
+                  label={categoryItem.category === MUTUAL_FUNDS ? `1D, ${navLabel}` : '1D'}
                   tone={categoryItem.dayChange >= 0 ? POSITIVE_TONE : NEGATIVE_TONE}
                   value={formatCurrency(categoryItem.dayChange)}
                 />
+                {categoryItem.category === MUTUAL_FUNDS && fundsToday !== null ? (
+                  <DayFigure label="Today, est." value={fundsToday} />
+                ) : null}
                 {categoryItem.xirr === null ? null : (
                   <CategoryFigure
                     label="XIRR"

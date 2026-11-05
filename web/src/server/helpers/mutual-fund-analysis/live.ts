@@ -4,11 +4,18 @@ import { investments, mutualFundHoldings, stockProfiles } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { normalizeInvestmentKind } from '@/lib/investments';
-import { cachedQuotes } from '@/server/helpers/investment/market-cache';
+import { istDay } from '@/server/helpers/groww/client';
+import {
+  cachedQuotes,
+  loadInstrumentRows,
+  storedQuote,
+} from '@/server/helpers/investment/market-cache';
 import { isIndianMarketOpen } from '@/server/helpers/investment/market-hours';
 import { IndiaStockInvestmentProvider } from '@/server/helpers/investment/providers/india-stock-investment-provider';
 import { createInstrumentKey } from '@/server/helpers/investment/shared';
 import { MS_PER_MINUTE } from '@/types';
+
+import { estimateFundPercents } from './today-estimate';
 
 const CLOSED_TTL_MINUTES = 30;
 const OPEN_TTL_MS = MS_PER_MINUTE;
@@ -16,6 +23,7 @@ const CLOSED_TTL_MS = CLOSED_TTL_MINUTES * MS_PER_MINUTE;
 const PERCENT = 100;
 const MUTUAL_FUNDS = 'mutual_funds';
 const EQUITY = 'EQUITY';
+const DAY_KEY_LENGTH = 10;
 
 const indiaStocks = new IndiaStockInvestmentProvider();
 
@@ -26,21 +34,27 @@ type LiveQuote = {
   dayChangePercent: number | null;
 };
 
+const heldFundCodes = async (db: Database, userId: string) => {
+  const held = await db
+    .select({ kind: investments.investmentKind, code: investments.instrumentCode })
+    .from(investments)
+    .where(and(eq(investments.userId, userId), eq(investments.isClosed, false)));
+  return [
+    ...new Set(
+      held
+        .filter((row) => normalizeInvestmentKind(row.kind) === MUTUAL_FUNDS && row.code !== null)
+        .map((row) => row.code as string),
+    ),
+  ];
+};
+
+const dayKey = (date: Date) => date.toISOString().slice(0, DAY_KEY_LENGTH);
+
 export const getLiveFundPrices = instrumentedFunction(
   'getLiveFundPrices',
   async (db: Database, userId: string) => {
     const now = new Date();
-    const held = await db
-      .select({ kind: investments.investmentKind, code: investments.instrumentCode })
-      .from(investments)
-      .where(and(eq(investments.userId, userId), eq(investments.isClosed, false)));
-    const codes = [
-      ...new Set(
-        held
-          .filter((row) => normalizeInvestmentKind(row.kind) === MUTUAL_FUNDS && row.code !== null)
-          .map((row) => row.code as string),
-      ),
-    ];
+    const codes = await heldFundCodes(db, userId);
     const listings =
       codes.length === 0
         ? []
@@ -104,6 +118,62 @@ export const getLiveFundPrices = instrumentedFunction(
       marketOpen,
       asOf: latest === 0 ? null : new Date(latest),
       quotes,
+    };
+  },
+);
+
+export const getTodayEstimate = instrumentedFunction(
+  'getTodayEstimate',
+  async (db: Database, userId: string) => {
+    const codes = await heldFundCodes(db, userId);
+    const [live, holdings, navRows] = await Promise.all([
+      getLiveFundPrices(db, userId),
+      codes.length === 0
+        ? []
+        : db
+            .select({
+              schemeCode: mutualFundHoldings.schemeCode,
+              stockRef: mutualFundHoldings.stockRef,
+              weightPercent: mutualFundHoldings.weightPercent,
+            })
+            .from(mutualFundHoldings)
+            .where(
+              and(
+                inArray(mutualFundHoldings.schemeCode, codes),
+                eq(mutualFundHoldings.assetType, EQUITY),
+                isNotNull(mutualFundHoldings.stockRef),
+              ),
+            ),
+      loadInstrumentRows(codes.map((code) => createInstrumentKey(MUTUAL_FUNDS, code))),
+    ]);
+    const navDates = new Map(
+      codes.flatMap((code) => {
+        const asOf = storedQuote(navRows.get(createInstrumentKey(MUTUAL_FUNDS, code)))?.asOf;
+        return asOf === null || asOf === undefined ? [] : [[code, asOf] as const];
+      }),
+    );
+    const changeByRef = new Map(
+      Object.entries(live.quotes).flatMap(([stockRef, quote]) =>
+        quote.dayChangePercent === null ? [] : [[stockRef, quote.dayChangePercent] as const],
+      ),
+    );
+    const times = [...navDates.values()].map((date) => date.getTime());
+    return {
+      marketOpen: live.marketOpen,
+      navDate: times.length === 0 ? null : new Date(Math.max(...times)),
+      percents:
+        live.asOf === null
+          ? {}
+          : estimateFundPercents(
+              holdings.map((holding) => ({
+                schemeCode: holding.schemeCode,
+                stockRef: holding.stockRef ?? '',
+                weightPercent: Number.parseFloat(holding.weightPercent),
+              })),
+              changeByRef,
+              new Map([...navDates].map(([code, date]) => [code, dayKey(date)])),
+              dayKey(istDay(live.asOf.getTime())),
+            ),
     };
   },
 );
