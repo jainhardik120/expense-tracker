@@ -41,7 +41,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(traces_span_metrics_calls_total[$__range]))",
+          "expr": "sum(increase(traces_span_metrics_calls_total{http_route!~\"/privacy|\"}[$__range]))",
           "refId": "A",
           "instant": true,
           "range": false
@@ -92,7 +92,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(traces_span_metrics_calls_total{http_status_code=~\"5..\"}[$__range])) or vector(0)",
+          "expr": "sum(increase(traces_span_metrics_calls_total{http_route!~\"/privacy|\",http_status_code=~\"5..\"}[$__range])) or vector(0)",
           "refId": "A",
           "instant": true,
           "range": false
@@ -125,7 +125,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Typical response (p95)",
+      "title": "p95 response",
       "gridPos": {
         "x": 8,
         "y": 0,
@@ -142,7 +142,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket[$__range])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(traces_span_metrics_duration_milliseconds_bucket{http_route!~\"/privacy|\"}[$__range])))",
           "refId": "A",
           "instant": true,
           "range": false
@@ -326,7 +326,7 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "Requests per day",
+      "title": "Requests over time",
       "gridPos": {
         "x": 0,
         "y": 4,
@@ -343,10 +343,10 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(traces_span_metrics_calls_total[1d]))",
+          "expr": "sum(increase(traces_span_metrics_calls_total{http_route!~\"/privacy|\"}[$__interval]))",
           "refId": "A",
           "legendFormat": "",
-          "interval": "1d"
+          "interval": "1h"
         }
       ],
       "fieldConfig": {
@@ -360,7 +360,7 @@
             "drawStyle": "bars",
             "lineWidth": 2,
             "fillOpacity": 80,
-            "showPoints": "never",
+            "showPoints": "auto",
             "axisBorderShow": false,
             "barAlignment": 0,
             "spanNulls": false
@@ -397,7 +397,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "topk(12, sum by (http_route) (increase(traces_span_metrics_calls_total[$__range])))",
+          "expr": "topk(12, sum by (http_route) (increase(traces_span_metrics_calls_total{http_route!~\"/privacy|\"}[$__range])))",
           "refId": "A",
           "instant": true,
           "range": false,
@@ -450,7 +450,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=\"app\"}[5m]))",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service=\"app\"}[$__rate_interval]))",
           "refId": "A",
           "legendFormat": ""
         }
@@ -466,7 +466,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 8,
-            "showPoints": "never",
+            "showPoints": "auto",
             "axisBorderShow": false,
             "barAlignment": 0,
             "spanNulls": false
@@ -519,7 +519,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 8,
-            "showPoints": "never",
+            "showPoints": "auto",
             "axisBorderShow": false,
             "barAlignment": 0,
             "spanNulls": false
@@ -556,7 +556,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service=\"app\"}[5m]))",
+          "expr": "sum(rate(container_network_transmit_bytes_total{container_label_com_docker_compose_service=\"app\"}[$__rate_interval]))",
           "refId": "A",
           "legendFormat": ""
         }
@@ -572,7 +572,7 @@
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 8,
-            "showPoints": "never",
+            "showPoints": "auto",
             "axisBorderShow": false,
             "barAlignment": 0,
             "spanNulls": false
