@@ -78,9 +78,10 @@ fun InvestmentChartSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ) {
-        val unitBased = holding.units > 0
+        val unitBased = holding.kind in UNIT_PRICED_KINDS
         var selected by remember(range) { mutableStateOf<Int?>(null) }
-        val isUsd = unitBased && holding.currency == "USD"
+        val isUsd = holding.currency == "USD"
+        val isFund = holding.kind == "mutual_funds"
         val money: (Double) -> String = if (isUsd) ::formatDollars else ::sheetRupees
         val series = points.orEmpty().map {
             when {
@@ -133,7 +134,7 @@ fun InvestmentChartSheet(
                     }
                 }
                 val dateLabel = selected?.let { points?.getOrNull(it) }?.let {
-                    if (intraday) formatChartMoment(it.date) else formatChartDate(it.date)
+                    if (intraday && !isFund) formatChartMoment(it.date) else formatChartDate(it.date)
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (change != null) {
@@ -150,7 +151,7 @@ fun InvestmentChartSheet(
                     Text(
                         text = when {
                             dateLabel != null -> if (unitBased) dateLabel else "returns on $dateLabel"
-                            unitBased -> range.sinceLabel()
+                            unitBased -> range.sinceLabel(isFund)
                             else -> "returns"
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -244,7 +245,7 @@ fun InvestmentChartSheet(
                     secondary = if (isUsd) sheetRupees(holding.investedInr) else null
                 )
                 StatRow(
-                    "Total returns",
+                    if (holding.openPositions == 0) "Realised returns" else "Unrealised returns",
                     buildString {
                         append(sheetSigned(pnl, money))
                         if (invested != 0.0) {
@@ -255,7 +256,7 @@ fun InvestmentChartSheet(
                     secondary = if (isUsd) sheetSigned(pnlInr) else null
                 )
                 StatRow(
-                    "1D returns",
+                    if (isFund) "Last NAV change" else "1D returns",
                     buildString {
                         append(sheetSigned(dayChange, money))
                         val base = value - dayChange
@@ -267,7 +268,7 @@ fun InvestmentChartSheet(
                     secondary = if (isUsd) sheetSigned(holding.dayChangeInr) else null
                 )
                 StatRow("XIRR", holding.xirr?.let { "%.2f%%".format(Locale.getDefault(), it) } ?: "—")
-                if (unitBased) {
+                if (holding.units > 0) {
                     StatRow("Units", formatUnits(holding.units))
                 }
             }
@@ -465,8 +466,10 @@ internal fun trendColour(amount: Double): Color = when {
     else -> Green600
 }
 
-private fun ChartRange.sinceLabel(): String = when (this) {
-    ChartRange.DAY -> "today"
+private val UNIT_PRICED_KINDS = setOf("stocks", "mutual_funds", "crypto", "commodities")
+
+private fun ChartRange.sinceLabel(isFund: Boolean): String = when (this) {
+    ChartRange.DAY -> if (isFund) "last NAV change" else "1D"
     ChartRange.WEEK -> "past week"
     ChartRange.MONTH -> "past month"
     ChartRange.QUARTER -> "past 3 months"
@@ -480,7 +483,9 @@ internal fun formatChartMoment(value: String): String =
     }.getOrDefault(value)
 
 private fun formatChartDate(value: String): String =
-    runCatching { OffsetDateTime.parse(value).toLocalDate().format(chartDateFormat) }.getOrDefault(value)
+    runCatching {
+        OffsetDateTime.parse(value).atZoneSameInstant(chartZone).format(chartDateFormat)
+    }.getOrDefault(value)
 
 private val sheetRupeeFormat: NumberFormat =
     NumberFormat.getCurrencyInstance(Locale.forLanguageTag("en-IN")).apply {

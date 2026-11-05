@@ -112,6 +112,7 @@ private fun MarketTile(item: MarketItem, modifier: Modifier, onClick: () -> Unit
 fun MarketChartSheet(
     item: MarketItem,
     points: List<MarketPoint>?,
+    previousClose: Double?,
     error: String?,
     range: ChartRange,
     onSelectRange: (ChartRange) -> Unit,
@@ -125,7 +126,7 @@ fun MarketChartSheet(
         val series = points.orEmpty().map { it.price }
         val shownIndex = selected ?: series.lastIndex.takeIf { it >= 0 }
         val shown = shownIndex?.let(series::getOrNull)
-        val base = series.firstOrNull()
+        val base = previousClose ?: series.firstOrNull()
         val change = if (shown != null && base != null) shown - base else null
         val moment = selected?.let { points?.getOrNull(it) }?.let { formatChartMoment(it.date) }
         Column(
@@ -237,7 +238,7 @@ fun MarketChartSheet(
 }
 
 private fun rangeLabel(range: ChartRange): String = when (range) {
-    ChartRange.DAY -> "today"
+    ChartRange.DAY -> "1D"
     ChartRange.WEEK -> "past week"
     else -> "past month"
 }

@@ -81,7 +81,7 @@ private fun InvestmentWidgetBody(openInvestments: Intent) {
             verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
             Tile(
-                label = "Today",
+                label = "1D",
                 value = signedMoney(state[InvestmentWidgetKeys.dayChange]),
                 footnote = percentageFootnote(
                     state[InvestmentWidgetKeys.dayChangePercentage],
@@ -91,7 +91,7 @@ private fun InvestmentWidgetBody(openInvestments: Intent) {
                 modifier = GlanceModifier.defaultWeight()
             )
             Tile(
-                label = "Total P&L",
+                label = "Unrealised",
                 value = signedMoney(state[InvestmentWidgetKeys.pnl]),
                 footnote = percentageFootnote(
                     state[InvestmentWidgetKeys.pnlPercentage],

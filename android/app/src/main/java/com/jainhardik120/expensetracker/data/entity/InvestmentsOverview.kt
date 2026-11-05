@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class InvestmentsOverview(
     val asOf: String,
+    val pricesAsOf: String? = null,
     val summary: PortfolioSummary,
     val categories: List<InvestmentCategory>,
     val holdings: List<InvestmentHolding>,
@@ -30,6 +31,8 @@ data class IndividualPosition(
 data class TodayEstimate(
     val marketOpen: Boolean,
     val navDate: String? = null,
+    val oldestNavDate: String? = null,
+    val estimateDate: String? = null,
     val percents: Map<String, Double> = emptyMap()
 )
 
@@ -82,7 +85,10 @@ data class MarketSnapshot(val items: List<MarketItem> = emptyList())
 data class MarketPoint(val date: String, val price: Double)
 
 @Serializable
-data class MarketChart(val points: List<MarketPoint> = emptyList())
+data class MarketChart(
+    val points: List<MarketPoint> = emptyList(),
+    val previousClose: Double? = null
+)
 
 @Serializable
 data class SeriesPoint(val time: Long, val price: Double)
@@ -91,8 +97,12 @@ data class SeriesPoint(val time: Long, val price: Double)
 data class MetalCharts(
     val unit: String,
     val etfSymbol: String,
+    val etfName: String = "",
     val start: Long,
     val end: Long,
+    val etfNow: Double? = null,
+    val etfBase: Double? = null,
+    val mcxBase: Double? = null,
     val etf: List<SeriesPoint> = emptyList(),
     val etfEstimate: List<SeriesPoint> = emptyList(),
     val mcx: List<SeriesPoint> = emptyList(),
@@ -120,6 +130,7 @@ data class PortfolioSummary(
     val valuation: Double,
     val pnl: Double,
     val pnlPercentage: Double? = null,
+    val realizedPnl: Double = 0.0,
     val dayChange: Double,
     val dayChangePercentage: Double? = null,
     val xirr: Double? = null,
@@ -136,6 +147,7 @@ data class InvestmentCategory(
     val valuation: Double,
     val pnl: Double,
     val pnlPercentage: Double? = null,
+    val realizedPnl: Double = 0.0,
     val dayChange: Double,
     val dayChangePercentage: Double? = null,
     val xirr: Double? = null,

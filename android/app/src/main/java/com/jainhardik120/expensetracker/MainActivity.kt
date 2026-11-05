@@ -46,6 +46,7 @@ import com.jainhardik120.expensetracker.ui.auth.ErrorScreen
 import com.jainhardik120.expensetracker.ui.auth.LoadingScreen
 import com.jainhardik120.expensetracker.ui.auth.LoginScreen
 import com.jainhardik120.expensetracker.ui.theme.ExpenseTrackerTheme
+import com.jainhardik120.expensetracker.widget.InvestmentWidgetRefreshScheduler
 import com.jainhardik120.expensetracker.widget.WidgetRefreshScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -120,6 +121,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         WidgetRefreshScheduler.refreshNow(this)
+        InvestmentWidgetRefreshScheduler.refreshNow(this)
     }
 }
 

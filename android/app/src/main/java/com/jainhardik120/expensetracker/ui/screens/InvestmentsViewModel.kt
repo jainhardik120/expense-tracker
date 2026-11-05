@@ -57,6 +57,9 @@ class InvestmentsViewModel @Inject constructor(
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
+    var isRefreshFailing by mutableStateOf(false)
+        private set
+
     var selectedCategory by mutableStateOf<String?>(null)
         private set
 
@@ -111,6 +114,9 @@ class InvestmentsViewModel @Inject constructor(
         private set
 
     var marketPoints by mutableStateOf<List<MarketPoint>?>(null)
+        private set
+
+    var marketPreviousClose by mutableStateOf<Double?>(null)
         private set
 
     var marketError by mutableStateOf<String?>(null)
@@ -172,12 +178,10 @@ class InvestmentsViewModel @Inject constructor(
     private fun loadMarketChart() {
         requestMarketChart(showLoading = true)
         liveMarketJob?.cancel()
-        if (marketRange == ChartRange.DAY || openMarket?.key in METAL_KEYS) {
-            liveMarketJob = viewModelScope.launch {
-                while (isActive) {
-                    delay(LIVE_CHART_INTERVAL_MS)
-                    requestMarketChart(showLoading = false)
-                }
+        liveMarketJob = viewModelScope.launch {
+            while (isActive) {
+                delay(LIVE_CHART_INTERVAL_MS)
+                requestMarketChart(showLoading = false)
             }
         }
     }
@@ -209,6 +213,7 @@ class InvestmentsViewModel @Inject constructor(
         ) { response ->
             if (openMarket == item && marketRange == range) {
                 marketPoints = response.points
+                marketPreviousClose = response.previousClose
             }
         }
     }
@@ -251,12 +256,10 @@ class InvestmentsViewModel @Inject constructor(
     private fun loadChart() {
         requestChart(showLoading = true)
         liveChartJob?.cancel()
-        if (chartRange == ChartRange.DAY) {
-            liveChartJob = viewModelScope.launch {
-                while (isActive) {
-                    delay(LIVE_CHART_INTERVAL_MS)
-                    requestChart(showLoading = false)
-                }
+        liveChartJob = viewModelScope.launch {
+            while (isActive) {
+                delay(LIVE_CHART_INTERVAL_MS)
+                requestChart(showLoading = false)
             }
         }
     }
@@ -273,7 +276,7 @@ class InvestmentsViewModel @Inject constructor(
             onDoneExecuting = null,
             onException = { message -> if (showLoading) chartError = message }
         ) { response ->
-            if (openHolding == holding && chartRange == range) {
+            if (openHolding?.isSameAs(holding) == true && chartRange == range) {
                 chartPoints = response.points
                 chartIntraday = response.intraday
                 chartPositions = response.positions
@@ -294,16 +297,45 @@ class InvestmentsViewModel @Inject constructor(
         metric = all[(metric.ordinal + 1) % all.size]
     }
 
+    private fun applyOverview(response: InvestmentsOverview) {
+        overview = response
+        isRefreshFailing = false
+        openHolding = openHolding?.let { open ->
+            response.holdings.firstOrNull { it.isSameAs(open) } ?: open
+        }
+    }
+
     fun loadInvestments() {
         errorMessage = null
         makeApiCall(
             call = { api.getInvestments() },
             preExecuting = { isLoading = true },
             onDoneExecuting = { isLoading = false },
-            onException = { message -> errorMessage = message }
+            onException = { message ->
+                errorMessage = message
+                isRefreshFailing = true
+            }
         ) { response ->
-            overview = response
+            applyOverview(response)
         }
+        loadEstimates()
+        refreshMarkets()
+    }
+
+    fun refreshLive() {
+        makeApiCall(
+            call = { api.getInvestments() },
+            preExecuting = null,
+            onDoneExecuting = null,
+            onException = { isRefreshFailing = true }
+        ) { response ->
+            applyOverview(response)
+        }
+        loadEstimates()
+        refreshMarkets()
+    }
+
+    private fun loadEstimates() {
         makeApiCall(
             call = { api.getTodayEstimate() },
             preExecuting = null,
@@ -320,6 +352,8 @@ class InvestmentsViewModel @Inject constructor(
         ) { response ->
             etfEstimate = response
         }
-        refreshMarkets()
     }
 }
+
+private fun InvestmentHolding.isSameAs(other: InvestmentHolding) =
+    kind == other.kind && code == other.code && isRsu == other.isRsu

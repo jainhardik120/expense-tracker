@@ -164,7 +164,7 @@ fun MetalChartsSheet(
                             BuyFigure(
                                 label = "Your average buy, ETF based",
                                 average = buyPrice.etf,
-                                current = charts.etf.lastOrNull()?.price,
+                                current = charts.etfNow,
                                 unit = charts.unit,
                                 modifier = Modifier.weight(1f)
                             )
@@ -184,10 +184,11 @@ fun MetalChartsSheet(
                     }
                     val onSelect: (Long?) -> Unit = { selectedTime = it }
                     SeriesChart(
-                        title = "${charts.etfSymbol} ETF, as a rate",
+                        title = "${charts.etfName.ifBlank { "${charts.etfSymbol} ETF" }}, as a rate",
                         unit = charts.unit,
                         points = charts.etf,
                         estimates = charts.etfEstimate,
+                        base = charts.etfBase,
                         charts = charts,
                         range = range,
                         selectedTime = selectedTime,
@@ -198,6 +199,7 @@ fun MetalChartsSheet(
                         unit = charts.unit,
                         points = charts.mcx,
                         estimates = charts.mcxEstimate,
+                        base = charts.mcxBase,
                         charts = charts,
                         range = range,
                         selectedTime = selectedTime,
@@ -265,7 +267,8 @@ private fun heading(
     unit: String,
     isUsd: Boolean,
     stepped: Boolean,
-    selectedTime: Long?
+    selectedTime: Long?,
+    base: Double?
 ): String {
     val series = (points + estimates).sortedBy { it.time }
     val first = series.firstOrNull() ?: return "No data for this period"
@@ -279,7 +282,7 @@ private fun heading(
     val traded = points.lastOrNull()
     val isEstimated = last.time > (traded?.time ?: 0L)
     val prefix = if (isEstimated) "Est. " else ""
-    val change = signedChange((last.price / first.price - 1) * PERCENT)
+    val change = signedChange((last.price / (base ?: first.price) - 1) * PERCENT)
     val tail = if (stepped || traded == null) {
         ""
     } else {
@@ -299,7 +302,8 @@ private fun SeriesChart(
     onSelect: (Long?) -> Unit,
     estimates: List<SeriesPoint> = emptyList(),
     stepped: Boolean = false,
-    isUsd: Boolean = false
+    isUsd: Boolean = false,
+    base: Double? = null
 ) {
     val axisColour = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColour = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
@@ -307,7 +311,7 @@ private fun SeriesChart(
     Column {
         Text(text = title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
         Text(
-            text = heading(points, estimates, unit, isUsd, stepped, selectedTime),
+            text = heading(points, estimates, unit, isUsd, stepped, selectedTime, base),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
