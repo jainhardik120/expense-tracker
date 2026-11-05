@@ -2,11 +2,11 @@ import { instrumentedFunction } from '@/lib/instrumentation';
 import type { InvestmentKindValue, StockMarketValue } from '@/lib/investments';
 import { MS_PER_SECOND } from '@/types';
 
+import { fetchYahooChartQuote } from './providers/commodity-market-data';
 import {
   DAY_IN_MS,
   DEFAULT_USER_AGENT,
   fetchJson,
-  fetchLiveJson,
   getFxRateToInrFromHistory,
   INR_CURRENCY,
   startOfDay,
@@ -68,22 +68,8 @@ export const getInvestmentAmountInInr = ({
 export const getUsdInrRate = instrumentedFunction(
   'getUsdInrRate',
   async (): Promise<number | null> => {
-    const payload = await fetchLiveJson<{
-      quoteResponse?: {
-        result?: Array<{ symbol?: string; regularMarketPrice?: number }>;
-      };
-    }>('https://query1.finance.yahoo.com/v7/finance/quote?symbols=USDINR%3DX', {
-      cache: 'no-store',
-      headers: {
-        'User-Agent': DEFAULT_USER_AGENT,
-      },
-    });
-
-    const price = payload?.quoteResponse?.result?.[0]?.regularMarketPrice;
-    if (price === undefined || !Number.isFinite(price) || price <= 0) {
-      return null;
-    }
-    return price;
+    const quote = await fetchYahooChartQuote('USDINR=X', 'INR');
+    return quote === null || quote.unitPriceNative <= 0 ? null : quote.unitPriceNative;
   },
 );
 
