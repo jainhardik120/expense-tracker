@@ -133,11 +133,13 @@ const StatCard = ({
   title,
   tone,
   className,
+  note,
   children,
 }: {
   title: string;
   tone?: string;
   className?: string;
+  note?: string;
   children: React.ReactNode;
 }) => (
   <Card className={cn('gap-2 py-3 sm:gap-6 sm:py-6', className)}>
@@ -147,6 +149,9 @@ const StatCard = ({
     <CardContent className={cn('px-3 text-lg font-semibold sm:px-6 sm:text-xl', tone)}>
       {children}
     </CardContent>
+    {note === undefined ? null : (
+      <div className="text-muted-foreground mt-auto px-3 text-right text-xs sm:px-6">{note}</div>
+    )}
   </Card>
 );
 
@@ -190,6 +195,7 @@ export const InvestmentsOverview = ({
   filters,
   selectedCategories,
   selection,
+  totalCharges,
   onCategoryToggle,
   onSelect,
 }: {
@@ -199,6 +205,7 @@ export const InvestmentsOverview = ({
   filters: TimelineFilters;
   selectedCategories: Set<InvestmentCategoryValue>;
   selection: { category: string[]; instrument: string[] };
+  totalCharges: number;
   onCategoryToggle: (category: InvestmentCategoryValue) => void;
   onSelect: (next: { category?: string[]; instrument?: string[] }) => void;
 }) => {
@@ -295,7 +302,10 @@ export const InvestmentsOverview = ({
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
       <div className="grid grid-cols-2 gap-3 xl:grid-rows-4">
-        <StatCard title="Total Invested">
+        <StatCard
+          note={totalCharges > 0 ? `+ ${formatCurrency(totalCharges)} charges` : undefined}
+          title="Total Invested"
+        >
           {formatCurrency(dashboard.summary.investedAmount)}
         </StatCard>
         <StatCard title="Current Value">

@@ -58,6 +58,13 @@ const getAsOf = (positions: InvestmentsPageData['positions']) => {
   return times.length === 0 ? null : new Date(Math.max(...times));
 };
 
+const getTotalCharges = (positions: InvestmentsPageData['positions']) =>
+  positions.reduce(
+    (total, position) =>
+      position.isExcludedFromPortfolioPosition ? total : total + (position.charges ?? 0),
+    0,
+  );
+
 const getPriceStatus = (isError: boolean, isLive: boolean) => {
   if (isError) {
     return 'live prices unavailable, showing last saved';
@@ -75,6 +82,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
   const { positions, dashboard } = liveQuery.data ?? data;
   const isLive = liveQuery.data !== undefined;
   const asOf = useMemo(() => getAsOf(positions), [positions]);
+  const totalCharges = useMemo(() => getTotalCharges(positions), [positions]);
   const refresh = useCallback(async () => {
     await utils.investments.invalidate();
     router.refresh();
@@ -193,6 +201,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
         isLive={isLive}
         selectedCategories={selectedCategories}
         selection={selection}
+        totalCharges={totalCharges}
         onCategoryToggle={toggleCategory}
         onSelect={select}
       />
