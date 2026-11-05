@@ -86,7 +86,9 @@ export const buildDailyPriceSeries = ({
   }
 
   const days = buildDailyRange(startDate, endDate);
-  let lastKnownPrice: number | undefined = fallbackPrice;
+  const firstDay = startOfDay(startDate).getTime();
+  let lastKnownPrice = sorted.findLast((point) => point.date.getTime() < firstDay)?.price;
+  lastKnownPrice ??= fallbackPrice;
   return days.map((day) => {
     const key = dateToDayKey(day);
     const dayPrice = dayPriceMap.get(key);

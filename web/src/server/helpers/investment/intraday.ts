@@ -484,7 +484,16 @@ const buildDailyTimeline = async (
   const last = priced.at(-1);
   return open.length === 0 || last === undefined
     ? priced
-    : [...priced.slice(0, -1), { ...last, ...current }];
+    : [
+        ...priced.slice(0, -1),
+        {
+          ...last,
+          ...current,
+          unitPrice: isInstrument
+            ? (open.at(0)?.liveUnitPriceDisplay ?? last.unitPrice)
+            : last.unitPrice,
+        },
+      ];
 };
 
 export const buildFineTimeline = instrumentedFunction(

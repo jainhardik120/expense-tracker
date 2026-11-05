@@ -41,6 +41,8 @@ const COMMODITY_TTL_MINUTES = 5;
 const FX_TTL_MS = FX_TTL_MINUTES * MS_PER_MINUTE;
 const FUND_QUOTE_TTL_MS = SLOW_QUOTE_TTL_MINUTES * MS_PER_MINUTE;
 const CLOSED_MARKET_TTL_MS = SLOW_QUOTE_TTL_MINUTES * MS_PER_MINUTE;
+const HISTORY_LOOKBACK_DAYS = 10;
+const HISTORY_LOOKBACK_MS = HISTORY_LOOKBACK_DAYS * DAY_IN_MS;
 const LIVE_TTL_MS = MS_PER_MINUTE;
 const COMMODITY_TTL_MS = COMMODITY_TTL_MINUTES * MS_PER_MINUTE;
 
@@ -293,7 +295,7 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
             ? []
             : unitInstruments.map((instrument) => ({
                 key: instrumentKeyOf(instrument),
-                start: historyStartDate,
+                start: new Date(historyStartDate.getTime() - HISTORY_LOOKBACK_MS),
                 end: historyEndDate,
               }))),
           ...(requiresUsdInrData

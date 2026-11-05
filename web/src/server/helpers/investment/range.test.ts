@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 
-import { endAtLastPriceDay } from './range';
+import { buildDailyPriceSeries, endAtLastPriceDay } from './range';
 
 vi.mock('@/lib/env', () => ({ env: {} }));
 
@@ -25,4 +25,24 @@ test('keeps every point when no price date is known', () => {
 
 test('keeps the points rather than emptying the chart', () => {
   expect(lastDay([day('2026-10-01')])).toBe('2026-11-05');
+});
+
+const series = (rawPoints: Array<{ date: Date; price: number }>, fallbackPrice?: number) =>
+  buildDailyPriceSeries({
+    rawPoints,
+    startDate: day('2026-05-10'),
+    endDate: day('2026-05-12'),
+    fallbackPrice,
+  }).map(({ price }) => price);
+
+test('a range starting on a closed day opens at the last real close, not the fallback', () => {
+  const closes = [
+    { date: day('2026-05-08'), price: 96.57 },
+    { date: day('2026-05-11'), price: 98.72 },
+  ];
+  expect(series(closes, 66.45)).toEqual([96.57, 98.72, 98.72]);
+});
+
+test('uses the fallback only when no earlier price exists', () => {
+  expect(series([{ date: day('2026-05-11'), price: 98.72 }], 66.45)).toEqual([66.45, 98.72, 98.72]);
 });

@@ -6,7 +6,7 @@ import { type InvestmentKindValue, type InvestmentTimelineRangeValue } from '@/l
 import { summarizeInvestments } from './dashboard';
 import { enrichInvestments } from './enrichment';
 import { buildInvestmentMarketDataContext, loadSavedMarketData } from './market-data';
-import { getTimeRangeBounds } from './range';
+import { endAtLastPriceDay, getTimeRangeBounds } from './range';
 import { getFxRateToInrFromHistory, startOfDay } from './shared';
 import { buildInstrumentTimelineEntries } from './timeline';
 import { parseOptionalNumber } from './utils';
@@ -96,6 +96,8 @@ type InstrumentChartPoint = {
   unitPrice: number;
   holdingValue: number;
   investedAmount: number;
+  unitPriceDisplay: number;
+  holdingValueDisplay: number;
 };
 
 type InstrumentChartPosition = {
@@ -104,6 +106,8 @@ type InstrumentChartPosition = {
   units: number | null;
   investedAmount: number;
   valuationAmount: number;
+  investedDisplay: number;
+  valuationDisplay: number;
   isClosed: boolean;
   closedAt: Date | null;
 };
@@ -111,6 +115,41 @@ type InstrumentChartPosition = {
 export type InstrumentChart = {
   points: InstrumentChartPoint[];
   positions: InstrumentChartPosition[];
+  displayFxToInr: number;
+};
+
+const endOnLivePrice = (series: InstrumentChartPoint[], investments: EnrichedInvestment[]) => {
+  const open = investments.filter((position) => !position.isClosedPosition);
+  const isFund =
+    open.length > 0 && open.every(({ normalizedKind }) => normalizedKind === 'mutual_funds');
+  const points = isFund
+    ? endAtLastPriceDay(
+        series,
+        open.map((position) => position.valuationDate),
+      )
+    : series;
+  const last = points.at(-1);
+  const live = open.at(0);
+  if (last === undefined || live === undefined) {
+    return points;
+  }
+  return [
+    ...points.slice(0, -1),
+    {
+      ...last,
+      unitPrice: live.liveUnitPrice ?? last.unitPrice,
+      unitPriceDisplay: live.liveUnitPriceDisplay ?? last.unitPriceDisplay,
+      holdingValue: open.reduce(
+        (total, position) => total + (position.valuationAmount ?? position.investedAmountInr),
+        0,
+      ),
+      holdingValueDisplay: open.reduce(
+        (total, position) =>
+          total + (position.valuationAmountDisplay ?? position.investedAmountDisplay),
+        0,
+      ),
+    },
+  ];
 };
 
 export const buildInstrumentChart = instrumentedFunction(
@@ -121,7 +160,7 @@ export const buildInstrumentChart = instrumentedFunction(
     marketDataKinds,
   }: RangeViewRequest): Promise<InstrumentChart> => {
     if (investmentsListRaw.length === 0) {
-      return { points: [], positions: [] };
+      return { points: [], positions: [], displayFxToInr: 1 };
     }
     const view = await buildInstrumentView({ investmentsListRaw, range, marketDataKinds });
     const points = view.instrumentTimelines[0]?.timeline.points ?? [];
@@ -144,6 +183,8 @@ export const buildInstrumentChart = instrumentedFunction(
         unitPrice: point.unitPrice * fx,
         holdingValue: point.holdingValue * fx,
         investedAmount,
+        unitPriceDisplay: point.unitPrice,
+        holdingValueDisplay: point.holdingValue,
       };
     });
     const positions = view.enrichedAll
@@ -153,10 +194,16 @@ export const buildInstrumentChart = instrumentedFunction(
         units: parseOptionalNumber(position.units),
         investedAmount: position.investedAmountInr,
         valuationAmount: position.valuationAmount ?? position.investedAmountInr,
+        investedDisplay: position.investedAmountDisplay,
+        valuationDisplay: position.valuationAmountDisplay ?? position.investedAmountDisplay,
         isClosed: position.isClosedPosition,
         closedAt: position.closedAt,
       }))
       .sort((left, right) => right.date.getTime() - left.date.getTime());
-    return { points: series, positions };
+    return {
+      points: endOnLivePrice(series, view.enrichedAll),
+      positions,
+      displayFxToInr: isUsd ? (fallbackFx ?? 1) : 1,
+    };
   },
 );
