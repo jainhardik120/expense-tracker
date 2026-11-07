@@ -40,7 +40,10 @@ import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import java.io.IOException
+import java.net.SocketTimeoutException
 import java.time.ZoneId
 
 class ExpenseTrackerAPIImpl(
@@ -53,15 +56,25 @@ class ExpenseTrackerAPIImpl(
             val response = call.invoke()
             Result.Success(response)
         } catch (e: ResponseException) {
-            try {
-                val errorBody: R = e.response.body()
+            val errorBody = runCatching { e.response.body<R>() }.getOrNull()
+            if (errorBody != null) {
                 Result.ClientException(errorBody, e.response.status)
-            } catch (innerException: Exception) {
-                Result.Exception("Deserialization failed: ${innerException.message}")
+            } else {
+                Result.Exception(statusMessage(e.response.status))
             }
+        } catch (e: SocketTimeoutException) {
+            Result.Exception("The server took too long to respond. Try again in a bit.")
+        } catch (e: IOException) {
+            Result.Exception("Can't reach the server. Check your connection and try again.")
         } catch (e: Exception) {
             Result.Exception(e.message)
         }
+    }
+
+    private fun statusMessage(status: HttpStatusCode): String = when (status.value) {
+        401, 403 -> "Your session has expired. Sign in again."
+        in 500..599 -> "The server is offline right now. Try again in a bit."
+        else -> "Something went wrong (error ${status.value}). Try again."
     }
 
     private suspend inline fun <reified T, reified R> requestBuilder(
