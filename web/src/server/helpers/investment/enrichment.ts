@@ -1,6 +1,7 @@
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { isUnitBasedInvestment, normalizeInvestmentKind } from '@/lib/investments';
 
+import { getEpfoValuationAtDate } from './epfo';
 import { getFdValuation, getFdValuationAtDate } from './fd';
 import { getInvestmentAmountInInr } from './fx';
 import {
@@ -85,6 +86,9 @@ export const enrichInvestments = instrumentedFunction(
         if (normalizedKind === 'fd') {
           return getFdValuation(investment);
         }
+        if (normalizedKind === 'epfo') {
+          return getEpfoValuationAtDate(investment, new Date());
+        }
         return investedAmount;
       })();
 
@@ -97,12 +101,10 @@ export const enrichInvestments = instrumentedFunction(
         dayChange = 0;
         dayChangeDisplay = 0;
         dayChangePercentage = 0;
-      } else if (normalizedKind === 'fd') {
-        const currentValuation = getFdValuationAtDate(investment, asOfDate);
-        const previousValuation = getFdValuationAtDate(
-          investment,
-          new Date(asOfDate.getTime() - DAY_IN_MS),
-        );
+      } else if (normalizedKind === 'fd' || normalizedKind === 'epfo') {
+        const valuationAt = normalizedKind === 'fd' ? getFdValuationAtDate : getEpfoValuationAtDate;
+        const currentValuation = valuationAt(investment, asOfDate);
+        const previousValuation = valuationAt(investment, new Date(asOfDate.getTime() - DAY_IN_MS));
         if (currentValuation !== null && previousValuation !== null) {
           dayChange = currentValuation - previousValuation;
           dayChangeDisplay = dayChange;

@@ -6,6 +6,7 @@ import {
   type StockMarketValue,
 } from '@/lib/investments';
 
+import { getEpfoValuationAtDate } from './epfo';
 import { getFdValuationAtDate } from './fd';
 import { getHistoricalUnitPrices } from './market-data';
 import { buildDailyPriceSeries, buildDailyRange, clampDateInRange } from './range';
@@ -36,10 +37,12 @@ export const getDailyRangeFromInvestments = ({
   investmentsList,
   start,
   end,
+  beforeFirstBuy = false,
 }: {
   investmentsList: EnrichedInvestment[];
   start?: Date;
   end?: Date;
+  beforeFirstBuy?: boolean;
 }): { startDate: Date; endDate: Date; days: Date[] } => {
   const now = startOfDay(new Date());
   const earliestInvestmentDate = investmentsList.reduce<Date>((earliest, investment) => {
@@ -49,7 +52,11 @@ export const getDailyRangeFromInvestments = ({
   const requestedStart = start === undefined ? earliestInvestmentDate : startOfDay(start);
   const requestedEnd = end === undefined ? now : startOfDay(end);
   const clampedEnd = requestedEnd.getTime() > now.getTime() ? now : requestedEnd;
-  const clampedStart = clampDateInRange(requestedStart, earliestInvestmentDate, clampedEnd);
+  const clampedStart = clampDateInRange(
+    requestedStart,
+    beforeFirstBuy ? requestedStart : earliestInvestmentDate,
+    clampedEnd,
+  );
   return {
     startDate: clampedStart,
     endDate: clampedEnd,
@@ -99,6 +106,10 @@ export const buildDailyInstrumentTimeline = instrumentedFunction(
             value += getFdValuationAtDate(position, day) ?? 0;
             continue;
           }
+          if (kind === 'epfo' && !position.isClosedPosition) {
+            value += getEpfoValuationAtDate(position, day);
+            continue;
+          }
           if (position.isClosedPosition) {
             value +=
               parseOptionalNumber(position.amount) ??
@@ -132,12 +143,16 @@ export const buildDailyInstrumentTimeline = instrumentedFunction(
         usdInrRate: usdInrRateFallback,
         usdInrHistory: usdInrHistory ?? [],
       }));
+    const firstKnownDay = Math.min(
+      ...rawPrices.map((point) => startOfDay(point.date).getTime()),
+      ...positions.map((position) => startOfDay(position.investmentDate).getTime()),
+    );
     const dailyPrices = buildDailyPriceSeries({
       rawPoints: rawPrices,
       startDate,
       endDate,
       fallbackPrice,
-    });
+    }).filter((point) => point.date.getTime() >= firstKnownDay);
 
     const unitEvents = new Map<string, number>();
     let unitsHeld = 0;
@@ -195,6 +210,7 @@ const getInstrumentHoldingTimeline = instrumentedFunction(
     end,
     historyByInstrumentKey,
     usdInrHistory,
+    beforeFirstBuy,
   }: {
     kind: InvestmentKindValue;
     code: string;
@@ -204,6 +220,7 @@ const getInstrumentHoldingTimeline = instrumentedFunction(
     end?: Date;
     historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
     usdInrHistory?: Array<{ date: Date; price: number }>;
+    beforeFirstBuy?: boolean;
   }): Promise<InstrumentHoldingTimeline> => {
     if (investmentsList.length === 0) {
       return {
@@ -221,6 +238,7 @@ const getInstrumentHoldingTimeline = instrumentedFunction(
       investmentsList,
       start,
       end,
+      beforeFirstBuy,
     });
     const points = await buildDailyInstrumentTimeline({
       kind,
@@ -328,12 +346,14 @@ export const buildInstrumentTimelineEntries = instrumentedFunction(
     endDate,
     historyByInstrumentKey,
     usdInrHistory,
+    beforeFirstBuy,
   }: {
     investmentsList: EnrichedInvestment[];
     startDate: Date;
     endDate: Date;
     historyByInstrumentKey?: Map<string, Array<{ date: Date; price: number }>>;
     usdInrHistory?: Array<{ date: Date; price: number }>;
+    beforeFirstBuy?: boolean;
   }): Promise<InstrumentTimelineEntry[]> => {
     const groups = buildInstrumentGroups(investmentsList);
     const entries = await Promise.all(
@@ -350,6 +370,7 @@ export const buildInstrumentTimelineEntries = instrumentedFunction(
           end: endDate,
           historyByInstrumentKey,
           usdInrHistory,
+          beforeFirstBuy,
         }),
       })),
     );

@@ -93,11 +93,11 @@ const DAY_KEY_FORMAT = 'yyyy-MM-dd';
 
 const TIME_RANGE_OPTIONS: Array<{ value: InvestmentTimelineRangeValue; label: string }> = [
   { value: '1d', label: '1D' },
-  { value: '1w', label: '1W' },
   { value: '1m', label: '1M' },
-  { value: '3m', label: '3M' },
   { value: '6m', label: '6M' },
-  { value: 'lifetime', label: 'Lifetime' },
+  { value: '1y', label: '1Y' },
+  { value: '3y', label: '3Y' },
+  { value: '5y', label: '5Y' },
 ];
 
 const viewFromSelection = ({
@@ -253,6 +253,14 @@ export const InvestmentsOverview = ({
     { refetchInterval: MS_PER_MINUTE },
   );
   const timelinePoints = useMemo(() => timelineQuery.data?.points ?? [], [timelineQuery.data]);
+  const firstBought = timelineQuery.data?.firstBought ?? null;
+  const heldPoints = useMemo(
+    () =>
+      firstBought === null
+        ? timelinePoints
+        : timelinePoints.filter((point) => point.date.getTime() >= firstBought.getTime()),
+    [timelinePoints, firstBought],
+  );
   const isIntraday = timelineQuery.data?.intraday ?? false;
   const pricePoints = useMemo(
     () => timelinePoints.map((point) => ({ date: point.date, price: point.unitPrice })),
@@ -314,7 +322,7 @@ export const InvestmentsOverview = ({
   const intradayLabels = isNavView ? NAV_LABELS : INTRADAY_LABELS;
   const chartLabels = isToday ? intradayLabels : AGGREGATE_LABELS;
   const averageBuyPrice = selectedRow?.averageBuyPrice ?? null;
-  const hasChart = timelinePoints.length >= 2;
+  const hasChart = (activeChart === 'price' ? timelinePoints : heldPoints).length >= 2;
   const selectedCurrency = selectedInstrument?.displayCurrency ?? 'INR';
   const chartCurrency = !isAggregateView && selectedCurrency === USD_CURRENCY ? 'USD' : 'INR';
   const chartSymbol = CURRENCY_SYMBOLS[chartCurrency];
@@ -445,7 +453,7 @@ export const InvestmentsOverview = ({
                 currency={chartCurrency}
                 intraday={isIntraday}
                 labels={chartLabels}
-                points={timelinePoints}
+                points={heldPoints}
                 title={
                   isToday
                     ? {
@@ -464,13 +472,14 @@ export const InvestmentsOverview = ({
                 currency={chartCurrency}
                 intraday={isIntraday}
                 labels={chartLabels}
-                points={timelinePoints}
+                points={heldPoints}
               />
             ) : null}
             {hasChart && activeChart === 'price' ? (
               <PriceChart
                 averageBuyPrice={averageBuyPrice}
                 currency={chartCurrency}
+                firstBought={firstBought}
                 intraday={isIntraday}
                 points={pricePoints}
               />

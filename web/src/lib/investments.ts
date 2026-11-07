@@ -177,16 +177,28 @@ export const normalizeStockMarket = (
   return fallback;
 };
 
-export const investmentTimelineRangeValues = ['1d', '1w', '1m', '3m', '6m', 'lifetime'] as const;
+export const investmentTimelineRangeValues = [
+  '1d',
+  '1w',
+  '1m',
+  '3m',
+  '6m',
+  '1y',
+  '3y',
+  '5y',
+] as const;
 
 export type InvestmentTimelineRangeValue = (typeof investmentTimelineRangeValues)[number];
 
-export const investmentTimelineRangeDays: Partial<Record<InvestmentTimelineRangeValue, number>> = {
+export const investmentTimelineRangeDays: Record<InvestmentTimelineRangeValue, number> = {
   '1d': 1,
   '1w': 7,
   '1m': 30,
   '3m': 90,
   '6m': 180,
+  '1y': 365,
+  '3y': 1095,
+  '5y': 1825,
 };
 
 export type TimelineFilters = { start?: Date; end?: Date; investmentKind: string[] };

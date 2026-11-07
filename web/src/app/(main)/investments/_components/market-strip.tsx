@@ -2,10 +2,22 @@
 
 import { useMemo, useState } from 'react';
 
+import Link from 'next/link';
+
+import { ArrowRight } from 'lucide-react';
+
 import { PriceChart } from '@/components/gain-loss-chart';
 import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { formatCurrency, formatNumber, formatPercent } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { api } from '@/server/react';
@@ -17,8 +29,10 @@ import { MetalChartsDialog } from './metal-charts-dialog';
 
 type MarketItem = RouterOutput['investments']['getMarketSnapshot']['items'][number];
 type ChartRange = '1d' | '1w' | '1m';
+type IndexKey = 'nifty' | 'sensex';
 
 const PERCENT = 100;
+const NUMBER_CELL = 'text-right align-top tabular-nums';
 const RANGES: Array<{ value: ChartRange; label: string }> = [
   { value: '1d', label: '1D' },
   { value: '1w', label: '1W' },
@@ -29,6 +43,63 @@ const signedPercent = (value: number) => `${value > 0 ? '+' : ''}${formatPercent
 
 const priceLabel = (item: MarketItem, price: number) =>
   item.isCurrency ? formatCurrency(price) : formatNumber(price);
+
+const IndexComponents = ({
+  indexKey,
+  open,
+  range,
+}: {
+  indexKey: IndexKey;
+  open: boolean;
+  range: ChartRange;
+}) => {
+  const { data } = api.investments.getIndexComponents.useQuery(
+    { key: indexKey, range },
+    { enabled: open, refetchInterval: MS_PER_MINUTE, placeholderData: (previous) => previous },
+  );
+  if (data === undefined) {
+    return <Skeleton className="h-40 w-full" />;
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-sm font-medium">Components ({data.components.length})</div>
+      <Table className="text-xs">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Stock</TableHead>
+            <TableHead className={NUMBER_CELL}>Weight</TableHead>
+            <TableHead className={NUMBER_CELL}>Price</TableHead>
+            <TableHead className={NUMBER_CELL}>
+              {RANGES.find((option) => option.value === range)?.label}
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.components.map((component) => (
+            <TableRow key={component.name}>
+              <TableCell className="whitespace-normal">
+                <div>{component.name}</div>
+                <div className="text-muted-foreground text-[11px]">{component.sector}</div>
+              </TableCell>
+              <TableCell className={NUMBER_CELL}>{formatPercent(component.weight)}</TableCell>
+              <TableCell className={NUMBER_CELL}>
+                {component.price === null ? '-' : formatCurrency(component.price)}
+              </TableCell>
+              <TableCell
+                className={cn(NUMBER_CELL, getSignedValueTone(component.changePercent ?? 0))}
+              >
+                {component.changePercent === null ? '-' : signedPercent(component.changePercent)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <p className="text-muted-foreground text-[11px]">
+        Weights come from the latest holdings of {data.etfName}, which tracks this index.
+      </p>
+    </div>
+  );
+};
 
 const MarketChartBody = ({ item, open }: { item: MarketItem; open: boolean }) => {
   const [range, setRange] = useState<ChartRange>('1d');
@@ -41,7 +112,7 @@ const MarketChartBody = ({ item, open }: { item: MarketItem; open: boolean }) =>
   const last = points.at(-1)?.price;
   const change = first === undefined || last === undefined ? null : last - first;
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
       <div>
         <div className="text-2xl font-semibold tabular-nums">
           {last === undefined ? '-' : priceLabel(item, last)}
@@ -81,6 +152,9 @@ const MarketChartBody = ({ item, open }: { item: MarketItem; open: boolean }) =>
           </Button>
         ))}
       </div>
+      {item.key === 'nifty' || item.key === 'sensex' ? (
+        <IndexComponents indexKey={item.key} open={open} range={range} />
+      ) : null}
     </div>
   );
 };
@@ -126,6 +200,17 @@ const MarketTile = ({ item }: { item: MarketItem }) => {
     </Modal>
   );
 };
+
+export const FundAnalysisLink = () => (
+  <div className="flex justify-end">
+    <Button asChild size="sm" variant="outline">
+      <Link href="/investments/mutual-funds">
+        Mutual fund analysis
+        <ArrowRight className="size-4" />
+      </Link>
+    </Button>
+  </div>
+);
 
 export const MarketStrip = () => {
   const { data } = api.investments.getMarketSnapshot.useQuery(undefined, {

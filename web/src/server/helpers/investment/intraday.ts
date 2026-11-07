@@ -6,8 +6,13 @@ import {
   matchesSelection,
   parseCategoryViewValue,
   parseViewValue,
+  toViewValue,
 } from '@/lib/investment-selection';
-import type { InvestmentTimelineRangeValue } from '@/lib/investments';
+import {
+  isUnitBasedInvestment,
+  normalizeInvestmentKind,
+  type InvestmentTimelineRangeValue,
+} from '@/lib/investments';
 import { MS_PER_MINUTE, MS_PER_SECOND } from '@/types';
 
 import { getInvestmentsDashboard } from './dashboard';
@@ -15,7 +20,7 @@ import { enrichInvestments } from './enrichment';
 import { buildInstrumentTimelineEntries } from './holdings';
 import { buildInvestmentMarketDataContext } from './market-data';
 import { parseIndianListing } from './providers/indian-listing';
-import { endAtLastPriceDay, getTimeRangeBounds } from './range';
+import { endAtLastPriceDay, firstBoughtDay, getChartBounds } from './range';
 import {
   createInstrumentKey,
   DEFAULT_USER_AGENT,
@@ -23,7 +28,7 @@ import {
   getFxRateToInrFromHistory,
   startOfDay,
 } from './shared';
-import { dateToDayKey, deriveUnits } from './utils';
+import { dateToDayKey, deriveUnits, getStockMarketFromInvestment } from './utils';
 
 import type { EnrichedInvestment } from './models';
 import type { InvestmentRow, PriceHistoryPoint } from './types';
@@ -148,6 +153,23 @@ const fetchRangePrices = async (
     ? fetchUsPrices(code, YAHOO_RANGES[range])
     : fetchIndianRangePrices(code, start, now);
 };
+
+const hasPriceHistory = (view: string) => {
+  const instrument = parseViewValue(view);
+  return instrument !== null && isUnitBasedInvestment(instrument.kind);
+};
+
+const rowsForView = (rows: InvestmentRow[], view: string) =>
+  parseViewValue(view) === null
+    ? rows
+    : rows.filter(
+        (row) =>
+          toViewValue(
+            normalizeInvestmentKind(row.investmentKind),
+            row.instrumentCode?.trim() ?? '',
+            getStockMarketFromInvestment(row),
+          ) === view,
+      );
 
 const positionsForView = (positions: EnrichedInvestment[], view: string) => {
   if (view === PORTFOLIO_VIEW) {
@@ -353,11 +375,7 @@ const buildRangeTimeline = async (
   range: WideRange,
 ) => {
   const now = new Date();
-  const earliest = investmentsList.reduce<Date>((first, investment) => {
-    const day = startOfDay(investment.investmentDate);
-    return day.getTime() < first.getTime() ? day : first;
-  }, startOfDay(now));
-  const { startDate, endDate } = getTimeRangeBounds(range, earliest);
+  const { startDate, endDate } = getChartBounds(range, investmentsList, hasPriceHistory(view));
   const context = await buildInvestmentMarketDataContext({
     investmentsList,
     historyStartDate: startDate,
@@ -457,12 +475,7 @@ const buildDailyTimeline = async (
   view: string,
   range: InvestmentTimelineRangeValue,
 ) => {
-  const now = new Date();
-  const earliest = investmentsList.reduce<Date>((first, investment) => {
-    const day = startOfDay(investment.investmentDate);
-    return day.getTime() < first.getTime() ? day : first;
-  }, startOfDay(now));
-  const { startDate, endDate } = getTimeRangeBounds(range, earliest);
+  const { startDate, endDate } = getChartBounds(range, investmentsList, hasPriceHistory(view));
   const context = await buildInvestmentMarketDataContext({
     investmentsList,
     historyStartDate: startDate,
@@ -487,6 +500,7 @@ const buildDailyTimeline = async (
           startDate,
           endDate,
           ...history,
+          beforeFirstBuy: hasPriceHistory(view),
         })
       )
         .flatMap((entry) => entry.timeline.points)
@@ -536,18 +550,30 @@ const buildDailyTimeline = async (
       ];
 };
 
+const fineTimeline = async (
+  investmentsList: InvestmentRow[],
+  view: string,
+  range: InvestmentTimelineRangeValue,
+) => {
+  if (range === '1d') {
+    return { points: await buildDayTimeline(investmentsList, view), intraday: true };
+  }
+  if (range === '1w' || range === '1m') {
+    const points = await buildRangeTimeline(investmentsList, view, range);
+    if (points.length > 0) {
+      return { points, intraday: true };
+    }
+  }
+  return { points: await buildDailyTimeline(investmentsList, view, range), intraday: false };
+};
+
 export const buildFineTimeline = instrumentedFunction(
   'buildFineTimeline',
   async (investmentsList: InvestmentRow[], view: string, range: InvestmentTimelineRangeValue) => {
-    if (range === '1d') {
-      return { points: await buildDayTimeline(investmentsList, view), intraday: true };
-    }
-    if (range === '1w' || range === '1m') {
-      const points = await buildRangeTimeline(investmentsList, view, range);
-      if (points.length > 0) {
-        return { points, intraday: true };
-      }
-    }
-    return { points: await buildDailyTimeline(investmentsList, view, range), intraday: false };
+    const rows = rowsForView(investmentsList, view);
+    return {
+      ...(await fineTimeline(rows, view, range)),
+      firstBought: parseViewValue(view) === null || rows.length === 0 ? null : firstBoughtDay(rows),
+    };
   },
 );

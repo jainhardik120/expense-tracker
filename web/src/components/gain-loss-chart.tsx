@@ -55,6 +55,8 @@ const PERCENT_TICK_DECIMALS = 1;
 const LAKH_DECIMALS = 1;
 const GAP_FILL_OPACITY = 0.35;
 const NEAR_FILL_OPACITY = 0.08;
+const AXIS_TICKS = 5;
+const FINE_PRICE_DECIMALS = 4;
 
 const sign = (value: number) => {
   if (Math.round(value) === 0) {
@@ -79,6 +81,8 @@ type MoneyFormat = {
   full: (value: number) => string;
   signed: (value: number) => string;
   compact: (value: number) => string;
+  whole: (value: number) => string;
+  fine: (value: number) => string;
 };
 
 const MILLION = 1_000_000;
@@ -123,13 +127,35 @@ const moneyFormat = (currency: ChartCurrency): MoneyFormat => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+  const wholeFormatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'en-IN', {
+    ...(currency === 'NONE' ? {} : { style: 'currency', currency }),
+    maximumFractionDigits: 0,
+  });
+  const fineFormatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'en-IN', {
+    ...(currency === 'NONE' ? {} : { style: 'currency', currency }),
+    minimumFractionDigits: FINE_PRICE_DECIMALS,
+    maximumFractionDigits: FINE_PRICE_DECIMALS,
+  });
   const symbols: Record<ChartCurrency, string> = { USD: '$', INR: '₹', NONE: '' };
   return {
     symbol: symbols[currency],
     full: (value) => formatter.format(value),
     signed: (value) => `${sign(value)}${formatter.format(Math.abs(value))}`,
     compact: compactFor(currency),
+    whole: (value) => wholeFormatter.format(value),
+    fine: (value) => fineFormatter.format(value),
   };
+};
+
+const axisFormat = (
+  values: number[],
+  preferred: (value: number) => string,
+  fallback: (value: number) => string,
+) => {
+  const lowest = Math.min(...values);
+  const step = (Math.max(...values) - lowest) / (AXIS_TICKS - 1);
+  const labels = Array.from({ length: AXIS_TICKS }, (_, index) => preferred(lowest + index * step));
+  return new Set(labels).size === AXIS_TICKS ? preferred : fallback;
 };
 
 const percentTick = (value: number) => `${value.toFixed(PERCENT_TICK_DECIMALS)}%`;
@@ -353,7 +379,15 @@ export const GainLossChart = ({
           />
           <YAxis
             axisLine={false}
-            tickFormatter={mode === 'rupees' ? money.compact : percentTick}
+            tickFormatter={
+              mode === 'rupees'
+                ? axisFormat(
+                    rows.map((row) => row.difference),
+                    money.compact,
+                    money.whole,
+                  )
+                : percentTick
+            }
             tickLine={false}
             width={56}
           />
@@ -428,7 +462,11 @@ export const ValueVsBaseChart = ({
           <YAxis
             axisLine={false}
             domain={['auto', 'auto']}
-            tickFormatter={money.compact}
+            tickFormatter={axisFormat(
+              rows.flatMap((row) => [row.value, row.base]),
+              money.compact,
+              money.whole,
+            )}
             tickLine={false}
             width={56}
           />
@@ -521,6 +559,7 @@ export const PriceChart = ({
   className,
   intraday = false,
   averageBuyPrice = null,
+  firstBought = null,
   label = 'Unit price',
 }: {
   points: PricePoint[];
@@ -528,6 +567,7 @@ export const PriceChart = ({
   className?: string;
   intraday?: boolean;
   averageBuyPrice?: number | null;
+  firstBought?: Date | null;
   label?: string;
 }) => {
   const money = useMemo(() => moneyFormat(currency), [currency]);
@@ -535,6 +575,8 @@ export const PriceChart = ({
     () => points.map((point, index) => ({ index, time: point.date.getTime(), price: point.price })),
     [points],
   );
+  const firstBoughtRow =
+    firstBought === null ? undefined : rows.find((row) => row.time >= firstBought.getTime());
   const formatPrice = useMemo(() => {
     const formatter = new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'en-IN', {
       ...(currency === 'NONE' ? {} : { style: 'currency', currency }),
@@ -544,7 +586,14 @@ export const PriceChart = ({
     return (value: number) => formatter.format(value);
   }, [currency]);
   const highest = Math.max(0, ...rows.map((row) => row.price));
-  const tick = highest >= COMPACT_PRICE_FROM ? money.compact : formatPrice;
+  const axisPrices = [
+    ...rows.map((row) => row.price),
+    ...(averageBuyPrice === null ? [] : [averageBuyPrice]),
+  ];
+  const tick =
+    highest >= COMPACT_PRICE_FROM
+      ? axisFormat(axisPrices, money.compact, money.whole)
+      : axisFormat(axisPrices, formatPrice, money.fine);
   const xAxis = useMemo(() => xAxisProps(rows, intraday), [rows, intraday]);
   if (rows.length < 2) {
     return null;
@@ -595,6 +644,13 @@ export const PriceChart = ({
               strokeDasharray="5 4"
               strokeWidth={2}
               y={averageBuyPrice}
+            />
+          )}
+          {firstBoughtRow === undefined || firstBoughtRow.index === 0 ? null : (
+            <ReferenceLine
+              stroke={BASE_STROKE}
+              strokeDasharray="5 4"
+              x={intraday ? firstBoughtRow.index : firstBoughtRow.time}
             />
           )}
           <Line

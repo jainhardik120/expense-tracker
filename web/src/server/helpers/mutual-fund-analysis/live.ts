@@ -4,11 +4,12 @@ import { investments, mutualFundHoldings, stockProfiles } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { normalizeInvestmentKind } from '@/lib/investments';
-import { istDay } from '@/server/helpers/groww/client';
+import { growwDayOpen, istDay } from '@/server/helpers/groww/client';
 import { cachedQuotes } from '@/server/helpers/investment/market-cache';
 import { loadFundQuotes } from '@/server/helpers/investment/market-data';
 import { isIndianMarketOpen } from '@/server/helpers/investment/market-hours';
 import { IndiaStockInvestmentProvider } from '@/server/helpers/investment/providers/india-stock-investment-provider';
+import { parseIndianListing } from '@/server/helpers/investment/providers/indian-listing';
 import { createInstrumentKey } from '@/server/helpers/investment/shared';
 import { MS_PER_MINUTE } from '@/types';
 
@@ -21,6 +22,7 @@ const PERCENT = 100;
 const MUTUAL_FUNDS = 'mutual_funds';
 const EQUITY = 'EQUITY';
 const DAY_KEY_LENGTH = 10;
+const OPEN_BATCH = 10;
 
 const indiaStocks = new IndiaStockInvestmentProvider();
 
@@ -47,6 +49,61 @@ const heldFundCodes = async (db: Database, userId: string) => {
 
 const dayKey = (date: Date) => date.toISOString().slice(0, DAY_KEY_LENGTH);
 
+export const listingCode = (listing: { nseSymbol: string | null; bseCode: string | null }) => {
+  if (listing.nseSymbol !== null) {
+    return `${listing.nseSymbol}.NS`;
+  }
+  return listing.bseCode === null ? null : `${listing.bseCode}.BO`;
+};
+
+export const loadListedQuotes = async (codes: string[], marketOpen: boolean) => {
+  const instruments = [...new Set(codes)].map((code) => ({
+    kind: 'stocks' as const,
+    code,
+    stockMarket: 'IN' as const,
+  }));
+  return cachedQuotes(
+    instruments.map((instrument) => ({
+      key: createInstrumentKey('stocks', instrument.code, 'IN'),
+      ttlMs: marketOpen ? OPEN_TTL_MS : CLOSED_TTL_MS,
+    })),
+    () => indiaStocks.getLiveQuotes(instruments),
+  );
+};
+
+const openByDay = new Map<string, number>();
+
+const loadOpen = async (code: string, day: Date) => {
+  const key = `${code}:${dayKey(day)}`;
+  const known = openByDay.get(key);
+  if (known !== undefined) {
+    return known;
+  }
+  const { exchange, symbol } = parseIndianListing(code);
+  const open = await growwDayOpen(exchange, symbol, day);
+  if (open !== null) {
+    openByDay.set(key, open);
+  }
+  return open;
+};
+
+export const loadListedOpens = async (codes: string[], moment: Date) => {
+  const day = istDay(moment.getTime());
+  const unique = [...new Set(codes)];
+  const opens = new Map<string, number>();
+  for (let index = 0; index < unique.length; index += OPEN_BATCH) {
+    const batch = unique.slice(index, index + OPEN_BATCH);
+    const prices = await Promise.all(batch.map(async (code) => loadOpen(code, day)));
+    batch.forEach((code, position) => {
+      const price = prices[position];
+      if (price !== null) {
+        opens.set(code, price);
+      }
+    });
+  }
+  return opens;
+};
+
 export const getLiveFundPrices = instrumentedFunction(
   'getLiveFundPrices',
   async (db: Database, userId: string) => {
@@ -72,25 +129,13 @@ export const getLiveFundPrices = instrumentedFunction(
             );
     const codeByRef = new Map<string, string>();
     for (const listing of listings) {
-      if (listing.nseSymbol !== null) {
-        codeByRef.set(listing.stockRef, `${listing.nseSymbol}.NS`);
-      } else if (listing.bseCode !== null) {
-        codeByRef.set(listing.stockRef, `${listing.bseCode}.BO`);
+      const code = listingCode(listing);
+      if (code !== null) {
+        codeByRef.set(listing.stockRef, code);
       }
     }
     const marketOpen = isIndianMarketOpen(now);
-    const instruments = [...new Set(codeByRef.values())].map((code) => ({
-      kind: 'stocks' as const,
-      code,
-      stockMarket: 'IN' as const,
-    }));
-    const quoteByKey = await cachedQuotes(
-      instruments.map((instrument) => ({
-        key: createInstrumentKey('stocks', instrument.code, 'IN'),
-        ttlMs: marketOpen ? OPEN_TTL_MS : CLOSED_TTL_MS,
-      })),
-      () => indiaStocks.getLiveQuotes(instruments),
-    );
+    const quoteByKey = await loadListedQuotes([...codeByRef.values()], marketOpen);
     const quotes: Record<string, LiveQuote> = {};
     let latest = 0;
     for (const [stockRef, code] of codeByRef) {

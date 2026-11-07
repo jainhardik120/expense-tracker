@@ -280,15 +280,18 @@ export const buildInvestmentMarketDataContext = instrumentedFunction(
       isUnitBasedInvestment(instrument.kind),
     );
     const requiresUsdInrData = getUniqueInstruments(investmentsList).some(needsUsdInr);
-    const fxHistoryStart = investmentsList.reduce<Date>((earliest, investment) => {
-      const instrument = {
-        kind: normalizeInvestmentKind(investment.investmentKind),
-        code: '',
-        stockMarket: getStockMarketFromInvestment(investment),
-      };
-      const date = startOfDay(investment.investmentDate);
-      return needsUsdInr(instrument) && date.getTime() < earliest.getTime() ? date : earliest;
-    }, startOfDay(now));
+    const fxHistoryStart = investmentsList.reduce<Date>(
+      (earliest, investment) => {
+        const instrument = {
+          kind: normalizeInvestmentKind(investment.investmentKind),
+          code: '',
+          stockMarket: getStockMarketFromInvestment(investment),
+        };
+        const date = startOfDay(investment.investmentDate);
+        return needsUsdInr(instrument) && date.getTime() < earliest.getTime() ? date : earliest;
+      },
+      startOfDay(new Date((historyStartDate ?? now).getTime() - HISTORY_LOOKBACK_MS)),
+    );
     const fxHistoryEnd = historyEndDate ?? now;
     const instrumentByKey = byKey(instruments);
     const rows = await loadInstrumentRows([

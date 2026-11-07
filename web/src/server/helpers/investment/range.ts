@@ -67,22 +67,23 @@ const subtractDays = (date: Date, days: number): Date => {
   return new Date(startOfDay(date).getTime() - Math.max(days - 1, 0) * DAY_IN_MS);
 };
 
-export const getTimeRangeBounds = (
+export const firstBoughtDay = (investments: Array<{ investmentDate: Date }>): Date =>
+  investments.reduce<Date>((first, { investmentDate }) => {
+    const day = startOfDay(investmentDate);
+    return day.getTime() < first.getTime() ? day : first;
+  }, startOfDay(new Date()));
+
+export const getChartBounds = (
   range: InvestmentTimelineRangeValue,
-  earliestDate: Date,
-  referenceEndDate?: Date,
+  investments: Array<{ investmentDate: Date }>,
+  hasPriceHistory: boolean,
 ): { startDate: Date; endDate: Date } => {
-  const now = startOfDay(new Date());
-  const requestedEnd = referenceEndDate === undefined ? now : startOfDay(referenceEndDate);
-  const endDate = requestedEnd.getTime() > now.getTime() ? now : requestedEnd;
-  const days = investmentTimelineRangeDays[range];
-  if (days === undefined) {
-    return {
-      startDate: earliestDate,
-      endDate,
-    };
+  const endDate = startOfDay(new Date());
+  const requestedStart = subtractDays(endDate, investmentTimelineRangeDays[range]);
+  if (hasPriceHistory) {
+    return { startDate: requestedStart, endDate };
   }
-  const requestedStart = subtractDays(endDate, days);
+  const earliestDate = firstBoughtDay(investments);
   return {
     startDate: requestedStart.getTime() < earliestDate.getTime() ? earliestDate : requestedStart,
     endDate,

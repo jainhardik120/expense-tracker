@@ -16,6 +16,7 @@ import { z } from 'zod';
 import { statementAttribute } from '@/db/attribute-sql';
 import {
   bankAccount,
+  investments,
   salaryBonuses,
   salaryComponents,
   salaryPaymentComponents,
@@ -92,6 +93,7 @@ export const getSalaryPageData = instrumentedFunction(
       bonuses,
       settingsRows,
       taxableStatementRows,
+      epfoCredits,
     ] = await Promise.all([
       db
         .select()
@@ -189,6 +191,10 @@ export const getSalaryPageData = instrumentedFunction(
           ),
         )
         .orderBy(asc(statements.createdAt)),
+      db
+        .select({ salaryPaymentId: investments.salaryPaymentId })
+        .from(investments)
+        .where(and(eq(investments.userId, userId), isNotNull(investments.salaryPaymentId))),
     ]);
 
     const componentById = new Map(components.map((component) => [component.id, component]));
@@ -495,6 +501,9 @@ export const getSalaryPageData = instrumentedFunction(
       })),
       taxSettings: settings,
       rows,
+      epfoCreditedPaymentIds: epfoCredits.flatMap(({ salaryPaymentId }) =>
+        salaryPaymentId === null ? [] : [salaryPaymentId],
+      ),
       summary: {
         actualReceived: actualRows.reduce((total, row) => total + row.totals.net, 0),
         actualTaxableIncome: actualRows.reduce((total, row) => total + row.totals.taxableIncome, 0),

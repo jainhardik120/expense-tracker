@@ -128,6 +128,21 @@ export const growwDailyCandles = instrumentedFunction(
   },
 );
 
+export const growwDayOpen = instrumentedFunction(
+  'growwDayOpen',
+  async (exchange: Exchange, symbol: string, day: Date): Promise<number | null> => {
+    const response = await request<{ candles?: Array<Array<number | null>> }>(
+      `charting_service/v2/chart/exchange/${exchange}/segment/CASH/${encodeURIComponent(symbol)}?intervalInMinutes=${String(MINUTES_PER_DAY)}&startTimeInMillis=${String(day.getTime() - MS_PER_DAY)}&endTimeInMillis=${String(day.getTime() + MS_PER_DAY)}`,
+    );
+    const candle = response?.candles?.find(
+      ([time]) =>
+        typeof time === 'number' && istDay(time * MS_PER_SECOND).getTime() === day.getTime(),
+    );
+    const open = candle?.[1];
+    return typeof open === 'number' && open > 0 ? open : null;
+  },
+);
+
 export const growwFundNav = instrumentedFunction(
   'growwFundNav',
   async (

@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 
-import { buildDailyPriceSeries, endAtLastPriceDay, latestSession } from './range';
+import { buildDailyPriceSeries, endAtLastPriceDay, getChartBounds, latestSession } from './range';
 
 vi.mock('@/lib/env', () => ({ env: {} }));
 
@@ -67,4 +67,21 @@ test('falls back to the last day for a market with no overnight break', () => {
     time('2026-11-04T11:00:00'),
   ];
   expect(latestSession(points)).toEqual(points.slice(1));
+});
+
+const bought = [{ investmentDate: new Date('2026-01-15T06:30:00.000Z') }];
+
+const fiveYearStart = (hasPriceHistory: boolean) => {
+  vi.useFakeTimers({ now: new Date('2026-11-06T12:00:00.000Z') });
+  const { startDate } = getChartBounds('5y', bought, hasPriceHistory);
+  vi.useRealTimers();
+  return startDate.toISOString().slice(0, 10);
+};
+
+test('reaches past the first buy when the instrument has market prices', () => {
+  expect(fiveYearStart(true)).toBe('2021-11-08');
+});
+
+test('stops at the first buy when there is nothing to show before it', () => {
+  expect(fiveYearStart(false)).toBe('2026-01-15');
 });

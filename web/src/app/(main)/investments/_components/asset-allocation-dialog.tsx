@@ -221,6 +221,10 @@ export const AssetAllocationDialog = ({
             ))}
           </TableBody>
         </Table>
+        <p className="text-muted-foreground px-1 pt-3 text-[11px] sm:px-2">
+          Estimated changes, such as funds still waiting on their NAV, are not included in this
+          breakdown.
+        </p>
       </div>
     </Modal>
   );

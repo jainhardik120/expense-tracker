@@ -1,5 +1,6 @@
 'use client';
 
+import { formatInTimeZone } from 'date-fns-tz';
 import { CircleOff, Info, Plus, ReceiptIndianRupee, SquarePen, Trash } from 'lucide-react';
 
 import { type RowMenuAction } from '@/components/data-table/row-context-menu';
@@ -139,6 +140,20 @@ export const createInvestmentColumns = (
     accessorFn: (row) => row.instrumentName ?? row.instrumentCode ?? '-',
     header: 'Instrument',
     meta: { label: 'Instrument' },
+    cell: ({ row }) => {
+      const name = row.original.instrumentName ?? row.original.instrumentCode ?? '-';
+      const salaryPeriod = row.original.epfoSchedule?.salaryPeriodStart ?? null;
+      return (
+        <div>
+          <p>{name}</p>
+          {salaryPeriod === null ? null : (
+            <p className="text-muted-foreground text-xs">
+              {formatInTimeZone(salaryPeriod, 'UTC', DATE_FORMAT.month)} salary
+            </p>
+          )}
+        </div>
+      );
+    },
   },
   {
     id: 'rsu',

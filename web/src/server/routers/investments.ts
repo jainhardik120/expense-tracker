@@ -1,8 +1,14 @@
+import { TRPCError } from '@trpc/server';
 import { subDays } from 'date-fns';
 import { and, desc, eq, getTableColumns, gte, inArray, lte } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { instrumentAssetClasses, investments } from '@/db/schema';
+import {
+  epfoInterestCredits,
+  instrumentAssetClasses,
+  investments,
+  salaryPayments,
+} from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
 import { lastStockPriceTime, toViewValue } from '@/lib/investment-selection';
@@ -23,7 +29,10 @@ import {
   buildInstrumentChart,
   buildLivePortfolio,
   buildSavedPortfolio,
+  getEpfoAccountLabel,
+  getEpfoSummary,
   searchInvestmentInstruments,
+  withEpfoSchedules,
 } from '@/server/helpers/investment';
 import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
@@ -45,7 +54,9 @@ import {
 import { attachPaymentTotals } from '@/server/helpers/investment/payments';
 import {
   getAllocationView,
+  getIndexComponents,
   getMarketSplits,
+  indexKeys,
 } from '@/server/helpers/mutual-fund-analysis/market-split-loader';
 import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema } from '@/types';
@@ -95,8 +106,8 @@ const getFilteredInvestments = instrumentedFunction(
     db: Database,
     userId: string,
     { start, end, investmentKind }: { start?: Date; end?: Date; investmentKind: string[] },
-  ) =>
-    db
+  ) => {
+    const rows = await db
       .select({
         ...getTableColumns(investments),
         assetClass: instrumentAssetClasses.assetClass,
@@ -120,7 +131,9 @@ const getFilteredInvestments = instrumentedFunction(
             : inArray(investments.investmentKind, investmentKind),
         ),
       )
-      .orderBy(desc(investments.investmentDate)),
+      .orderBy(desc(investments.investmentDate));
+    return withEpfoSchedules(db, userId, rows);
+  },
 );
 
 const portfolioFilterSchema = z.object({
@@ -149,6 +162,28 @@ const allocationSliceSchema = z.object({
   invested: z.number(),
   value: z.number(),
   dayChange: z.number(),
+});
+
+const epfoSummarySchema = z.object({
+  accountLabel: z.string(),
+  pending: z.array(
+    z.object({
+      salaryPaymentId: z.string(),
+      periodStart: z.date(),
+      dueMonth: z.date(),
+      expectedAmount: z.number(),
+      estimatedInterest: z.number(),
+    }),
+  ),
+  pendingAmount: z.number(),
+  pendingInterest: z.number(),
+  interestYears: z.array(
+    z.object({
+      financialYearStart: z.number(),
+      amount: z.number(),
+      isCredited: z.boolean(),
+    }),
+  ),
 });
 
 const investmentsOverviewSchema = z.object({
@@ -201,10 +236,12 @@ const investmentsOverviewSchema = z.object({
       dayChange: z.number(),
       annualRate: z.number().nullable(),
       maturityDate: z.date().nullable(),
+      salaryPeriodStart: z.date().nullable(),
       isClosed: z.boolean(),
       isExcludedFromPortfolio: z.boolean(),
     }),
   ),
+  epfo: epfoSummarySchema,
 });
 
 export const investmentsRouter = createTRPCRouter({
@@ -219,11 +256,15 @@ export const investmentsRouter = createTRPCRouter({
     .input(z.void())
     .output(investmentsOverviewSchema)
     .query(async ({ ctx }) => {
-      const rows = await ctx.db
-        .select()
-        .from(investments)
-        .where(eq(investments.userId, ctx.user.id))
-        .orderBy(desc(investments.investmentDate));
+      const rows = await withEpfoSchedules(
+        ctx.db,
+        ctx.user.id,
+        await ctx.db
+          .select()
+          .from(investments)
+          .where(eq(investments.userId, ctx.user.id))
+          .orderBy(desc(investments.investmentDate)),
+      );
       const today = new Date();
       const context = await buildInvestmentMarketDataContext({
         investmentsList: rows,
@@ -308,9 +349,11 @@ export const investmentsRouter = createTRPCRouter({
             annualRate:
               position.annualRate === null ? null : Number.parseFloat(position.annualRate),
             maturityDate: position.maturityDate,
+            salaryPeriodStart: position.epfoSchedule?.salaryPeriodStart ?? null,
             isClosed: position.isClosedPosition,
             isExcludedFromPortfolio: position.isExcludedFromPortfolioPosition,
           })),
+        epfo: await getEpfoSummary(ctx.db, ctx.user.id, today),
       };
     }),
 
@@ -342,6 +385,7 @@ export const investmentsRouter = createTRPCRouter({
           }),
         ),
         intraday: z.boolean(),
+        firstBought: z.date().nullable(),
         positions: z.array(
           z.object({
             id: z.string(),
@@ -358,12 +402,16 @@ export const investmentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const rows = await ctx.db
-        .select()
-        .from(investments)
-        .where(
-          and(eq(investments.userId, ctx.user.id), eq(investments.instrumentCode, input.code)),
-        );
+      const rows = await withEpfoSchedules(
+        ctx.db,
+        ctx.user.id,
+        await ctx.db
+          .select()
+          .from(investments)
+          .where(
+            and(eq(investments.userId, ctx.user.id), eq(investments.instrumentCode, input.code)),
+          ),
+      );
       const matching = rows.filter(
         (row) =>
           normalizeInvestmentKind(row.investmentKind) === input.kind &&
@@ -383,7 +431,12 @@ export const investmentsRouter = createTRPCRouter({
         FINE_CHART_RANGES.has(input.range) ? buildFineTimeline(matching, view, input.range) : null,
       ]);
       if (fine?.intraday !== true || fine.points.length < MIN_CHART_POINTS) {
-        return { points: chart.points, positions: chart.positions, intraday: false };
+        return {
+          points: chart.points,
+          positions: chart.positions,
+          firstBought: chart.firstBought,
+          intraday: false,
+        };
       }
       const lastIndex = fine.points.length - 1;
       return {
@@ -399,6 +452,7 @@ export const investmentsRouter = createTRPCRouter({
           };
         }),
         positions: chart.positions,
+        firstBought: chart.firstBought,
         intraday: true,
       };
     }),
@@ -417,6 +471,53 @@ export const investmentsRouter = createTRPCRouter({
       const rows = await getFilteredInvestments(ctx.db, ctx.user.id, input);
       const { positions, dashboard } = await buildLivePortfolio(rows, input.end);
       return { positions: await attachPaymentTotals(ctx.db, positions), dashboard };
+    }),
+
+  getEpfoSummary: protectedProcedure.query(({ ctx }) => getEpfoSummary(ctx.db, ctx.user.id)),
+
+  markEpfoCredited: protectedProcedure
+    .input(z.object({ salaryPaymentId: z.uuid(), amount, creditedOn: z.date() }))
+    .mutation(async ({ ctx, input }) => {
+      const payments = await ctx.db
+        .select({ id: salaryPayments.id })
+        .from(salaryPayments)
+        .where(
+          and(eq(salaryPayments.id, input.salaryPaymentId), eq(salaryPayments.userId, ctx.user.id)),
+        );
+      const payment = payments.at(0);
+      if (payment === undefined) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Salary payment not found' });
+      }
+      return ctx.db
+        .insert(investments)
+        .values({
+          userId: ctx.user.id,
+          investmentKind: 'epfo',
+          instrumentCode: await getEpfoAccountLabel(ctx.db, ctx.user.id),
+          investmentDate: input.creditedOn,
+          investmentAmount: input.amount,
+          salaryPaymentId: payment.id,
+        })
+        .onConflictDoNothing({ target: investments.salaryPaymentId })
+        .returning({ id: investments.id });
+    }),
+
+  saveEpfoInterest: protectedProcedure
+    .input(z.object({ financialYearStart: z.number().int(), amount }))
+    .mutation(async ({ ctx, input }) => {
+      const instrumentCode = await getEpfoAccountLabel(ctx.db, ctx.user.id);
+      return ctx.db
+        .insert(epfoInterestCredits)
+        .values({ userId: ctx.user.id, instrumentCode, ...input })
+        .onConflictDoUpdate({
+          target: [
+            epfoInterestCredits.userId,
+            epfoInterestCredits.instrumentCode,
+            epfoInterestCredits.financialYearStart,
+          ],
+          set: { amount: input.amount },
+        })
+        .returning({ id: epfoInterestCredits.id });
     }),
 
   getMarketSplits: protectedProcedure.query(async ({ ctx }) =>
@@ -492,6 +593,30 @@ export const investmentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ input }) => getMarketChart(input.key, input.range)),
+
+  getIndexComponents: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/markets/components',
+      },
+    })
+    .input(z.object({ key: z.enum(indexKeys), range: z.enum(marketChartRanges) }))
+    .output(
+      z.object({
+        etfName: z.string(),
+        components: z.array(
+          z.object({
+            name: z.string(),
+            sector: z.string().nullable(),
+            weight: z.number(),
+            price: z.number().nullable(),
+            changePercent: z.number().nullable(),
+          }),
+        ),
+      }),
+    )
+    .query(async ({ ctx, input }) => getIndexComponents(ctx.db, input.key, input.range)),
 
   getEtfEstimates: protectedProcedure
     .meta({

@@ -1,8 +1,16 @@
 import type { investments } from '@/db/schema';
+import type { EpfoInterestFactors } from '@/lib/epfo';
 import type { AssetClassTagValue, InvestmentKindValue, StockMarketValue } from '@/lib/investments';
+
+export type EpfoSchedule = {
+  salaryPeriodStart: Date | null;
+  dueMonth: Date;
+  factors: EpfoInterestFactors;
+};
 
 export type InvestmentRow = typeof investments.$inferSelect & {
   assetClass?: AssetClassTagValue | null;
+  epfoSchedule?: EpfoSchedule;
 };
 
 export type PriceHistoryPoint = {

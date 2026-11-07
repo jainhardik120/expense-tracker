@@ -19,6 +19,7 @@ import {
 } from '../shared';
 
 const MAX_SEARCH_RESULTS = 20;
+const MAX_HISTORY_DAYS = 364;
 
 export class CryptoInvestmentProvider extends BaseInvestmentInstrumentProvider {
   readonly id = 'crypto';
@@ -160,8 +161,14 @@ export class CryptoInvestmentProvider extends BaseInvestmentInstrumentProvider {
     startDate: Date,
     endDate: Date,
   ): Promise<PriceHistoryPoint[]> {
-    const periodStart = Math.floor(startOfDay(startDate).getTime() / MS_PER_SECOND);
+    const oldest = Date.now() - MAX_HISTORY_DAYS * DAY_IN_MS;
+    const periodStart = Math.floor(
+      Math.max(startOfDay(startDate).getTime(), oldest) / MS_PER_SECOND,
+    );
     const periodEnd = Math.floor((startOfDay(endDate).getTime() + DAY_IN_MS) / MS_PER_SECOND);
+    if (periodEnd <= periodStart) {
+      return [];
+    }
     const payload = await fetchJson<{ prices?: Array<[number, number]> }>(
       `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(instrument.code.toLowerCase())}/market_chart/range?vs_currency=inr&from=${periodStart}&to=${periodEnd}`,
       {

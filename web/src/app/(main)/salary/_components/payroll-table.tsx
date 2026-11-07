@@ -18,6 +18,14 @@ import { formatPeriod, type SalaryData, type SalaryRow, statusPresentation } fro
 
 const money = (value: number) => <span className="tabular-nums">{formatCurrency(value)}</span>;
 
+const getEpfoStatus = (row: SalaryRow, creditedPaymentIds: string[]) => {
+  const hasPf = row.components.some((line) => line.classification === 'provident_fund');
+  if (row.paymentId === null || !hasPf) {
+    return null;
+  }
+  return creditedPaymentIds.includes(row.paymentId) ? 'Credited' : 'Credit pending';
+};
+
 const createPayrollColumns = (data: SalaryData, refresh: () => void): ColumnDef<SalaryRow>[] => [
   {
     id: 'period',
@@ -83,6 +91,19 @@ const createPayrollColumns = (data: SalaryData, refresh: () => void): ColumnDef<
       </span>
     ),
     meta: { align: 'right', label: 'Net' },
+  },
+  {
+    id: 'epfo',
+    accessorFn: (row) => getEpfoStatus(row, data.epfoCreditedPaymentIds),
+    header: 'EPFO',
+    cell: ({ row }) => {
+      const status = getEpfoStatus(row.original, data.epfoCreditedPaymentIds);
+      if (status === null) {
+        return <span className="text-muted-foreground">-</span>;
+      }
+      return <Badge variant={status === 'Credited' ? 'default' : 'outline'}>{status}</Badge>;
+    },
+    meta: { label: 'EPFO' },
   },
   {
     id: 'taxable',

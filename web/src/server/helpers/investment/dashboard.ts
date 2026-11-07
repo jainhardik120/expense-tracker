@@ -10,6 +10,7 @@ import {
   type StockMarketValue,
 } from '@/lib/investments';
 
+import { getEpfoValuationAtDate } from './epfo';
 import { getFdValuationAtDate } from './fd';
 import { getDailyRangeFromInvestments, buildDailyInstrumentTimeline } from './holdings';
 import { createInstrumentKey, startOfDay, USD_CURRENCY } from './shared';
@@ -538,6 +539,8 @@ export const getInvestmentsDashboard = instrumentedFunction(
         let value = parseOptionalNumber(investment.investmentAmount) ?? 0;
         if (investment.normalizedKind === 'fd') {
           value = getFdValuationAtDate(investment, day) ?? 0;
+        } else if (investment.normalizedKind === 'epfo' && !investment.isClosedPosition) {
+          value = getEpfoValuationAtDate(investment, day);
         } else if (investment.isClosedPosition) {
           value =
             parseOptionalNumber(investment.amount) ??

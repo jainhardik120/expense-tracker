@@ -484,6 +484,13 @@
       "when": 1793765982647,
       "tag": "0068_clever_gideon",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1794033678850,
+      "tag": "0069_chubby_the_captain",
+      "breakpoints": true
     }
   ]
 }

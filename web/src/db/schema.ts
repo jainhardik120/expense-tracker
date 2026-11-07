@@ -14,6 +14,7 @@ import {
   primaryKey,
   uniqueIndex,
   date,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 import type { AssetClassTagValue } from '@/lib/investments';
@@ -223,8 +224,31 @@ export const investments = pgTable(
     annualRate: numeric('annual_rate'),
     isClosed: boolean('is_closed').notNull().default(false),
     closedAt: timestamp('closed_at'),
+    salaryPaymentId: uuid('salary_payment_id')
+      .unique()
+      .references((): AnyPgColumn => salaryPayments.id, { onDelete: 'set null' }),
   },
   (table) => [index('investments_user_idx').on(table.userId)],
+);
+
+export const epfoInterestCredits = pgTable(
+  'epfo_interest_credits',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    instrumentCode: text('instrument_code').notNull(),
+    financialYearStart: integer('financial_year_start').notNull(),
+    amount: numeric('amount').notNull(),
+  },
+  (table) => [
+    uniqueIndex('epfo_interest_credits_account_year_idx').on(
+      table.userId,
+      table.instrumentCode,
+      table.financialYearStart,
+    ),
+  ],
 );
 
 export const instrumentAssetClasses = pgTable(

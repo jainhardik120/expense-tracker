@@ -1,12 +1,16 @@
 import { subDays } from 'date-fns';
 
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { type InvestmentKindValue, type InvestmentTimelineRangeValue } from '@/lib/investments';
+import {
+  isUnitBasedInvestment,
+  type InvestmentKindValue,
+  type InvestmentTimelineRangeValue,
+} from '@/lib/investments';
 
 import { summarizeInvestments } from './dashboard';
 import { enrichInvestments } from './enrichment';
 import { buildInvestmentMarketDataContext, loadSavedMarketData } from './market-data';
-import { endAtLastPriceDay, getTimeRangeBounds } from './range';
+import { endAtLastPriceDay, firstBoughtDay, getChartBounds } from './range';
 import { getFxRateToInrFromHistory, startOfDay } from './shared';
 import { buildInstrumentTimelineEntries } from './timeline';
 import { parseOptionalNumber } from './utils';
@@ -62,12 +66,8 @@ const buildInstrumentView = async ({
   range,
   marketDataKinds,
 }: RangeViewRequest) => {
-  const now = startOfDay(new Date());
-  const earliestDate = investmentsListRaw.reduce<Date>((earliest, investment) => {
-    const investmentDate = startOfDay(investment.investmentDate);
-    return investmentDate.getTime() < earliest.getTime() ? investmentDate : earliest;
-  }, now);
-  const { startDate, endDate } = getTimeRangeBounds(range, earliestDate);
+  const beforeFirstBuy = marketDataKinds.every(isUnitBasedInvestment);
+  const { startDate, endDate } = getChartBounds(range, investmentsListRaw, beforeFirstBuy);
   const marketDataContext = await buildInvestmentMarketDataContext({
     investmentsList: investmentsListRaw,
     historyStartDate: startDate,
@@ -87,6 +87,7 @@ const buildInstrumentView = async ({
       endDate,
       historyByInstrumentKey: marketDataContext.historyByInstrumentKey,
       usdInrHistory: marketDataContext.usdInrHistory,
+      beforeFirstBuy,
     }),
   };
 };
@@ -115,6 +116,7 @@ type InstrumentChartPosition = {
 export type InstrumentChart = {
   points: InstrumentChartPoint[];
   positions: InstrumentChartPosition[];
+  firstBought: Date | null;
   displayFxToInr: number;
   fxOn: (date: Date) => number;
 };
@@ -161,7 +163,7 @@ export const buildInstrumentChart = instrumentedFunction(
     marketDataKinds,
   }: RangeViewRequest): Promise<InstrumentChart> => {
     if (investmentsListRaw.length === 0) {
-      return { points: [], positions: [], displayFxToInr: 1, fxOn: () => 1 };
+      return { points: [], positions: [], firstBought: null, displayFxToInr: 1, fxOn: () => 1 };
     }
     const view = await buildInstrumentView({ investmentsListRaw, range, marketDataKinds });
     const points = view.instrumentTimelines[0]?.timeline.points ?? [];
@@ -204,6 +206,7 @@ export const buildInstrumentChart = instrumentedFunction(
     return {
       points: endOnLivePrice(series, view.enrichedAll),
       positions,
+      firstBought: firstBoughtDay(investmentsListRaw),
       displayFxToInr: isUsd ? (fallbackFx ?? 1) : 1,
       fxOn,
     };

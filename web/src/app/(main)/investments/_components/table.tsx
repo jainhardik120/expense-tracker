@@ -2,15 +2,12 @@
 
 import { useCallback, useMemo } from 'react';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { ArrowRight } from 'lucide-react';
 import { useQueryStates } from 'nuqs';
 
 import { DataTable } from '@/components/data-table/data-table';
 import { DataTableToolbar } from '@/components/data-table/data-table-toolbar';
-import { Button } from '@/components/ui/button';
 import { useDataTable } from '@/hooks/use-data-table';
 import { useZonedFormat } from '@/hooks/use-zoned-format';
 import {
@@ -29,11 +26,12 @@ import { api } from '@/server/react';
 import { type RouterOutput } from '@/server/routers';
 import { investmentParser, MS_PER_MINUTE } from '@/types';
 
+import { EpfoCard } from './epfo-card';
 import { createGroupedColumns, groupedRowActions } from './grouped-columns';
 import { createInvestmentColumns, investmentRowActions } from './investment-columns';
 import { CreateInvestmentForm } from './investment-forms';
 import { InvestmentsOverview } from './investments-overview';
-import { MarketStrip } from './market-strip';
+import { FundAnalysisLink, MarketStrip } from './market-strip';
 
 type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialData'];
 
@@ -199,14 +197,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
 
   return (
     <div className="grid grid-cols-1 gap-4">
-      <div className="flex justify-end">
-        <Button asChild size="sm" variant="outline">
-          <Link href="/investments/mutual-funds">
-            Mutual fund analysis
-            <ArrowRight className="size-4" />
-          </Link>
-        </Button>
-      </div>
+      <FundAnalysisLink />
       <MarketStrip />
       <InvestmentsOverview
         asOf={asOf}
@@ -219,6 +210,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
         onCategoryToggle={toggleCategory}
         onSelect={select}
       />
+      {selectedCategories.has('epfo') ? <EpfoCard refresh={refresh} /> : null}
       <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs">
         <span>Prices: {getPriceStatus(liveQuery.isError, isLive)}</span>
         {priceSources.map((source) => (
