@@ -55,7 +55,7 @@ const REQUEST_INIT: RequestInit = {
   headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'application/json' },
 };
 
-export const metalChartRanges = ['1d', '1w'] as const;
+export const metalChartRanges = ['1d', '1w', '1m', '6m', '1y', '3y', '5y'] as const;
 
 export const marketChartKeys = [
   'nifty',
@@ -101,6 +101,29 @@ const INDEX_CHART_PATHS: Partial<Record<MarketChartKey, string>> = {
 };
 
 type MetalChartRange = (typeof metalChartRanges)[number];
+
+const METAL_CHART_WINDOWS: Record<
+  MetalChartRange,
+  { days: number; minutes: number; comexRange: string; comexInterval: string }
+> = {
+  '1d': {
+    days: CHART_WINDOW_DAYS,
+    minutes: CANDLE_MINUTES,
+    comexRange: '1mo',
+    comexInterval: '5m',
+  },
+  '1w': {
+    days: CHART_WINDOW_DAYS,
+    minutes: CANDLE_MINUTES,
+    comexRange: '1mo',
+    comexInterval: '5m',
+  },
+  '1m': { days: 30, minutes: 30, comexRange: '1mo', comexInterval: '30m' },
+  '6m': { days: 183, minutes: DAILY_CANDLE_MINUTES, comexRange: '6mo', comexInterval: '1d' },
+  '1y': { days: 365, minutes: DAILY_CANDLE_MINUTES, comexRange: '1y', comexInterval: '1d' },
+  '3y': { days: 1096, minutes: DAILY_CANDLE_MINUTES, comexRange: '3y', comexInterval: '1d' },
+  '5y': { days: 1827, minutes: DAILY_CANDLE_MINUTES, comexRange: '5y', comexInterval: '1d' },
+};
 
 const METALS: Record<
   AssetClassTagValue,
@@ -214,6 +237,20 @@ const mcxCandles = async (
         intervalMinutes,
         maxAgeMs,
       );
+};
+
+const loadEtfCandles = async (code: string, start: Date, now: Date, minutes: number) => {
+  if (minutes === CANDLE_MINUTES) {
+    return fetchIndianRangePrices(code, start, now);
+  }
+  const { exchange, symbol } = parseIndianListing(code);
+  return fetchGrowwCandles(
+    `charting_service/v4/chart/exchange/${exchange}/segment/CASH/${encodeURIComponent(symbol)}`,
+    start.getTime(),
+    Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE,
+    minutes,
+    minutes === DAILY_CANDLE_MINUTES ? MS_PER_HOUR : LIVE_TTL_MS,
+  );
 };
 
 const dayOf = (date: Date) => date.toISOString().slice(0, DAY_KEY_LENGTH);
@@ -405,6 +442,23 @@ const toSeries = (points: PriceHistoryPoint[], from: number, multiplier = 1) =>
 const istDayStart = (time: number) =>
   Math.floor((time + IST_OFFSET_MS) / DAY_IN_MS) * DAY_IN_MS - IST_OFFSET_MS;
 
+const withLatestQuote = (
+  points: Array<{ time: number; price: number }>,
+  quote: Quote | undefined,
+) => {
+  const last = points.at(-1);
+  const asOf = quote?.asOf?.getTime();
+  if (
+    quote !== undefined &&
+    asOf !== undefined &&
+    last !== undefined &&
+    istDayStart(asOf) > istDayStart(last.time)
+  ) {
+    return [...points, { time: asOf, price: quote.unitPriceNative }];
+  }
+  return withLatestPrice(points, quote?.unitPriceNative);
+};
+
 const toStepSeries = (
   points: PriceHistoryPoint[],
   from: number,
@@ -426,16 +480,24 @@ export const getMetalCharts = instrumentedFunction(
   async (db: Database, userId: string, metal: AssetClassTagValue, range: MetalChartRange) => {
     const now = new Date();
     const end = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
-    const windowStart = startOfDay(subDays(now, CHART_WINDOW_DAYS));
+    const window = METAL_CHART_WINDOWS[range];
+    const windowStart = startOfDay(subDays(now, window.days));
+    const intraday = window.minutes === CANDLE_MINUTES;
     const { unit, gramsPerUnit, comexSymbol } = METALS[metal];
     const code = await getReferenceEtf(db, userId, metal);
     const etfKey = createInstrumentKey('stocks', code, 'IN');
     const [mcxQuotes, etfRows, etf, mcx, comex, india, conversion] = await Promise.all([
       loadMetalQuotes(LIVE_TTL_MS, mcxKey, fetchMcxQuote),
       loadInstrumentRows([etfKey]),
-      fetchIndianRangePrices(code, windowStart, now),
-      mcxCandles(metal, windowStart.getTime(), end, CANDLE_MINUTES, LIVE_TTL_MS),
-      fetchUsPrices(comexSymbol, COMEX_HISTORY_RANGE),
+      loadEtfCandles(code, windowStart, now, window.minutes),
+      mcxCandles(
+        metal,
+        windowStart.getTime(),
+        end,
+        window.minutes,
+        intraday ? LIVE_TTL_MS : MS_PER_HOUR,
+      ),
+      fetchUsPrices(comexSymbol, window.comexRange, window.comexInterval),
       fetchCommodityHistoricalPrices(definitionOf(metal), subDays(windowStart, 1), now),
       getEtfConversion(metal, code),
     ]);
@@ -447,7 +509,9 @@ export const getMetalCharts = instrumentedFunction(
     const etfCandles = conversion === null ? [] : toSeries(etf, from, conversion);
     const isCurrentQuote =
       (etfQuote?.asOf?.getTime() ?? 0) >= (etfCandles.at(-1)?.time ?? Number.POSITIVE_INFINITY);
-    const mcxRates = withLatestPrice(toSeries(mcx, from), mcxQuote?.unitPriceNative);
+    const mcxRates = intraday
+      ? withLatestPrice(toSeries(mcx, from), mcxQuote?.unitPriceNative)
+      : withLatestQuote(toSeries(mcx, from), mcxQuote);
     const etfRates = withLatestPrice(
       etfCandles,
       isCurrentQuote && etfQuote !== null && conversion !== null
@@ -458,8 +522,10 @@ export const getMetalCharts = instrumentedFunction(
         : {},
     );
     const etfPreviousClose = etfQuote?.previousCloseInr ?? null;
-    const mcxEstimate = estimateClosedHours(mcxRates, toSeries(comex, from));
-    const etfEstimate = estimateClosedHours(etfRates, mergeSeries(mcxRates, mcxEstimate));
+    const mcxEstimate = intraday ? estimateClosedHours(mcxRates, toSeries(comex, from)) : [];
+    const etfEstimate = intraday
+      ? estimateClosedHours(etfRates, mergeSeries(mcxRates, mcxEstimate))
+      : [];
     const inRange = ({ time }: { time: number }) => time >= start;
     return {
       unit,

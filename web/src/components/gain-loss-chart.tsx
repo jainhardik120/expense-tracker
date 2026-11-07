@@ -49,6 +49,7 @@ const CRORE = 10_000_000;
 const PERCENT = 100;
 const MS_PER_DAY = 86_400_000;
 const CHART_WRAPPER = 'flex flex-col gap-1';
+const chartHeight = (fill: boolean) => cn('aspect-auto w-full', fill ? 'min-h-0 flex-1' : 'h-56');
 const LONG_RANGE_DAYS = 120;
 const INTRADAY_TICK_MAX_DAYS = 2;
 const PERCENT_TICK_DECIMALS = 1;
@@ -313,6 +314,7 @@ export const GainLossChart = ({
   labels,
   title,
   className,
+  fill = false,
   currency = 'INR',
   intraday = false,
 }: {
@@ -320,6 +322,7 @@ export const GainLossChart = ({
   labels: GainLossLabels;
   title?: { rupees: string; percent: string };
   className?: string;
+  fill?: boolean;
   currency?: ChartCurrency;
   intraday?: boolean;
 }) => {
@@ -339,14 +342,14 @@ export const GainLossChart = ({
     return null;
   }
   return (
-    <div className={cn(CHART_WRAPPER, className)}>
+    <div className={cn(CHART_WRAPPER, fill && 'h-full', className)}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium">
           {mode === 'rupees' ? title?.rupees : title?.percent}
         </span>
         <ModeToggle mode={mode} symbol={money.symbol} onChange={setMode} />
       </div>
-      <ChartContainer className="aspect-auto h-56 w-full" config={{}}>
+      <ChartContainer className={chartHeight(fill)} config={{}}>
         <AreaChart data={rows} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
           <defs>
             <linearGradient id={`${gradientId}-fill`} x1="0" x2="0" y1="0" y2="1">
@@ -421,12 +424,14 @@ export const ValueVsBaseChart = ({
   points,
   labels,
   className,
+  fill = false,
   currency = 'INR',
   intraday = false,
 }: {
   points: GainLossPoint[];
   labels: GainLossLabels;
   className?: string;
+  fill?: boolean;
   currency?: ChartCurrency;
   intraday?: boolean;
 }) => {
@@ -437,7 +442,7 @@ export const ValueVsBaseChart = ({
     return null;
   }
   return (
-    <div className={cn(CHART_WRAPPER, className)}>
+    <div className={cn(CHART_WRAPPER, fill && 'h-full', className)}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
         <span className="flex items-center gap-1.5">
           <span className="h-0.5 w-4 rounded" style={{ backgroundColor: VALUE_STROKE }} />
@@ -448,7 +453,7 @@ export const ValueVsBaseChart = ({
           {labels.base}
         </span>
       </div>
-      <ChartContainer className="aspect-auto h-56 w-full" config={{}}>
+      <ChartContainer className={chartHeight(fill)} config={{}}>
         <LineChart data={rows} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
           <CartesianGrid strokeOpacity={0.4} vertical={false} />
           <XAxis
@@ -515,14 +520,14 @@ const PriceTooltip = ({
   formatPrice,
   formatDate,
   averageBuyPrice,
-  label,
+  seriesLabel,
 }: {
   active?: boolean;
   payload?: Array<{ payload: { time: number; price: number } }>;
   formatPrice: (value: number) => string;
   formatDate: (time: number) => string;
   averageBuyPrice: number | null;
-  label: string;
+  seriesLabel: string;
 }) => {
   const row = payload?.[0]?.payload;
   if (active !== true || row === undefined) {
@@ -531,7 +536,7 @@ const PriceTooltip = ({
   return (
     <div className="bg-background flex min-w-40 flex-col gap-1 rounded-md border px-3 py-2 text-xs shadow-sm">
       <span className="font-medium">{formatDate(row.time)}</span>
-      <Line2 label={label} value={formatPrice(row.price)} />
+      <Line2 label={seriesLabel} value={formatPrice(row.price)} />
       {averageBuyPrice === null ? null : (
         <Line2 label="Avg buy price" value={formatPrice(averageBuyPrice)} />
       )}
@@ -557,6 +562,7 @@ export const PriceChart = ({
   points,
   currency = 'INR',
   className,
+  fill = false,
   intraday = false,
   averageBuyPrice = null,
   firstBought = null,
@@ -565,6 +571,7 @@ export const PriceChart = ({
   points: PricePoint[];
   currency?: ChartCurrency;
   className?: string;
+  fill?: boolean;
   intraday?: boolean;
   averageBuyPrice?: number | null;
   firstBought?: Date | null;
@@ -599,7 +606,7 @@ export const PriceChart = ({
     return null;
   }
   return (
-    <div className={cn(CHART_WRAPPER, className)}>
+    <div className={cn(CHART_WRAPPER, fill && 'h-full', className)}>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="text-sm font-medium">{label}</span>
         {averageBuyPrice === null ? null : (
@@ -609,7 +616,7 @@ export const PriceChart = ({
           </span>
         )}
       </div>
-      <ChartContainer className="aspect-auto h-56 w-full" config={{}}>
+      <ChartContainer className={chartHeight(fill)} config={{}}>
         <LineChart data={rows} margin={{ left: 4, right: 8, top: 8, bottom: 0 }}>
           <CartesianGrid strokeOpacity={0.4} vertical={false} />
           <XAxis
@@ -633,7 +640,7 @@ export const PriceChart = ({
                 averageBuyPrice={averageBuyPrice}
                 formatDate={intraday ? fullDateTime : fullDate}
                 formatPrice={formatPrice}
-                label={label}
+                seriesLabel={label}
               />
             }
             cursor={{ strokeDasharray: '3 3' }}

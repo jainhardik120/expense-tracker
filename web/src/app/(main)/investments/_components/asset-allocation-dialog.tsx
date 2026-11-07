@@ -1,14 +1,8 @@
 'use client';
 
-import Modal from '@/components/modal';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Check } from 'lucide-react';
+
+import FullScreenDialog from '@/components/full-screen-dialog';
 import { type AllocationSlice } from '@/lib/asset-allocation';
 import { formatCurrency, formatPercent, formatSignedCurrency } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -33,129 +27,190 @@ export type CategoryFigures = {
 export type ColouredGroup = ColouredSlice & { kinds: ColouredSlice[]; buckets: ColouredSlice[] };
 
 const PERCENT = 100;
-const COLUMN_COUNT = 5;
 const SHARE_DECIMALS = 1;
-const NUMBER_CELL = 'text-right align-top tabular-nums';
-const NUMBER_HEAD = 'text-right';
-const SHEET_HEIGHT =
-  'pb-4 data-[vaul-drawer-direction=bottom]:mt-0 data-[vaul-drawer-direction=bottom]:h-[96dvh] data-[vaul-drawer-direction=bottom]:max-h-[96dvh]';
-const CELL_SPACING = 'px-1 py-1.5 sm:px-2';
+const SECTION_GRID =
+  'grid grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] content-start gap-x-2.5 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_6.5rem_6.5rem] sm:gap-x-3';
+const SUBGRID = 'col-span-full grid grid-cols-subgrid';
+const ROW = cn(SUBGRID, 'items-start py-1.5 sm:py-2.5');
+const NAME_CELL = 'min-w-0';
+const NUMBER = 'text-right tabular-nums';
+const SMALL = 'text-[11px] sm:text-xs';
+const MUTED_SMALL = 'text-muted-foreground text-[11px] sm:text-xs';
+
+type Figures = Pick<ColouredSlice, 'value' | 'invested' | 'dayChange'>;
 
 const wholeRupees = (value: number) => formatCurrency(Math.round(value)).replace(/\.00$/, '');
 
+const HUNDREDTH = 0.005;
+
 const signedRupees = (value: number) =>
-  formatSignedCurrency(Math.round(value)).replace(/\.00$/, '');
+  formatSignedCurrency(Math.round(value) + 0).replace(/\.00$/, '');
 
 const percentOf = (value: number, base: number) => {
   if (base === 0) {
     return null;
   }
-  return `${value > 0 ? '+' : ''}${formatPercent((value / base) * PERCENT)}`;
+  const percent = (value / base) * PERCENT;
+  if (Math.abs(percent) < HUNDREDTH) {
+    return formatPercent(0);
+  }
+  return `${percent > 0 ? '+' : ''}${formatPercent(percent)}`;
 };
 
+const shareOf = (value: number, base: number) => (base === 0 ? 0 : (value / base) * PERCENT);
+
 const SignedFigure = ({ value, base }: { value: number; base: number }) => (
-  <span className={cn('flex flex-col', getSignedValueTone(Math.round(value)))}>
+  <span className={cn('flex flex-col', NUMBER, getSignedValueTone(Math.round(value)))}>
     <span>{signedRupees(value)}</span>
-    <span className="text-[11px]">{percentOf(value, base)}</span>
+    <span className={SMALL}>{percentOf(value, base)}</span>
   </span>
 );
 
-const AllocationRow = ({
-  slice,
-  nested = false,
-  bold = false,
-}: {
-  slice: Pick<ColouredSlice, 'label' | 'value' | 'invested' | 'dayChange'> & {
-    fill?: string;
-    share?: number;
-  };
-  nested?: boolean;
-  bold?: boolean;
-}) => (
-  <TableRow className={cn(bold && 'font-medium')}>
-    <TableCell
-      className={cn(CELL_SPACING, 'align-top whitespace-normal', nested && 'pl-3 sm:pl-6')}
-    >
-      <span className="flex items-center gap-1.5">
-        {slice.fill === undefined ? null : (
-          <span
-            className="size-2.5 shrink-0 rounded-[2px]"
-            style={{ backgroundColor: slice.fill }}
-          />
-        )}
-        <span className={cn(nested && 'text-muted-foreground')}>{slice.label}</span>
-      </span>
-    </TableCell>
-    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
-      <span className="flex flex-col">
-        <span>{wholeRupees(slice.value)}</span>
-        {slice.share === undefined ? null : (
-          <span className="text-muted-foreground text-[11px]">
-            {formatPercent(slice.share, SHARE_DECIMALS)}
-          </span>
-        )}
-      </span>
-    </TableCell>
-    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>{wholeRupees(slice.invested)}</TableCell>
-    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
-      <SignedFigure base={slice.invested} value={slice.value - slice.invested} />
-    </TableCell>
-    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
-      <SignedFigure base={slice.value - slice.dayChange} value={slice.dayChange} />
-    </TableCell>
-  </TableRow>
+const FigureCells = ({ figures, shareLabel }: { figures: Figures; shareLabel?: string }) => (
+  <>
+    <span className={cn('flex flex-col', NUMBER)}>
+      <span>{wholeRupees(figures.value)}</span>
+      {shareLabel === undefined ? null : <span className={MUTED_SMALL}>{shareLabel}</span>}
+    </span>
+    <span className={NUMBER}>{wholeRupees(figures.invested)}</span>
+    <SignedFigure base={figures.invested} value={figures.value - figures.invested} />
+    <SignedFigure base={figures.value - figures.dayChange} value={figures.dayChange} />
+  </>
 );
 
-const CategoryRow = ({
+const ColumnHeads = ({ title, note }: { title: string; note?: string }) => (
+  <div className={cn(SUBGRID, 'gap-y-2 border-b pb-1.5 sm:gap-y-3 sm:pb-2')}>
+    <div className="col-span-full flex flex-col gap-0.5">
+      <span className="font-medium">{title}</span>
+      {note === undefined ? null : <span className={MUTED_SMALL}>{note}</span>}
+    </div>
+    <span />
+    {['Value', 'Invested', 'P/L', '1D'].map((head) => (
+      <span key={head} className={cn(MUTED_SMALL, NUMBER)}>
+        {head}
+      </span>
+    ))}
+  </div>
+);
+
+const ShareBar = ({ share, fill }: { share: number; fill: string }) => (
+  <span className="bg-muted mt-1.5 hidden h-1 max-w-48 overflow-hidden rounded-full sm:block">
+    <span
+      className="block h-full rounded-full"
+      style={{ width: `${String(Math.min(share, PERCENT))}%`, backgroundColor: fill }}
+    />
+  </span>
+);
+
+const SliceRow = ({ slice, share }: { slice: ColouredSlice; share: number }) => (
+  <div className={ROW}>
+    <span className={NAME_CELL}>
+      <span className="flex items-start gap-1.5 sm:items-center sm:gap-2">
+        <span
+          className="mt-0.5 size-2.5 shrink-0 rounded-[2px] sm:mt-0"
+          style={{ backgroundColor: slice.fill }}
+        />
+        <span className="sm:truncate">{slice.label}</span>
+      </span>
+      <ShareBar fill={slice.fill} share={share} />
+    </span>
+    <FigureCells figures={slice} shareLabel={formatPercent(share, SHARE_DECIMALS)} />
+  </div>
+);
+
+const CategoryStats = ({
   category,
-  selected,
-  onToggle,
+  className,
 }: {
   category: CategoryFigures;
-  selected: boolean;
-  onToggle: () => void;
+  className: string;
 }) => (
-  <TableRow className={cn('cursor-pointer', selected && 'bg-muted')} onClick={onToggle}>
-    <TableCell className={cn(CELL_SPACING, 'align-top whitespace-normal')}>
-      <div>{category.label}</div>
-      <div className="text-muted-foreground text-[11px]">
-        {category.openPositions} open / {category.closedPositions} closed
-        {category.xirr === null ? '' : ` · XIRR ${formatPercent(category.xirr)}`}
-      </div>
-    </TableCell>
-    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>{wholeRupees(category.value)}</TableCell>
-    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
-      {wholeRupees(category.invested)}
-    </TableCell>
-    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
-      <SignedFigure base={category.invested} value={category.value - category.invested} />
-    </TableCell>
-    <TableCell className={cn(CELL_SPACING, NUMBER_CELL)}>
-      <SignedFigure base={category.value - category.dayChange} value={category.dayChange} />
-    </TableCell>
-  </TableRow>
+  <span className={cn(MUTED_SMALL, className)}>
+    {category.openPositions} open · {category.closedPositions} closed
+    {category.xirr === null ? '' : ` · XIRR ${formatPercent(category.xirr)}`}
+  </span>
 );
 
-const SectionRow = ({ label }: { label: string }) => (
-  <TableRow className="hover:bg-transparent">
-    <TableCell
-      className="text-muted-foreground pt-2 pb-0.5 pl-3 text-[11px] sm:pl-6"
-      colSpan={COLUMN_COUNT}
-    >
-      {label}
-    </TableCell>
-  </TableRow>
+const CategoryRow = ({ category }: { category: CategoryFigures }) => (
+  <button
+    aria-pressed={category.selected}
+    className={cn(
+      ROW,
+      'hover:bg-muted/50 gap-y-0.5 rounded-sm py-2 text-left transition-colors',
+      category.selected && 'bg-muted',
+    )}
+    type="button"
+    onClick={category.onToggle}
+  >
+    <span className={cn(NAME_CELL, 'flex items-start gap-1.5 sm:gap-2')}>
+      <span
+        className={cn(
+          'mt-0.5 flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border sm:size-4',
+          category.selected && 'bg-primary border-primary text-primary-foreground',
+        )}
+      >
+        {category.selected ? <Check className="size-3" /> : null}
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="sm:truncate">{category.label}</span>
+        <CategoryStats category={category} className="hidden sm:block" />
+      </span>
+    </span>
+    <FigureCells figures={category} />
+    <CategoryStats category={category} className="col-span-full pl-5 sm:hidden" />
+  </button>
 );
 
-const groupRows = (group: ColouredGroup): React.ReactNode[] => [
-  <AllocationRow key={group.key} slice={group} />,
-  ...(group.kinds.length === 0 ? [] : [<SectionRow key={`${group.key}:kinds`} label="By type" />]),
-  ...group.kinds.map((kind) => <AllocationRow key={kind.key} nested slice={kind} />),
-  ...(group.buckets.length === 0
-    ? []
-    : [<SectionRow key={`${group.key}:buckets`} label="By size" />]),
-  ...group.buckets.map((bucket) => <AllocationRow key={bucket.key} nested slice={bucket} />),
-];
+const SummaryFigure = ({
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  label: string;
+  value: string;
+  detail?: string | null;
+  tone?: string;
+}) => (
+  <div className="flex flex-col gap-0.5">
+    <span className={MUTED_SMALL}>{label}</span>
+    <span className={cn('text-base font-semibold tabular-nums sm:text-2xl', tone)}>{value}</span>
+    {detail === undefined || detail === null ? null : (
+      <span className={cn('tabular-nums', SMALL, tone)}>{detail}</span>
+    )}
+  </div>
+);
+
+const InsideGroup = ({ group }: { group: ColouredGroup }) => (
+  <section className={SECTION_GRID}>
+    <ColumnHeads
+      note={`Shares of the ${wholeRupees(group.value)} in ${group.label.toLowerCase()}, split by what your funds and stocks hold`}
+      title={`Inside ${group.label.toLowerCase()}`}
+    />
+    {[
+      { title: 'By type', slices: group.kinds },
+      { title: 'By size', slices: group.buckets },
+    ]
+      .filter((part) => part.slices.length > 0)
+      .map((part) => (
+        <div key={part.title} className={SUBGRID}>
+          <span
+            className={cn(
+              'text-muted-foreground col-span-full pt-3 pb-0.5 font-medium sm:pt-4 sm:pb-1',
+              SMALL,
+            )}
+          >
+            {part.title}
+          </span>
+          <div className={cn(SUBGRID, 'divide-y')}>
+            {part.slices.map((slice) => (
+              <SliceRow key={slice.key} share={shareOf(slice.value, group.value)} slice={slice} />
+            ))}
+          </div>
+        </div>
+      ))}
+  </section>
+);
 
 export const AssetAllocationDialog = ({
   groups,
@@ -173,59 +228,80 @@ export const AssetAllocationDialog = ({
   trigger: React.ReactNode;
 }) => {
   const total = {
-    label: 'Total',
-    share: PERCENT,
     value: groups.reduce((sum, group) => sum + group.value, 0),
     invested: groups.reduce((sum, group) => sum + group.invested, 0),
     dayChange: groups.reduce((sum, group) => sum + group.dayChange, 0),
   };
+  const pnl = total.value - total.invested;
+  const split = groups.filter((group) => group.kinds.length > 0 || group.buckets.length > 0);
   return (
-    <Modal
-      className="sm:max-w-2xl"
+    <FullScreenDialog
       description={description}
-      drawerClassName={SHEET_HEIGHT}
       open={open}
       setOpen={setOpen}
       title="Asset allocation"
       trigger={trigger}
     >
-      <div className="min-h-0 overflow-y-auto">
-        <Table className="text-xs">
-          <TableHeader>
-            <TableRow>
-              <TableHead className={CELL_SPACING}>Asset</TableHead>
-              <TableHead className={cn(CELL_SPACING, NUMBER_HEAD)}>Current</TableHead>
-              <TableHead className={cn(CELL_SPACING, NUMBER_HEAD)}>Invested</TableHead>
-              <TableHead className={cn(CELL_SPACING, NUMBER_HEAD)}>P/L</TableHead>
-              <TableHead className={cn(CELL_SPACING, NUMBER_HEAD)}>1D</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groups.flatMap(groupRows)}
-            <AllocationRow bold slice={total} />
-            <TableRow className="hover:bg-transparent">
-              <TableCell
-                className="text-muted-foreground pt-4 pb-0.5 text-[11px]"
-                colSpan={COLUMN_COUNT}
-              >
-                By category, including anything left out of Total · tap to filter the page
-              </TableCell>
-            </TableRow>
-            {categories.map((category) => (
-              <CategoryRow
-                key={category.key}
-                category={category}
-                selected={category.selected}
-                onToggle={category.onToggle}
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 text-xs sm:gap-8 sm:text-sm">
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="grid grid-cols-4 gap-2 sm:gap-4">
+            <SummaryFigure label="Current value" value={wholeRupees(total.value)} />
+            <SummaryFigure label="Invested" value={wholeRupees(total.invested)} />
+            <SummaryFigure
+              detail={percentOf(pnl, total.invested)}
+              label="Profit / loss"
+              tone={getSignedValueTone(Math.round(pnl))}
+              value={signedRupees(pnl)}
+            />
+            <SummaryFigure
+              detail={percentOf(total.dayChange, total.value - total.dayChange)}
+              label="Today"
+              tone={getSignedValueTone(Math.round(total.dayChange))}
+              value={signedRupees(total.dayChange)}
+            />
+          </div>
+          <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full">
+            {groups.map((group) => (
+              <span
+                key={group.key}
+                className="h-full"
+                style={{ width: `${String(group.share)}%`, backgroundColor: group.fill }}
+                title={`${group.label} ${formatPercent(group.share, SHARE_DECIMALS)}`}
               />
             ))}
-          </TableBody>
-        </Table>
-        <p className="text-muted-foreground px-1 pt-3 text-[11px] sm:px-2">
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-x-12 gap-y-6 sm:gap-y-10 lg:grid-cols-2">
+          <div className="flex flex-col gap-6 sm:gap-10">
+            <section className={SECTION_GRID}>
+              <ColumnHeads note="Shares of your whole portfolio" title="Asset classes" />
+              <div className={cn(SUBGRID, 'divide-y')}>
+                {groups.map((group) => (
+                  <SliceRow key={group.key} share={group.share} slice={group} />
+                ))}
+              </div>
+            </section>
+            <section className={SECTION_GRID}>
+              <ColumnHeads
+                note="Includes anything left out of the total. Tick to filter the page."
+                title="Categories"
+              />
+              <div className={cn(SUBGRID, 'pt-1')}>
+                {categories.map((category) => (
+                  <CategoryRow key={category.key} category={category} />
+                ))}
+              </div>
+            </section>
+          </div>
+          {split.map((group) => (
+            <InsideGroup key={group.key} group={group} />
+          ))}
+        </div>
+        <p className={MUTED_SMALL}>
           Estimated changes, such as funds still waiting on their NAV, are not included in this
           breakdown.
         </p>
       </div>
-    </Modal>
+    </FullScreenDialog>
   );
 };

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 
-import Modal from '@/components/modal';
+import FullScreenDialog from '@/components/full-screen-dialog';
 import MultiColorPieChart from '@/components/multi-color-pie-chart';
 
 import { assetTypeLabel, rupees } from './format';
@@ -69,8 +69,7 @@ export const FundBreakdownDialog = ({
   }, [analysis.companies, fund]);
 
   return (
-    <Modal
-      className="sm:max-w-5xl"
+    <FullScreenDialog
       description={
         fund === null
           ? undefined
@@ -82,10 +81,9 @@ export const FundBreakdownDialog = ({
           onClose();
         }
       }}
-      title={fund === null ? undefined : fund.schemeName}
-      trigger={<span className="hidden" />}
+      title={fund?.schemeName ?? ''}
     >
-      <div className="grid max-h-[75vh] gap-6 overflow-y-auto sm:grid-cols-2">
+      <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
         {charts.map((chart) => (
           <section key={chart.title} className="flex min-w-0 flex-col gap-2">
             <h4 className="text-sm font-medium">By {chart.title.toLowerCase()}</h4>
@@ -96,6 +94,6 @@ export const FundBreakdownDialog = ({
           </section>
         ))}
       </div>
-    </Modal>
+    </FullScreenDialog>
   );
 };

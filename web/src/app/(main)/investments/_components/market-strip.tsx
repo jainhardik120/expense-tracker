@@ -6,8 +6,8 @@ import Link from 'next/link';
 
 import { ArrowRight } from 'lucide-react';
 
+import FullScreenDialog from '@/components/full-screen-dialog';
 import { PriceChart } from '@/components/gain-loss-chart';
-import Modal from '@/components/modal';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -66,7 +66,7 @@ const IndexComponents = ({
       <Table className="text-xs">
         <TableHeader>
           <TableRow>
-            <TableHead>Stock</TableHead>
+            <TableHead className="align-top">Stock</TableHead>
             <TableHead className={NUMBER_CELL}>Weight</TableHead>
             <TableHead className={NUMBER_CELL}>Price</TableHead>
             <TableHead className={NUMBER_CELL}>
@@ -111,50 +111,56 @@ const MarketChartBody = ({ item, open }: { item: MarketItem; open: boolean }) =>
   const first = data?.previousClose ?? points.at(0)?.price;
   const last = points.at(-1)?.price;
   const change = first === undefined || last === undefined ? null : last - first;
+  const indexKey = item.key === 'nifty' || item.key === 'sensex' ? item.key : null;
   return (
-    <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-      <div>
-        <div className="text-2xl font-semibold tabular-nums">
-          {last === undefined ? '-' : priceLabel(item, last)}
-        </div>
-        {change === null || first === undefined || first === 0 ? null : (
-          <div className={cn('text-sm tabular-nums', getSignedValueTone(change))}>
-            {change > 0 ? '+' : ''}
-            {priceLabel(item, change)} ({signedPercent((change / first) * PERCENT)})
+    <div className="flex flex-1 flex-col gap-6 lg:min-h-0 lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div>
+          <div className="text-2xl font-semibold tabular-nums">
+            {last === undefined ? '-' : priceLabel(item, last)}
           </div>
-        )}
+          {change === null || first === undefined || first === 0 ? null : (
+            <div className={cn('text-sm tabular-nums', getSignedValueTone(change))}>
+              {change > 0 ? '+' : ''}
+              {priceLabel(item, change)} ({signedPercent((change / first) * PERCENT)})
+            </div>
+          )}
+        </div>
+        <div className="flex min-h-72 flex-1 flex-col">
+          {points.length < 2 ? (
+            <Skeleton className="size-full" />
+          ) : (
+            <PriceChart
+              currency={item.isCurrency ? 'INR' : 'NONE'}
+              fill
+              intraday
+              label={item.label}
+              points={points}
+            />
+          )}
+        </div>
+        <div className="flex justify-center gap-2">
+          {RANGES.map((option) => (
+            <Button
+              key={option.value}
+              aria-pressed={option.value === range}
+              className="h-7 rounded-full px-3 text-xs"
+              size="sm"
+              variant={option.value === range ? 'default' : 'outline'}
+              onClick={() => {
+                setRange(option.value);
+              }}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
       </div>
-      <div className="h-72">
-        {points.length < 2 ? (
-          <Skeleton className="size-full" />
-        ) : (
-          <PriceChart
-            currency={item.isCurrency ? 'INR' : 'NONE'}
-            intraday
-            label={item.label}
-            points={points}
-          />
-        )}
-      </div>
-      <div className="flex justify-center gap-2">
-        {RANGES.map((option) => (
-          <Button
-            key={option.value}
-            aria-pressed={option.value === range}
-            className="h-7 rounded-full px-3 text-xs"
-            size="sm"
-            variant={option.value === range ? 'default' : 'outline'}
-            onClick={() => {
-              setRange(option.value);
-            }}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
-      {item.key === 'nifty' || item.key === 'sensex' ? (
-        <IndexComponents indexKey={item.key} open={open} range={range} />
-      ) : null}
+      {indexKey === null ? null : (
+        <div className="lg:w-md lg:shrink-0 lg:overflow-y-auto">
+          <IndexComponents indexKey={indexKey} open={open} range={range} />
+        </div>
+      )}
     </div>
   );
 };
@@ -189,15 +195,9 @@ const MarketTile = ({ item }: { item: MarketItem }) => {
     );
   }
   return (
-    <Modal
-      className="sm:max-w-2xl"
-      open={open}
-      setOpen={setOpen}
-      title={item.label}
-      trigger={trigger}
-    >
+    <FullScreenDialog open={open} setOpen={setOpen} title={item.label} trigger={trigger}>
       <MarketChartBody item={item} open={open} />
-    </Modal>
+    </FullScreenDialog>
   );
 };
 

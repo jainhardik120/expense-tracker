@@ -92,7 +92,11 @@ export const fetchIndianRangePrices = async (code: string, start: Date, now: Dat
   return candlesToPrices(payload?.candles ?? []);
 };
 
-export const fetchUsPrices = async (code: string, range = '1d'): Promise<PriceHistoryPoint[]> => {
+export const fetchUsPrices = async (
+  code: string,
+  range = '1d',
+  interval = `${String(BUCKET_MINUTES)}m`,
+): Promise<PriceHistoryPoint[]> => {
   const payload = await fetchLiveJson<{
     chart?: {
       result?: Array<{
@@ -101,7 +105,7 @@ export const fetchUsPrices = async (code: string, range = '1d'): Promise<PriceHi
       }>;
     };
   }>(
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code)}?range=${range}&interval=${String(BUCKET_MINUTES)}m`,
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code)}?range=${range}&interval=${interval}`,
     REQUEST_INIT,
     STOCK_MEMO_MS,
   );
