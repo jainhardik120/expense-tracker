@@ -60,6 +60,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.round
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -182,6 +183,13 @@ fun AllocationSheet(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp)
+                    )
+                    Text(
+                        text = "Estimated changes, such as funds still waiting on their NAV, " +
+                            "are not included in this breakdown.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp)
                     )
                 }
             }
@@ -348,8 +356,10 @@ private fun moveColour(amount: Double): Color = when {
     else -> Green600
 }
 
-private fun signedAmount(value: Double): String {
-    val formatted = formatAmount(abs(value))
+private fun wholeAmount(value: Double): String = formatAmount(round(value)).removeSuffix(".00")
+
+private fun signedAmount(value: Double, format: (Double) -> String = ::formatAmount): String {
+    val formatted = format(abs(value))
     return when {
         abs(value) < 0.005 -> formatted
         value < 0 -> "-$formatted"
@@ -357,11 +367,11 @@ private fun signedAmount(value: Double): String {
     }
 }
 
-private fun withPercent(value: Double, base: Double): String =
+private fun withPercent(value: Double, base: Double, format: (Double) -> String = ::formatAmount): String =
     if (base == 0.0) {
-        signedAmount(value)
+        signedAmount(value, format)
     } else {
-        "${signedAmount(value)} (%+.2f%%)".format(Locale.ENGLISH, value / abs(base) * PERCENT)
+        "${signedAmount(value, format)} (%+.2f%%)".format(Locale.ENGLISH, value / abs(base) * PERCENT)
     }
 
 @Composable
@@ -441,25 +451,53 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun BreakdownRow(slice: AllocationSlice, nested: Boolean, onClick: () -> Unit) {
-    Row(
+    val pnl = slice.value - slice.invested
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(start = if (nested) 36.dp else 20.dp, end = 20.dp, top = 7.dp, bottom = 7.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        Swatch(colourOf(slice))
-        Spacer(modifier = Modifier.width(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Swatch(colourOf(slice))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = slice.label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (nested) FontWeight.Normal else FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "${formatAmount(slice.value)} · %.1f%%".format(Locale.ENGLISH, slice.share),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 18.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            MoveFigure("P/L", withPercent(pnl, slice.invested, ::wholeAmount), moveColour(pnl))
+            MoveFigure(
+                "1D",
+                withPercent(slice.dayChange, slice.value - slice.dayChange, ::wholeAmount),
+                moveColour(slice.dayChange)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MoveFigure(label: String, value: String, colour: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            text = slice.label,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (nested) FontWeight.Normal else FontWeight.Medium,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = "${formatAmount(slice.value)} · %.1f%%".format(Locale.ENGLISH, slice.share),
-            style = MaterialTheme.typography.bodyMedium,
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Text(text = value, style = MaterialTheme.typography.bodySmall, color = colour)
     }
 }

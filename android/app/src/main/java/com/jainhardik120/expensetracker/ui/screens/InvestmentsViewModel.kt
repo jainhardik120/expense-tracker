@@ -9,6 +9,7 @@ import com.jainhardik120.expensetracker.data.entity.InvestmentHolding
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
 import com.jainhardik120.expensetracker.data.entity.InvestmentsOverview
+import com.jainhardik120.expensetracker.data.entity.IndexComponents
 import com.jainhardik120.expensetracker.data.entity.MarketItem
 import com.jainhardik120.expensetracker.data.entity.MarketPoint
 import com.jainhardik120.expensetracker.data.entity.MetalBuyPrice
@@ -26,6 +27,7 @@ import javax.inject.Inject
 
 private const val LIVE_CHART_INTERVAL_MS = 60_000L
 private val METAL_KEYS = setOf("gold", "silver")
+private val INDEX_KEYS = setOf("nifty", "sensex")
 
 enum class HoldingMetric(val label: String) {
     CURRENT("Current (Invested)"),
@@ -34,13 +36,14 @@ enum class HoldingMetric(val label: String) {
     XIRR("XIRR")
 }
 
-enum class ChartRange(val label: String, val value: String) {
-    DAY("1D", "1d"),
-    WEEK("1W", "1w"),
-    MONTH("1M", "1m"),
-    QUARTER("3M", "3m"),
-    HALF("6M", "6m"),
-    ALL("All", "lifetime")
+enum class ChartRange(val label: String, val value: String, val days: Long) {
+    DAY("1D", "1d", 1),
+    WEEK("1W", "1w", 7),
+    MONTH("1M", "1m", 30),
+    HALF("6M", "6m", 180),
+    YEAR("1Y", "1y", 365),
+    THREE_YEARS("3Y", "3y", 1095),
+    FIVE_YEARS("5Y", "5y", 1825)
 }
 
 @HiltViewModel
@@ -102,6 +105,9 @@ class InvestmentsViewModel @Inject constructor(
     var chartIntraday by mutableStateOf(false)
         private set
 
+    var chartFirstBought by mutableStateOf<String?>(null)
+        private set
+
     private var liveChartJob: Job? = null
 
     var markets by mutableStateOf<List<MarketItem>>(emptyList())
@@ -123,6 +129,9 @@ class InvestmentsViewModel @Inject constructor(
         private set
 
     var metalCharts by mutableStateOf<MetalCharts?>(null)
+        private set
+
+    var indexComponents by mutableStateOf<IndexComponents?>(null)
         private set
 
     var metalBuyPrices by mutableStateOf<List<MetalBuyPrice>>(emptyList())
@@ -167,6 +176,7 @@ class InvestmentsViewModel @Inject constructor(
         openMarket = null
         marketPoints = null
         metalCharts = null
+        indexComponents = null
     }
 
     fun selectMarketRange(range: ChartRange) {
@@ -186,11 +196,27 @@ class InvestmentsViewModel @Inject constructor(
         }
     }
 
+    private fun requestIndexComponents(item: MarketItem, range: ChartRange) {
+        makeApiCall(
+            call = { api.getIndexComponents(item.key, range.value) },
+            preExecuting = null,
+            onDoneExecuting = null,
+            onException = {}
+        ) { response ->
+            if (openMarket == item && marketRange == range) {
+                indexComponents = response
+            }
+        }
+    }
+
     private fun requestMarketChart(showLoading: Boolean) {
         val item = openMarket ?: return
         val range = marketRange
         if (showLoading) {
             marketError = null
+        }
+        if (item.key in INDEX_KEYS) {
+            requestIndexComponents(item, range)
         }
         if (item.key in METAL_KEYS) {
             makeApiCall(
@@ -238,6 +264,7 @@ class InvestmentsViewModel @Inject constructor(
     fun openChart(holding: InvestmentHolding) {
         openHolding = holding
         chartPositions = emptyList()
+        chartFirstBought = null
         loadChart()
     }
 
@@ -280,6 +307,7 @@ class InvestmentsViewModel @Inject constructor(
                 chartPoints = response.points
                 chartIntraday = response.intraday
                 chartPositions = response.positions
+                chartFirstBought = response.firstBought
             }
         }
     }

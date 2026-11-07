@@ -20,6 +20,7 @@ object APIRoutes {
     const val ALLOCATION = "${BASE_URL}/investments/allocation"
     const val MARKETS = "${BASE_URL}/investments/markets"
     const val MARKET_CHART = "${BASE_URL}/investments/markets/chart"
+    const val INDEX_COMPONENTS = "${BASE_URL}/investments/markets/components"
     const val METAL_CHARTS = "${BASE_URL}/investments/metal-charts"
     const val METAL_BUY_PRICES = "${BASE_URL}/investments/metal-buy-prices"
     const val CATEGORIES = "${STATEMENTS}/categories"

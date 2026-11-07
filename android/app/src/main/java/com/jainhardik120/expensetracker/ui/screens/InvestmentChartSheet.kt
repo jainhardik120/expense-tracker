@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jainhardik120.expensetracker.data.entity.InstrumentChartPoint
@@ -69,6 +70,7 @@ fun InvestmentChartSheet(
     points: List<InstrumentChartPoint>?,
     intraday: Boolean,
     positions: List<InstrumentPosition>,
+    firstBought: String?,
     error: String?,
     range: ChartRange,
     onSelectRange: (ChartRange) -> Unit,
@@ -99,6 +101,10 @@ fun InvestmentChartSheet(
         }
         val change = if (shown != null && base != null) shown - base else null
         val changePercent = if (change != null && base != null && base != 0.0) change / abs(base) * 100 else null
+        val firstBoughtIndex = firstBought?.let { bought ->
+            points?.indexOfFirst { it.date >= bought }?.takeIf { it > 0 }
+        }
+        val shortHistoryStart = points?.firstOrNull()?.date?.takeIf { startsAfterRange(it, range) }
 
         Column(
             modifier = Modifier
@@ -151,7 +157,8 @@ fun InvestmentChartSheet(
                     Text(
                         text = when {
                             dateLabel != null -> if (unitBased) dateLabel else "returns on $dateLabel"
-                            unitBased -> range.sinceLabel(isFund)
+                            unitBased -> shortHistoryStart?.let { "since ${formatChartDate(it)}" }
+                                ?: range.sinceLabel(isFund)
                             else -> "returns"
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -186,7 +193,8 @@ fun InvestmentChartSheet(
                         invested = if (unitBased) null else points.map { it.investedAmount },
                         colour = trendColour(series.last() - series.first()),
                         selected = selected,
-                        onSelect = { selected = it }
+                        onSelect = { selected = it },
+                        marker = firstBoughtIndex
                     )
                 }
             }
@@ -195,20 +203,22 @@ fun InvestmentChartSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                ChartRange.entries.forEach { option ->
+                HOLDING_RANGES.forEach { option ->
                     val isSelected = option == range
                     Text(
                         text = option.label,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                        textAlign = TextAlign.Center,
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.onSurface
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                         modifier = Modifier
+                            .weight(1f)
                             .background(
                                 color = if (isSelected) {
                                     MaterialTheme.colorScheme.surfaceContainerHigh
@@ -218,7 +228,7 @@ fun InvestmentChartSheet(
                                 shape = RoundedCornerShape(50)
                             )
                             .clickable { onSelectRange(option) }
-                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                            .padding(vertical = 6.dp)
                     )
                 }
             }
@@ -382,7 +392,8 @@ internal fun TrendLine(
     invested: List<Double>?,
     colour: Color,
     selected: Int?,
-    onSelect: (Int?) -> Unit
+    onSelect: (Int?) -> Unit,
+    marker: Int? = null
 ) {
     val guideColour = MaterialTheme.colorScheme.onSurfaceVariant
     val all = series + invested.orEmpty()
@@ -442,6 +453,15 @@ internal fun TrendLine(
                 style = Stroke(width = 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f)))
             )
         }
+        marker?.let(points::getOrNull)?.let { point ->
+            drawLine(
+                color = guideColour.copy(alpha = 0.6f),
+                start = Offset(point.x, 0f),
+                end = Offset(point.x, size.height),
+                strokeWidth = 1.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 8f))
+            )
+        }
         drawPath(path = line, color = colour, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
 
         selected?.let(points::getOrNull)?.let { point ->
@@ -467,15 +487,23 @@ internal fun trendColour(amount: Double): Color = when {
 }
 
 private val UNIT_PRICED_KINDS = setOf("stocks", "mutual_funds", "crypto", "commodities")
+private const val RANGE_START_SLACK_DAYS = 7L
+private val HOLDING_RANGES = ChartRange.entries - ChartRange.WEEK
 
 private fun ChartRange.sinceLabel(isFund: Boolean): String = when (this) {
     ChartRange.DAY -> if (isFund) "last NAV change" else "1D"
     ChartRange.WEEK -> "past week"
     ChartRange.MONTH -> "past month"
-    ChartRange.QUARTER -> "past 3 months"
     ChartRange.HALF -> "past 6 months"
-    ChartRange.ALL -> "since first buy"
+    ChartRange.YEAR -> "past year"
+    ChartRange.THREE_YEARS -> "past 3 years"
+    ChartRange.FIVE_YEARS -> "past 5 years"
 }
+
+private fun startsAfterRange(date: String, range: ChartRange): Boolean =
+    runCatching {
+        OffsetDateTime.parse(date).isAfter(OffsetDateTime.now().minusDays(range.days - RANGE_START_SLACK_DAYS))
+    }.getOrDefault(false)
 
 internal fun formatChartMoment(value: String): String =
     runCatching {

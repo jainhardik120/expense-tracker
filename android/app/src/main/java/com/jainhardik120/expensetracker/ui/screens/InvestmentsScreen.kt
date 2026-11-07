@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jainhardik120.expensetracker.data.entity.EpfoSummary
 import com.jainhardik120.expensetracker.data.entity.IndividualPosition
 import com.jainhardik120.expensetracker.data.entity.InvestmentCategory
 import com.jainhardik120.expensetracker.data.entity.InvestmentHolding
@@ -136,6 +137,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
                 item = item,
                 points = viewModel.marketPoints,
                 previousClose = viewModel.marketPreviousClose,
+                components = viewModel.indexComponents,
                 error = viewModel.marketError,
                 range = viewModel.marketRange,
                 onSelectRange = viewModel::selectMarketRange,
@@ -156,6 +158,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
             points = viewModel.chartPoints,
             intraday = viewModel.chartIntraday,
             positions = viewModel.chartPositions,
+            firstBought = viewModel.chartFirstBought,
             error = viewModel.chartError,
             range = viewModel.chartRange,
             onSelectRange = viewModel::selectRange,
@@ -168,8 +171,12 @@ private const val MARKET_REFRESH_MS = 60_000L
 private const val MUTUAL_FUNDS = "mutual_funds"
 private const val STOCKS = "stocks"
 private val INDIVIDUAL_CATEGORIES = setOf("fd", "epfo")
+private const val EPFO = "epfo"
+private const val SHORT_YEAR_DIGITS = 100
 private val positionDateFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+private val salaryMonthFormat = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH)
 private const val USD_CURRENCY = "USD"
+private const val NO_VALUE = "—"
 private const val PERCENT = 100.0
 private val navDayFormat = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
 private val priceTimeFormat = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
@@ -200,10 +207,25 @@ private fun positionDate(value: String): String =
 
 private fun positionTags(position: IndividualPosition): List<String> = listOfNotNull(
     if (position.isClosed) "Closed" else null,
+    istDay(position.salaryPeriodStart, salaryMonthFormat)?.let { "$it salary" },
     position.annualRate?.let { "$it%" },
     position.maturityDate?.takeIf { position.annualRate != null }?.let { "Till ${positionDate(it)}" }
         ?: positionDate(position.date)
 )
+
+private fun epfoNote(epfo: EpfoSummary): String? {
+    val interest = epfo.interestYears.joinToString(" · ") { year ->
+        val nextYear = (year.financialYearStart + 1) % SHORT_YEAR_DIGITS
+        val state = if (year.isCredited) "credited" else "estimated"
+        "${year.financialYearStart}–$nextYear interest ${wholeRupees(year.amount)} $state"
+    }
+    val pending = epfo.pending.size.takeIf { it > 0 }?.let { months ->
+        val label = if (months == 1) "1 month" else "$months months"
+        "$label pending: ${wholeRupees(epfo.pendingAmount)}, " +
+            "plus ${wholeRupees(epfo.pendingInterest)} estimated interest"
+    }
+    return listOfNotNull(pending, interest.ifEmpty { null }).joinToString("\n").ifEmpty { null }
+}
 
 private fun istDay(value: String?, format: DateTimeFormatter = navDayFormat): String? =
     value?.let { date -> runCatching { Instant.parse(date).atZone(istZone).format(format) }.getOrNull() }
@@ -302,9 +324,9 @@ private fun InvestmentsContent(
         estimateToday(inCategory, estimatePercents)
     }
     val estimateLabel = when (category?.category) {
-        null -> "Estimated change"
+        MUTUAL_FUNDS -> estimatedDayLabel(todayEstimate)
         STOCKS -> "After hours, estimated"
-        else -> estimatedDayLabel(todayEstimate)
+        else -> "Estimated change"
     }
     val dayLabel = if (isFunds) navDayLabel(todayEstimate) else "1D returns"
     val openIn = { item: InvestmentCategory ->
@@ -333,7 +355,19 @@ private fun InvestmentsContent(
             )
         }
     } else if (isIndividual) {
-        shownPositions.map { position ->
+        val pendingCredits = if (category?.category == EPFO) overview.epfo.pending else emptyList()
+        pendingCredits.map { credit ->
+            PositionFigures(
+                key = credit.salaryPaymentId,
+                title = "${istDay(credit.periodStart, salaryMonthFormat)} salary",
+                tags = listOf("Credit pending"),
+                invested = credit.expectedAmount,
+                valuation = credit.expectedAmount + credit.estimatedInterest,
+                dayChange = 0.0,
+                xirr = null,
+                onClick = null
+            )
+        } + shownPositions.map { position ->
             PositionFigures(
                 key = position.id,
                 title = position.name,
@@ -456,6 +490,18 @@ private fun InvestmentsContent(
                     }
                 }
             }
+            if (category?.category == EPFO) {
+                epfoNote(overview.epfo)?.let { note ->
+                    item(key = "epfo-note") {
+                        Text(
+                            text = note,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                }
+            }
             if (rows.isEmpty()) {
                 item(key = "empty") {
                     Text(
@@ -522,13 +568,11 @@ private fun PortfolioHeader(
                 color = movementColour(figures.dayChange)
             )
         }
-        estimate?.let { today ->
-            HeaderRow(estimateLabel) {
-                Text(
-                    text = gainLabel(today.amount, today.percentage, ::formatAmount),
-                    color = movementColour(today.amount)
-                )
-            }
+        HeaderRow(estimateLabel) {
+            Text(
+                text = estimate?.let { gainLabel(it.amount, it.percentage, ::formatAmount) } ?: NO_VALUE,
+                color = movementColour(estimate?.amount ?: 0.0)
+            )
         }
         HeaderRow("Unrealised returns") {
             Text(
@@ -536,16 +580,14 @@ private fun PortfolioHeader(
                 color = movementColour(figures.pnl)
             )
         }
-        if (figures.realizedPnl != 0.0) {
-            HeaderRow("Realised") {
-                Text(
-                    text = signed(figures.realizedPnl, ::wholeRupees),
-                    color = movementColour(figures.realizedPnl)
-                )
-            }
+        HeaderRow("Realised") {
+            Text(
+                text = figures.realizedPnl.takeIf { it != 0.0 }?.let { signed(it, ::wholeRupees) } ?: NO_VALUE,
+                color = movementColour(figures.realizedPnl)
+            )
         }
         HeaderRow("Invested") { Text(text = wholeRupees(figures.invested)) }
-        HeaderRow("XIRR") { Text(text = figures.xirr?.let(::plainPercentage) ?: "—") }
+        HeaderRow("XIRR") { Text(text = figures.xirr?.let(::plainPercentage) ?: NO_VALUE) }
     }
 }
 
@@ -561,6 +603,8 @@ private fun HeaderRow(label: String, value: @Composable () -> Unit) {
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
         ProvideTextStyle(MaterialTheme.typography.bodyMedium) { value() }
@@ -670,7 +714,7 @@ private fun PositionRow(row: PositionFigures, metric: HoldingMetric) {
 
                 HoldingMetric.XIRR -> {
                     Text(
-                        text = row.xirr?.let(::plainPercentage) ?: "—",
+                        text = row.xirr?.let(::plainPercentage) ?: NO_VALUE,
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }

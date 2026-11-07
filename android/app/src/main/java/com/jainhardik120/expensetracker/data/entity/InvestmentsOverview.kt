@@ -9,7 +9,32 @@ data class InvestmentsOverview(
     val summary: PortfolioSummary,
     val categories: List<InvestmentCategory>,
     val holdings: List<InvestmentHolding>,
-    val positions: List<IndividualPosition> = emptyList()
+    val positions: List<IndividualPosition> = emptyList(),
+    val epfo: EpfoSummary = EpfoSummary()
+)
+
+@Serializable
+data class EpfoSummary(
+    val pending: List<EpfoPendingCredit> = emptyList(),
+    val pendingAmount: Double = 0.0,
+    val pendingInterest: Double = 0.0,
+    val interestYears: List<EpfoInterestYear> = emptyList()
+)
+
+@Serializable
+data class EpfoPendingCredit(
+    val salaryPaymentId: String,
+    val periodStart: String,
+    val dueMonth: String,
+    val expectedAmount: Double,
+    val estimatedInterest: Double
+)
+
+@Serializable
+data class EpfoInterestYear(
+    val financialYearStart: Int,
+    val amount: Double,
+    val isCredited: Boolean
 )
 
 @Serializable
@@ -23,6 +48,7 @@ data class IndividualPosition(
     val dayChange: Double,
     val annualRate: Double? = null,
     val maturityDate: String? = null,
+    val salaryPeriodStart: String? = null,
     val isClosed: Boolean,
     val isExcludedFromPortfolio: Boolean
 )
@@ -88,6 +114,21 @@ data class MarketPoint(val date: String, val price: Double)
 data class MarketChart(
     val points: List<MarketPoint> = emptyList(),
     val previousClose: Double? = null
+)
+
+@Serializable
+data class IndexComponent(
+    val name: String,
+    val sector: String? = null,
+    val weight: Double,
+    val price: Double? = null,
+    val changePercent: Double? = null
+)
+
+@Serializable
+data class IndexComponents(
+    val etfName: String = "",
+    val components: List<IndexComponent> = emptyList()
 )
 
 @Serializable
@@ -184,7 +225,8 @@ data class InvestmentHolding(
 data class InstrumentChart(
     val points: List<InstrumentChartPoint>,
     val positions: List<InstrumentPosition> = emptyList(),
-    val intraday: Boolean = false
+    val intraday: Boolean = false,
+    val firstBought: String? = null
 )
 
 @Serializable

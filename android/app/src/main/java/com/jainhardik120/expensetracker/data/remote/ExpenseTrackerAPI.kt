@@ -6,6 +6,7 @@ import com.jainhardik120.expensetracker.data.entity.ChartData
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
+import com.jainhardik120.expensetracker.data.entity.IndexComponents
 import com.jainhardik120.expensetracker.data.entity.InstrumentChart
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
@@ -66,6 +67,7 @@ interface ExpenseTrackerAPI {
     suspend fun getMetalCharts(metal: String, range: String): Result<MetalCharts, MessageError>
     suspend fun getMetalBuyPrices(): Result<List<MetalBuyPrice>, MessageError>
     suspend fun getMarketChart(key: String, range: String): Result<MarketChart, MessageError>
+    suspend fun getIndexComponents(key: String, range: String): Result<IndexComponents, MessageError>
     suspend fun getInstrumentChart(
         kind: String,
         code: String,

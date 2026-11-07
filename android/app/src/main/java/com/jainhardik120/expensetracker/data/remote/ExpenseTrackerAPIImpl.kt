@@ -6,6 +6,7 @@ import com.jainhardik120.expensetracker.data.entity.ChartData
 import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
+import com.jainhardik120.expensetracker.data.entity.IndexComponents
 import com.jainhardik120.expensetracker.data.entity.InstrumentChart
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
@@ -262,6 +263,16 @@ class ExpenseTrackerAPIImpl(
             requestBuilder<MarketSnapshot>(
                 url = APIRoutes.MARKETS, method = HttpMethod.Get
             )
+        }
+    }
+
+    override suspend fun getIndexComponents(key: String, range: String): Result<IndexComponents, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.INDEX_COMPONENTS) {
+                method = HttpMethod.Get
+                parameter("key", key)
+                parameter("range", range)
+            }.body()
         }
     }
 

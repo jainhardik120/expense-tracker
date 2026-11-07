@@ -16,9 +16,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -32,7 +35,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.jainhardik120.expensetracker.data.entity.IndexComponent
+import com.jainhardik120.expensetracker.data.entity.IndexComponents
 import com.jainhardik120.expensetracker.data.entity.MarketItem
 import com.jainhardik120.expensetracker.data.entity.MarketPoint
 import java.text.NumberFormat
@@ -113,6 +120,7 @@ fun MarketChartSheet(
     item: MarketItem,
     points: List<MarketPoint>?,
     previousClose: Double?,
+    components: IndexComponents?,
     error: String?,
     range: ChartRange,
     onSelectRange: (ChartRange) -> Unit,
@@ -132,6 +140,7 @@ fun MarketChartSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp)
         ) {
@@ -233,6 +242,78 @@ fun MarketChartSheet(
                     )
                 }
             }
+            components?.takeIf { it.components.isNotEmpty() }?.let { IndexComponentList(it, range) }
+        }
+    }
+}
+
+@Composable
+private fun IndexComponentList(index: IndexComponents, range: ChartRange) {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    )
+    Text(
+        text = "COMPONENTS (${index.components.size}) · ${range.label}",
+        style = MaterialTheme.typography.labelMedium,
+        letterSpacing = 1.5.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp)
+    )
+    index.components.forEachIndexed { position, component ->
+        IndexComponentRow(component)
+        if (position < index.components.lastIndex) {
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 20.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+        }
+    }
+    Text(
+        text = "Weights come from the latest holdings of ${index.etfName}, which tracks this index.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp)
+    )
+}
+
+@Composable
+private fun IndexComponentRow(component: IndexComponent) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = component.name,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = listOfNotNull(
+                    "%.2f%%".format(Locale.ENGLISH, component.weight),
+                    component.sector
+                ).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = component.price?.let { marketPrice(it, true) } ?: "—",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = component.changePercent?.let(::signedPercent) ?: "—",
+                style = MaterialTheme.typography.bodySmall,
+                color = trendColour(component.changePercent ?: 0.0)
+            )
         }
     }
 }
