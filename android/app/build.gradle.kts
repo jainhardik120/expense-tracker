@@ -26,8 +26,8 @@ android {
         applicationId = "com.jainhardik120.expensetracker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 30
-        versionName = "1.29"
+        versionCode = 31
+        versionName = "1.30"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["appAuthRedirectScheme"] = "expense-tracker"
