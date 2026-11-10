@@ -3,8 +3,10 @@ package com.jainhardik120.expensetracker.ui.screens
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.jainhardik120.expensetracker.data.entity.CategoryTimelinePoint
 import com.jainhardik120.expensetracker.data.entity.InstrumentChartPoint
 import com.jainhardik120.expensetracker.data.entity.InstrumentPosition
+import com.jainhardik120.expensetracker.data.entity.InvestmentCategory
 import com.jainhardik120.expensetracker.data.entity.InvestmentHolding
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
@@ -109,6 +111,23 @@ class InvestmentsViewModel @Inject constructor(
         private set
 
     private var liveChartJob: Job? = null
+
+    var openCategory by mutableStateOf<InvestmentCategory?>(null)
+        private set
+
+    var categoryRange by mutableStateOf(ChartRange.MONTH)
+        private set
+
+    var categoryPoints by mutableStateOf<List<CategoryTimelinePoint>?>(null)
+        private set
+
+    var categoryIntraday by mutableStateOf(false)
+        private set
+
+    var categoryError by mutableStateOf<String?>(null)
+        private set
+
+    private var liveCategoryJob: Job? = null
 
     var markets by mutableStateOf<List<MarketItem>>(emptyList())
         private set
@@ -308,6 +327,53 @@ class InvestmentsViewModel @Inject constructor(
                 chartIntraday = response.intraday
                 chartPositions = response.positions
                 chartFirstBought = response.firstBought
+            }
+        }
+    }
+
+    fun openCategoryTimeline(category: InvestmentCategory) {
+        openCategory = category
+        loadCategoryTimeline()
+    }
+
+    fun closeCategoryTimeline() {
+        liveCategoryJob?.cancel()
+        openCategory = null
+        categoryPoints = null
+    }
+
+    fun selectCategoryRange(range: ChartRange) {
+        if (range == categoryRange) return
+        categoryRange = range
+        loadCategoryTimeline()
+    }
+
+    private fun loadCategoryTimeline() {
+        requestCategoryTimeline(showLoading = true)
+        liveCategoryJob?.cancel()
+        liveCategoryJob = viewModelScope.launch {
+            while (isActive) {
+                delay(LIVE_CHART_INTERVAL_MS)
+                requestCategoryTimeline(showLoading = false)
+            }
+        }
+    }
+
+    private fun requestCategoryTimeline(showLoading: Boolean) {
+        val category = openCategory?.category ?: return
+        val range = categoryRange
+        if (showLoading) {
+            categoryError = null
+        }
+        makeApiCall(
+            call = { api.getCategoryTimeline(category, range.value) },
+            preExecuting = { if (showLoading) categoryPoints = null },
+            onDoneExecuting = null,
+            onException = { message -> if (showLoading) categoryError = message }
+        ) { response ->
+            if (openCategory?.category == category && categoryRange == range) {
+                categoryPoints = response.points
+                categoryIntraday = response.intraday
             }
         }
     }

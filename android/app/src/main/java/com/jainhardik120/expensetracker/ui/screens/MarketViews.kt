@@ -49,7 +49,6 @@ import kotlin.math.abs
 private val TILE_WIDTH = 124.dp
 private val TILE_HEIGHT = 92.dp
 private const val PERCENT = 100.0
-private val MARKET_RANGES = listOf(ChartRange.DAY, ChartRange.WEEK, ChartRange.MONTH)
 
 private val marketNumberFormat: NumberFormat =
     NumberFormat.getNumberInstance(Locale.forLanguageTag("en-IN")).apply {
@@ -136,7 +135,9 @@ fun MarketChartSheet(
         val shown = shownIndex?.let(series::getOrNull)
         val base = previousClose ?: series.firstOrNull()
         val change = if (shown != null && base != null) shown - base else null
-        val moment = selected?.let { points?.getOrNull(it) }?.let { formatChartMoment(it.date) }
+        val moment = selected?.let { points?.getOrNull(it) }?.let {
+            if (range.days > ChartRange.MONTH.days) formatChartDate(it.date) else formatChartMoment(it.date)
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -211,37 +212,7 @@ fun MarketChartSheet(
                     )
                 }
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                MARKET_RANGES.forEach { option ->
-                    val isSelected = option == range
-                    Text(
-                        text = option.label,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        modifier = Modifier
-                            .background(
-                                color = if (isSelected) {
-                                    MaterialTheme.colorScheme.surfaceContainerHigh
-                                } else {
-                                    Color.Transparent
-                                },
-                                shape = RoundedCornerShape(50)
-                            )
-                            .clickable { onSelectRange(option) }
-                            .padding(horizontal = 14.dp, vertical = 6.dp)
-                    )
-                }
-            }
+            RangeRow(range = range, onSelectRange = onSelectRange, options = ChartRange.entries)
             components?.takeIf { it.components.isNotEmpty() }?.let { IndexComponentList(it, range) }
         }
     }
@@ -321,5 +292,9 @@ private fun IndexComponentRow(component: IndexComponent) {
 private fun rangeLabel(range: ChartRange): String = when (range) {
     ChartRange.DAY -> "1D"
     ChartRange.WEEK -> "past week"
-    else -> "past month"
+    ChartRange.MONTH -> "past month"
+    ChartRange.HALF -> "past 6 months"
+    ChartRange.YEAR -> "past year"
+    ChartRange.THREE_YEARS -> "past 3 years"
+    ChartRange.FIVE_YEARS -> "past 5 years"
 }

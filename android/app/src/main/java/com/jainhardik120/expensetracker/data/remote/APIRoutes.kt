@@ -15,6 +15,7 @@ object APIRoutes {
     const val WIDGET = "${BASE_URL}/widget"
     const val INVESTMENTS = "${BASE_URL}/investments"
     const val INVESTMENT_CHART = "${BASE_URL}/investments/chart"
+    const val CATEGORY_TIMELINE = "${BASE_URL}/investments/category-timeline"
     const val TODAY_ESTIMATE = "${BASE_URL}/investments/today-estimate"
     const val ETF_ESTIMATE = "${BASE_URL}/investments/etf-estimate"
     const val ALLOCATION = "${BASE_URL}/investments/allocation"

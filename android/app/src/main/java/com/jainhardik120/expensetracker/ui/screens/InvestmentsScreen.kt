@@ -116,6 +116,7 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
                 onCycleMetric = viewModel::cycleMetric,
                 onOpenHolding = viewModel::openChart,
                 onOpenAllocation = viewModel::openAllocation,
+                onOpenCategory = viewModel::openCategoryTimeline,
                 markets = viewModel.markets,
                 onOpenMarket = viewModel::openMarketChart
             )
@@ -150,6 +151,17 @@ fun InvestmentsScreen(viewModel: InvestmentsViewModel) {
             allocation = viewModel.allocation,
             error = viewModel.allocationError,
             onDismiss = viewModel::closeAllocation
+        )
+    }
+    viewModel.openCategory?.let { category ->
+        CategoryTimelineSheet(
+            category = category,
+            points = viewModel.categoryPoints,
+            intraday = viewModel.categoryIntraday,
+            error = viewModel.categoryError,
+            range = viewModel.categoryRange,
+            onSelectRange = viewModel::selectCategoryRange,
+            onDismiss = viewModel::closeCategoryTimeline
         )
     }
     viewModel.openHolding?.let { holding ->
@@ -280,6 +292,7 @@ private fun InvestmentsContent(
     onCycleMetric: () -> Unit,
     onOpenHolding: (InvestmentHolding) -> Unit,
     onOpenAllocation: () -> Unit,
+    onOpenCategory: (InvestmentCategory) -> Unit,
     markets: List<MarketItem>,
     onOpenMarket: (MarketItem) -> Unit
 ) {
@@ -421,7 +434,7 @@ private fun InvestmentsContent(
                     dayLabel = dayLabel,
                     estimate = estimate,
                     estimateLabel = estimateLabel,
-                    onClick = if (category == null) onOpenAllocation else null
+                    onClick = if (category == null) onOpenAllocation else { { onOpenCategory(category) } }
                 )
             }
             item(key = "chips") {

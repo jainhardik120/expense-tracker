@@ -243,6 +243,19 @@ data class InstrumentPosition(
 )
 
 @Serializable
+data class CategoryTimeline(
+    val points: List<CategoryTimelinePoint>,
+    val intraday: Boolean = false
+)
+
+@Serializable
+data class CategoryTimelinePoint(
+    val date: String,
+    val value: Double,
+    val base: Double
+)
+
+@Serializable
 data class InstrumentChartPoint(
     val date: String,
     val unitPrice: Double,

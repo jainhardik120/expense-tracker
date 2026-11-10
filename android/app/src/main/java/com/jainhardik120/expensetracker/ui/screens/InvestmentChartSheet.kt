@@ -46,8 +46,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jainhardik120.expensetracker.data.entity.CategoryTimelinePoint
 import com.jainhardik120.expensetracker.data.entity.InstrumentChartPoint
 import com.jainhardik120.expensetracker.data.entity.InstrumentPosition
+import com.jainhardik120.expensetracker.data.entity.InvestmentCategory
 import com.jainhardik120.expensetracker.data.entity.InvestmentHolding
 import com.jainhardik120.expensetracker.ui.theme.Green400
 import com.jainhardik120.expensetracker.ui.theme.Green600
@@ -199,39 +201,7 @@ fun InvestmentChartSheet(
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                HOLDING_RANGES.forEach { option ->
-                    val isSelected = option == range
-                    Text(
-                        text = option.label,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                        textAlign = TextAlign.Center,
-                        color = if (isSelected) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                color = if (isSelected) {
-                                    MaterialTheme.colorScheme.surfaceContainerHigh
-                                } else {
-                                    Color.Transparent
-                                },
-                                shape = RoundedCornerShape(50)
-                            )
-                            .clickable { onSelectRange(option) }
-                            .padding(vertical = 6.dp)
-                    )
-                }
-            }
+            RangeRow(range = range, onSelectRange = onSelectRange)
 
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -300,6 +270,190 @@ fun InvestmentChartSheet(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun RangeRow(
+    range: ChartRange,
+    onSelectRange: (ChartRange) -> Unit,
+    options: List<ChartRange> = HOLDING_RANGES
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        options.forEach { option ->
+            val isSelected = option == range
+            Text(
+                text = option.label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                color = if (isSelected) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .background(
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        } else {
+                            Color.Transparent
+                        },
+                        shape = RoundedCornerShape(50)
+                    )
+                    .clickable { onSelectRange(option) }
+                    .padding(vertical = 6.dp)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CategoryTimelineSheet(
+    category: InvestmentCategory,
+    points: List<CategoryTimelinePoint>?,
+    intraday: Boolean,
+    error: String?,
+    range: ChartRange,
+    onSelectRange: (ChartRange) -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        var selected by remember(range) { mutableStateOf<Int?>(null) }
+        val isFund = category.category == "mutual_funds"
+        val series = points.orEmpty().map { it.value }
+        val shownIndex = selected ?: series.lastIndex.takeIf { it >= 0 }
+        val shownPoint = shownIndex?.let { points?.getOrNull(it) }
+        val change = shownPoint?.let { it.value - it.base }
+        val changePercent = shownPoint?.takeIf { it.base != 0.0 }?.let { (it.value - it.base) / abs(it.base) * 100 }
+        val isDay = range == ChartRange.DAY
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 16.dp)
+        ) {
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Text(
+                    text = category.label,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Value",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = shownPoint?.value?.let(::sheetRupees) ?: "—",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                val dateLabel = selected?.let { points?.getOrNull(it) }?.let {
+                    if (intraday && !isFund) formatChartMoment(it.date) else formatChartDate(it.date)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (change != null) {
+                        Text(
+                            text = buildString {
+                                append(sheetSigned(change))
+                                changePercent?.let { append(" (%+.2f%%)".format(Locale.getDefault(), it)) }
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = trendColour(change)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = when {
+                            isDay && dateLabel != null -> dateLabel
+                            isDay -> if (isFund) "last NAV change" else "today"
+                            dateLabel != null -> "returns on $dateLabel"
+                            else -> "returns"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    error != null -> Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    points == null -> CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                    series.size < 2 -> Text(
+                        text = "Not enough history yet",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    else -> TrendLine(
+                        series = series,
+                        invested = points.map { it.base },
+                        colour = trendColour(points.last().value - points.last().base),
+                        selected = selected,
+                        onSelect = { selected = it },
+                        marker = null
+                    )
+                }
+            }
+
+            RangeRow(range = range, onSelectRange = onSelectRange)
+
+            HorizontalDivider(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                StatRow("Current value", sheetRupees(category.valuation))
+                StatRow("Invested", sheetRupees(category.invested))
+                StatRow(
+                    "Unrealised returns",
+                    buildString {
+                        append(sheetSigned(category.pnl))
+                        category.pnlPercentage?.let { append(" (%+.2f%%)".format(Locale.getDefault(), it)) }
+                    },
+                    trendColour(category.pnl)
+                )
+                if (category.realizedPnl != 0.0) {
+                    StatRow("Realised returns", sheetSigned(category.realizedPnl), trendColour(category.realizedPnl))
+                }
+                StatRow(
+                    if (isFund) "Last NAV change" else "1D returns",
+                    buildString {
+                        append(sheetSigned(category.dayChange))
+                        category.dayChangePercentage?.let { append(" (%+.2f%%)".format(Locale.getDefault(), it)) }
+                    },
+                    trendColour(category.dayChange)
+                )
+                StatRow("XIRR", category.xirr?.let { "%.2f%%".format(Locale.getDefault(), it) } ?: "—")
             }
         }
     }
@@ -510,7 +664,7 @@ internal fun formatChartMoment(value: String): String =
         OffsetDateTime.parse(value).atZoneSameInstant(chartZone).format(chartMomentFormat)
     }.getOrDefault(value)
 
-private fun formatChartDate(value: String): String =
+internal fun formatChartDate(value: String): String =
     runCatching {
         OffsetDateTime.parse(value).atZoneSameInstant(chartZone).format(chartDateFormat)
     }.getOrDefault(value)

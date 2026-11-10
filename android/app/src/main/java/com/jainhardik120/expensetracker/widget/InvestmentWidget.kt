@@ -29,9 +29,6 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.jainhardik120.expensetracker.AppDestination
 import com.jainhardik120.expensetracker.MainActivity
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
 
@@ -42,7 +39,6 @@ private val Gain = Color(0xFF4ADE80)
 private val Loss = Color(0xFFF87171)
 private val Rose = Color(0xFFF43F5E)
 
-private val TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
 class InvestmentWidget : GlanceAppWidget() {
 
@@ -109,12 +105,7 @@ private fun InvestmentWidgetBody(openInvestments: Intent) {
             verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
             Text(
-                text = when {
-                    error != null -> "$error · tap to retry"
-                    updatedAt != null ->
-                        "Updated ${TIME.format(Instant.ofEpochMilli(updatedAt).atZone(ZoneId.systemDefault()))}"
-                    else -> "Tap to load"
-                },
+                text = footerText(updatedAt, error),
                 style = TextStyle(fontSize = 13.sp, color = ColorProvider(Muted)),
                 modifier = GlanceModifier.defaultWeight()
             )

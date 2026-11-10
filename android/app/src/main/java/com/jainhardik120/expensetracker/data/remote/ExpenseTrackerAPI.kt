@@ -7,6 +7,7 @@ import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
 import com.jainhardik120.expensetracker.data.entity.IndexComponents
+import com.jainhardik120.expensetracker.data.entity.CategoryTimeline
 import com.jainhardik120.expensetracker.data.entity.InstrumentChart
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
@@ -74,6 +75,7 @@ interface ExpenseTrackerAPI {
         isRsu: Boolean,
         range: String
     ): Result<InstrumentChart, MessageError>
+    suspend fun getCategoryTimeline(category: String, range: String): Result<CategoryTimeline, MessageError>
 
     suspend fun getAccounts(): Result<List<AccountItem>, MessageError>
     suspend fun getFriends(): Result<List<FriendItem>, MessageError>

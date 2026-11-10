@@ -27,9 +27,6 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import androidx.compose.ui.graphics.Color
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val Rose = Color(0xFFF43F5E)
@@ -40,7 +37,6 @@ private val Card = Color(0xFF18181B)
 private val Muted = Color(0xFFA1A1AA)
 private val Paper = Color(0xFFFAFAFA)
 
-private val TIME = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
 class BalanceWidget : GlanceAppWidget() {
 
@@ -111,12 +107,7 @@ private fun WidgetBody() {
             verticalAlignment = Alignment.Vertical.CenterVertically
         ) {
             Text(
-                text = when {
-                    error != null -> "$error · tap to retry"
-                    updatedAt != null ->
-                        "Updated ${TIME.format(Instant.ofEpochMilli(updatedAt).atZone(ZoneId.systemDefault()))}"
-                    else -> "Tap to load"
-                },
+                text = footerText(updatedAt, error),
                 style = TextStyle(fontSize = 13.sp, color = ColorProvider(Muted)),
                 modifier = GlanceModifier.defaultWeight()
             )

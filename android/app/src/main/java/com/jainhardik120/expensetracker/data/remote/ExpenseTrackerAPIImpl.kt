@@ -7,6 +7,7 @@ import com.jainhardik120.expensetracker.data.entity.CreateStatementBody
 import com.jainhardik120.expensetracker.data.entity.FriendItem
 import com.jainhardik120.expensetracker.data.entity.IDResult
 import com.jainhardik120.expensetracker.data.entity.IndexComponents
+import com.jainhardik120.expensetracker.data.entity.CategoryTimeline
 import com.jainhardik120.expensetracker.data.entity.InstrumentChart
 import com.jainhardik120.expensetracker.data.entity.AllocationView
 import com.jainhardik120.expensetracker.data.entity.EtfEstimate
@@ -43,6 +44,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 import java.net.SocketTimeoutException
 import java.time.ZoneId
 
@@ -55,6 +57,8 @@ class ExpenseTrackerAPIImpl(
         return try {
             val response = call.invoke()
             Result.Success(response)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: ResponseException) {
             val errorBody = runCatching { e.response.body<R>() }.getOrNull()
             if (errorBody != null) {
@@ -311,6 +315,19 @@ class ExpenseTrackerAPIImpl(
                 parameter("kind", kind)
                 parameter("code", code)
                 parameter("isRsu", isRsu)
+                parameter("range", range)
+            }.body()
+        }
+    }
+
+    override suspend fun getCategoryTimeline(
+        category: String,
+        range: String
+    ): Result<CategoryTimeline, MessageError> {
+        return performApiRequest {
+            client.request(APIRoutes.CATEGORY_TIMELINE) {
+                method = HttpMethod.Get
+                parameter("category", category)
                 parameter("range", range)
             }.body()
         }

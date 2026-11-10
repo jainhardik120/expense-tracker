@@ -72,7 +72,8 @@ class WidgetRefreshWorker @AssistedInject constructor(
 
             is ApiResult.Exception -> {
                 Log.w(TAG, "Widget refresh failed: ${result.errorMessage}")
-                updateEvery(applicationContext) { it[WidgetKeys.error] = "offline" }
+                val reason = refreshBlocker(applicationContext)
+                updateEvery(applicationContext) { it[WidgetKeys.error] = reason }
                 Result.retry()
             }
         }

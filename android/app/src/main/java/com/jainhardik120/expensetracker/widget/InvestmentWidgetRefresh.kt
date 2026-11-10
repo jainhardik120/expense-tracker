@@ -65,8 +65,9 @@ class InvestmentWidgetRefreshWorker @AssistedInject constructor(
 
             is ApiResult.Exception -> {
                 Log.w(TAG, "Investment widget failed: ${result.errorMessage}")
+                val reason = refreshBlocker(applicationContext)
                 updateEveryInvestmentWidget(applicationContext) {
-                    it[InvestmentWidgetKeys.error] = "offline"
+                    it[InvestmentWidgetKeys.error] = reason
                 }
                 Result.retry()
             }
