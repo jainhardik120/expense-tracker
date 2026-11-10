@@ -28,7 +28,7 @@ import { getSignedValueTone } from './investment-columns';
 import { MetalChartsDialog } from './metal-charts-dialog';
 
 type MarketItem = RouterOutput['investments']['getMarketSnapshot']['items'][number];
-type ChartRange = '1d' | '1w' | '1m';
+type ChartRange = '1d' | '1w' | '1m' | '6m' | '1y' | '3y' | '5y';
 type IndexKey = 'nifty' | 'sensex';
 
 const PERCENT = 100;
@@ -37,7 +37,13 @@ const RANGES: Array<{ value: ChartRange; label: string }> = [
   { value: '1d', label: '1D' },
   { value: '1w', label: '1W' },
   { value: '1m', label: '1M' },
+  { value: '6m', label: '6M' },
+  { value: '1y', label: '1Y' },
+  { value: '3y', label: '3Y' },
+  { value: '5y', label: '5Y' },
 ];
+
+const INTRADAY_RANGES = new Set<ChartRange>(['1d', '1w', '1m']);
 
 const signedPercent = (value: number) => `${value > 0 ? '+' : ''}${formatPercent(value)}`;
 
@@ -133,7 +139,7 @@ const MarketChartBody = ({ item, open }: { item: MarketItem; open: boolean }) =>
             <PriceChart
               currency={item.isCurrency ? 'INR' : 'NONE'}
               fill
-              intraday
+              intraday={INTRADAY_RANGES.has(range)}
               label={item.label}
               points={points}
             />

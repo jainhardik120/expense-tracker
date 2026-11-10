@@ -68,7 +68,7 @@ export const marketChartKeys = [
   'usdinr',
 ] as const;
 
-export const marketChartRanges = ['1d', '1w', '1m'] as const;
+export const marketChartRanges = ['1d', '1w', '1m', '6m', '1y', '3y', '5y'] as const;
 
 type MarketChartKey = (typeof marketChartKeys)[number];
 
@@ -78,6 +78,10 @@ const MARKET_CHART_WINDOWS: Record<MarketChartRange, { days: number; minutes: nu
   '1d': { days: 6, minutes: 5 },
   '1w': { days: 7, minutes: 5 },
   '1m': { days: 30, minutes: 30 },
+  '6m': { days: 183, minutes: DAILY_CANDLE_MINUTES },
+  '1y': { days: 365, minutes: DAILY_CANDLE_MINUTES },
+  '3y': { days: 1096, minutes: DAILY_CANDLE_MINUTES },
+  '5y': { days: 1827, minutes: DAILY_CANDLE_MINUTES },
 };
 
 const YAHOO_CHART_SYMBOLS: Partial<Record<MarketChartKey, string>> = {
@@ -91,7 +95,13 @@ const YAHOO_CHART_RANGES: Record<MarketChartRange, string> = {
   '1d': '5d',
   '1w': '5d',
   '1m': '1mo',
+  '6m': '6mo',
+  '1y': '1y',
+  '3y': '3y',
+  '5y': '5y',
 };
+
+const YAHOO_DAILY_INTERVAL = '1d';
 
 const YAHOO_MONTH_STEP = 6;
 
@@ -610,20 +620,24 @@ export const getEtfEstimates = instrumentedFunction(
 
 const loadMarketCandles = async (key: MarketChartKey, range: MarketChartRange) => {
   const symbol = YAHOO_CHART_SYMBOLS[key];
+  const { days, minutes } = MARKET_CHART_WINDOWS[range];
+  const daily = minutes === DAILY_CANDLE_MINUTES;
   if (symbol !== undefined) {
-    const prices = await fetchUsPrices(symbol, YAHOO_CHART_RANGES[range]);
+    const prices = daily
+      ? await fetchUsPrices(symbol, YAHOO_CHART_RANGES[range], YAHOO_DAILY_INTERVAL)
+      : await fetchUsPrices(symbol, YAHOO_CHART_RANGES[range]);
     return range === '1m'
       ? prices.filter((_, index) => index % YAHOO_MONTH_STEP === 0 || index === prices.length - 1)
       : prices;
   }
   const now = new Date();
   const end = Math.floor(now.getTime() / MS_PER_MINUTE) * MS_PER_MINUTE;
-  const { days, minutes } = MARKET_CHART_WINDOWS[range];
   const start = startOfDay(subDays(now, days)).getTime();
   const path = INDEX_CHART_PATHS[key];
+  const ttl = daily ? MS_PER_HOUR : LIVE_TTL_MS;
   return path === undefined
-    ? mcxCandles(key as AssetClassTagValue, start, end, minutes, LIVE_TTL_MS)
-    : fetchGrowwCandles(path, start, end, minutes, LIVE_TTL_MS);
+    ? mcxCandles(key as AssetClassTagValue, start, end, minutes, ttl)
+    : fetchGrowwCandles(path, start, end, minutes, ttl);
 };
 
 export const getMarketSnapshot = instrumentedFunction('getMarketSnapshot', async () => {

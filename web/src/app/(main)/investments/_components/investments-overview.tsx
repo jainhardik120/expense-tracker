@@ -3,7 +3,12 @@
 import { useMemo, useState } from 'react';
 
 import FullScreenDialog, { ExpandButton } from '@/components/full-screen-dialog';
-import { GainLossChart, PriceChart, ValueVsBaseChart } from '@/components/gain-loss-chart';
+import {
+  GainLossChart,
+  PeriodChangeChart,
+  PriceChart,
+  ValueVsBaseChart,
+} from '@/components/gain-loss-chart';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -50,15 +55,17 @@ const NEGATIVE_TONE = 'text-red-600';
 const UNITS_DECIMALS = 4;
 const USD_CURRENCY = 'USD';
 
-type ChartTab = 'gain' | 'value' | 'price';
+type ChartTab = 'gain' | 'daily' | 'value' | 'price';
 
 const AGGREGATE_CHARTS: Array<{ key: ChartTab; label: string }> = [
   { key: 'gain', label: 'Gain/loss' },
+  { key: 'daily', label: 'Daily change' },
   { key: 'value', label: 'Value vs invested' },
 ];
 
 const INSTRUMENT_CHARTS: Array<{ key: ChartTab; label: string }> = [
   { key: 'gain', label: 'Gain/loss' },
+  { key: 'daily', label: 'Daily change' },
   { key: 'value', label: 'Value vs invested' },
   { key: 'price', label: 'Unit price' },
 ];
@@ -402,6 +409,9 @@ export const InvestmentsOverview = ({
                 }
           }
         />
+      ) : null}
+      {hasChart && activeChart === 'daily' ? (
+        <PeriodChangeChart currency={chartCurrency} intraday={isIntraday} points={heldPoints} />
       ) : null}
       {hasChart && activeChart === 'value' ? (
         <ValueVsBaseChart

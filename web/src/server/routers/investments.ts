@@ -11,7 +11,7 @@ import {
 } from '@/db/schema';
 import type { Database } from '@/lib/db';
 import { instrumentedFunction } from '@/lib/instrumentation';
-import { lastStockPriceTime, toViewValue } from '@/lib/investment-selection';
+import { lastStockPriceTime, toCategoryViewValue, toViewValue } from '@/lib/investment-selection';
 import {
   assetClassTagValues,
   canTagAssetClass,
@@ -454,6 +454,42 @@ export const investmentsRouter = createTRPCRouter({
         positions: chart.positions,
         firstBought: chart.firstBought,
         intraday: true,
+      };
+    }),
+
+  getCategoryTimeline: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/investments/category-timeline',
+      },
+    })
+    .input(
+      z.object({
+        category: z.enum(investmentCategoryValues),
+        range: z.enum(investmentTimelineRangeValues).default('1m'),
+      }),
+    )
+    .output(
+      z.object({
+        points: z.array(z.object({ date: z.date(), value: z.number(), base: z.number() })),
+        intraday: z.boolean(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const rows = await getFilteredInvestments(ctx.db, ctx.user.id, { investmentKind: [] });
+      const timeline = await buildFineTimeline(
+        rows,
+        toCategoryViewValue(input.category),
+        input.range,
+      );
+      return {
+        points: timeline.points.map((point) => ({
+          date: point.date,
+          value: point.value,
+          base: point.base,
+        })),
+        intraday: timeline.intraday,
       };
     }),
 
