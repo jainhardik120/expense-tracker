@@ -54,13 +54,23 @@ export const isRsuInvestment = (
   return normalizeInvestmentKind(investment.investmentKind) === 'stocks' && investment.isRsu;
 };
 
-export const isExcludedFromPortfolioInvestment = (
-  investment: Pick<InvestmentRow, 'investmentKind' | 'isRsu'>,
-): boolean => {
-  return (
-    isRsuInvestment(investment) || normalizeInvestmentKind(investment.investmentKind) === 'epfo'
-  );
+export type SeparateHoldingKey = 'epfo' | 'us_stocks';
+
+export const getSeparateHoldingKey = (
+  investment: Pick<InvestmentRow, 'investmentKind' | 'isRsu' | 'stockMarket'>,
+): SeparateHoldingKey | null => {
+  if (isRsuInvestment(investment)) {
+    return null;
+  }
+  if (normalizeInvestmentKind(investment.investmentKind) === 'epfo') {
+    return 'epfo';
+  }
+  return getStockMarketFromInvestment(investment) === 'US' ? 'us_stocks' : null;
 };
+
+export const isExcludedFromPortfolioInvestment = (
+  investment: Pick<InvestmentRow, 'investmentKind' | 'isRsu' | 'stockMarket'>,
+): boolean => isRsuInvestment(investment) || getSeparateHoldingKey(investment) !== null;
 
 export const dateToDayKey = (date: Date): string => {
   const year = date.getFullYear();

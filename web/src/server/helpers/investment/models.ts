@@ -7,6 +7,7 @@ import type {
 } from '@/lib/investments';
 
 import type { InvestmentRow, PriceHistoryPoint, Quote } from './types';
+import type { SeparateHoldingKey } from './utils';
 
 type DisplayCurrencyValue = 'INR' | 'USD';
 
@@ -92,6 +93,20 @@ export type InvestmentsSummaryView = {
   }>;
   categoryBreakdown: Array<{
     category: InvestmentCategoryValue;
+    investedAmount: number;
+    valuationAmount: number;
+    pnl: number;
+    pnlPercentage: number | null;
+    realizedPnl: number;
+    dayChange: number;
+    dayChangePercentage: number | null;
+    xirr: number | null;
+    openPositions: number;
+    closedPositions: number;
+    totalPositions: number;
+  }>;
+  separateHoldings: Array<{
+    key: SeparateHoldingKey;
     investedAmount: number;
     valuationAmount: number;
     pnl: number;

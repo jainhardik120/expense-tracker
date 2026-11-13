@@ -18,6 +18,13 @@ const MUTUAL_FUNDS = 'mutual_funds';
 const DAY_FORMAT = 'd MMM';
 const DAY_KEY_FORMAT = 'yyyy-MM-dd';
 
+const separateHoldingLabels: Record<DashboardData['separateHoldings'][number]['key'], string> = {
+  epfo: 'EPFO',
+  us_stocks: 'US stocks',
+};
+
+const formatSignedCurrency = (value: number) => `${value > 0 ? '+' : ''}${formatCurrency(value)}`;
+
 const LiveStatus = ({ asOf, isLive }: { asOf: Date | null; isLive: boolean }) => {
   const zoned = useZonedFormat();
   const isToday = zoned(asOf, DAY_KEY_FORMAT) === zoned(new Date(), DAY_KEY_FORMAT);
@@ -46,15 +53,20 @@ const NumberRow = ({
   value,
   tone,
   note,
+  inline,
 }: {
   label: string;
   value: string;
   tone?: string;
   note?: string;
+  inline?: { text: string; tone: string };
 }) => (
   <div className="flex items-baseline justify-between gap-3 py-2 first:pt-0 last:pb-0">
     <span className="text-muted-foreground text-sm">{label}</span>
     <span className="text-right">
+      {inline === undefined ? null : (
+        <span className={cn('mr-2 text-xs tabular-nums', inline.tone)}>{inline.text}</span>
+      )}
       <span className={cn('font-semibold tabular-nums', tone)}>{value}</span>
       {note === undefined ? null : (
         <span className="text-muted-foreground block text-xs">{note}</span>
@@ -93,15 +105,6 @@ export const YourNumbersCard = ({
     zoned(estimateDate, DAY_KEY_FORMAT) === zoned(new Date(), DAY_KEY_FORMAT)
       ? 'today'
       : zoned(estimateDate, DAY_FORMAT);
-  const excludedPositions =
-    dashboard.categoryBreakdown.reduce((total, item) => total + item.openPositions, 0) -
-    dashboard.summary.openPositions;
-  const positionNotes = [
-    ...(dashboard.summary.closedPositions === 0
-      ? []
-      : [`${String(dashboard.summary.closedPositions)} closed`]),
-    ...(excludedPositions === 0 ? [] : [`${String(excludedPositions)} not in totals`]),
-  ];
   return (
     <Card className="md:col-span-2 xl:col-span-1">
       <CardHeader>
@@ -162,11 +165,19 @@ export const YourNumbersCard = ({
           }
           value={dashboard.summary.xirr === null ? '-' : formatPercent(dashboard.summary.xirr)}
         />
-        <NumberRow
-          label="Open positions"
-          note={positionNotes.length === 0 ? undefined : positionNotes.join(' · ')}
-          value={String(dashboard.summary.openPositions)}
-        />
+        {dashboard.separateHoldings
+          .filter((holding) => holding.openPositions > 0)
+          .map((holding) => (
+            <NumberRow
+              key={holding.key}
+              inline={{
+                text: `1D ${formatSignedCurrency(holding.dayChange)}`,
+                tone: getSignedValueTone(holding.dayChange),
+              }}
+              label={separateHoldingLabels[holding.key]}
+              value={formatCurrency(holding.valuationAmount)}
+            />
+          ))}
       </CardContent>
     </Card>
   );

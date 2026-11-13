@@ -19,7 +19,9 @@ import {
   deriveUnits,
   getDayChangePercentageFromValuation,
   getPercentageChange,
+  getSeparateHoldingKey,
   parseOptionalNumber,
+  type SeparateHoldingKey,
 } from './utils';
 import { computeXirr, investmentCashFlows, type CashFlow } from './xirr';
 
@@ -31,6 +33,8 @@ import type {
   InvestmentsDashboard,
   InvestmentsSummaryView,
 } from './models';
+
+const separateHoldingKeys: SeparateHoldingKey[] = ['epfo', 'us_stocks'];
 
 const getUnitsForInvestment = (investment: EnrichedInvestment): number => {
   return deriveUnits({ units: investment.units }) ?? 0;
@@ -337,6 +341,7 @@ export const summarizeInvestments = (
 ): InvestmentsSummaryView => {
   const kindMap = new Map<InvestmentKindValue, BreakdownAggregate>();
   const categoryMap = new Map<InvestmentCategoryValue, BreakdownAggregate>();
+  const separateMap = new Map<SeparateHoldingKey, BreakdownAggregate>();
   const portfolioInvestments = getPortfolioInvestments(
     investmentsList,
     includeExcludedFromPortfolio,
@@ -373,6 +378,10 @@ export const summarizeInvestments = (
       investment,
       asOf,
     );
+    const separateKey = getSeparateHoldingKey(investment);
+    if (separateKey !== null) {
+      addInvestmentToBreakdown(separateMap, separateKey, investment, asOf);
+    }
   }
 
   for (const investment of portfolioInvestments) {
@@ -417,6 +426,10 @@ export const summarizeInvestments = (
     categoryBreakdown: [...categoryMap.entries()]
       .map(([category, summary]) => ({ category, ...summarizeBreakdown(summary) }))
       .sort((left, right) => compareInvestmentCategories(left.category, right.category)),
+    separateHoldings: separateHoldingKeys.flatMap((key) => {
+      const summary = separateMap.get(key);
+      return summary === undefined ? [] : [{ key, ...summarizeBreakdown(summary) }];
+    }),
     assetAllocation: buildAssetAllocation(portfolioInvestments),
     instrumentOptions,
     instrumentBreakdown,
