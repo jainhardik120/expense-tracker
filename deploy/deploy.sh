@@ -5,6 +5,7 @@ BRANCH=master
 REMOTE=https://github.com/jainhardik120/expense-tracker.git
 REPO_DIR="$HOME/deploy/expense-tracker"
 export ET_CONFIG_DIR="$HOME/.config/expense-tracker"
+export ET_DATA_DIR="$HOME/.local/share/expense-tracker"
 ENV_FILE="$ET_CONFIG_DIR/prod.env"
 STATE_FILE="$ET_CONFIG_DIR/compose.env"
 FAILED_FILE="$ET_CONFIG_DIR/failed-sha"
@@ -108,6 +109,7 @@ deploy() {
 }
 
 main() {
+  mkdir -p "$ET_DATA_DIR/postgres"
   exec 9>"$ET_CONFIG_DIR/deploy.lock"
   flock -n 9 || exit 0
 

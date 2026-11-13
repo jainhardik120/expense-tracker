@@ -1,14 +1,21 @@
 # Self-hosted production
 
-The app runs on this laptop in Docker, behind the existing Cloudflare tunnel. The database stays on Aiven.
+The app and its PostgreSQL database run on this laptop in Docker, behind the existing Cloudflare tunnel.
 
 | What | Where |
 | --- | --- |
 | Site | https://expense-tracker.hardikja.in → tunnel → `127.0.0.1:3010` |
 | Usage dashboard (Grafana, user `admin`) | http://127.0.0.1:3030 |
 | Traces (Jaeger, kept 14 days) | http://127.0.0.1:16687 |
+| Database | container `expense-tracker-db`, data in `~/.local/share/expense-tracker/postgres` |
 | Deploy checkout | `~/deploy/expense-tracker` |
 | Secrets and state | `~/.config/expense-tracker` |
+
+The database has no published port. It sits on an internal Docker network that only the app joins, and the app reaches it as `db`. Its data is a bind mount on the internal disk, not a Docker volume, because Docker's own storage is on the USB SSD. The password is in `~/.config/expense-tracker/postgres-password`. To open a shell:
+
+```bash
+docker exec -it expense-tracker-db psql -U expense -d expense_tracker
+```
 
 Metrics are kept for 400 days and logs for 90 days. Grafana's password is in `~/.config/expense-tracker/grafana-password`.
 
@@ -16,7 +23,11 @@ Metrics are kept for 400 days and logs for 90 days. Grafana's password is in `~/
 
 `expense-tracker-deploy.timer` checks `master` every minute. When `web/` or `deploy/` changed, `deploy.sh` builds an image, boots it as a throwaway candidate, then swaps the app container and waits for it to report healthy. If any step fails, the running version stays up, and that commit is not retried until a newer one is pushed.
 
-Deploys do not run database migrations. Apply them to prod before pushing code that needs them.
+Deploys do not run database migrations. Apply them to prod before pushing code that needs them. `migrate.sh` applies the pending files from `web/drizzle` through `docker exec` and records them the way drizzle-kit does:
+
+```bash
+./deploy/migrate.sh
+```
 
 ```bash
 journalctl -u expense-tracker-deploy -f
@@ -28,7 +39,7 @@ To roll back, set `APP_IMAGE` in `~/.config/expense-tracker/compose.env` to an o
 
 ```bash
 cd ~/deploy/expense-tracker/deploy
-ET_CONFIG_DIR=~/.config/expense-tracker docker compose --env-file ~/.config/expense-tracker/compose.env up -d --no-deps app
+ET_CONFIG_DIR=~/.config/expense-tracker ET_DATA_DIR=~/.local/share/expense-tracker docker compose --env-file ~/.config/expense-tracker/compose.env up -d --no-deps app
 ```
 
 ## Changing settings
@@ -44,4 +55,4 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now expense-tracker-deploy.timer
 ```
 
-`prod.env` and `grafana-password` must exist first.
+`prod.env`, `grafana-password` and `postgres-password` must exist first.
