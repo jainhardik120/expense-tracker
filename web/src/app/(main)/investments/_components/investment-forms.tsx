@@ -310,6 +310,7 @@ export const UpdateInvestmentForm = ({
   investmentId: string;
   initialData: Investment & {
     normalizedKind?: string;
+    rsuGrant?: { units: string | null; investmentAmount: string };
   };
   dialog: DialogControl;
 }) => {
@@ -326,10 +327,10 @@ export const UpdateInvestmentForm = ({
         stockMarket: normalizeStockMarket(initialData.stockMarket),
         isRsu: initialData.isRsu,
         investmentDate: initialData.investmentDate,
-        investmentAmount: initialData.investmentAmount,
+        investmentAmount: initialData.rsuGrant?.investmentAmount ?? initialData.investmentAmount,
         maturityDate: initialData.maturityDate ?? new Date(),
         maturityAmount: initialData.maturityAmount ?? '',
-        units: initialData.units ?? '',
+        units: initialData.rsuGrant?.units ?? initialData.units ?? '',
         annualRate: initialData.annualRate ?? '',
       }}
       dialog={dialog}

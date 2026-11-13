@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { subDays } from 'date-fns';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray, max, sum } from 'drizzle-orm';
 
 import { investments, rsuVests } from '@/db/schema';
 import type { Database } from '@/lib/db';
@@ -8,7 +8,9 @@ import { normalizeStockMarket } from '@/lib/investments';
 
 import { loadInstrumentRows, readStoredPrices, storedQuote } from './market-cache';
 import { createInstrumentKey, startOfDay } from './shared';
-import { parseOptionalNumber } from './utils';
+import { isRsuInvestment, parseOptionalNumber } from './utils';
+
+import type { InvestmentRow } from './types';
 
 const FX_KEY = 'fx:USDINR';
 const PRICE_LOOKBACK_DAYS = 7;
@@ -33,6 +35,59 @@ const grantInstrumentKey = (grant: typeof investments.$inferSelect) =>
 const priceOnOrBefore = (points: { date: Date; price: number }[] | undefined, date: Date) => {
   const target = startOfDay(date).getTime();
   return points?.findLast((point) => startOfDay(point.date).getTime() <= target)?.price ?? null;
+};
+
+const loadReleasedByGrant = async (db: Executor, grantIds: string[]) => {
+  if (grantIds.length === 0) {
+    return new Map<string, { units: number; lastVestDate: Date | null }>();
+  }
+  const rows = await db
+    .select({
+      grantId: rsuVests.grantId,
+      units: sum(rsuVests.units),
+      lastVestDate: max(rsuVests.vestDate),
+    })
+    .from(rsuVests)
+    .where(and(inArray(rsuVests.grantId, grantIds), eq(rsuVests.isReleased, true)))
+    .groupBy(rsuVests.grantId);
+  return new Map(
+    rows.map((row) => [
+      row.grantId,
+      { units: toNumber(row.units), lastVestDate: row.lastVestDate },
+    ]),
+  );
+};
+
+export const withRsuVesting = async <Row extends InvestmentRow>(
+  db: Database,
+  rows: Row[],
+): Promise<Row[]> => {
+  const grantIds = rows.filter(isRsuInvestment).map((row) => row.id);
+  if (grantIds.length === 0) {
+    return rows;
+  }
+  const releasedByGrant = await loadReleasedByGrant(db, grantIds);
+  return rows.map((row) => {
+    const released = releasedByGrant.get(row.id);
+    if (!isRsuInvestment(row) || released === undefined) {
+      return row;
+    }
+    const grantedUnits = toNumber(row.units);
+    const unvestedUnits = Math.max(round(grantedUnits - released.units, PRICE_DECIMALS), 0);
+    const unvestedAmount =
+      grantedUnits === 0
+        ? 0
+        : round((toNumber(row.investmentAmount) * unvestedUnits) / grantedUnits, AMOUNT_DECIMALS);
+    const fullyVested = unvestedUnits === 0;
+    return {
+      ...row,
+      units: unvestedUnits.toString(),
+      investmentAmount: unvestedAmount.toString(),
+      isClosed: row.isClosed || fullyVested,
+      closedAt: row.closedAt ?? (fullyVested ? released.lastVestDate : null),
+      rsuGrant: { units: row.units, investmentAmount: row.investmentAmount },
+    };
+  });
 };
 
 const loadGrants = (db: Executor, userId: string) =>
@@ -119,10 +174,8 @@ export const getRsuSummary = async (db: Database, userId: string, asOf = new Dat
     grants: grants.map((grant) => {
       const quote = storedQuote(instrumentRows.get(grantInstrumentKey(grant)));
       const grantVests = vests.filter((vest) => vest.grantId === grant.id);
-      const unvestedUnits = toNumber(grant.units);
-      const scheduledUnits = grantVests
-        .filter((vest) => !vest.isReleased)
-        .reduce((total, vest) => total + toNumber(vest.units), 0);
+      const totalUnits = toNumber(grant.units);
+      const scheduledUnits = grantVests.reduce((total, vest) => total + toNumber(vest.units), 0);
       const releasedUnits = grantVests
         .filter((vest) => vest.isReleased)
         .reduce((total, vest) => total + toNumber(vest.units), 0);
@@ -131,10 +184,10 @@ export const getRsuSummary = async (db: Database, userId: string, asOf = new Dat
         instrumentCode: grant.instrumentCode ?? '',
         stockMarket: normalizeStockMarket(grant.stockMarket),
         grantDate: grant.investmentDate,
-        unvestedUnits,
+        unvestedUnits: round(totalUnits - releasedUnits, PRICE_DECIMALS),
         vestedUnits: releasedUnits,
-        totalUnits: unvestedUnits + releasedUnits,
-        unscheduledUnits: unvestedUnits - scheduledUnits,
+        totalUnits,
+        unscheduledUnits: round(totalUnits - scheduledUnits, PRICE_DECIMALS),
         livePrice: quote?.unitPriceNative ?? null,
         liveFxRateToInr: quote?.fxRateToInr ?? null,
         vests: grantVests.map((vest) => ({
@@ -258,7 +311,8 @@ export const releaseRsuVest = (
     }
     const grant = await loadOwnedGrant(tx, userId, vest.grantId);
     const vestUnits = toNumber(vest.units);
-    const grantUnits = toNumber(grant.units);
+    const releasedUnits = (await loadReleasedByGrant(tx, [grant.id])).get(grant.id)?.units ?? 0;
+    const unvestedUnits = round(toNumber(grant.units) - releasedUnits, PRICE_DECIMALS);
     const unitsWithheld = Number(input.unitsWithheld);
     const unitPrice = Number(input.unitPrice);
     if (unitsWithheld < 0 || unitsWithheld > vestUnits) {
@@ -267,10 +321,10 @@ export const releaseRsuVest = (
         message: 'Withheld units must be between 0 and the vested units',
       });
     }
-    if (vestUnits > grantUnits) {
+    if (vestUnits > unvestedUnits) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: `The grant has only ${grantUnits} unvested units left`,
+        message: `The grant has only ${unvestedUnits} unvested units left`,
       });
     }
     const unitsReleased = round(vestUnits - unitsWithheld, PRICE_DECIMALS);
@@ -282,19 +336,6 @@ export const releaseRsuVest = (
       unitsReleased,
       unitPrice,
     );
-    const grantAmount = toNumber(grant.investmentAmount);
-    const amountReleased =
-      grantUnits === 0 ? 0 : round((grantAmount * vestUnits) / grantUnits, AMOUNT_DECIMALS);
-    const remainingUnits = round(grantUnits - vestUnits, PRICE_DECIMALS);
-    await tx
-      .update(investments)
-      .set({
-        units: remainingUnits.toString(),
-        investmentAmount: round(grantAmount - amountReleased, AMOUNT_DECIMALS).toString(),
-        isClosed: remainingUnits <= 0,
-        closedAt: remainingUnits <= 0 ? vest.vestDate : null,
-      })
-      .where(eq(investments.id, grant.id));
     await tx
       .update(rsuVests)
       .set({
@@ -302,7 +343,6 @@ export const releaseRsuVest = (
         unitPrice: input.unitPrice,
         fxRateToInr: input.fxRateToInr,
         unitsWithheld: input.unitsWithheld,
-        grantAmountReleased: amountReleased.toString(),
         releasedInvestmentId,
       })
       .where(eq(rsuVests.id, vest.id));
@@ -387,7 +427,6 @@ export const undoRsuRelease = (db: Database, userId: string, vestId: string) =>
     if (!vest.isReleased) {
       throw new TRPCError({ code: 'BAD_REQUEST', message: 'This vest is not released' });
     }
-    const grant = await loadOwnedGrant(tx, userId, vest.grantId);
     await tx
       .update(rsuVests)
       .set({
@@ -395,7 +434,6 @@ export const undoRsuRelease = (db: Database, userId: string, vestId: string) =>
         unitPrice: null,
         fxRateToInr: null,
         unitsWithheld: null,
-        grantAmountReleased: null,
         releasedInvestmentId: null,
       })
       .where(eq(rsuVests.id, vest.id));
@@ -404,17 +442,5 @@ export const undoRsuRelease = (db: Database, userId: string, vestId: string) =>
         .delete(investments)
         .where(and(eq(investments.id, vest.releasedInvestmentId), eq(investments.userId, userId)));
     }
-    await tx
-      .update(investments)
-      .set({
-        units: round(toNumber(grant.units) + toNumber(vest.units), PRICE_DECIMALS).toString(),
-        investmentAmount: round(
-          toNumber(grant.investmentAmount) + toNumber(vest.grantAmountReleased),
-          AMOUNT_DECIMALS,
-        ).toString(),
-        isClosed: false,
-        closedAt: null,
-      })
-      .where(eq(investments.id, grant.id));
     return { success: true };
   });

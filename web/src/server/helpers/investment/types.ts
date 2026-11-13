@@ -12,6 +12,7 @@ export type InvestmentRow = typeof investments.$inferSelect & {
   assetClass?: AssetClassTagValue | null;
   epfoSchedule?: EpfoSchedule;
   rsuVestId?: string | null;
+  rsuGrant?: { units: string | null; investmentAmount: string };
 };
 
 export type PriceHistoryPoint = {

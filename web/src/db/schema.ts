@@ -247,7 +247,6 @@ export const rsuVests = pgTable(
     unitPrice: numeric('unit_price'),
     fxRateToInr: numeric('fx_rate_to_inr'),
     unitsWithheld: numeric('units_withheld'),
-    grantAmountReleased: numeric('grant_amount_released'),
     releasedInvestmentId: uuid('released_investment_id')
       .unique()
       .references((): AnyPgColumn => investments.id, { onDelete: 'set null' }),

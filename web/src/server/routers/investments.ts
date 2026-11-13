@@ -36,6 +36,7 @@ import {
   getEpfoSummary,
   searchInvestmentInstruments,
   withEpfoSchedules,
+  withRsuVesting,
 } from '@/server/helpers/investment';
 import { getInvestmentsDashboard } from '@/server/helpers/investment/dashboard';
 import { enrichInvestments } from '@/server/helpers/investment/enrichment';
@@ -137,7 +138,7 @@ const getFilteredInvestments = instrumentedFunction(
         ),
       )
       .orderBy(desc(investments.investmentDate));
-    return withEpfoSchedules(db, userId, rows);
+    return withRsuVesting(db, await withEpfoSchedules(db, userId, rows));
   },
 );
 
@@ -262,14 +263,17 @@ export const investmentsRouter = createTRPCRouter({
     .input(z.void())
     .output(investmentsOverviewSchema)
     .query(async ({ ctx }) => {
-      const rows = await withEpfoSchedules(
+      const rows = await withRsuVesting(
         ctx.db,
-        ctx.user.id,
-        await ctx.db
-          .select()
-          .from(investments)
-          .where(eq(investments.userId, ctx.user.id))
-          .orderBy(desc(investments.investmentDate)),
+        await withEpfoSchedules(
+          ctx.db,
+          ctx.user.id,
+          await ctx.db
+            .select()
+            .from(investments)
+            .where(eq(investments.userId, ctx.user.id))
+            .orderBy(desc(investments.investmentDate)),
+        ),
       );
       const today = new Date();
       const context = await buildInvestmentMarketDataContext({
@@ -408,15 +412,18 @@ export const investmentsRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      const rows = await withEpfoSchedules(
+      const rows = await withRsuVesting(
         ctx.db,
-        ctx.user.id,
-        await ctx.db
-          .select()
-          .from(investments)
-          .where(
-            and(eq(investments.userId, ctx.user.id), eq(investments.instrumentCode, input.code)),
-          ),
+        await withEpfoSchedules(
+          ctx.db,
+          ctx.user.id,
+          await ctx.db
+            .select()
+            .from(investments)
+            .where(
+              and(eq(investments.userId, ctx.user.id), eq(investments.instrumentCode, input.code)),
+            ),
+        ),
       );
       const matching = rows.filter(
         (row) =>
