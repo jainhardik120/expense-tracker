@@ -18,3 +18,26 @@ When the user states a UI rule or preference, add it to this list in the same ch
 - New UI reuses the existing building blocks (`Card`, `DataTable`, `MutationModal`, `DeleteConfirmationDialog`, `ZonedDate`, `formatCurrency`) and matches the screens around it. Look at a neighbouring card before inventing a layout.
 - A small feature (a calculator, a check, a settings list such as bank interest) lives in a dialog opened from a button on an existing page's card, not on a new page and not as another card on the page.
 - Keep summary cards (such as "Your numbers") to one line per row: put a secondary figure, such as a 1D change, inline before the main value instead of on a second line, and leave out rows that add clutter.
+
+## Local database copy
+
+Local development runs against `expense_tracker` in the `expense-tracker-postgres` container, which is a copy of the production database. Check which URL `web/.env` uses before running any script or migration.
+
+To refresh the copy from production, first take `DATABASE_URL` from `~/.config/expense-tracker/prod.env` and change `sslmode=no-verify` to `sslmode=require` (`pg_dump` rejects `no-verify`). Then:
+
+```sh
+C=expense-tracker-postgres
+docker exec $C rm -rf /tmp/prod-dump
+docker exec $C pg_dump "$PROD_URL" -Fd -j 8 --no-owner --no-acl --no-statistics \
+  --exclude-table-data=public.oauth_refresh_token --exclude-table-data=public.oauth_access_token \
+  --exclude-table-data=public.session --exclude-table-data=public.verification -f /tmp/prod-dump
+docker exec $C dropdb -U expense --force expense_tracker
+docker exec $C createdb -U expense expense_tracker
+docker exec $C pg_restore -U expense -d expense_tracker -j 8 --no-owner --no-acl /tmp/prod-dump
+docker exec $C rm -rf /tmp/prod-dump
+```
+
+- The database is about 23 MB, but the link to Aiven drops packets, so a single connection only reaches about 35 KB/s. The parallel directory dump (`-Fd -j 8`) and `--no-statistics` take a refresh from about 5 minutes to about 3½. Restoring takes about 2 seconds. Most of the remaining time goes on `pg_dump` reading the schema, which cannot run in parallel.
+- Leave out only login data (OAuth tokens, sessions, verification), so you sign in again locally afterwards. Keep `market_prices`: `market_instruments` records which price history is cached, so an empty prices table would leave investment charts blank instead of refetching.
+- Dump to a file before dropping the local database, so a failed dump leaves the old copy in place.
+- Restart the dev server after switching `DATABASE_URL`. Next.js reloads `.env` but keeps the pool it already opened.
