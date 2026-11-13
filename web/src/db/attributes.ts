@@ -3,6 +3,8 @@ export type StatementAttributes = {
   installmentNo?: number;
   recurringPaymentId?: string;
   salaryPaymentId?: string;
+  interestPeriodStart?: string;
+  interestPeriodEnd?: string;
 };
 
 export type EmiSplit = { friendId: string; percentage: string };

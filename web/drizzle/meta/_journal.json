@@ -505,6 +505,13 @@
       "when": 1794577346373,
       "tag": "0071_rsu_grant_totals",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1794580818414,
+      "tag": "0072_account_interest_rates",
+      "breakpoints": true
     }
   ]
 }

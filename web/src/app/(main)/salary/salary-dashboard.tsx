@@ -107,7 +107,7 @@ export const SalaryDashboard = ({ data }: { data: SalaryData }) => {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <BonusesCard data={data} refresh={refresh} />
         <TaxProjectionCard data={data} />
-        <OutsideIncomeCard data={data} />
+        <OutsideIncomeCard data={data} refresh={refresh} />
       </div>
     </div>
   );

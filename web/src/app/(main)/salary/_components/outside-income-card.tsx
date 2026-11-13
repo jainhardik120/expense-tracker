@@ -3,12 +3,13 @@
 import { useMemo } from 'react';
 
 import { DataTable } from '@/components/data-table/data-table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ZonedDate } from '@/components/zoned-date';
 import { useDataTable } from '@/hooks/use-data-table';
 import { formatCurrency } from '@/lib/format';
 import type { ColumnDef } from '@/lib/table';
 
+import { BankInterestDialog } from './bank-interest-dialog';
 import { type SalaryData } from './shared';
 
 type TaxableStatement = SalaryData['taxableStatements'][number];
@@ -46,7 +47,7 @@ const Tile = ({ label, value, tone }: { label: string; value: string; tone?: str
   </div>
 );
 
-export const OutsideIncomeCard = ({ data }: { data: SalaryData }) => {
+export const OutsideIncomeCard = ({ data, refresh }: { data: SalaryData; refresh: () => void }) => {
   const columns = useMemo(() => taxableStatementColumns, []);
   const { table } = useDataTable({ data: data.taxableStatements, columns, pageCount: -1 });
 
@@ -54,6 +55,9 @@ export const OutsideIncomeCard = ({ data }: { data: SalaryData }) => {
     <Card>
       <CardHeader>
         <CardTitle>Taxable income outside salary</CardTitle>
+        <CardAction>
+          <BankInterestDialog onChanged={refresh} />
+        </CardAction>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-2">

@@ -16,7 +16,10 @@ import {
   creditCardBillingDateSchema,
 } from '@/types';
 
+import { interestRouter } from './interest';
+
 export const accountsRouter = createTRPCRouter({
+  interest: interestRouter,
   getAccounts: protectedProcedure
     .meta({
       openapi: {

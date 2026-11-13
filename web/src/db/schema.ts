@@ -281,6 +281,32 @@ export const epfoInterestCredits = pgTable(
   ],
 );
 
+export const accountInterestRates = pgTable(
+  'account_interest_rates',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => bankAccount.id, { onDelete: 'cascade' }),
+    effectiveFrom: date('effective_from', { mode: 'string' }).notNull(),
+    annualRate: numeric('annual_rate').notNull(),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('account_interest_rates_account_from_idx').on(table.accountId, table.effectiveFrom),
+    index('account_interest_rates_user_idx').on(table.userId),
+    check(
+      'account_interest_rates_rate_check',
+      sql`${table.annualRate} >= 0 AND ${table.annualRate} < 100`,
+    ),
+  ],
+);
+
 export const instrumentAssetClasses = pgTable(
   'instrument_asset_classes',
   {
