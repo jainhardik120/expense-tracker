@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql, count as countRows } from 'drizzle-orm';
+import { and, asc, eq, getTableColumns, inArray, sql, count as countRows } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type { StatementAttributes } from '@/db/attributes';
@@ -68,7 +68,11 @@ export const recurringPaymentsRouter = createTRPCRouter({
 
       const offset = (input.page - 1) * input.perPage;
       const payments = await ctx.db
-        .select()
+        .select({
+          ...getTableColumns(recurringPayments),
+          totalPaid: sql<string>`(SELECT coalesce(sum(CASE WHEN s."statementKind" = 'expense' THEN s.amount ELSE -s.amount END), 0)::text FROM statements s WHERE s.user_id = "recurring_payments"."user_id" AND s.additional_attributes->>'recurringPaymentId' = "recurring_payments"."id"::text)`,
+          transactionCount: sql<number>`(SELECT count(*)::int FROM statements s WHERE s.user_id = "recurring_payments"."user_id" AND s.additional_attributes->>'recurringPaymentId' = "recurring_payments"."id"::text)`,
+        })
         .from(recurringPayments)
         .where(and(...conditions))
         .orderBy(sql`${isEnded} ASC`, asc(recurringPayments.name))

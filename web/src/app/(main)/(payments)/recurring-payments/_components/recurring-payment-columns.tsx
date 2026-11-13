@@ -53,6 +53,20 @@ export const createRecurringPaymentColumns = (
     meta: { align: 'right' },
   },
   {
+    accessorKey: 'totalPaid',
+    header: 'Total paid',
+    cell: ({ row }) => (
+      <span className="tabular-nums">{formatCurrency(row.original.totalPaid)}</span>
+    ),
+    meta: { align: 'right' },
+  },
+  {
+    accessorKey: 'transactionCount',
+    header: 'Transactions',
+    cell: ({ row }) => <span className="tabular-nums">{row.original.transactionCount}</span>,
+    meta: { align: 'right' },
+  },
+  {
     accessorKey: 'frequency',
     header: 'Frequency',
     cell: ({ row }) => {
