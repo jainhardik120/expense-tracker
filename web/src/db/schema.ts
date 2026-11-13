@@ -547,7 +547,7 @@ export const salaryRevisionComponents = pgTable(
       .references(() => salaryRevisions.id, { onDelete: 'cascade' }),
     componentId: uuid('component_id')
       .notNull()
-      .references(() => salaryComponents.id, { onDelete: 'restrict' }),
+      .references(() => salaryComponents.id, { onDelete: 'no action' }),
     amount: numeric('amount').notNull(),
   },
   (table) => [primaryKey({ columns: [table.revisionId, table.componentId] })],
@@ -562,7 +562,7 @@ export const salaryBonuses = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     componentId: uuid('component_id')
       .notNull()
-      .references(() => salaryComponents.id, { onDelete: 'restrict' }),
+      .references(() => salaryComponents.id, { onDelete: 'no action' }),
     expectedDate: timestamp('expected_date').notNull(),
     estimatedAmount: numeric('estimated_amount').notNull(),
     actualAmount: numeric('actual_amount'),
@@ -583,7 +583,7 @@ export const salaryPayments = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     revisionId: uuid('revision_id')
       .notNull()
-      .references(() => salaryRevisions.id, { onDelete: 'restrict' }),
+      .references(() => salaryRevisions.id, { onDelete: 'no action' }),
     statementId: uuid('statement_id')
       .unique()
       .references(() => statements.id, { onDelete: 'set null' }),

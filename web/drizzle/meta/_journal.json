@@ -519,6 +519,13 @@
       "when": 1794587278948,
       "tag": "0073_data_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1794588566732,
+      "tag": "0074_salary_fk_no_action",
+      "breakpoints": true
     }
   ]
 }
