@@ -1000,3 +1000,20 @@ export const marketPrices = pgTable(
   },
   (table) => [primaryKey({ columns: [table.instrumentKey, table.day] })],
 );
+
+export const dataImports = pgTable(
+  'data_imports',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    exportId: uuid('export_id').notNull(),
+    exportedAt: timestamp('exported_at').notNull(),
+    counts: jsonb('counts').$type<Record<string, number>>().notNull(),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex('data_imports_user_export_idx').on(table.userId, table.exportId)],
+);

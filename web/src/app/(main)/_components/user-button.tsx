@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { LogOutIcon } from 'lucide-react';
+import { DatabaseIcon, LogOutIcon } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -16,6 +18,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { Session } from '@/lib/auth';
 import { signOut } from '@/lib/auth-client';
+
+import { DataTransferDialog } from './data-transfer-dialog';
 
 const getUserInitials = (name: string) => {
   return name
@@ -38,42 +42,54 @@ const UserLabel = ({ session }: { session: Session }) => {
 const UserButton = ({ session }: { session: Session }) => {
   const { user } = session;
   const router = useRouter();
+  const [dataOpen, setDataOpen] = useState(false);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger>
-        <UserLabel session={session} />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-        side="bottom"
-        sideOffset={4}
-      >
-        <Link href="/account">
-          <DropdownMenuLabel className="p-0 font-normal">
-            <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-              <UserLabel session={session} />
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="text-muted-foreground truncate text-xs">{user.email}</span>
-              </div>
-            </div>
-          </DropdownMenuLabel>
-        </Link>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() =>
-            signOut().then(() => {
-              router.refresh();
-              return true;
-            })
-          }
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger>
+          <UserLabel session={session} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+          side="bottom"
+          sideOffset={4}
         >
-          <LogOutIcon />
-          Log out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <Link href="/account">
+            <DropdownMenuLabel className="p-0 font-normal">
+              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                <UserLabel session={session} />
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-medium">{user.name}</span>
+                  <span className="text-muted-foreground truncate text-xs">{user.email}</span>
+                </div>
+              </div>
+            </DropdownMenuLabel>
+          </Link>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onSelect={() => {
+              setDataOpen(true);
+            }}
+          >
+            <DatabaseIcon />
+            Your data
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              signOut().then(() => {
+                router.refresh();
+                return true;
+              })
+            }
+          >
+            <LogOutIcon />
+            Log out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DataTransferDialog open={dataOpen} setOpen={setDataOpen} />
+    </>
   );
 };
 

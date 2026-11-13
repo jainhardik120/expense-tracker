@@ -40,8 +40,7 @@ const fromTime = (time: number) => new Date(time).toISOString().slice(0, ISO_DAY
 
 const addDays = (day: string, days: number) => fromTime(toTime(day) + days * DAY_MS);
 
-const daysBetween = (from: string, to: string) =>
-  Math.round((toTime(to) - toTime(from)) / DAY_MS);
+const daysBetween = (from: string, to: string) => Math.round((toTime(to) - toTime(from)) / DAY_MS);
 
 export const addMonths = (day: string, months: number) => {
   const date = new Date(toTime(day));
