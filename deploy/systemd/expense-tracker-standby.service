@@ -1,0 +1,11 @@
+[Unit]
+Description=Copy the expense-tracker database to the Aiven standby
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=jainhardik120
+ExecStart=/home/jainhardik120/deploy/expense-tracker/deploy/standby-sync.sh
+TimeoutStartSec=30min
+Nice=10

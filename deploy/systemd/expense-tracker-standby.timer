@@ -1,0 +1,11 @@
+[Unit]
+Description=Copy the expense-tracker database to the Aiven standby every night
+
+[Timer]
+OnCalendar=*-*-* 03:30
+Persistent=true
+RandomizedDelaySec=10min
+Unit=expense-tracker-standby.service
+
+[Install]
+WantedBy=timers.target

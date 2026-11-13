@@ -21,23 +21,23 @@ When the user states a UI rule or preference, add it to this list in the same ch
 
 ## Local database copy
 
-Local development runs against `expense_tracker` in the `expense-tracker-postgres` container, which is a copy of the production database. Check which URL `web/.env` uses before running any script or migration.
+Local development runs against `expense_tracker` in the `expense-tracker-postgres` container, a copy of production. Production runs in the `expense-tracker-db` container on this machine (see `deploy/README.md`). Check which URL `web/.env` uses before running any script or migration.
 
-To refresh the copy from production, first take `DATABASE_URL` from `~/.config/expense-tracker/prod.env` and change `sslmode=no-verify` to `sslmode=require` (`pg_dump` rejects `no-verify`). Then:
+To refresh the copy from production:
 
 ```sh
-C=expense-tracker-postgres
-docker exec $C rm -rf /tmp/prod-dump
-docker exec $C pg_dump "$PROD_URL" -Fd -j 8 --no-owner --no-acl --no-statistics \
+docker exec expense-tracker-db pg_dump -U expense -d expense_tracker -Fc --no-owner --no-acl --no-statistics \
   --exclude-table-data=public.oauth_refresh_token --exclude-table-data=public.oauth_access_token \
-  --exclude-table-data=public.session --exclude-table-data=public.verification -f /tmp/prod-dump
-docker exec $C dropdb -U expense --force expense_tracker
-docker exec $C createdb -U expense expense_tracker
-docker exec $C pg_restore -U expense -d expense_tracker -j 8 --no-owner --no-acl /tmp/prod-dump
-docker exec $C rm -rf /tmp/prod-dump
+  --exclude-table-data=public.session --exclude-table-data=public.verification \
+  | docker exec -i expense-tracker-postgres sh -c 'cat > /tmp/prod.dump'
+docker exec expense-tracker-postgres dropdb -U expense --force expense_tracker
+docker exec expense-tracker-postgres createdb -U expense expense_tracker
+docker exec expense-tracker-postgres pg_restore -U expense -d expense_tracker --no-owner --no-acl /tmp/prod.dump
+docker exec expense-tracker-postgres rm -f /tmp/prod.dump
 ```
 
-- The database is about 23 MB, but the link to Aiven drops packets, so a single connection only reaches about 35 KB/s. The parallel directory dump (`-Fd -j 8`) and `--no-statistics` take a refresh from about 5 minutes to about 3½. Restoring takes about 2 seconds. Most of the remaining time goes on `pg_dump` reading the schema, which cannot run in parallel.
+- Both databases are on this machine, so a refresh takes a few seconds.
 - Leave out only login data (OAuth tokens, sessions, verification), so you sign in again locally afterwards. Keep `market_prices`: `market_instruments` records which price history is cached, so an empty prices table would leave investment charts blank instead of refetching.
 - Dump to a file before dropping the local database, so a failed dump leaves the old copy in place.
 - Restart the dev server after switching `DATABASE_URL`. Next.js reloads `.env` but keeps the pool it already opened.
+- Apply migrations to production with `deploy/migrate.sh`. The production database has no published port, so `pnpm db:migrate` cannot reach it.

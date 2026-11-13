@@ -42,6 +42,17 @@ cd ~/deploy/expense-tracker/deploy
 ET_CONFIG_DIR=~/.config/expense-tracker ET_DATA_DIR=~/.local/share/expense-tracker docker compose --env-file ~/.config/expense-tracker/compose.env up -d --no-deps app
 ```
 
+## Standby copy on Aiven
+
+`expense-tracker-standby.timer` copies the database to the old Aiven database every night at 03:30, or at the next boot if the laptop was off then. `standby-sync.sh` restores in a single transaction, so a failed run leaves the previous copy in place. It leaves out the `pg_trgm` extension, which Aiven owns and will not let us drop. The connection string is in `~/.config/expense-tracker/standby.env`.
+
+```bash
+journalctl -u expense-tracker-standby
+sudo systemctl start expense-tracker-standby
+```
+
+To fall back to Aiven, put the commented Aiven line in `prod.env` back as `DATABASE_URL`, then recreate the app with the rollback commands below.
+
 ## Changing settings
 
 Runtime settings live in `~/.config/expense-tracker/prod.env`. Write values without quotes, because `docker run --env-file` keeps them. After an edit, run the rollback commands above with the same image to recreate the app. `NEXT_PUBLIC_*` values are built into the image, so they need a new build.
@@ -53,6 +64,7 @@ git clone https://github.com/jainhardik120/expense-tracker.git ~/deploy/expense-
 sudo cp ~/deploy/expense-tracker/deploy/systemd/* /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now expense-tracker-deploy.timer
+sudo systemctl enable --now expense-tracker-standby.timer
 ```
 
 `prod.env`, `grafana-password` and `postgres-password` must exist first.
