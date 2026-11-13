@@ -28,7 +28,7 @@ import {
   getFxRateToInrFromHistory,
   startOfDay,
 } from './shared';
-import { dateToDayKey, deriveUnits, getStockMarketFromInvestment } from './utils';
+import { dateToDayKey, deriveUnits, getStockMarketFromInvestment, isRsuInvestment } from './utils';
 
 import type { EnrichedInvestment } from './models';
 import type { InvestmentRow, PriceHistoryPoint } from './types';
@@ -172,6 +172,7 @@ const rowsForView = (rows: InvestmentRow[], view: string) =>
             normalizeInvestmentKind(row.investmentKind),
             row.instrumentCode?.trim() ?? '',
             getStockMarketFromInvestment(row),
+            isRsuInvestment(row),
           ) === view,
       );
 

@@ -4,7 +4,6 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { CircleOff, Info, Plus, ReceiptIndianRupee, SquarePen, Trash } from 'lucide-react';
 
 import { type RowMenuAction } from '@/components/data-table/row-context-menu';
-import { type DialogControl } from '@/components/modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -118,7 +117,12 @@ export const createInvestmentColumns = (
   {
     id: 'instrument',
     accessorFn: (row) =>
-      toViewValue(row.normalizedKind, row.instrumentCode?.trim() ?? '', row.normalizedStockMarket),
+      toViewValue(
+        row.normalizedKind,
+        row.instrumentCode?.trim() ?? '',
+        row.normalizedStockMarket,
+        row.isRsuPosition,
+      ),
     header: 'Investment',
     meta: { label: 'Investment', variant: 'multiSelect', options: filters.instrumentOptions },
     enableColumnFilter: true,
@@ -143,6 +147,7 @@ export const createInvestmentColumns = (
     cell: ({ row }) => {
       const name = row.original.instrumentName ?? row.original.instrumentCode ?? '-';
       const salaryPeriod = row.original.epfoSchedule?.salaryPeriodStart ?? null;
+      const isRsuRelease = (row.original.rsuVestId ?? null) !== null;
       return (
         <div>
           <p>{name}</p>
@@ -151,6 +156,9 @@ export const createInvestmentColumns = (
               {formatInTimeZone(salaryPeriod, 'UTC', DATE_FORMAT.month)} salary
             </p>
           )}
+          {isRsuRelease ? (
+            <p className="text-muted-foreground text-xs">RSU release, edit from RSU vesting</p>
+          ) : null}
         </div>
       );
     },
@@ -299,38 +307,9 @@ export const createInvestmentColumns = (
   },
 ];
 
-export const investmentRowActions = (row: InvestmentRow, refresh: () => void): RowMenuAction[] => [
-  {
-    key: 'new',
-    label: 'New investment',
-    icon: Plus,
-    dialog: (dialog) => (
-      <CreateInvestmentForm
-        dialog={dialog}
-        prefill={{
-          investmentKind: row.normalizedKind,
-          instrumentCode: row.instrumentCode ?? '',
-          stockMarket: normalizeStockMarket(row.normalizedStockMarket),
-          isRsu: row.isRsuPosition,
-        }}
-        refresh={refresh}
-      />
-    ),
-  },
-  {
-    key: 'payments',
-    label: 'Payments',
-    icon: ReceiptIndianRupee,
-    dialog: (dialog) => (
-      <InvestmentPaymentsDialog
-        dialog={dialog}
-        investmentId={row.id}
-        title={`Payments · ${row.instrumentName ?? row.instrumentCode ?? investmentKindLabels[row.normalizedKind]}`}
-        onChanged={refresh}
-      />
-    ),
-  },
-  {
+export const investmentRowActions = (row: InvestmentRow, refresh: () => void): RowMenuAction[] => {
+  const isRsuRelease = (row.rsuVestId ?? null) !== null;
+  const edit: RowMenuAction = {
     key: 'edit',
     label: 'Edit',
     icon: SquarePen,
@@ -342,20 +321,16 @@ export const investmentRowActions = (row: InvestmentRow, refresh: () => void): R
         refresh={refresh}
       />
     ),
-  },
-  ...(row.isClosedPosition
-    ? []
-    : [
-        {
-          key: 'close',
-          label: 'Close position',
-          icon: CircleOff,
-          dialog: (dialog: DialogControl) => (
-            <CloseInvestmentForm dialog={dialog} investmentId={row.id} refresh={refresh} />
-          ),
-        },
-      ]),
-  {
+  };
+  const close: RowMenuAction = {
+    key: 'close',
+    label: 'Close position',
+    icon: CircleOff,
+    dialog: (dialog) => (
+      <CloseInvestmentForm dialog={dialog} investmentId={row.id} refresh={refresh} />
+    ),
+  };
+  const remove: RowMenuAction = {
     key: 'delete',
     label: 'Delete',
     icon: Trash,
@@ -363,5 +338,40 @@ export const investmentRowActions = (row: InvestmentRow, refresh: () => void): R
     dialog: (dialog) => (
       <DeleteInvestmentDialog dialog={dialog} investmentId={row.id} refresh={refresh} />
     ),
-  },
-];
+  };
+  return [
+    {
+      key: 'new',
+      label: 'New investment',
+      icon: Plus,
+      dialog: (dialog) => (
+        <CreateInvestmentForm
+          dialog={dialog}
+          prefill={{
+            investmentKind: row.normalizedKind,
+            instrumentCode: row.instrumentCode ?? '',
+            stockMarket: normalizeStockMarket(row.normalizedStockMarket),
+            isRsu: row.isRsuPosition,
+          }}
+          refresh={refresh}
+        />
+      ),
+    },
+    {
+      key: 'payments',
+      label: 'Payments',
+      icon: ReceiptIndianRupee,
+      dialog: (dialog) => (
+        <InvestmentPaymentsDialog
+          dialog={dialog}
+          investmentId={row.id}
+          title={`Payments · ${row.instrumentName ?? row.instrumentCode ?? investmentKindLabels[row.normalizedKind]}`}
+          onChanged={refresh}
+        />
+      ),
+    },
+    ...(isRsuRelease ? [] : [edit]),
+    ...(row.isClosedPosition ? [] : [close]),
+    ...(isRsuRelease ? [] : [remove]),
+  ];
+};

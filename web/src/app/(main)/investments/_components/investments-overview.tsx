@@ -189,7 +189,8 @@ export const InvestmentsOverview = ({
       return (
         option.kind === parsed.kind &&
         option.code === parsed.code &&
-        option.stockMarket === parsed.stockMarket
+        option.stockMarket === parsed.stockMarket &&
+        option.isRsu === parsed.isRsu
       );
     });
   }, [dashboard.instrumentOptions, viewSelection]);
@@ -288,8 +289,8 @@ export const InvestmentsOverview = ({
             <SelectLabel>{investmentKindLabels[kind]}</SelectLabel>
             {options.map((option) => (
               <SelectItem
-                key={toViewValue(option.kind, option.code, option.stockMarket)}
-                value={toViewValue(option.kind, option.code, option.stockMarket)}
+                key={toViewValue(option.kind, option.code, option.stockMarket, option.isRsu)}
+                value={toViewValue(option.kind, option.code, option.stockMarket, option.isRsu)}
               >
                 {option.name}
                 {getExcludedPortfolioTag(option)}

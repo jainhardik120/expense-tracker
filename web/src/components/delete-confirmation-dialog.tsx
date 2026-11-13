@@ -25,6 +25,8 @@ type DeleteConfirmationDialogProps<T, MutationResult> = {
   dialog?: DialogControl;
   title?: string;
   description?: string;
+  actionLabel?: string;
+  pendingLabel?: string;
   onCancel?: () => void;
   refresh?: () => void;
   mutation: { mutateAsync: (values: T) => Promise<MutationResult>; isPending: boolean };
@@ -37,6 +39,8 @@ const DeleteConfirmationDialog = <T, MutationResult>({
   dialog,
   title = 'Are you absolutely sure?',
   description = 'This action cannot be undone. This will permanently delete the selected item.',
+  actionLabel = 'Delete',
+  pendingLabel = 'Deleting...',
   onCancel,
   mutation,
   refresh,
@@ -79,7 +83,7 @@ const DeleteConfirmationDialog = <T, MutationResult>({
                 });
             }}
           >
-            {mutation.isPending ? 'Deleting...' : 'Delete'}
+            {mutation.isPending ? pendingLabel : actionLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

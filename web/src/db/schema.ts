@@ -231,6 +231,37 @@ export const investments = pgTable(
   (table) => [index('investments_user_idx').on(table.userId)],
 );
 
+export const rsuVests = pgTable(
+  'rsu_vests',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    grantId: uuid('grant_id')
+      .notNull()
+      .references((): AnyPgColumn => investments.id, { onDelete: 'cascade' }),
+    vestDate: timestamp('vest_date').notNull(),
+    units: numeric('units').notNull(),
+    isReleased: boolean('is_released').notNull().default(false),
+    unitPrice: numeric('unit_price'),
+    fxRateToInr: numeric('fx_rate_to_inr'),
+    unitsWithheld: numeric('units_withheld'),
+    grantAmountReleased: numeric('grant_amount_released'),
+    releasedInvestmentId: uuid('released_investment_id')
+      .unique()
+      .references((): AnyPgColumn => investments.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index('rsu_vests_grant_date_idx').on(table.grantId, table.vestDate),
+    index('rsu_vests_user_idx').on(table.userId),
+    check('rsu_vests_units_check', sql`${table.units} > 0`),
+  ],
+);
+
 export const epfoInterestCredits = pgTable(
   'epfo_interest_credits',
   {

@@ -32,6 +32,7 @@ import { createInvestmentColumns, investmentRowActions } from './investment-colu
 import { CreateInvestmentForm } from './investment-forms';
 import { InvestmentsOverview } from './investments-overview';
 import { FundAnalysisLink, MarketStrip } from './market-strip';
+import { RsuCard } from './rsu-card';
 
 type InvestmentsPageData = RouterOutput['investments']['getInvestmentsInitialData'];
 
@@ -85,7 +86,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
     () =>
       dashboard.instrumentBreakdown.map((row) => ({
         label: row.name,
-        value: toViewValue(row.kind, row.code, row.stockMarket),
+        value: toViewValue(row.kind, row.code, row.stockMarket, row.isRsu),
         count: row.positionsCount,
       })),
     [dashboard.instrumentBreakdown],
@@ -211,6 +212,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
         onSelect={select}
       />
       {selectedCategories.has('epfo') ? <EpfoCard refresh={refresh} /> : null}
+      <RsuCard refresh={refresh} show={selectedCategories.has('rsu')} />
       <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 px-1 text-xs">
         <span>Prices: {getPriceStatus(liveQuery.isError, isLive)}</span>
         {priceSources.map((source) => (
@@ -236,7 +238,7 @@ const Table = ({ data, filters }: { data: InvestmentsPageData; filters: Timeline
         rowMenu={(row) => groupedRowActions(row, refresh)}
         table={groupedTable}
         onRowClick={(row) => {
-          const value = toViewValue(row.kind, row.code, row.stockMarket);
+          const value = toViewValue(row.kind, row.code, row.stockMarket, row.isRsu);
           const alreadyOnly =
             selection.instrument.length === 1 && selection.instrument[0] === value;
           select({ instrument: alreadyOnly ? [] : [value] });

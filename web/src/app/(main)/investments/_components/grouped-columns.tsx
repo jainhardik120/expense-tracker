@@ -227,14 +227,19 @@ export const createGroupedColumns = (
   },
   {
     id: 'instrument',
-    accessorFn: (row) => toViewValue(row.kind, row.code, row.stockMarket),
+    accessorFn: (row) => toViewValue(row.kind, row.code, row.stockMarket, row.isRsu),
     enableHiding: false,
     header: 'Investment',
     filterFn: (row, _columnId, filterValue: unknown) =>
       !Array.isArray(filterValue) ||
       filterValue.length === 0 ||
       filterValue.includes(
-        toViewValue(row.original.kind, row.original.code, row.original.stockMarket),
+        toViewValue(
+          row.original.kind,
+          row.original.code,
+          row.original.stockMarket,
+          row.original.isRsu,
+        ),
       ),
     meta: { label: 'Investment', variant: 'multiSelect', options: instrumentOptions },
     enableColumnFilter: true,

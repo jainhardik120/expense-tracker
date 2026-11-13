@@ -7,6 +7,7 @@ import {
   epfoInterestCredits,
   instrumentAssetClasses,
   investments,
+  rsuVests,
   salaryPayments,
 } from '@/db/schema';
 import type { Database } from '@/lib/db';
@@ -26,6 +27,8 @@ import {
   stockMarketValues,
 } from '@/lib/investments';
 import {
+  assertNotRsuRelease,
+  attachPaymentTotals,
   buildInstrumentChart,
   buildLivePortfolio,
   buildSavedPortfolio,
@@ -51,7 +54,6 @@ import {
   marketChartRanges,
   metalChartRanges,
 } from '@/server/helpers/investment/metal-prices';
-import { attachPaymentTotals } from '@/server/helpers/investment/payments';
 import {
   getAllocationView,
   getIndexComponents,
@@ -62,6 +64,7 @@ import { createTRPCRouter, protectedProcedure } from '@/server/trpc';
 import { amount, createInvestmentSchema } from '@/types';
 
 import { investmentPaymentsRouter } from './investment-payments';
+import { rsuRouter } from './rsu';
 
 const SEARCH_QUERY_MAX_LENGTH = 120;
 
@@ -111,6 +114,7 @@ const getFilteredInvestments = instrumentedFunction(
       .select({
         ...getTableColumns(investments),
         assetClass: instrumentAssetClasses.assetClass,
+        rsuVestId: rsuVests.id,
       })
       .from(investments)
       .leftJoin(
@@ -121,6 +125,7 @@ const getFilteredInvestments = instrumentedFunction(
           eq(instrumentAssetClasses.instrumentCode, investments.instrumentCode),
         ),
       )
+      .leftJoin(rsuVests, eq(rsuVests.releasedInvestmentId, investments.id))
       .where(
         and(
           eq(investments.userId, userId),
@@ -246,6 +251,7 @@ const investmentsOverviewSchema = z.object({
 
 export const investmentsRouter = createTRPCRouter({
   payments: investmentPaymentsRouter,
+  rsu: rsuRouter,
   getOverview: protectedProcedure
     .meta({
       openapi: {
@@ -421,6 +427,7 @@ export const investmentsRouter = createTRPCRouter({
         input.kind,
         input.code,
         input.kind === 'stocks' ? normalizeStockMarket(matching.at(0)?.stockMarket) : null,
+        input.kind === 'stocks' && input.isRsu,
       );
       const [chart, fine] = await Promise.all([
         buildInstrumentChart({
@@ -810,6 +817,7 @@ export const investmentsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertNotRsuRelease(ctx.db, ctx.user.id, input.id);
       return ctx.db
         .update(investments)
         .set({
@@ -842,6 +850,7 @@ export const investmentsRouter = createTRPCRouter({
   deleteInvestment: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      await assertNotRsuRelease(ctx.db, ctx.user.id, input.id);
       return ctx.db
         .delete(investments)
         .where(and(eq(investments.id, input.id), eq(investments.userId, ctx.user.id)))

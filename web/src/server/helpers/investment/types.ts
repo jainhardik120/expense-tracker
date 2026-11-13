@@ -11,6 +11,7 @@ export type EpfoSchedule = {
 export type InvestmentRow = typeof investments.$inferSelect & {
   assetClass?: AssetClassTagValue | null;
   epfoSchedule?: EpfoSchedule;
+  rsuVestId?: string | null;
 };
 
 export type PriceHistoryPoint = {

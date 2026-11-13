@@ -41,20 +41,32 @@ export const parseCategoryViewValue = (value: string): InvestmentCategoryValue |
   return investmentCategoryValues.includes(category) ? category : null;
 };
 
+const RSU_VIEW_SUFFIX = '+rsu';
+
 export const toViewValue = (
   kind: InvestmentKindValue,
   code: string,
   stockMarket: StockMarketValue | null,
-) => `${kind}|${stockMarket ?? 'NA'}|${code}`;
+  isRsu = false,
+) => `${kind}|${stockMarket ?? 'NA'}${isRsu ? RSU_VIEW_SUFFIX : ''}|${code}`;
 
 export const parseViewValue = (
   value: string,
-): { kind: InvestmentKindValue; code: string; stockMarket: StockMarketValue | null } | null => {
-  const [kind, stockMarketRaw, ...codeParts] = value.split('|');
+): {
+  kind: InvestmentKindValue;
+  code: string;
+  stockMarket: StockMarketValue | null;
+  isRsu: boolean;
+} | null => {
+  const [kind, stockMarketPart, ...codeParts] = value.split('|');
   if (codeParts.length === 0) {
     return null;
   }
   const code = codeParts.join('|');
+  const isRsu = stockMarketPart.endsWith(RSU_VIEW_SUFFIX);
+  const stockMarketRaw = isRsu
+    ? stockMarketPart.slice(0, -RSU_VIEW_SUFFIX.length)
+    : stockMarketPart;
   const normalizedStockMarket =
     stockMarketRaw === 'NA' ? null : normalizeStockMarket(stockMarketRaw);
   if (investmentKindValues.includes(kind as InvestmentKindValue)) {
@@ -62,6 +74,7 @@ export const parseViewValue = (
       kind: kind as InvestmentKindValue,
       stockMarket: normalizedStockMarket,
       code,
+      isRsu,
     };
   }
   return null;
@@ -82,7 +95,12 @@ export const matchesSelection = (
   const instrumentOk =
     instrument.length === 0 ||
     instrument.includes(
-      toViewValue(row.normalizedKind, row.instrumentCode?.trim() ?? '', row.normalizedStockMarket),
+      toViewValue(
+        row.normalizedKind,
+        row.instrumentCode?.trim() ?? '',
+        row.normalizedStockMarket,
+        row.isRsuPosition,
+      ),
     );
   return categoryOk && instrumentOk;
 };

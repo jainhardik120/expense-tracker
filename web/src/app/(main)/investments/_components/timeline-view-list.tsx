@@ -97,7 +97,7 @@ const buildSections = (dashboard: DashboardData) => {
   for (const item of dashboard.instrumentBreakdown) {
     const options = instruments.get(item.kind) ?? [];
     options.push({
-      value: toViewValue(item.kind, item.code, item.stockMarket),
+      value: toViewValue(item.kind, item.code, item.stockMarket, item.isRsu),
       label: `${item.name}${getExcludedPortfolioTag(item)}`,
       currency: item.displayCurrency,
       closed: item.openPositions === 0,
