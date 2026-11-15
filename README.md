@@ -8,18 +8,76 @@ A modern, full-stack expense tracking application built with Next.js 15, tRPC, a
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
+![Dashboard](docs/screenshots/dashboard.webp)
+
 ## ✨ Features
 
-- **💳 Multi-Account Management** - Track expenses across multiple bank accounts
-- **👥 Shared Expenses** - Split costs with friends and track who owes what
-- **📊 Analytics Dashboard** - Visualize spending patterns with interactive charts
-- **🔄 Self Transfers** - Record transfers between your own accounts
-- **📝 Transaction Sessions** - Organize expenses into sessions for better tracking
-- **🎨 Modern UI** - Beautiful, responsive interface with dark/light theme support
-- **🔐 Secure Authentication** - Email/password authentication with session management
-- **⚡ Real-time Updates** - Optimistic updates with TanStack Query
-- **📱 Mobile Responsive** - Works seamlessly on desktop, tablet, and mobile devices
-- **🔍 Advanced Filtering** - Filter and search transactions with URL-persisted state
+- **💳 Accounts and credit cards** - Bank accounts, cash, UPI Lite and credit cards with limits, billing dates, utilisation and bills that are due, paid or upcoming
+- **👥 Shared expenses** - Split any expense with friends, record who paid for whom, and keep a running balance per friend
+- **🔁 EMIs and recurring payments** - Card EMIs with full instalment schedules (interest, GST, processing fees), subscriptions and yearly fees, plus an EMI calculator
+- **🎯 Budget** - A yearly budget built from rules on categories and tags, with "how much can I spend" projections and a breakdown for every pay cycle
+- **📈 Investments** - Mutual funds, ETFs, stocks, fixed deposits, EPF, gold and crypto with live prices, XIRR, asset allocation and a look-through into what your funds hold
+- **💼 Salary and tax** - Salary structure, revisions, bonuses, payslip-level history, EPF credits and a projected income tax for the year
+- **📥 Inbox** - Transaction SMS captured by the Android app, bank and card statements imported from PDFs or forwarded email, and balance checks that confirm the ledger matches the bank
+- **🧾 Statement reconciliation** - Every imported statement is matched against your ledger to the paise, and anything missing is suggested as a new entry
+- **📊 Reports** - Pay-cycle reports with a customisable template and PDF export
+- **📱 Android app** - Native app with SMS capture, a home-screen widget and the same data as the web app
+
+## 📸 Screenshots
+
+The screenshots use a demo account filled with realistic sample data.
+
+### Credit cards and payments due
+
+![Credit cards, payments due this month and upcoming months](docs/screenshots/dashboard-payments.webp)
+
+### Statements
+
+![Statements table](docs/screenshots/statements.webp)
+
+### EMIs and recurring payments
+
+| EMIs | Recurring payments |
+| --- | --- |
+| ![EMIs](docs/screenshots/emis.webp) | ![Recurring payments](docs/screenshots/recurring.webp) |
+
+![EMI calculator](docs/screenshots/emi-calculator.webp)
+
+### Budget
+
+![Budget](docs/screenshots/budget.webp)
+
+### Investments
+
+| Portfolio | Mutual fund analysis |
+| --- | --- |
+| ![Investments](docs/screenshots/investments.webp) | ![Mutual fund analysis](docs/screenshots/mutual-funds.webp) |
+
+### Salary and tax
+
+![Salary and tax](docs/screenshots/salary.webp)
+
+### Inbox: SMS, statements, email and balances
+
+| SMS waiting to be entered | Imported statements |
+| --- | --- |
+| ![SMS inbox](docs/screenshots/sms.webp) | ![Statement imports](docs/screenshots/imports.webp) |
+
+| Reviewing a statement against the ledger | Statements forwarded by email |
+| --- | --- |
+| ![Statement review](docs/screenshots/import-review.webp) | ![Email inbox](docs/screenshots/email.webp) |
+
+![Balance checks](docs/screenshots/balances.webp)
+
+### Reports
+
+![Reports](docs/screenshots/reports.webp)
+
+### Android app
+
+| Home | Spending | Statements | Investments | SMS |
+| --- | --- | --- | --- | --- |
+| <img src="docs/screenshots/android/home.webp" width="180" alt="Android home"> | <img src="docs/screenshots/android/spending.webp" width="180" alt="Android spending"> | <img src="docs/screenshots/android/statements.webp" width="180" alt="Android statements"> | <img src="docs/screenshots/android/investments.webp" width="180" alt="Android investments"> | <img src="docs/screenshots/android/sms.webp" width="180" alt="Android SMS inbox"> |
 
 ## 🚀 Tech Stack
 
