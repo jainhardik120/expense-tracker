@@ -3,7 +3,7 @@
 import * as React from 'react';
 
 import { type RowData } from '@tanstack/react-table';
-import { X } from 'lucide-react';
+import { Ellipsis, ListFilter, X } from 'lucide-react';
 
 import { DataTableDateFilter } from '@/components/data-table/data-table-date-filter';
 import { DataTableFacetedFilter } from '@/components/data-table/data-table-faceted-filter';
@@ -12,6 +12,14 @@ import { DataTableSliderFilter } from '@/components/data-table/data-table-slider
 import { DataTableViewOptions } from '@/components/data-table/data-table-view-options';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import type { Column, Table } from '@/lib/table';
 import { cn } from '@/lib/utils';
 
@@ -25,6 +33,41 @@ interface DataTableToolbarProps<TData extends RowData> extends Omit<
   viewOptions?: boolean;
   title?: React.ReactNode;
 }
+
+const ToolbarSheet = ({
+  label,
+  icon,
+  count,
+  title,
+  children,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  count?: number;
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <Sheet>
+    <SheetTrigger asChild>
+      <Button className="md:hidden" size="sm" variant="outline">
+        {icon}
+        {label}
+        {count === undefined || count === 0 ? null : (
+          <span className="bg-primary text-primary-foreground rounded-full px-1.5 text-xs tabular-nums">
+            {count}
+          </span>
+        )}
+      </Button>
+    </SheetTrigger>
+    <SheetContent className="max-h-[85svh] overflow-y-auto pb-6" side="bottom">
+      <SheetHeader className="pb-0">
+        <SheetTitle>{title}</SheetTitle>
+        <SheetDescription className="sr-only">{title}</SheetDescription>
+      </SheetHeader>
+      {children}
+    </SheetContent>
+  </Sheet>
+);
 
 export const DataTableToolbar = <TData extends RowData>({
   table,
@@ -46,6 +89,29 @@ export const DataTableToolbar = <TData extends RowData>({
     table.resetColumnFilters();
   }, [table]);
 
+  const actions = React.Children.toArray(children);
+  const collapseActions = actions.length > 1;
+
+  const filters = (
+    <>
+      {columns.map((column) => (
+        <DataTableToolbarFilter key={column.id} column={column} />
+      ))}
+      {isFiltered ? (
+        <Button
+          aria-label="Reset filters"
+          className="border-dashed"
+          size="sm"
+          variant="outline"
+          onClick={onReset}
+        >
+          <X />
+          Reset
+        </Button>
+      ) : null}
+    </>
+  );
+
   return (
     <div
       aria-orientation="horizontal"
@@ -59,26 +125,29 @@ export const DataTableToolbar = <TData extends RowData>({
     >
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         {title === undefined ? null : <h2 className="min-w-0 font-semibold">{title}</h2>}
-        <div className="flex flex-wrap items-center gap-2 empty:hidden">
-          {columns.map((column) => (
-            <DataTableToolbarFilter key={column.id} column={column} />
-          ))}
-          {isFiltered ? (
-            <Button
-              aria-label="Reset filters"
-              className="border-dashed"
-              size="sm"
-              variant="outline"
-              onClick={onReset}
-            >
-              <X />
-              Reset
-            </Button>
-          ) : null}
-        </div>
+        <div className="hidden flex-wrap items-center gap-2 empty:hidden md:flex">{filters}</div>
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {children}
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+        {columns.length === 0 ? null : (
+          <ToolbarSheet
+            count={table.state.columnFilters.length}
+            icon={<ListFilter />}
+            label="Filters"
+            title="Filters"
+          >
+            <div className="flex flex-wrap items-center gap-2 px-4">{filters}</div>
+          </ToolbarSheet>
+        )}
+        {collapseActions ? (
+          <>
+            <div className="hidden flex-wrap items-center justify-end gap-2 md:flex">{actions}</div>
+            <ToolbarSheet icon={<Ellipsis />} label="Actions" title="Actions">
+              <div className="flex flex-col gap-2 px-4 *:w-full">{actions}</div>
+            </ToolbarSheet>
+          </>
+        ) : (
+          actions
+        )}
         {viewOptions === true && <DataTableViewOptions table={table} />}
       </div>
     </div>

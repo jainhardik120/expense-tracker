@@ -11,6 +11,10 @@ const Sheet = ({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) =
   <SheetPrimitive.Root data-slot="sheet" {...props} />
 );
 
+const SheetTrigger = ({ ...props }: React.ComponentProps<typeof SheetPrimitive.Trigger>) => (
+  <SheetPrimitive.Trigger data-slot="sheet-trigger" {...props} />
+);
+
 const SheetPortal = ({ ...props }: React.ComponentProps<typeof SheetPrimitive.Portal>) => (
   <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
 );
@@ -87,4 +91,4 @@ const SheetDescription = ({
   />
 );
 
-export { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription };
+export { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription };
