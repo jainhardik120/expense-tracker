@@ -58,6 +58,8 @@ const monthKey = (date: Date) =>
   `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 const paymentKey = (revisionId: string, periodStart: Date) =>
   `${revisionId}:${monthKey(periodStart)}`;
+const DAY_KEY_LENGTH = 10;
+const dayKey = (date: Date) => date.toISOString().slice(0, DAY_KEY_LENGTH);
 const toNumber = (value: string | number | null) => (value === null ? 0 : Number(value));
 
 const validateRevisionComponents = async (
@@ -611,6 +613,15 @@ export const salaryRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await validateRevisionComponents(ctx.db, ctx.user.id, input.components);
       return ctx.db.transaction(async (tx) => {
+        const existingRows = await tx
+          .select({ effectiveFrom: salaryRevisions.effectiveFrom })
+          .from(salaryRevisions)
+          .where(and(eq(salaryRevisions.id, input.id), eq(salaryRevisions.userId, ctx.user.id)))
+          .limit(1);
+        const existing = existingRows.at(0);
+        if (existing === undefined) {
+          throw new Error('Salary revision not found');
+        }
         const linkedPayments = await tx
           .select({ id: salaryPayments.id })
           .from(salaryPayments)
@@ -618,9 +629,12 @@ export const salaryRouter = createTRPCRouter({
             and(eq(salaryPayments.revisionId, input.id), eq(salaryPayments.userId, ctx.user.id)),
           )
           .limit(1);
-        if (linkedPayments.length > 0) {
+        if (
+          linkedPayments.length > 0 &&
+          dayKey(existing.effectiveFrom) !== dayKey(input.effectiveFrom)
+        ) {
           throw new Error(
-            'A revision with linked salary payments cannot be edited. Create a new revision for future changes.',
+            'The effective date of a revision with linked salary payments cannot be changed.',
           );
         }
         const revisionRows = await tx

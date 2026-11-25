@@ -166,9 +166,14 @@ const RevisionComponentAmounts = ({
   );
 };
 
-const revisionFields = (monthly: SalaryComponent[]): FormField<CreateRevisionInput>[] => [
+const revisionFields = (
+  monthly: SalaryComponent[],
+  hasLinkedPayments: boolean,
+): FormField<CreateRevisionInput>[] => [
   { name: 'name', label: 'Revision name', type: 'input', placeholder: 'Current salary' },
-  { name: 'effectiveFrom', label: 'Effective from', type: 'date' },
+  ...(hasLinkedPayments
+    ? []
+    : [{ name: 'effectiveFrom', label: 'Effective from', type: 'date' } as const]),
   { name: 'payDay', label: 'Usual pay day', type: 'integer', min: 1, max: 31 },
   {
     name: 'payDateRule',
@@ -206,6 +211,15 @@ const revisionDefaults = (revision: SalaryRevision | undefined): CreateRevisionI
     })) ?? [],
 });
 
+const getRevisionDescription = (isEditing: boolean, hasLinkedPayments: boolean) => {
+  if (hasLinkedPayments) {
+    return 'Changes apply to salaries not linked yet. Linked salaries keep their own breakdown, so the effective date stays fixed.';
+  }
+  return isEditing
+    ? 'Update this future salary structure.'
+    : 'Use a new effective date for increments, job switches, or any fixed-pay change.';
+};
+
 const RevisionDialog = ({
   components,
   onSaved,
@@ -219,6 +233,7 @@ const RevisionDialog = ({
   const createMutation = api.salary.createRevision.useMutation();
   const updateMutation = api.salary.updateRevision.useMutation();
   const isEditing = revision !== undefined;
+  const hasLinkedPayments = revision?.hasLinkedPayments ?? false;
   const mutation = {
     isPending: createMutation.isPending || updateMutation.isPending,
     mutateAsync: async (values: CreateRevisionInput) => {
@@ -248,13 +263,9 @@ const RevisionDialog = ({
         )
       }
       defaultValues={revisionDefaults(revision)}
-      fields={revisionFields(monthly)}
+      fields={revisionFields(monthly, hasLinkedPayments)}
       modalClassName="sm:max-w-2xl"
-      modalDescription={
-        isEditing
-          ? 'Update this future salary structure. Linked payroll records remain immutable.'
-          : 'Use a new effective date for increments, job switches, or any fixed-pay change.'
-      }
+      modalDescription={getRevisionDescription(isEditing, hasLinkedPayments)}
       mutation={mutation}
       refresh={onSaved}
       schema={createSalaryRevisionSchema}
@@ -865,23 +876,11 @@ export const SalarySetupDialog = ({ data, onSaved }: { data: SalaryData; onSaved
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  {revision.hasLinkedPayments ? (
-                    <Button
-                      aria-label={`${revision.name} cannot be edited because it has linked salaries`}
-                      disabled
-                      size="icon"
-                      title="Linked salaries lock this revision; create a new revision for future changes"
-                      variant="ghost"
-                    >
-                      <SquarePen />
-                    </Button>
-                  ) : (
-                    <RevisionDialog
-                      components={data.components}
-                      revision={revision}
-                      onSaved={onSaved}
-                    />
-                  )}
+                  <RevisionDialog
+                    components={data.components}
+                    revision={revision}
+                    onSaved={onSaved}
+                  />
                   <DeleteConfirmationDialog
                     mutation={deleteRevision}
                     mutationInput={{ id: revision.id }}
@@ -893,7 +892,7 @@ export const SalarySetupDialog = ({ data, onSaved }: { data: SalaryData; onSaved
                       size="icon"
                       title={
                         revision.hasLinkedPayments
-                          ? 'Linked salaries lock this revision'
+                          ? 'A revision with linked salaries cannot be deleted'
                           : 'Delete revision'
                       }
                       variant="ghost"
